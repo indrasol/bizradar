@@ -10,10 +10,10 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
           <div className="flex items-center justify-between">
             <Link to="/" className="flex items-center gap-2 group">
               <div className="relative">
-                <Radar className="w-8 h-8 text-primary-600 animate-pulse group-hover:animate-spin transition-all duration-1000" />
-                <div className="absolute inset-0 bg-primary-600/10 rounded-full animate-ping" />
+                <Radar className="w-8 h-8 text-primary-600 group-hover:animate-spin transition-all duration-500" />
+                <div className="absolute inset-0 bg-primary-600/20 rounded-full animate-ping group-hover:animate-none" />
               </div>
-              <span className="text-2xl font-bold text-primary-600">
+              <span className="text-2xl text-primary-600">
                 WorkForge Radar
               </span>
             </Link>
