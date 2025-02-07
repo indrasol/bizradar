@@ -14,7 +14,7 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
                 <div className="absolute inset-0 bg-primary-600/20 rounded-full animate-ping group-hover:animate-none" />
               </div>
               <span className="text-2xl text-primary-600">
-                iz radar
+                Biz radar
               </span>
             </Link>
             <nav className="space-x-6">
