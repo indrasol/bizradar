@@ -1,4 +1,3 @@
-import { SearchBar } from "@/components/dashboard/SearchBar";
 
 export const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
   return (
@@ -7,9 +6,6 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-bold text-primary-600">WorkForge Radar</h1>
-            <div className="w-96">
-              <SearchBar />
-            </div>
           </div>
         </div>
       </header>
