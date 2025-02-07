@@ -12,6 +12,19 @@ export const ETLMonitoring = () => {
     { name: "Freelancer", status: "error", progress: 0, lastSync: "3 hours ago" }
   ]
 
+  const getBadgeVariant = (status: string) => {
+    switch (status) {
+      case "active":
+        return "default"
+      case "warning":
+        return "secondary"
+      case "error":
+        return "destructive"
+      default:
+        return "default"
+    }
+  }
+
   return (
     <div className="grid gap-4">
       <Card>
@@ -27,7 +40,7 @@ export const ETLMonitoring = () => {
               <div key={source.name} className="flex items-center gap-4">
                 <div className="w-24">{source.name}</div>
                 <Progress value={source.progress} className="flex-1" />
-                <Badge variant={source.status === "active" ? "default" : source.status === "warning" ? "warning" : "destructive"}>
+                <Badge variant={getBadgeVariant(source.status)}>
                   {source.status}
                 </Badge>
                 <div className="text-sm text-muted-foreground w-24 text-right">
