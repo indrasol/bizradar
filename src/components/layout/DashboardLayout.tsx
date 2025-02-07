@@ -1,5 +1,6 @@
 
 import { Link } from "react-router-dom";
+import { Radar } from "lucide-react";
 
 export const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
   return (
@@ -7,8 +8,14 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
       <header className="bg-white border-b">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <Link to="/" className="text-2xl font-bold text-primary-600">
-              WorkForge Radar
+            <Link to="/" className="flex items-center gap-2 group">
+              <div className="relative">
+                <Radar className="w-8 h-8 text-primary-600 animate-pulse group-hover:animate-spin transition-all duration-1000" />
+                <div className="absolute inset-0 bg-primary-600/10 rounded-full animate-ping" />
+              </div>
+              <span className="text-2xl font-bold text-primary-600">
+                WorkForge Radar
+              </span>
             </Link>
             <nav className="space-x-6">
               <Link to="/" className="text-gray-600 hover:text-primary-600">
