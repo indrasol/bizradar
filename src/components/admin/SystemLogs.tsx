@@ -1,3 +1,4 @@
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -11,6 +12,11 @@ export const SystemLogs = () => {
     { id: 4, type: "error", message: "Database connection timeout", timestamp: "2024-02-20 14:15:00" },
   ]
 
+  const getAlertVariant = (type: string) => {
+    if (type === "error") return "destructive"
+    return "default"
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -23,7 +29,7 @@ export const SystemLogs = () => {
         <ScrollArea className="h-[400px] pr-4">
           <div className="space-y-4">
             {logs.map((log) => (
-              <Alert key={log.id} variant={log.type === "error" ? "destructive" : log.type === "warning" ? "warning" : "default"}>
+              <Alert key={log.id} variant={getAlertVariant(log.type)}>
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle className="flex items-center justify-between">
                   {log.type.toUpperCase()}
