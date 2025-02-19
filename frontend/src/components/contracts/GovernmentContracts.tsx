@@ -8,8 +8,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { DollarSign, Calendar, Building2 } from "lucide-react";
-import { Link } from "react-router-dom";
 import { SearchBar } from "@/components/dashboard/SearchBar";
 
 const initialContracts = [
@@ -41,30 +39,92 @@ export const GovernmentContracts = () => {
   const selectionType = "government";
 
   const handleSearchResults = (newResults) => {
-    // Map the new results to match the existing contract structure
-    const formattedResults = newResults.map((result) => ({
-      id: result.title, // Use title as ID for simplicity; ensure it's unique
-      title: result.title,
-      agency: result.department, // Use department as agency
-      platform: result.platform || "SAM.gov", // Default to SAM.gov if not provided
-      value: null, // Set to null or any default value if not available
-      dueDate: result.responseDeadline,
-      status: "Open", // Default status, adjust as needed
-      naicsCode: result.naicsCode,
-    }));
+    console.log("New Results:", newResults);
 
-    // Replace the contracts state with the new results
+    // Early return if no results
+    if (!newResults) {
+      console.error("No results received");
+      return;
+    }
+
+    let formattedResults = [];
+
+    // Handle FPDS.gov results
+    if (selectedPlatform === "fpds") {
+      // Check for FPDS specific structure
+      if (newResults.results?.opportunities && Array.isArray(newResults.results.opportunities)) {
+        formattedResults = newResults.results.opportunities.map((result, index) => ({
+          id: `fpds-${index + 1}`,
+          title: result.legal_business_name || result.title || "Untitled Contract",
+          agency: result.award_type || result.agency || "Not Specified",
+          platform: "FPDS.gov",
+          value: result.obligated_amount || null,
+          dueDate: result.date_signed || "N/A",
+          status: result.status || "Open",
+          naicsCode: result.unique_entity_id || result.naics_code || "N/A",
+        }));
+      }
+    }
+    // Handle SAM.gov results
+    else if (selectedPlatform === "sam.gov") {
+      // Check for SAM.gov specific structure
+      if (newResults.results && Array.isArray(newResults.results)) {
+        formattedResults = newResults.results.map((result, index) => ({
+          id: `sam-${index + 1}`,
+          title: result.title,
+          agency: result.department || "Unknown Agency",
+          platform: "SAM.gov",
+          value: result.value || null,
+          dueDate: result.responseDeadline || "N/A",
+          status: "Open",
+          naicsCode: result.naicsCode || "N/A",
+        }));
+      }
+    }
+    // Handle all-platforms results
+    else if (selectedPlatform === "all-platforms") {
+      const allResults = [];
+      
+      // Process SAM.gov results if present
+      if (newResults.sam_results && Array.isArray(newResults.sam_results)) {
+        const samResults = newResults.sam_results.map((result, index) => ({
+          id: `sam-${index + 1}`,
+          title: result.title,
+          agency: result.department || "Unknown Agency",
+          platform: "SAM.gov",
+          value: result.value || null,
+          dueDate: result.responseDeadline || "N/A",
+          status: "Open",
+          naicsCode: result.naicsCode || "N/A",
+        }));
+        allResults.push(...samResults);
+      }
+
+      // Process FPDS results if present
+      if (newResults.fpds_results?.opportunities && Array.isArray(newResults.fpds_results.opportunities)) {
+        const fpdsResults = newResults.fpds_results.opportunities.map((result, index) => ({
+          id: `fpds-${index + 1}`,
+          title: result.legal_business_name || result.title || "Untitled Contract",
+          agency: result.award_type || result.agency || "Not Specified",
+          platform: "FPDS.gov",
+          value: result.obligated_amount || null,
+          dueDate: result.date_signed || "N/A",
+          status: result.status || "Open",
+          naicsCode: result.unique_entity_id || result.naics_code || "N/A",
+        }));
+        allResults.push(...fpdsResults);
+      }
+
+      formattedResults = allResults;
+    }
+
+    if (formattedResults.length === 0) {
+      console.error("No results could be formatted from the response:", newResults);
+      return;
+    }
+
     setContracts(formattedResults);
-  };
-
-  const formatDate = (dateStr) => {
-    // Convert date string to 'DD Month YYYY' format
-    const dateObj = new Date(dateStr);
-    return dateObj.toLocaleDateString("en-US", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    });
+    console.log("Updated Contracts:", formattedResults);
   };
 
   return (
@@ -97,7 +157,9 @@ export const GovernmentContracts = () => {
             </div>
             <div className="mt-4 flex gap-4">
               <div className="flex items-center text-sm text-gray-500">
-                Due: {new Date(contract.dueDate).toLocaleDateString()}
+                {contract.dueDate && contract.dueDate !== "N/A" 
+                  ? `Due: ${new Date(contract.dueDate).toLocaleDateString()}`
+                  : "Due date not specified"}
               </div>
               <Badge variant="outline">{contract.naicsCode}</Badge>
               <Badge variant="secondary">{contract.platform}</Badge>

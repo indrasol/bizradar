@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
 
 interface SearchBarProps {
     selectionType: string;
@@ -45,9 +44,10 @@ export const SearchBar: React.FC<SearchBarProps> = ({ selectionType, platform, o
 
             console.log("Response from backend:", data);
 
-            if (data?.results?.opportunities && Array.isArray(data.results.opportunities)) {
-                console.log("Data being passed to onSearchResults:", data.results.opportunities);
-                onSearchResults(data.results.opportunities);
+            // Check if the response has the expected structure
+            if (data && data.results) {
+                console.log("Data being passed to onSearchResults:", data);
+                onSearchResults(data); // Pass the entire data object
             } else {
                 console.error("Unexpected results format:", data);
                 onSearchResults(undefined);
@@ -56,6 +56,62 @@ export const SearchBar: React.FC<SearchBarProps> = ({ selectionType, platform, o
             console.error("Error fetching data:", error);
             onSearchResults(undefined);
         }
+    };
+
+    const handleSearchResults = (newResults) => {
+        console.log("New Results:", newResults);
+
+        // Check if newResults is defined and has the expected structure
+        if (!newResults || !newResults.results || !newResults.results.opportunities) {
+            console.error("Unexpected results format:", newResults);
+            return; // Exit if the format is not as expected
+        }
+
+        let formattedResults;
+
+        if (selectionType === "freelance" && Array.isArray(newResults.results.opportunities)) {
+            // Handle Freelancer results
+            formattedResults = newResults.results.opportunities.map((result, index) => ({
+                id: `fl-${index + 1}`,
+                title: result.title.trim(),
+                agency: "Freelancer",
+                platform: "Freelancer",
+                value: result.avg_bid.replace(/\n/g, '').trim(),
+                dueDate: result.days_left.replace(/\n/g, '').trim(),
+                status: "Open",
+                naicsCode: result.avg_bid.replace(/\n/g, '').trim(),
+            }));
+        } else if (selectionType === "government" && Array.isArray(newResults.results)) {
+            // Handle SAM.gov results
+            formattedResults = newResults.results.map((result, index) => ({
+                id: `gov-${index + 1}`,
+                title: result.title,
+                agency: result.department || "Unknown Agency",
+                platform: "SAM.gov",
+                value: null,
+                dueDate: result.responseDeadline || "N/A",
+                status: "Open",
+                naicsCode: result.naicsCode || "N/A",
+            }));
+        } else if (selectionType === "fpds" && newResults.results.opportunities && Array.isArray(newResults.results.opportunities)) {
+            // Handle FPDS results
+            formattedResults = newResults.results.opportunities.map((result, index) => ({
+                id: `fpds-${index + 1}`,
+                title: result.legal_business_name,
+                agency: result.award_type,
+                platform: "FPDS",
+                value: null,
+                dueDate: result.date_signed,
+                status: "Open",
+                naicsCode: result.unique_entity_id,
+            }));
+        } else {
+            console.error("Unexpected results format:", newResults);
+            return; // Exit if the format is not as expected
+        }
+
+        onSearchResults(formattedResults);
+        console.log("Updated Contracts:", formattedResults);
     };
 
     return (

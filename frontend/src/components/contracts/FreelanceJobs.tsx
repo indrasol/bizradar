@@ -51,7 +51,7 @@ export const FreelanceJobs = () => {
     console.log("New Results:", newResults);
 
     // Check if newResults is defined and has the expected structure
-    if (!newResults || !newResults.results || !Array.isArray(newResults.results.opportunities)) {
+    if (!newResults || !newResults.results || !newResults.results.opportunities || !Array.isArray(newResults.results.opportunities)) {
         console.error("Unexpected results format:", newResults);
         return; // Exit if the format is not as expected
     }
@@ -60,13 +60,13 @@ export const FreelanceJobs = () => {
 
     const formattedResults = opportunities.map((result, index) => ({
         id: `fl-${index + 1}`,
-        title: result.title,
+        title: result.title.trim(),
         agency: "Freelancer",
         platform: "Freelancer",
-        value: result.avg_bid,
-        dueDate: result.days_left,
+        value: result.avg_bid.replace(/\n/g, '').trim(),
+        dueDate: result.days_left.replace(/\n/g, '').trim(),
         status: "Open",
-        naicsCode: result.avg_bid,
+        naicsCode: result.avg_bid.replace(/\n/g, '').trim(),
     }));
 
     setContracts(formattedResults);

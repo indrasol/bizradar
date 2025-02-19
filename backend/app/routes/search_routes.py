@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from services.scraper import scrape_all_platforms, scrape_freelancer
+from services.scraper import scrape_all_platforms, scrape_freelancer, fetch_fpds_opportunities
 from services.fetcher import fetch_data, fetch_opportunities
 from services.open_ai_processor import process_query_with_openai
 import logging
@@ -57,12 +57,21 @@ def format_date(date_str):
         return date_str  # Return original if there's an error
 
 @search_bp.route('/government-contracts/fpds', methods=['POST'])
-def government_contracts_fpds():
+async def government_contracts_fpds():
     data = request.json
-    query = data.get('query')
-    results = fetch_data(query, "fpds")  # Use API fetching logic
-    # print(f"Results from FPDS.gov for query '{query}': {results}")  # Log results to console
-    return jsonify({"message": "Search completed for FPDS.gov", "results": results}), 200
+    user_input = data.get('query')
+    
+    # Generate keywords using the OpenAI processor
+    keywords_result = await process_query_with_openai(user_input)
+    query = keywords_result.get('keywords')  # Get the single string query
+
+    if not query:
+        return jsonify({"message": "No keywords generated."}), 400
+
+    # Call the scraper with the exact query
+    fpds_result = await fetch_fpds_opportunities(query)
+
+    return jsonify({"message": "Search completed for FPDS.gov", "results": fpds_result}), 200
 
 @search_bp.route('/government-contracts/all-platforms', methods=['POST'])
 def government_contracts_all_platforms():
