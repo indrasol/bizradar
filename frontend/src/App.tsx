@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -12,9 +11,6 @@ import RfpWriter from "./pages/RfpWriter";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
-import Contracts from "./pages/Contracts";
-import Admin from "./pages/Admin";
-import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
@@ -26,15 +22,12 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Homepage children={null} />} />
-          <Route path="/Contracts" element={<Contracts />} />
+          <Route path="/contracts" element={<Contracts />} />
           <Route path="/dashboard" element={<Index />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/rfp-writer" element={<RfpWriter />} />
-          <Route path="/" element={<Contracts />} />
-          <Route path="/dashboard" element={<Index />} />
-          <Route path="/admin" element={<Admin />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
