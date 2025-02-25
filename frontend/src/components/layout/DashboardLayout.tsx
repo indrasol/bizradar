@@ -6,6 +6,8 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-200 to-purple-200">
       <header className="bg-blue-950 border-b fixed top-0 w-full z-10">
+    <div className="min-h-screen bg-gray-50">
+      <header className="bg-white border-b">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <Link to="/" className="flex items-center gap-2 group">
@@ -33,6 +35,15 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
               <Link to="/Login" className="text-gray-300 hover:text-primary-600">
                 Signup/Login
               </Link>
+              <Link to="/" className="text-gray-600 hover:text-primary-600">
+                Contracts
+              </Link>
+              <Link to="/dashboard" className="text-gray-600 hover:text-primary-600">
+                Dashboard
+              </Link>
+              <Link to="/admin" className="text-gray-600 hover:text-primary-600">
+                Admin
+              </Link>
             </nav>
           </div>
         </div>
@@ -46,6 +57,9 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
           &copy; {new Date().getFullYear()} Bizradar. All rights reserved.
         </div>
       </footer> */}
+      <main className="container mx-auto px-4 py-8">
+        {children}
+      </main>
     </div>
   );
 };

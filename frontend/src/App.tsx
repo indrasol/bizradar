@@ -12,6 +12,9 @@ import RfpWriter from "./pages/RfpWriter";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import Contracts from "./pages/Contracts";
+import Admin from "./pages/Admin";
+import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
@@ -29,6 +32,9 @@ const App = () => (
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/rfp-writer" element={<RfpWriter />} />
+          <Route path="/" element={<Contracts />} />
+          <Route path="/dashboard" element={<Index />} />
+          <Route path="/admin" element={<Admin />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
