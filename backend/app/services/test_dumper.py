@@ -10,21 +10,22 @@ import logging
 import ssl
 import certifi
 from datetime import datetime
-from utils.database import insert_data  # Now Python can find the utils module
+from utils.database import insert_data
 
 logger = logging.getLogger(__name__)
 
 def parse_date(date_str: str):
     """
-    Parse a date string (expected format: YYYY-MM-DD) into a date object.
+    Parse a date string (ISO 8601 format with timezone) into a date object.
     Returns None if parsing fails.
     """
     if not date_str:
         return None
     try:
-        return datetime.strptime(date_str, "%Y-%m-%d").date()
+        # Handle ISO 8601 format with timezone
+        return datetime.fromisoformat(date_str.replace('Z', '+00:00')).date()
     except ValueError as e:
-        logger.error(f"Date parsing error: {e}")
+        logger.error(f"Date parsing error for {date_str}: {e}")
         return None
 
 async def fetch_opportunities() -> Dict[str, Any]:
@@ -36,9 +37,12 @@ async def fetch_opportunities() -> Dict[str, Any]:
     base_url = "https://api.sam.gov/prod/opportunities/v2/search"
     params = {
         "api_key": api_key,
-        "postedFrom": "12/01/2024",
-        "postedTo": "02/20/2025",
-        "limit": 1000
+        "q": "cybersecurity",
+        "ncode": "541519",
+        "postedFrom": "02/27/2024",
+        "postedTo": "02/26/2025",
+        "limit": 1000,
+        "offset": 0
     }
 
     ssl_context = ssl.create_default_context(cafile=certifi.where())
@@ -50,22 +54,30 @@ async def fetch_opportunities() -> Dict[str, Any]:
             async with session.get(base_url, params=params, ssl=ssl_context) as response:
                 if response.status == 200:
                     data = await response.json()
-                    # logger.info(f"Full API response: {data}")
-                    
-                    # Use the correct key from the API response
                     opportunities = data.get("opportunitiesData", [])
                     rows = []
                     for opp in opportunities:
+                        # Convert empty NAICS code to None
+                        naics = opp.get("ncode")
+                        if naics:
+                            try:
+                                naics = int(naics)
+                            except ValueError:
+                                naics = None
+                        
                         row = {
                             "title": opp.get("title", "No title"),
                             "department": opp.get("fullParentPathName", "No department"),
                             "published_date": parse_date(opp.get("postedDate")),
                             "response_date": parse_date(opp.get("responseDeadLine")),
-                            "naics_code": opp.get("naicsCode", "")
+                            "naics_code": naics,  # Use the converted NAICS code
+                            "description": opp.get("description", "")
                         }
-                        row["description"] = opp.get("description", "")
                         rows.append(row)
-                    insert_data(rows)
+                    
+                    if rows:
+                        logger.info(f"Inserting {len(rows)} opportunities")
+                        insert_data(rows)
                     return {"source": "sam.gov", "count": len(rows)}
                 else:
                     logger.error(f"Error fetching from SAM.gov: HTTP {response.status}")

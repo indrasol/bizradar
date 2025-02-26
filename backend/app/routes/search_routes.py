@@ -1,39 +1,30 @@
-from fastapi import APIRouter, Query
-from services.ai_services import refine_query, search_jobs
+from fastapi import APIRouter, Request, HTTPException
+from typing import Dict, List
+from services.open_ai_refiner import refine_query
+from services.job_search import search_jobs
 
-# Router for searching Job-Opportunities
-seaarch_router = APIRouter()
+search_router = APIRouter()
 
-@search_router.get("/search-opportunities", response_model=List[Dict])
-async def search_job_opportunities(
-    request: Request
-):
+@search_router.post("/search-opportunities")
+async def search_job_opportunities(request: Request):
     """
     Search for job opportunities based on a POST request with query and filters.
-    Returns a list of relevant job records.
     """
-    # Parse the request body
-    try: 
-        data=await request.json()
-    except Exception as e: 
-        return {"error": "Invalid JSON payload"}, 400
-
-    # Extract parameters from the JSON data
-    query = data.get("query", "")
-    contract_type = data.get("contract_type", None)
-    platform = data.get("platform", None)
-
-    # Validate query is provided
-    if not query:
-        return {"error": "Query is required"}, 400
-
     try:
-    # Refine the query using OpenAI and generate a solid query
-    refined_query = refine_query(query, contract_type, platform)
+        data = await request.json()
+        query = data.get("query", "")
+        contract_type = data.get("contract_type", None)
+        platform = data.get("platform", None)
+
+        if not query:
+            raise HTTPException(status_code=400, detail="Query is required")
+
+        refined_query = refine_query(query, contract_type, platform)
+        print(f"Refined Query: {refined_query}")  # Debug logging
+
+        job_results = search_jobs(refined_query, contract_type, platform)
+        return {"results": job_results}  # Return a dictionary instead of a list
         
-    # Search jobs using the refined query and filters using AI vectrorisation
-    job_results = search_jobs(refined_query, contract_type, platform)
-        
-        return job_results
     except Exception as e:
-        return {"error": str(e)}, 500
+        print(f"Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))

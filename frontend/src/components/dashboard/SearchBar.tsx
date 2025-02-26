@@ -12,21 +12,42 @@ interface SearchBarProps {
 
 export const SearchBar = ({ selectionType, platform, onSearchResults }: SearchBarProps) => {
   const [query, setQuery] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSearch = async () => {
+    if (!query.trim()) return;
+
+    setIsLoading(true);
     try {
-      const response = await fetch(`http://localhost:8000/${selectionType}-contracts/${platform}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ query }),
-      });
-      
-      const data = await response.json();
-      onSearchResults(data.results);
+        const response = await fetch('http://localhost:5000/search-opportunities', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                query,
+                contract_type: selectionType,
+                platform
+            }),
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('Refined Query from Backend:', data.refined_query);  // Added console logging
+        onSearchResults(data);  // Pass the whole response for now
     } catch (error) {
-      console.error('Error fetching search results:', error);
+        console.error('Error fetching search results:', error);
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSearch();
     }
   };
 
@@ -37,11 +58,15 @@ export const SearchBar = ({ selectionType, platform, onSearchResults }: SearchBa
         placeholder="Search opportunities..."
         value={query}
         onChange={(e) => setQuery(e.target.value)}
+        onKeyPress={handleKeyPress}
         className="w-full"
       />
-      <Button onClick={handleSearch}>
+      <Button 
+        onClick={handleSearch} 
+        disabled={isLoading}
+      >
         <Search className="w-4 h-4 mr-2" />
-        Search
+        {isLoading ? 'Searching...' : 'Search'}
       </Button>
     </div>
   );
