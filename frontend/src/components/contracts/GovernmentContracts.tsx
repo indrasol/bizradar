@@ -51,21 +51,37 @@ export const GovernmentContracts = () => {
   const [contracts, setContracts] = useState<Contract[]>(initialContracts);
   const [selectedPlatform, setSelectedPlatform] = useState("sam.gov");
   const selectionType = "government";
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSearchResults = (newResults: any) => {
-    const formattedResults = newResults.map((result: any) => ({
+  const handleSearchResults = (data: any) => {
+    if (!data || !data.results || !Array.isArray(data.results)) {
+      console.error("Invalid results format:", data);
+      return;
+    }
+  
+    const formattedResults = data.results.map((result: any) => ({
       id: `gov-${Math.random().toString(36).substr(2, 9)}`,
-      title: result.title,
-      agency: result.department,
-      platform: result.platform || "SAM.gov",
-      value: result.value || 0,
-      dueDate: result.responseDeadLine,
-      status: "Open",
-      naicsCode: result.naicsCode || "",
+      title: result.title || "No Title",
+      agency: result.agency || "Unknown Agency",
+      platform: "SAM.gov", // Since we're only using SAM.gov for now
+      value: 0, // SAM.gov doesn't provide value in our current implementation
+      dueDate: result.response_date || new Date().toISOString(),
+      status: "Open", // Default status
+      naicsCode: result.naics_code?.toString() || "N/A",
     }));
-
+  
+    console.log("Formatted results:", formattedResults); // Debug log
     setContracts(formattedResults);
   };
+
+  if (error) {
+    return (
+      <div className="p-4 text-red-500">
+        Error loading contracts: {error}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -99,53 +115,64 @@ export const GovernmentContracts = () => {
         </Select>
       </div>
 
-      <div className="grid gap-4">
-        {contracts.map((contract) => (
-          <Link key={contract.id} to={`/contracts/${contract.id}`}>
-            <Card className="p-6 hover:shadow-lg transition-shadow">
-              <div className="flex justify-between items-start">
-                <div className="space-y-2">
-                  <h3 className="font-semibold text-lg">{contract.title}</h3>
-                  <div className="flex items-center text-sm text-gray-500">
-                    <Building2 className="w-4 h-4 mr-1" />
-                    {contract.agency}
+      {isLoading ? (
+        <div className="text-center py-8">
+          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto"></div>
+          <p className="mt-2 text-gray-500">Loading contracts...</p>
+        </div>
+      ) : contracts.length === 0 ? (
+        <Card className="p-6 text-center text-gray-500">
+          <p>No contracts found. Try adjusting your search criteria.</p>
+        </Card>
+      ) : (
+        <div className="grid gap-4">
+          {contracts.map((contract) => (
+            <Link key={contract.id} to={`/contracts/${contract.id}`}>
+              <Card className="p-6 hover:shadow-lg transition-shadow">
+                <div className="flex justify-between items-start">
+                  <div className="space-y-2">
+                    <h3 className="font-semibold text-lg">{contract.title}</h3>
+                    <div className="flex items-center text-sm text-gray-500">
+                      <Building2 className="w-4 h-4 mr-1" />
+                      {contract.agency}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center gap-1"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        console.log("Generate RFP for:", contract.id);
+                      }}
+                    >
+                      <FileText className="w-4 h-4" />
+                      Generate RFP
+                    </Button>
+                    <Badge>{contract.status}</Badge>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex items-center gap-1"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      console.log("Generate RFP for:", contract.id);
-                    }}
-                  >
-                    <FileText className="w-4 h-4" />
-                    Generate RFP
-                  </Button>
-                  <Badge>{contract.status}</Badge>
-                </div>
-              </div>
-              
-              <div className="mt-4 flex gap-4">
-                {contract.value > 0 && (
+                
+                <div className="mt-4 flex gap-4">
+                  {contract.value > 0 && (
+                    <div className="flex items-center text-sm text-gray-500">
+                      <DollarSign className="w-4 h-4 mr-1" />
+                      ${contract.value.toLocaleString()}
+                    </div>
+                  )}
                   <div className="flex items-center text-sm text-gray-500">
-                    <DollarSign className="w-4 h-4 mr-1" />
-                    ${contract.value.toLocaleString()}
+                    <Calendar className="w-4 h-4 mr-1" />
+                    Due: {new Date(contract.dueDate).toLocaleDateString()}
                   </div>
-                )}
-                <div className="flex items-center text-sm text-gray-500">
-                  <Calendar className="w-4 h-4 mr-1" />
-                  Due: {new Date(contract.dueDate).toLocaleDateString()}
+                  <Badge variant="outline">{contract.naicsCode}</Badge>
+                  <Badge variant="secondary">{contract.platform}</Badge>
                 </div>
-                <Badge variant="outline">{contract.naicsCode}</Badge>
-                <Badge variant="secondary">{contract.platform}</Badge>
-              </div>
-            </Card>
-          </Link>
-        ))}
-      </div>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
