@@ -1,6 +1,9 @@
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from datetime import datetime, timedelta
+import os
+import subprocess
+from airflow.providers.postgres.hooks.postgres import PostgresHook
 
 # Define default arguments for the DAG
 default_args = {
@@ -15,23 +18,47 @@ default_args = {
 
 # Define the DAG
 dag = DAG(
-    'hello_airflow',
+    'read_users_postgres_windows',
     default_args=default_args,
-    description='A simple Airflow DAG that prints Hello, Airflow!',
-    schedule_interval='0 10 * * *',  # Runs daily at 10 AM
+    description='Reads data from PostgreSQL and runs a backend task',
+    schedule_interval=None,  # Manual trigger
     catchup=False
 )
 
-# Define the Python function
-def print_hello():
-    print("Hello, Airflow!")
+# Function to fetch users from PostgreSQL
+def fetch_users():
+    postgres_hook = PostgresHook(postgres_conn_id='my_postgres')  # Ensure this exists in Airflow connections
+    conn = postgres_hook.get_conn()
+    cursor = conn.cursor()
 
-# Create a task using PythonOperator
-task_hello = PythonOperator(
-    task_id='print_hello_task',
-    python_callable=print_hello,
+    cursor.execute("SELECT * FROM users;")
+    rows = cursor.fetchall()
+
+    for row in rows:
+        print(f"User: {row}")
+
+    cursor.close()
+    conn.close()
+
+# Function to run the backend application
+# def run_backend_task():
+#     app_directory = r"C:\Users\DKRAN\indrasol\bizradar\app"  # Use raw string for Windows paths
+#     os.chdir(app_directory)
+#     subprocess.run("python app.py", shell=True)  # Windows compatibility
+
+# Task to read and log data
+read_users_task = PythonOperator(
+    task_id='read_users',
+    python_callable=fetch_users,
     dag=dag,
 )
 
-# Set task dependencies (single task here)
-task_hello
+# Task to run the backend application
+# run_backend_task = PythonOperator(
+#     task_id='run_backend_task',
+#     python_callable=run_backend_task,
+#     dag=dag,
+# )
+
+# Task dependencies
+read_users_task 
