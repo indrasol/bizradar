@@ -13,6 +13,40 @@ import { DollarSign, Calendar, Building2, FileText } from "lucide-react";
 import { Link } from "react-router-dom";
 import { SearchBar } from "@/components/dashboard/SearchBar";
 
+// Typewriter Animation Component
+const TypewriterAnimation = ({ text, onComplete }) => {
+  const [displayText, setDisplayText] = useState('');
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  useEffect(() => {
+    if (!text) return;
+    
+    // Reset when text changes
+    setDisplayText('');
+    setCurrentIndex(0);
+    
+    // Type the text character by character
+    const interval = setInterval(() => {
+      if (currentIndex < text.length) {
+        setDisplayText(prev => prev + text[currentIndex]);
+        setCurrentIndex(prev => prev + 1);
+      } else {
+        clearInterval(interval);
+        if (onComplete) onComplete();
+      }
+    }, 30); // Speed of typing
+    
+    return () => clearInterval(interval);
+  }, [text, currentIndex, onComplete]);
+
+  return (
+    <div className="bg-black/10 backdrop-blur-sm rounded-md p-3 font-mono text-sm text-green-500 overflow-x-auto max-w-full">
+      <span className="whitespace-pre-wrap">{displayText}</span>
+      <span className="animate-pulse">|</span>
+    </div>
+  );
+};
+
 interface Contract {
   id: string;
   title: string;
@@ -53,8 +87,45 @@ export const GovernmentContracts = () => {
   const selectionType = "government";
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Animation state
+  const [originalQuery, setOriginalQuery] = useState('');
+  const [refinedQuery, setRefinedQuery] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  const [animationComplete, setAnimationComplete] = useState(false);
+  const [resultsData, setResultsData] = useState(null);
+
+  // Handle the refined query data and start animation
+  const handleRefinedQuery = (original, refined) => {
+    setOriginalQuery(original);
+    setRefinedQuery(refined);
+    setIsTyping(true);
+    setAnimationComplete(false);
+  };
+
+  // When typing animation completes
+  const handleAnimationComplete = () => {
+    setAnimationComplete(true);
+    setIsTyping(false);
+  };
 
   const handleSearchResults = (data: any) => {
+    setResultsData(data);
+    
+    // Only process results if animation is complete or there's no refined query
+    if (animationComplete || !refinedQuery) {
+      processResults(data);
+    }
+  };
+
+  // Watch for animation complete and process results
+  useEffect(() => {
+    if (animationComplete && resultsData) {
+      processResults(resultsData);
+    }
+  }, [animationComplete, resultsData]);
+
+  const processResults = (data: any) => {
     if (!data || !data.results || !Array.isArray(data.results)) {
       console.error("Invalid results format:", data);
       return;
@@ -71,7 +142,7 @@ export const GovernmentContracts = () => {
       naicsCode: result.naics_code?.toString() || "N/A",
     }));
   
-    console.log("Formatted results:", formattedResults); // Debug log
+    console.log("Formatted results:", formattedResults);
     setContracts(formattedResults);
   };
 
@@ -88,7 +159,8 @@ export const GovernmentContracts = () => {
       <SearchBar 
         selectionType={selectionType} 
         platform={selectedPlatform} 
-        onSearchResults={handleSearchResults} 
+        onSearchResults={handleSearchResults}
+        onRefinedQuery={handleRefinedQuery}
       />
       
       <div className="flex gap-4 my-4">
@@ -114,11 +186,37 @@ export const GovernmentContracts = () => {
           </SelectContent>
         </Select>
       </div>
+      
+      {/* Refined Query Animation Section */}
+      {originalQuery && (
+        <div className="mb-4">
+          <div className="mb-2 text-sm text-gray-500">Original query: "{originalQuery}"</div>
+          
+          {isTyping && refinedQuery ? (
+            <div className="mb-4">
+              <div className="text-sm text-gray-500 mb-1">Refining search query...</div>
+              <TypewriterAnimation 
+                text={refinedQuery} 
+                onComplete={handleAnimationComplete} 
+              />
+            </div>
+          ) : refinedQuery ? (
+            <div className="mb-4">
+              <div className="text-sm text-gray-500 mb-1">Refined query:</div>
+              <div className="bg-black/10 backdrop-blur-sm rounded-md p-3 font-mono text-sm text-green-500 overflow-x-auto">
+                {refinedQuery}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      )}
 
-      {isLoading ? (
+      {isLoading || isTyping ? (
         <div className="text-center py-8">
           <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto"></div>
-          <p className="mt-2 text-gray-500">Loading contracts...</p>
+          <p className="mt-2 text-gray-500">
+            {isTyping ? "Processing refined query..." : "Loading contracts..."}
+          </p>
         </div>
       ) : contracts.length === 0 ? (
         <Card className="p-6 text-center text-gray-500">

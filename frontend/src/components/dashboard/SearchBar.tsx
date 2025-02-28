@@ -1,47 +1,82 @@
 import { useState } from "react";
-import { Search } from "lucide-react";
+import { Search, Sparkles } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { TypeWriter } from "../ui/TypeWriter";  // Update this line
+import { motion, AnimatePresence } from "framer-motion";
 
 interface SearchBarProps {
   selectionType: string;
   platform: string;
   onSearchResults: (results: any) => void;
+  onRefinedQuery?: (originalQuery: string, refinedQuery: string) => void;
 }
 
-export const SearchBar = ({ selectionType, platform, onSearchResults }: SearchBarProps) => {
+export const SearchBar = ({ 
+  selectionType, 
+  platform, 
+  onSearchResults,
+  onRefinedQuery
+}: SearchBarProps) => {
   const [query, setQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [refinedQuery, setRefinedQuery] = useState("");
+  const [showRefinedQuery, setShowRefinedQuery] = useState(false);
 
   const handleSearch = async () => {
     if (!query.trim()) return;
 
     setIsLoading(true);
+    setShowRefinedQuery(false);
+    
     try {
-        const response = await fetch('http://localhost:5000/search-opportunities', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                query,
-                contract_type: selectionType,
-                platform
-            }),
-        });
+      const response = await fetch('http://localhost:5000/search-opportunities', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query,
+          contract_type: selectionType,
+          platform
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('Search response:', data);
+      
+      if (data.refined_query) {
+        // Clear existing query first
+        setRefinedQuery('');
         
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
+        // Show the container first
+        setShowRefinedQuery(true);
         
-        const data = await response.json();
-        console.log('Refined Query from Backend:', data.refined_query);  // Added console logging
-        onSearchResults(data);  // Pass the whole response for now
+        // Short delay before starting the animation
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Set the new query to trigger animation
+        setRefinedQuery(data.refined_query);
+        
+        // Notify parent component
+        onRefinedQuery?.(query, data.refined_query);
+        
+        // Wait for animation to complete before showing results
+        const animationDuration = data.refined_query.length * 35 + 500;
+        await new Promise(resolve => setTimeout(resolve, animationDuration));
+        
+        onSearchResults(data);
+      } else {
+        onSearchResults(data);
+      }
     } catch (error) {
-        console.error('Error fetching search results:', error);
+      console.error('Error:', error);
     } finally {
-        setIsLoading(false);
+      setIsLoading(false);
     }
   };
 
@@ -52,22 +87,60 @@ export const SearchBar = ({ selectionType, platform, onSearchResults }: SearchBa
   };
 
   return (
-    <div className="flex gap-2">
-      <Input
-        type="text"
-        placeholder="Search opportunities..."
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        onKeyPress={handleKeyPress}
-        className="w-full"
-      />
-      <Button 
-        onClick={handleSearch} 
-        disabled={isLoading}
-      >
-        <Search className="w-4 h-4 mr-2" />
-        {isLoading ? 'Searching...' : 'Search'}
-      </Button>
+    <div className="space-y-4">
+      <div className="flex gap-2">
+        <Input
+          type="text"
+          placeholder="Search opportunities..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+          className="w-full"
+        />
+        <Button 
+          onClick={handleSearch} 
+          disabled={isLoading}
+          className="min-w-[100px]"
+        >
+          {isLoading ? (
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <span>Searching...</span>
+            </div>
+          ) : (
+            <>
+              <Search className="w-4 h-4 mr-2" />
+              Search
+            </>
+          )}
+        </Button>
+      </div>
+
+      <AnimatePresence mode="wait">
+        {showRefinedQuery && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="p-6 bg-gradient-to-r from-blue-50 via-indigo-50 to-blue-50 rounded-lg border border-blue-100 shadow-sm"
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <Sparkles className="w-5 h-5 text-blue-500" />
+              <span className="text-sm font-medium text-blue-600">AI-Enhanced Search Query:</span>
+            </div>
+            <div className="bg-white/50 backdrop-blur-sm rounded-md p-4">
+              {refinedQuery && (
+                <TypeWriter
+                  text={refinedQuery}
+                  onComplete={() => {
+                    console.log('Animation completed');
+                  }}
+                />
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
