@@ -12,6 +12,8 @@ import {
 import { DollarSign, Calendar, Building2, FileText } from "lucide-react";
 import { Link } from "react-router-dom";
 import { SearchBar } from "@/components/dashboard/SearchBar";
+import { useNavigate } from "react-router-dom";
+
 
 // Typewriter Animation Component
 const TypewriterAnimation = ({ text, onComplete }) => {
@@ -82,6 +84,16 @@ const initialContracts: Contract[] = [
 ];
 
 export const GovernmentContracts = () => {
+
+  const navigate = useNavigate();
+
+  const handleGenerateRFP = (contract) => {
+    // Ensure you are passing the entire contract object correctly
+    navigate(`/contracts/rfp/${contract.id}`, { state: { contract } });
+  };
+  
+
+
   const [contracts, setContracts] = useState<Contract[]>(initialContracts);
   const [selectedPlatform, setSelectedPlatform] = useState("sam.gov");
   const selectionType = "government";
@@ -225,49 +237,47 @@ export const GovernmentContracts = () => {
       ) : (
         <div className="grid gap-4">
           {contracts.map((contract) => (
-            <Link key={contract.id} to={`/contracts/${contract.id}`}>
-              <Card className="p-6 hover:shadow-lg transition-shadow">
-                <div className="flex justify-between items-start">
-                  <div className="space-y-2">
-                    <h3 className="font-semibold text-lg">{contract.title}</h3>
-                    <div className="flex items-center text-sm text-gray-500">
-                      <Building2 className="w-4 h-4 mr-1" />
-                      {contract.agency}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex items-center gap-1"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        console.log("Generate RFP for:", contract.id);
-                      }}
-                    >
-                      <FileText className="w-4 h-4" />
-                      Generate RFP
-                    </Button>
-                    <Badge>{contract.status}</Badge>
-                  </div>
-                </div>
-                
-                <div className="mt-4 flex gap-4">
-                  {contract.value > 0 && (
-                    <div className="flex items-center text-sm text-gray-500">
-                      <DollarSign className="w-4 h-4 mr-1" />
-                      ${contract.value.toLocaleString()}
-                    </div>
-                  )}
+            <Card key={contract.id} className="p-6 hover:shadow-lg transition-shadow">
+              <div className="flex justify-between items-start">
+                <div className="space-y-2">
+                  <h3 className="font-semibold text-lg">{contract.title}</h3>
                   <div className="flex items-center text-sm text-gray-500">
-                    <Calendar className="w-4 h-4 mr-1" />
-                    Due: {new Date(contract.dueDate).toLocaleDateString()}
+                    <Building2 className="w-4 h-4 mr-1" />
+                    {contract.agency}
                   </div>
-                  <Badge variant="outline">{contract.naicsCode}</Badge>
-                  <Badge variant="secondary">{contract.platform}</Badge>
                 </div>
-              </Card>
-            </Link>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-1"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleGenerateRFP(contract);
+                    }}
+                  >
+                    <FileText className="w-4 h-4" />
+                    Generate RFP
+                  </Button>
+                  <Badge>{contract.status}</Badge>
+                </div>
+              </div>
+              
+              <div className="mt-4 flex gap-4">
+                {contract.value > 0 && (
+                  <div className="flex items-center text-sm text-gray-500">
+                    <DollarSign className="w-4 h-4 mr-1" />
+                    ${contract.value.toLocaleString()}
+                  </div>
+                )}
+                <div className="flex items-center text-sm text-gray-500">
+                  <Calendar className="w-4 h-4 mr-1" />
+                  Due: {new Date(contract.dueDate).toLocaleDateString()}
+                </div>
+                <Badge variant="outline">{contract.naicsCode}</Badge>
+                <Badge variant="secondary">{contract.platform}</Badge>
+              </div>
+            </Card>
           ))}
         </div>
       )}

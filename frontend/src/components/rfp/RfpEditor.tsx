@@ -1,4 +1,3 @@
-
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface RfpEditorProps {
@@ -6,7 +5,7 @@ interface RfpEditorProps {
   onChange: (content: string) => void;
 }
 
-export function RfpEditor({ content, onChange }: RfpEditorProps) {
+export const RfpEditor: React.FC<RfpEditorProps> = ({ content, onChange }) => {
   return (
     <div className="flex flex-col h-full">
       <div className="p-2 border-b">
@@ -22,4 +21,4 @@ export function RfpEditor({ content, onChange }: RfpEditorProps) {
       </ScrollArea>
     </div>
   );
-}
+};

@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
 
 interface TypeWriterProps {
   text: string;
@@ -10,6 +9,7 @@ export const TypeWriter = ({ text, onComplete }: TypeWriterProps) => {
   const [displayText, setDisplayText] = useState('');
 
   useEffect(() => {
+    console.log("Starting typewriter effect for text:", text); // Debug: Check text input
     let currentIndex = 0;
     setDisplayText('');
 
@@ -19,23 +19,21 @@ export const TypeWriter = ({ text, onComplete }: TypeWriterProps) => {
         currentIndex++;
       } else {
         clearInterval(intervalId);
+        console.log("Typewriter effect completed."); // Debug: Confirm completion
         onComplete?.();
       }
-    }, 35);
+    }, 100); // Adjusted for slower effect for visibility in debugging
 
-    return () => clearInterval(intervalId);
+    return () => {
+      console.log("Clearing typewriter effect."); // Debug: Cleanup check
+      clearInterval(intervalId);
+    };
   }, [text, onComplete]);
 
   return (
     <div className="font-mono relative">
       {displayText}
-      <motion.span
-        animate={{ opacity: [0, 1, 0] }}
-        transition={{ repeat: Infinity, duration: 0.8 }}
-        className="inline-block w-0.5 h-5 bg-blue-500 ml-1 align-middle"
-      >
-        |
-      </motion.span>
+      <span className="inline-block w-0.5 h-5 bg-blue-500 ml-1 align-middle" />
     </div>
   );
 };
