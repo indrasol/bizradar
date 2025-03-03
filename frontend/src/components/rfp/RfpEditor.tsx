@@ -1,6 +1,9 @@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2 } from "lucide-react";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { Button } from "@/components/ui/button";
+import { Download } from "lucide-react";
+import html2pdf from 'html2pdf.js';
 
 interface RfpEditorProps {
   content: string;
@@ -15,6 +18,9 @@ export const RfpEditor: React.FC<RfpEditorProps> = ({
 }) => {
   const [displayContent, setDisplayContent] = useState<string[]>([]);
   const [isTyping, setIsTyping] = useState(false);
+  const [isEditable, setIsEditable] = useState(false);
+  const editorRef = useRef<HTMLDivElement>(null);
+  const intervalRef = useRef<NodeJS.Timeout>();
 
   // Define wrapDynamicValues function
   const wrapDynamicValues = useCallback((text: string) => {
@@ -25,29 +31,57 @@ export const RfpEditor: React.FC<RfpEditorProps> = ({
     return text;
   }, []);
 
+  // Enhanced typewriting effect with better performance
   useEffect(() => {
     if (content && !isGenerating) {
       setIsTyping(true);
-      const lines = content.split('\n');
+      setIsEditable(false);
+      const lines = content.split('\n').filter(line => line.trim()); // Remove empty lines
       let currentLines: string[] = [];
       let currentIndex = 0;
+      let charIndex = 0;
 
-      const typeInterval = setInterval(() => {
-        if (currentIndex < lines.length) {
-          currentLines = [...currentLines, lines[currentIndex]];
-          setDisplayContent(currentLines);
-          currentIndex++;
-        } else {
+      intervalRef.current = setInterval(() => {
+        if (!lines[currentIndex]) {
           setIsTyping(false);
-          clearInterval(typeInterval);
+          setIsEditable(true);
+          if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+          }
+          return;
         }
-      }, 150);
 
-      return () => clearInterval(typeInterval);
+        if (charIndex < lines[currentIndex].length) {
+          // Handle HTML elements and strong tags
+          if (lines[currentIndex].includes('<div') || 
+              lines[currentIndex].includes('<strong>') || 
+              lines[currentIndex].startsWith('#')) {
+            currentLines[currentIndex] = lines[currentIndex];
+            charIndex = lines[currentIndex].length;
+          } else {
+            // Type character by character
+            currentLines[currentIndex] = lines[currentIndex].substring(0, charIndex + 1);
+            charIndex++;
+          }
+        } else {
+          currentIndex++;
+          charIndex = 0;
+        }
+
+        setDisplayContent([...currentLines]);
+      }, 50); // Slightly slower for better readability
+
+      return () => {
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+        }
+      };
     }
   }, [content, isGenerating]);
 
   const renderLine = useCallback((line: string, index: number) => {
+    if (!line) return null;
+
     // Only render logo if it's the first line with logo div
     if (line.includes('<div class="text-center mb-8">') && index === 0) {
       return (
@@ -92,10 +126,40 @@ export const RfpEditor: React.FC<RfpEditorProps> = ({
     }
   }, [wrapDynamicValues]);
 
+  // Download PDF function
+  const handleDownload = useCallback(async () => {
+    if (!editorRef.current) return;
+
+    const element = editorRef.current;
+    const opt = {
+      margin: [20, 20],
+      filename: 'rfp_document.pdf',
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    try {
+      await html2pdf().set(opt).from(element).save();
+    } catch (error) {
+      console.error('Failed to generate PDF:', error);
+    }
+  }, []);
+
   return (
     <div className="flex flex-col h-full bg-gray-50">
-      <div className="p-2 border-b bg-white">
+      <div className="p-2 border-b bg-white flex justify-between items-center">
         <h2 className="font-semibold">Document Editor</h2>
+        <Button
+          onClick={handleDownload}
+          disabled={isTyping || isGenerating}
+          className={`transition-opacity duration-300 ${
+            isTyping || isGenerating ? 'opacity-50 cursor-not-allowed' : 'opacity-100'
+          }`}
+        >
+          <Download className="w-4 h-4 mr-2" />
+          Download RFP
+        </Button>
       </div>
       <ScrollArea className="flex-1">
         {isGenerating ? (
@@ -110,7 +174,17 @@ export const RfpEditor: React.FC<RfpEditorProps> = ({
           </div>
         ) : (
           <div className="max-w-[850px] min-h-[1100px] mx-auto my-8 p-16 bg-white shadow-lg rounded border">
-            <div className="prose prose-sm max-w-none">
+            <div 
+              ref={editorRef}
+              className="prose prose-sm max-w-none"
+              contentEditable={isEditable}
+              onInput={(e) => {
+                if (isEditable) {
+                  onChange(e.currentTarget.innerHTML);
+                }
+              }}
+              suppressContentEditableWarning={true}
+            >
               {displayContent.map((line, index) => renderLine(line, index))}
               {isTyping && (
                 <span className="inline-block w-2 h-4 bg-black animate-pulse ml-1" />
