@@ -1,39 +1,39 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface TypeWriterProps {
   text: string;
   onComplete?: () => void;
+  speed?: number;
 }
 
-export const TypeWriter = ({ text, onComplete }: TypeWriterProps) => {
+export const TypeWriter: React.FC<TypeWriterProps> = ({ 
+  text, 
+  onComplete, 
+  speed = 50 
+}) => {
   const [displayText, setDisplayText] = useState('');
+  const [currentIndex, setCurrentIndex] = useState(0);
 
   useEffect(() => {
-    console.log("Starting typewriter effect for text:", text); // Debug: Check text input
-    let currentIndex = 0;
+    if (!text) return;
+
+    if (currentIndex < text.length) {
+      const timeout = setTimeout(() => {
+        setDisplayText(prev => prev + text[currentIndex]);
+        setCurrentIndex(currentIndex + 1);
+      }, speed);
+
+      return () => clearTimeout(timeout);
+    } else if (onComplete) {
+      onComplete();
+    }
+  }, [text, currentIndex, speed, onComplete]);
+
+  useEffect(() => {
+    // Reset when text changes
     setDisplayText('');
+    setCurrentIndex(0);
+  }, [text]);
 
-    const intervalId = setInterval(() => {
-      if (currentIndex < text.length) {
-        setDisplayText((prev) => prev + text[currentIndex]);
-        currentIndex++;
-      } else {
-        clearInterval(intervalId);
-        console.log("Typewriter effect completed."); // Debug: Confirm completion
-        onComplete?.();
-      }
-    }, 100); // Adjusted for slower effect for visibility in debugging
-
-    return () => {
-      console.log("Clearing typewriter effect."); // Debug: Cleanup check
-      clearInterval(intervalId);
-    };
-  }, [text, onComplete]);
-
-  return (
-    <div className="font-mono relative">
-      {displayText}
-      <span className="inline-block w-0.5 h-5 bg-blue-500 ml-1 align-middle" />
-    </div>
-  );
+  return displayText;
 };

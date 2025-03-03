@@ -12,6 +12,7 @@ import { TypeWriter } from "@/components/ui/TypeWriter";
 export default function RfpWriter() {
   const [content, setContent] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const contract = location.state?.contract;
@@ -22,28 +23,79 @@ export default function RfpWriter() {
       navigate('/contracts');
       return;
     }
-    if (contract) {
-      const details = `ID: ${contract.id}\nTitle: ${contract.title}\nAgency: ${contract.agency}\nPlatform: ${contract.platform}\nValue: $${contract.value.toLocaleString()}\nDue Date: ${new Date(contract.dueDate).toLocaleDateString()}\nStatus: ${contract.status}\nNAICS Code: ${contract.naicsCode}`;
-      setContent(details);
+    
+    setIsGenerating(true);
+    setContent(''); // Clear previous content
 
-      // API call to generate RFP
-      fetch(`http://localhost:5000/generate-rfp/${contract.id}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(contract)
-      })
-      .then(response => response.json())
-      .then(data => {
-        toast.success('RFP generated successfully.');
-        // Handle further actions like navigating to view the generated PDF or displaying it
-      })
-      .catch(error => {
-        toast.error('Failed to generate RFP.');
-        console.error('Error:', error);
-      });
-    }
+    // API call to generate RFP
+    fetch(`http://localhost:5000/generate-rfp/${contract.id}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(contract)
+    })
+    .then(response => response.json())
+    .then(data => {
+      const formattedContent = `
+<div class="text-center">
+  <img src="/logo.jpg" alt="Company Logo" class="mx-auto h-56" />
+</div>
+
+# REQUEST FOR PROPOSAL (RFP) FOR ${contract.title}
+
+## PROJECT OVERVIEW
+<strong>${contract.agency}</strong> is seeking proposals for <strong>${contract.title}</strong>. This Request for Proposal (RFP) is issued under NAICS code <strong>${contract.naicsCode}</strong>. This document outlines the requirements and specifications for potential contractors.
+
+## SCOPE OF WORK
+The selected contractor will be responsible for delivering comprehensive solutions that meet all specified requirements and objectives outlined in this RFP.
+
+## TIMELINE
+• RFP Issue Date: ${new Date().toLocaleDateString()}
+• Proposal Due Date: ${new Date(contract.dueDate).toLocaleDateString()}
+• Expected Award Date: TBD
+
+## EVALUATION CRITERIA
+• Technical Capability (40%)
+• Past Performance (25%)
+• Cost Proposal (20%)
+• Project Management (15%)
+
+## SUBMISSION REQUIREMENTS
+1. Executive Summary
+2. Technical Approach
+3. Past Performance References
+4. Cost Breakdown
+5. Project Timeline
+6. Team Composition
+7. Risk Management Plan
+
+For questions regarding this RFP, please contact the contracting officer.
+`.trim();
+
+      // Simulate a gradual content load
+      let currentContent = '';
+      const lines = formattedContent.split('\n');
+      let lineIndex = 0;
+
+      const typeInterval = setInterval(() => {
+        if (lineIndex < lines.length) {
+          currentContent += lines[lineIndex] + '\n';
+          setContent(currentContent);
+          lineIndex++;
+        } else {
+          clearInterval(typeInterval);
+          setIsGenerating(false);
+          toast.success('RFP generated successfully');
+        }
+      }, 100);
+
+    })
+    .catch(error => {
+      toast.error('Failed to generate RFP.');
+      console.error('Error:', error);
+      setIsGenerating(false);
+    });
   }, [contract, navigate]);
 
   const handleSave = async () => {
@@ -91,7 +143,12 @@ export default function RfpWriter() {
             <RfpChat onUpdateContent={setContent} />
           </ResizablePanel>
           <ResizablePanel defaultSize={60} minSize={30}>
-            <RfpEditor content={content} onChange={setContent} />
+            <RfpEditor 
+              content={content} 
+              onChange={setContent} 
+              isGenerating={isGenerating}
+              contract={contract}
+            />
             <TypeWriter text={content} onComplete={() => console.log('Typewriter effect completed')} />
           </ResizablePanel>
         </ResizablePanelGroup>
