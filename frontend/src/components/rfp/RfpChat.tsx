@@ -1,9 +1,9 @@
-
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Bot, Send, User } from "lucide-react";
+import { Bot, Send, User, FileText } from "lucide-react";
+import jsPDF from "jspdf";
 
 interface RfpChatProps {
   onUpdateContent: (content: string) => void;
@@ -44,6 +44,16 @@ export function RfpChat({ onUpdateContent }: RfpChatProps) {
     }, 1000);
   };
 
+  const handleGeneratePDF = () => {
+    const doc = new jsPDF();
+    let y = 10;
+    messages.forEach((message) => {
+      doc.text(`${message.role === "assistant" ? "AI" : "User"}: ${message.content}`, 10, y);
+      y += 10;
+    });
+    doc.save("chat.pdf");
+  };
+
   return (
     <div className="flex flex-col h-full">
       <div className="p-4 border-b">
@@ -51,7 +61,7 @@ export function RfpChat({ onUpdateContent }: RfpChatProps) {
       </div>
 
       <ScrollArea className="flex-1 p-4 bg-white rounded-lg">
-        <div className="space-y-4" >
+        <div className="space-y-4">
           {messages.map((message) => (
             <div
               key={message.id}
@@ -96,6 +106,9 @@ export function RfpChat({ onUpdateContent }: RfpChatProps) {
           />
           <Button type="submit" size="icon">
             <Send className="w-4 h-4" />
+          </Button>
+          <Button type="button" size="icon" onClick={handleGeneratePDF}>
+            <FileText className="w-4 h-4" />
           </Button>
         </form>
       </div>

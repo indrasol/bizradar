@@ -1,5 +1,6 @@
-
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
+import jsPDF from "jspdf";
 
 interface RfpEditorProps {
   content: string;
@@ -7,6 +8,12 @@ interface RfpEditorProps {
 }
 
 export function RfpEditor({ content, onChange }: RfpEditorProps) {
+  const handleGeneratePDF = () => {
+    const doc = new jsPDF();
+    doc.text(content, 10, 10);
+    doc.save("document.pdf");
+  };
+
   return (
     <div className="flex flex-col h-full">
       <div className="p-2 border-b">
@@ -20,6 +27,11 @@ export function RfpEditor({ content, onChange }: RfpEditorProps) {
           placeholder="Your RFP document content will appear here..."
         />
       </ScrollArea>
+      <div className="p-2 border-t flex justify-end">
+        <Button onClick={handleGeneratePDF} size="sm">
+          Generate PDF
+        </Button>
+      </div>
     </div>
   );
 }
