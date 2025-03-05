@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+python-multipart  # For form data if needed
+psycopg2-binary   # For Postgres
+pinecone   # For Pinecone vector DB
+sentence-transformers  # For embeddings
+openai            # For OpenAI API
+python-dotenv

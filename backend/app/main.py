@@ -1,12 +1,21 @@
-from flask import Flask
-from flask_cors import CORS
-from routes.search_routes import search_bp
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from routes.search_routes import search_router
 
-app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
+app = FastAPI()
 
-# Register the search routes blueprint
-app.register_blueprint(search_bp)
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Your frontend URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-if __name__ == '__main__':
-    app.run(debug=True, port=5000)  # Ensure the server is running on port 5000
+# Include routers
+app.include_router(search_router)
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=5000, reload=True)

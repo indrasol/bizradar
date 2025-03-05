@@ -13,7 +13,11 @@ const Contracts = () => {
           <div className="max-w-3xl mx-auto text-center space-y-6">
             <h1 className="text-3xl font-bold tracking-tight">Discover Business Opportunities</h1>
             <div className="max-w-xl mx-auto">
-              <SearchBar />
+              <SearchBar 
+                selectionType="default" 
+                platform="web" 
+                onSearchResults={(results) => console.log(results)} 
+              />
             </div>
           </div>
         </div>
