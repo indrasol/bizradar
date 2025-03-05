@@ -1,0 +1,45 @@
+@layer components {
+  .rfp-document {
+    @apply font-serif leading-relaxed;
+  }
+  
+  .rfp-document h1 {
+    @apply text-3xl font-bold text-center mb-8;
+  }
+  
+  .rfp-document h2 {
+    @apply text-xl font-semibold mt-6 mb-4;
+  }
+  
+  .rfp-document p {
+    @apply my-2;
+  }
+  
+  .rfp-document ul {
+    @apply list-disc pl-6 my-4;
+  }
+  
+  .rfp-document ol {
+    @apply list-decimal pl-6 my-4;
+  }
+
+  .typing-cursor {
+    @apply inline-block w-2 h-4 bg-primary ml-1;
+    animation: cursor-blink 1s step-end infinite;
+  }
+
+  .prose strong {
+    @apply font-bold text-black !important;
+  }
+}
+
+@keyframes cursor-blink {
+  from, to { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.prose textarea {
+  font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  line-height: 1.75;
+  color: #374151;
+}
