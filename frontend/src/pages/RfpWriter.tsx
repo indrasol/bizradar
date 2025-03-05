@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { RfpEditor } from "@/components/rfp/RfpEditor";
@@ -7,7 +8,7 @@ import { ResizablePanelGroup, ResizablePanel } from "@/components/ui/resizable";
 import { Button } from "@/components/ui/button";
 import { Download, Upload, Eye, Save } from "lucide-react";
 import { toast } from "sonner";
-import { TypeWriter } from "@/components/ui/TypeWriter"; 
+import { TypeWriter } from "@/components/ui/TypeWriter";
 
 export default function RfpWriter() {
   const [content, setContent] = useState("");
@@ -146,7 +147,6 @@ For questions regarding this RFP, please contact the contracting officer.
             <RfpEditor 
               content={content} 
               onChange={setContent} 
-              isGenerating={isGenerating}
               contract={contract}
             />
             <TypeWriter text={content} onComplete={() => console.log('Typewriter effect completed')} />

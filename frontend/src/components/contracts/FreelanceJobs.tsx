@@ -83,7 +83,6 @@ export const FreelanceJobs = () => {
             <SelectItem value="all">All Platforms</SelectItem>
           </SelectContent>
         </Select>
-
         <Select>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Budget Range" />
