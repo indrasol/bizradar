@@ -2,6 +2,7 @@ fastapi
 uvicorn
 python-multipart  # For form data if needed
 psycopg2-binary   # For Postgres
-pinecone-client   # For Pinecone vector DB
+pinecone   # For Pinecone vector DB
 sentence-transformers  # For embeddings
 openai            # For OpenAI API
+python-dotenv
