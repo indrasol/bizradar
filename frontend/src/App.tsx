@@ -28,7 +28,7 @@ const App = () => (
           <Route path="/admin" element={<Admin />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
-          <Route path="/rfp-writer" element={<RfpWriter />} />
+          <Route path="/contracts/rfp/:contractId" element={<RfpWriter />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
