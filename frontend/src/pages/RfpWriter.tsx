@@ -1,110 +1,177 @@
-import { useState, useEffect } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { RfpContainer } from "@/components/rfp/RfpContainer";
-import { Button } from "@/components/ui/button";
-import { Download, Upload, Eye, Save } from "lucide-react";
-import { toast } from "sonner";
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { RfpContainer } from '../components/rfp/RfpContainer';
+import { ArrowLeft, Loader2 } from 'lucide-react';
+import SideBar from '../components/layout/SideBar';
 
 export default function RfpWriter() {
-  const [content, setContent] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const location = useLocation();
+  const { contractId } = useParams();
   const navigate = useNavigate();
-  const contract = location.state?.contract;
+  const [contract, setContract] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!contract) {
-      toast.error('No contract information provided');
-      navigate('/contracts');
-      return;
-    }
+    // Try to load contract data from sessionStorage
+    const loadContractData = () => {
+      try {
+        const storedContract = sessionStorage.getItem('currentContract');
+        if (storedContract) {
+          const parsedContract = JSON.parse(storedContract);
+          
+          // Verify this is the correct contract by checking the ID
+          if (parsedContract.id === contractId) {
+            setContract(parsedContract);
+            setLoading(false);
+            return true;
+          }
+        }
+        return false;
+      } catch (error) {
+        console.error('Error loading contract data:', error);
+        return false;
+      }
+    };
+
+    // First try to load from sessionStorage
+    const contractLoaded = loadContractData();
     
-    setIsGenerating(true);
-    setContent(''); // Clear previous content
+    // If not found in sessionStorage, fetch from API
+    if (!contractLoaded) {
+      fetchContractData();
+    }
+  }, [contractId]);
 
-    // API call to generate RFP
-    fetch(`http://localhost:5000/generate-rfp/${contract.id}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(contract)
-    })
-    .then(response => response.json())
-    .then(data => {
-      const formattedContent = `
-<div class="text-center">
-  <img src="/logo.jpg" alt="Company Logo" class="mx-auto h-56" />
-</div>
-
-# REQUEST FOR PROPOSAL (RFP) FOR ${contract.title}
-
-## PROJECT OVERVIEW
-<strong>${contract.agency}</strong> is seeking proposals for <strong>${contract.title}</strong>. This Request for Proposal (RFP) is issued under NAICS code <strong>${contract.naicsCode}</strong>. This document outlines the requirements and specifications for potential contractors.
-
-## SCOPE OF WORK
-The selected contractor will be responsible for delivering comprehensive solutions that meet all specified requirements and objectives outlined in this RFP.
-
-## TIMELINE
-• RFP Issue Date: ${new Date().toLocaleDateString()}
-• Proposal Due Date: ${new Date(contract.dueDate).toLocaleDateString()}
-• Expected Award Date: TBD
-
-## EVALUATION CRITERIA
-• Technical Capability (40%)
-• Past Performance (25%)
-• Cost Proposal (20%)
-• Project Management (15%)
-
-## SUBMISSION REQUIREMENTS
-1. Executive Summary
-2. Technical Approach
-3. Past Performance References
-4. Cost Breakdown
-5. Project Timeline
-6. Team Composition
-7. Risk Management Plan
-
-For questions regarding this RFP, please contact the contracting officer.
-`.trim();
-
-      setContent(formattedContent);
-      setIsGenerating(false);
-      toast.success('RFP generated successfully');
-    })
-    .catch(error => {
-      toast.error('Failed to generate RFP.');
-      console.error('Error:', error);
-      setIsGenerating(false);
-    });
-  }, [contract, navigate]);
-
-  const handleSave = async () => {
-    setIsSaving(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setIsSaving(false);
-    toast.success("Document saved successfully");
+  const fetchContractData = async () => {
+    setLoading(true);
+    try {
+      // You would replace this with your actual API call
+      // For demonstration, using a timeout to simulate API call
+      setTimeout(() => {
+        // Example fallback data if API call isn't implemented
+        const fallbackData = {
+          id: contractId,
+          title: `Contract ${contractId}`,
+          agency: "Unknown Agency",
+          dueDate: "2025-03-31",
+          value: 100000,
+          status: "Open",
+          naicsCode: "000000",
+          description: "This is a placeholder description for the contract. In a real implementation, this would be fetched from your API."
+        };
+        
+        setContract(fallbackData);
+        setLoading(false);
+      }, 1000);
+      
+      // In a real implementation, you would do something like:
+      /*
+      const response = await fetch(`/api/contracts/${contractId}`);
+      if (!response.ok) {
+        throw new Error(`Error fetching contract: ${response.statusText}`);
+      }
+      const data = await response.json();
+      setContract(data);
+      */
+    } catch (error) {
+      console.error('Error fetching contract data:', error);
+      setError('Failed to load contract details. Please try again later.');
+      setLoading(false);
+    }
   };
 
-  return (
-    <DashboardLayout>
-      <div className="h-[calc(100vh-4rem)]">
-        <div className="mb-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold">RFP Writer</h1>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={handleSave}>
-              <Save className="w-4 h-4 mr-2" />{isSaving ? "Saving..." : "Save"}
-            </Button>
+  const handleGoBack = () => {
+    navigate(-1);
+  };
+
+  if (loading) {
+    return (
+      <div className="h-screen flex flex-col">
+        <div className="w-full bg-blue-600 text-white text-center py-2 px-4">
+          <div className="flex items-center justify-center">
+            <span>Subscription Plans.</span>
+            <a href="#" className="ml-2 font-medium underline decoration-2 underline-offset-2">
+              Book a demo here
+            </a>
           </div>
         </div>
-
-        <RfpContainer 
-          initialContent={content}
-          contract={contract}
-        />
+        <div className="flex flex-1">
+          <SideBar />
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-4" />
+              <p className="text-gray-600">Loading contract details...</p>
+            </div>
+          </div>
+        </div>
       </div>
-    </DashboardLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="h-screen flex flex-col">
+        <div className="w-full bg-blue-600 text-white text-center py-2 px-4">
+          <div className="flex items-center justify-center">
+            <span>Subscription Plans.</span>
+            <a href="#" className="ml-2 font-medium underline decoration-2 underline-offset-2">
+              Book a demo here
+            </a>
+          </div>
+        </div>
+        <div className="flex flex-1">
+          <SideBar />
+          <div className="flex-1 p-6">
+            <button 
+              onClick={handleGoBack}
+              className="flex items-center text-blue-600 mb-6 hover:underline"
+            >
+              <ArrowLeft className="h-4 w-4 mr-1" /> Back to Opportunities
+            </button>
+            <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+              <p className="text-red-600 mb-4">{error}</p>
+              <button 
+                onClick={fetchContractData}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md"
+              >
+                Try Again
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-screen flex flex-col">
+      <div className="w-full bg-blue-600 text-white text-center py-2 px-4">
+        <div className="flex items-center justify-center">
+          <span>Subscription Plans.</span>
+          <a href="#" className="ml-2 font-medium underline decoration-2 underline-offset-2">
+            Book a demo here
+          </a>
+        </div>
+      </div>
+      <div className="flex flex-1">
+        <SideBar />
+        <div className="flex-1 flex flex-col">
+          <div className="p-4 border-b border-gray-200 bg-white shadow-sm">
+            <button 
+              onClick={handleGoBack}
+              className="flex items-center text-blue-600 hover:underline"
+            >
+              <ArrowLeft className="h-4 w-4 mr-1" /> Back to Opportunities
+            </button>
+          </div>
+          <div className="flex-1">
+            <RfpContainer 
+              contract={contract}
+              initialContent=""
+            />
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

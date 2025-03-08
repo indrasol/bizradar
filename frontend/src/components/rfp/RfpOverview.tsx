@@ -92,16 +92,6 @@ export function RfpOverview({
               <p className="font-medium">{naicsCode}</p>
             </div>
           </div>
-
-          <div className="flex items-center gap-3 text-gray-700">
-            <div className="p-2 bg-blue-50 rounded-full shadow-sm">
-              <AlignLeft className="w-5 h-5 text-blue-500" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Brief Description</p>
-              <p className="font-medium text-sm line-clamp-2">{description}</p>
-            </div>
-          </div>
         </div>
       </div>
 
