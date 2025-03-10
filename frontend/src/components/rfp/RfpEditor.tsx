@@ -1,17 +1,22 @@
 import React, { useState, useEffect, useRef } from 'react';
 import html2pdf from 'html2pdf.js';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, AlertCircle } from 'lucide-react';
 
 interface RfpEditorProps {
   content?: string;
   onChange?: (content: string) => void;
   onProcessWithAI?: (content: string) => void;
+  highlightContext?: {
+    text: string;
+    term: string;
+  } | null;
 }
 
 const RfpEditor: React.FC<RfpEditorProps> = ({ 
   content: initialContent = '', 
   onChange, 
-  onProcessWithAI 
+  onProcessWithAI,
+  highlightContext = null
 }) => {
   const [content, setContent] = useState(initialContent);
   const [isLoading, setIsLoading] = useState(true);
@@ -19,6 +24,7 @@ const RfpEditor: React.FC<RfpEditorProps> = ({
   const [successMessage, setSuccessMessage] = useState('');
   const [showPreview, setShowPreview] = useState(true);
   const [showDownloadOptions, setShowDownloadOptions] = useState(false);
+  const [hasHighlight, setHasHighlight] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
   const downloadOptionsRef = useRef<HTMLDivElement>(null);
 
@@ -51,6 +57,131 @@ const RfpEditor: React.FC<RfpEditorProps> = ({
       onChange(content);
     }
   }, [content, onChange]);
+
+  // Add CSS styles for the highlighting
+  useEffect(() => {
+    // Add a style tag for our custom highlights if it doesn't exist
+    if (!document.getElementById('highlight-styles')) {
+      const styleTag = document.createElement('style');
+      styleTag.id = 'highlight-styles';
+      styleTag.innerHTML = `
+        .rfp-highlight {
+          background-color: #FFECB3;
+          border-left: 3px solid #FFC107;
+          padding: 4px 8px;
+          margin: 4px 0;
+          display: inline-block;
+          box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+          animation: highlight-pulse 2s infinite;
+        }
+        
+        @keyframes highlight-pulse {
+          0% { background-color: #FFECB3; }
+          50% { background-color: #FFE082; }
+          100% { background-color: #FFECB3; }
+        }
+        
+        .rfp-term-highlight {
+          background-color: #FFC107;
+          padding: 0 2px;
+          border-radius: 2px;
+          font-weight: 500;
+        }
+      `;
+      document.head.appendChild(styleTag);
+    }
+  }, []);
+
+  // Improved highlighting effect 
+  useEffect(() => {
+    if (!highlightContext || !contentRef.current) return;
+    
+    console.log("⭐ Trying to highlight context:", highlightContext);
+    
+    const { text, term } = highlightContext;
+    
+    // Save original content to restore later
+    const originalHTML = contentRef.current.innerHTML;
+    let foundMatch = false;
+    
+    try {
+      // First try to find the exact text match
+      if (text && text.length > 5) {
+        // Safely escape the text for use in a regular expression
+        const escapedText = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        
+        // Create a regex to find the text
+        const regex = new RegExp(escapedText, 'gi');
+        
+        // Test if we can find the text in the content
+        if (regex.test(contentRef.current.innerHTML)) {
+          console.log("✅ Found exact text match to highlight!");
+          
+          // Apply highlight to the text
+          contentRef.current.innerHTML = contentRef.current.innerHTML.replace(
+            regex,
+            '<div class="rfp-highlight">$&</div>'
+          );
+          foundMatch = true;
+          
+          // Scroll to the first highlight
+          setTimeout(() => {
+            const highlight = contentRef.current?.querySelector('.rfp-highlight');
+            if (highlight) {
+              highlight.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }, 100);
+        }
+      }
+      
+      // If we couldn't find the exact text, try highlighting just the term
+      if (!foundMatch && term && term.length > 3) {
+        const escapedTerm = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const termRegex = new RegExp(`\\b${escapedTerm}\\b`, 'gi');
+        
+        if (termRegex.test(contentRef.current.innerHTML)) {
+          console.log("✅ Found term to highlight:", term);
+          
+          contentRef.current.innerHTML = contentRef.current.innerHTML.replace(
+            termRegex,
+            '<span class="rfp-term-highlight">$&</span>'
+          );
+          foundMatch = true;
+          
+          // Scroll to the first highlight
+          setTimeout(() => {
+            const highlight = contentRef.current?.querySelector('.rfp-term-highlight');
+            if (highlight) {
+              highlight.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }, 100);
+        }
+      }
+      
+      // If we found a match, set a timeout to remove the highlight
+      if (foundMatch) {
+        setHasHighlight(true);
+        
+        // Restore original content after 5 seconds
+        const timer = setTimeout(() => {
+          if (contentRef.current) {
+            contentRef.current.innerHTML = originalHTML;
+            setHasHighlight(false);
+          }
+        }, 5000);
+        
+        return () => clearTimeout(timer);
+      } else {
+        console.log("❌ No matching text found to highlight");
+      }
+    } catch (error) {
+      console.error("Error applying highlight:", error);
+      // Restore original content if there was an error
+      if (contentRef.current) {
+        contentRef.current.innerHTML = originalHTML;
+      }
+    }
+  }, [highlightContext]);
 
   const generateResponse = async () => {
     setIsLoading(true);
@@ -303,7 +434,7 @@ const RfpEditor: React.FC<RfpEditorProps> = ({
         <div className="relative" ref={downloadOptionsRef}>
           <button 
             onClick={toggleDownloadOptions}
-            className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded flex items-center gap-1"
+            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded flex items-center gap-1 shadow-sm"
             disabled={isLoading || !content}
           >
             Download
@@ -311,7 +442,7 @@ const RfpEditor: React.FC<RfpEditorProps> = ({
           </button>
           
           {showDownloadOptions && (
-            <div className="absolute left-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10">
+            <div className="absolute left-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10 border border-gray-200">
               <div className="py-1" role="menu" aria-orientation="vertical">
                 <button
                   onClick={() => {
@@ -340,32 +471,40 @@ const RfpEditor: React.FC<RfpEditorProps> = ({
         
         <button 
           onClick={handleProcessWithAI}
-          className="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded"
+          className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded shadow-sm"
           disabled={isLoading || !content}
         >
           Process with AI
         </button>
         <button 
           onClick={togglePreview}
-          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+          className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded shadow-sm border border-gray-300"
           disabled={isLoading || !content}
         >
           {showPreview ? 'Hide Preview' : 'Show Preview'}
         </button>
         {isLoading && (
           <div className="flex items-center">
-            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500 mr-2"></div>
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-2"></div>
             <span>Processing...</span>
           </div>
         )}
       </div>
 
       {showPreview && content && (
-        <div 
-          ref={contentRef}
-          className="border p-4 mt-4 max-h-[500px] overflow-auto bg-white rounded"
-        >
-          <div dangerouslySetInnerHTML={{ __html: content }} />
+        <div className="relative">
+          {hasHighlight && (
+            <div className="absolute top-2 right-2 bg-yellow-100 border border-yellow-400 text-yellow-800 px-3 py-1 rounded-md shadow-sm flex items-center z-10">
+              <AlertCircle className="w-4 h-4 mr-1" />
+              <span className="text-xs font-medium">Reference context highlighted</span>
+            </div>
+          )}
+          <div 
+            ref={contentRef}
+            className="border border-gray-200 p-4 mt-4 max-h-[500px] overflow-auto bg-white rounded"
+          >
+            <div dangerouslySetInnerHTML={{ __html: content }} />
+          </div>
         </div>
       )}
     </div>

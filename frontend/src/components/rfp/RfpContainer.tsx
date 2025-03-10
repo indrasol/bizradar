@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { RfpChat } from './RfpChat';
 import { RfpOverview } from './RfpOverview';
 import RfpEditor from './RfpEditor';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { X } from 'lucide-react';
+import { X, MessageSquare, ChevronLeft } from 'lucide-react';
 
 interface RfpContainerProps {
   initialContent?: string;
@@ -15,6 +15,8 @@ export function RfpContainer({ initialContent = '', contract }: RfpContainerProp
   const [documentContent, setDocumentContent] = useState(initialContent);
   const [showDescription, setShowDescription] = useState(false);
   const [showEditor, setShowEditor] = useState(false);
+  const [contextHighlight, setContextHighlight] = useState<{text: string, term: string} | null>(null);
+  const [isChatOpen, setIsChatOpen] = useState(false);
   
   // New state to track the current context for the AI
   const [aiContext, setAiContext] = useState<string>('');
@@ -49,10 +51,25 @@ export function RfpContainer({ initialContent = '', contract }: RfpContainerProp
     setShowEditor(true);
   };
 
+  const toggleChat = () => {
+    setIsChatOpen(!isChatOpen);
+  };
+
   // This handles content updates from the chat assistant
-  const handleUpdateContent = (content: string) => {
-    // Only append content if we're in editor mode
-    if (showEditor) {
+  const handleUpdateContent = (content: string, context?: { text: string, term: string }) => {
+    // If a context is provided for highlighting, set it regardless of other conditions
+    if (context && context.text) {
+      console.log("Setting highlight context:", context);
+      setContextHighlight(context);
+      
+      // Set a timeout to clear the highlight after 5 seconds
+      setTimeout(() => {
+        setContextHighlight(null);
+      }, 5000);
+    }
+    
+    // Only append content if we're in editor mode and content is provided
+    if (showEditor && content && content.trim()) {
       setDocumentContent(prev => prev + '\n' + content);
     }
   };
@@ -96,17 +113,12 @@ export function RfpContainer({ initialContent = '', contract }: RfpContainerProp
     <div className="min-h-[calc(100vh-8rem)] bg-gray-50 relative">
       {/* Main Layout */}
       <div className="flex h-full">
-        {/* Always visible chat panel */}
-        <div className="w-[300px] bg-white shadow-lg h-[calc(100vh-8rem)] fixed left-0 top-[8rem] z-30">
-          <RfpChat
-            documentContent={aiContext} // Use the combined context for AI
-            onUpdateContent={handleUpdateContent}
-            placeholder="Ask about RFP details or content..."
-          />
-        </div>
-
-        {/* Main content area with left margin */}
-        <div className="ml-[300px] w-[calc(100%-300px)]">
+        {/* Main content area - width adjusts based on chat visibility */}
+        <div 
+          className={`transition-all duration-300 ease-in-out ${
+            isChatOpen ? 'w-[60%]' : 'w-full'
+          }`}
+        >
           {/* Overview Section */}
           <div className="p-6">
             <RfpOverview
@@ -119,6 +131,8 @@ export function RfpContainer({ initialContent = '', contract }: RfpContainerProp
               description={contract?.description}
               onViewDescription={handleViewDescription}
               onGenerateResponse={handleGenerateResponse}
+              onToggleChat={toggleChat}
+              isChatOpen={isChatOpen}
             />
           </div>
 
@@ -128,19 +142,53 @@ export function RfpContainer({ initialContent = '', contract }: RfpContainerProp
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mt-8 w-full p-6"
+                className="mt-4 w-full p-6"
               >
-                <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+                <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
                   <RfpEditor
                     content={documentContent}
                     onChange={handleEditorContentChange}
                     onProcessWithAI={handleProcessWithAI}
+                    highlightContext={contextHighlight}
                   />
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
         </div>
+
+        {/* Chat panel - slides in/out */}
+        <AnimatePresence>
+          {isChatOpen && (
+            <motion.div
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: '40%', opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              transition={{ ease: "easeInOut", duration: 0.3 }}
+              className="fixed right-0 top-[8rem] h-[calc(100vh-8rem)] bg-white shadow-lg border-l border-gray-200 z-30 overflow-hidden"
+            >
+              <div className="h-full flex flex-col">
+                <div className="flex items-center justify-between p-2 bg-blue-600 text-white">
+                  <span className="text-sm font-medium">Bizradar AI</span>
+                  <button 
+                    onClick={toggleChat}
+                    className="p-1 rounded-full hover:bg-blue-500 transition-colors"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="flex-1 overflow-hidden">
+                  <RfpChat
+                    documentContent={aiContext}
+                    onUpdateContent={handleUpdateContent}
+                    placeholder="Ask about RFP details or content..."
+                    contractDetails={contract}
+                  />
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Description Modal */}
@@ -150,7 +198,7 @@ export function RfpContainer({ initialContent = '', contract }: RfpContainerProp
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-40"
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
           >
             <motion.div
               initial={{ scale: 0.95 }}
