@@ -14,6 +14,7 @@ import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
 import Opportunities from "./pages/Opportunities";
 import { AuthProvider } from "./components/Auth/AuthContext"; // Fixed path
+import {Settings} from "./pages/Settings";
 
 
 const queryClient = new QueryClient();
@@ -33,6 +34,7 @@ const App = () => (
           <Route path="/admin" element={<Admin />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
+          <Route path="/settings" element={<Settings/>} />
           <Route path="/contracts/rfp/:contractId" element={<RfpWriter />} />
           <Route path="*" element={<NotFound />} />
           {/* </AuthProvider> */}

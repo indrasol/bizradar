@@ -469,13 +469,13 @@ const RfpEditor: React.FC<RfpEditorProps> = ({
           )}
         </div>
         
-        <button 
+        {/* <button 
           onClick={handleProcessWithAI}
           className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded shadow-sm"
           disabled={isLoading || !content}
         >
           Process with AI
-        </button>
+        </button> */}
         <button 
           onClick={togglePreview}
           className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded shadow-sm border border-gray-300"
