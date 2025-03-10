@@ -3,8 +3,7 @@ import { motion } from "framer-motion";
 import { 
   Calendar, Copy, Search, ChevronRight, MessageCircle,
   Calendar as CalendarIcon, BarChart2, Settings, User, 
-  Radar,
-  Home
+  Radar
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -14,12 +13,12 @@ const SideBar: React.FC = () => {
   const sidebarOpen = true;
   
   const menuItems = [
-    { icon: <Home size={18} />, label: "Home" },
-    // { icon: <Copy size={18} />, label: "My Proposal Documents" },
+    { icon: <Calendar size={18} />, label: "My Tasks" },
+    { icon: <Copy size={18} />, label: "My Proposal Documents" },
     { icon: <Search size={18} />, label: "Opportunities", active: true },
-    // { icon: <CalendarIcon size={18} />, label: "Schedules" },
+    { icon: <CalendarIcon size={18} />, label: "Schedules" },
     { icon: <MessageCircle size={18} />, label: "Ask AI" },
-    { icon: <BarChart2 size={18} />, label: "Pursuits/Search" },
+    { icon: <BarChart2 size={18} />, label: "Pursuits" },
     { icon: <Copy size={18} />, label: "Library" },
     { icon: <Settings size={18} />, label: "Settings" }
   ];
