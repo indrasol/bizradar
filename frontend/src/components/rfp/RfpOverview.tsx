@@ -1,4 +1,4 @@
-import { FileText, Building, Calendar, DollarSign, Tag, AlignLeft } from "lucide-react";
+import { FileText, Building, Calendar, DollarSign, Tag, MessageSquare, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface RfpOverviewProps {
@@ -11,6 +11,8 @@ interface RfpOverviewProps {
   description?: string;
   onViewDescription: () => void;
   onGenerateResponse: () => void;
+  onToggleChat: () => void;
+  isChatOpen: boolean;
 }
 
 export function RfpOverview({
@@ -22,12 +24,14 @@ export function RfpOverview({
   naicsCode = "Not specified",
   description = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.",
   onViewDescription,
-  onGenerateResponse
+  onGenerateResponse,
+  onToggleChat,
+  isChatOpen
 }: RfpOverviewProps) {
   return (
-    <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-8">
+    <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-8 border border-gray-200">
       <div className="flex justify-between items-start mb-8">
-        <h2 className="text-2xl font-semibold">RFP Overview</h2>
+        <h2 className="text-2xl font-semibold text-gray-800">RFP Overview</h2>
         <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium shadow-sm"
              style={{
                backgroundColor: status.toLowerCase() === 'draft' ? '#EFF6FF' : '#F0FDF4',
@@ -92,25 +96,14 @@ export function RfpOverview({
               <p className="font-medium">{naicsCode}</p>
             </div>
           </div>
-
-          <div className="flex items-center gap-3 text-gray-700">
-            <div className="p-2 bg-blue-50 rounded-full shadow-sm">
-              <AlignLeft className="w-5 h-5 text-blue-500" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Brief Description</p>
-              <p className="font-medium text-sm line-clamp-2">{description}</p>
-            </div>
-          </div>
         </div>
       </div>
 
-      <div className="mt-8 pt-6 border-t flex gap-4 justify-center">
+      <div className="mt-8 pt-6 border-t flex flex-wrap gap-4 justify-center">
         <Button
-          variant="outline"
           size="lg"
           onClick={onViewDescription}
-          className="min-w-[200px] shadow-sm"
+          className="min-w-[200px] shadow-sm bg-green-500 hover:bg-green-600 text-white"
         >
           View Complete Description
         </Button>
@@ -120,6 +113,27 @@ export function RfpOverview({
           className="min-w-[200px] bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
         >
           Generate RFP Response
+        </Button>
+        <Button
+          size="lg"
+          onClick={onToggleChat}
+          className={`shadow-sm flex items-center gap-2 ${
+            isChatOpen 
+              ? 'bg-gray-200 hover:bg-gray-300 text-gray-800 border border-gray-300' 
+              : 'bg-blue-600 hover:bg-blue-700 text-white'
+          }`}
+        >
+          {isChatOpen ? (
+            <>
+              <X className="w-4 h-4" />
+              Hide Bizradar AI
+            </>
+          ) : (
+            <>
+              <MessageSquare className="w-4 h-4" />
+              Ask Bizradar AI
+            </>
+          )}
         </Button>
       </div>
     </div>
