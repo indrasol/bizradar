@@ -1,32 +1,39 @@
 import { useState, useEffect } from 'react';
 
-interface TypewriterTextProps {
+interface TypeWriterProps {
   text: string;
-  speed?: number;
   onComplete?: () => void;
+  speed?: number;
 }
 
-export function TypewriterText({ text, speed = 30, onComplete }: TypewriterTextProps) {
+export const TypeWriter: React.FC<TypeWriterProps> = ({ 
+  text, 
+  onComplete, 
+  speed = 50 
+}) => {
   const [displayText, setDisplayText] = useState('');
   const [currentIndex, setCurrentIndex] = useState(0);
 
   useEffect(() => {
+    if (!text) return;
+
     if (currentIndex < text.length) {
       const timeout = setTimeout(() => {
         setDisplayText(prev => prev + text[currentIndex]);
-        setCurrentIndex(prev => prev + 1);
+        setCurrentIndex(currentIndex + 1);
       }, speed);
 
       return () => clearTimeout(timeout);
     } else if (onComplete) {
       onComplete();
     }
-  }, [currentIndex, text, speed, onComplete]);
+  }, [text, currentIndex, speed, onComplete]);
 
-  return (
-    <div className="font-mono relative">
-      {displayText}
-      <span className="absolute -right-3 animate-pulse">|</span>
-    </div>
-  );
-} 
+  useEffect(() => {
+    // Reset when text changes
+    setDisplayText('');
+    setCurrentIndex(0);
+  }, [text]);
+
+  return displayText;
+};
