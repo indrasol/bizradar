@@ -28,31 +28,47 @@ async def search_job_opportunities(request: Request):
         query = data.get("query", "")
         contract_type = data.get("contract_type", None)
         platform = data.get("platform", None)
-        page = data.get("page", 1)
-        results_per_page = data.get("results_per_page", 5)
+        page = int(data.get("page", 1))
+        page_size = int(data.get("page_size", 7))
 
         if not query:
-            raise HTTPException(status_code=400, detail="Query is required")
+            return {"results": [], "total": 0, "page": 1, "page_size": page_size, "total_pages": 0}
 
-        # Search for jobs
+        # Get all relevant results
         refined_query = refine_query(query, contract_type, platform)
-        job_results = search_jobs(refined_query, contract_type, platform)
+        all_results = search_jobs(refined_query, contract_type, platform)
         
-        # Implement pagination
-        start_index = (page - 1) * results_per_page
-        end_index = start_index + results_per_page
-        paginated_results = job_results[start_index:end_index]
+        # Log the actual number of results
+        logger.info(f"Total results found: {len(all_results)}")
+        
+        # Calculate pagination
+        total_results = len(all_results)
+        total_pages = (total_results + page_size - 1) // page_size if total_results > 0 else 0
+        
+        # Check if requested page is valid
+        if page > total_pages and total_pages > 0:
+            page = 1  # Reset to page 1 if requested page is out of bounds
+            logger.info(f"Requested page {page} exceeds total pages {total_pages}, resetting to page 1")
+        
+        # Calculate slice indices
+        start_idx = (page - 1) * page_size
+        end_idx = min(start_idx + page_size, total_results)
+        
+        # Get the page results
+        page_results = all_results[start_idx:end_idx]
+        
+        logger.info(f"Pagination: page {page}/{total_pages}, showing items {start_idx + 1}-{end_idx} of {total_results}")
         
         return {
-            "results": paginated_results,
-            "total_results": len(job_results),
+            "results": page_results,
+            "total": total_results,
             "page": page,
-            "total_pages": (len(job_results) + results_per_page - 1) // results_per_page
+            "page_size": page_size,
+            "total_pages": total_pages
         }
-
     except Exception as e:
-        logger.error(f"Error in search opportunities: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error in search: {str(e)}")
+        return {"results": [], "total": 0, "page": 1, "page_size": page_size, "total_pages": 0}
 
 @search_router.post("/ai-recommendations")
 async def get_ai_recommendations(request: Request):

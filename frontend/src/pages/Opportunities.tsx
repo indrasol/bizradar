@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { 
   Search, Settings, ChevronDown, ChevronUp, X, Filter, Bell, Download, 
   MessageCircle, Plus, Shield, BarChart2, ChevronRight, ChevronLeft, Share,
-  Zap, Lock, Database, Code, Maximize, Minimize, Info
+  Zap, Lock, Database, Code, Maximize, Minimize, ExternalLink, Check, Info
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import SideBar from "../components/layout/SideBar";
@@ -29,6 +29,10 @@ export default function Opportunities() {
   const [expandRecommendations, setExpandRecommendations] = useState(false);
   const [aiComponentCollapsed, setAiComponentCollapsed] = useState(false); // New state for collapsing AI component
   const [scrollToTopVisible, setScrollToTopVisible] = useState(false); // State for scroll to top button
+  
+  // New state variables
+  const [pursuitCount, setPursuitCount] = useState(0); // State to track the number of pursuits
+  const [showNotification, setShowNotification] = useState(false); // State to manage notification visibility
   
   // Use a ref to track if recommendations request is in progress to prevent duplicate requests
   const requestInProgressRef = useRef(false);
@@ -70,8 +74,9 @@ export default function Opportunities() {
   
   // State for pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalResults, setTotalResults] = useState(initialOpportunities.length);
-  const resultsPerPage = 5;
+  const [totalResults, setTotalResults] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const resultsPerPage = 7; // Using 7 results per page
   
   // Calculate displayed opportunities based on pagination
   const indexOfLastResult = currentPage * resultsPerPage;
@@ -109,12 +114,12 @@ export default function Opportunities() {
   
   // Fetch AI recommendations
   const fetchAiRecommendations = async () => {
-    if (requestInProgressRef.current || currentOpportunities.length === 0) return;
+    if (requestInProgressRef.current || opportunities.length === 0) return;
     
-    const searchId = `${searchQuery}-${currentPage}-${currentOpportunities.length}`;
+    const searchId = `${searchQuery}-${currentPage}`;
     
     if (searchId === lastSearchIdRef.current) {
-      console.log("Skipping duplicate search request for:", searchId);
+      console.log("Skipping duplicate recommendations request for:", searchId);
       return;
     }
     
@@ -122,11 +127,10 @@ export default function Opportunities() {
     lastSearchIdRef.current = searchId;
     setIsLoadingRecommendations(true);
     
-    console.log("Starting to fetch AI recommendations for", currentOpportunities.length, "opportunities");
+    console.log("Starting to fetch AI recommendations for page", currentPage);
     
     try {
       const userProfile = getUserProfile();
-      console.log("Using company profile for recommendations:", userProfile);
       
       const response = await fetch("http://localhost:5000/ai-recommendations", {
         method: "POST",
@@ -136,7 +140,7 @@ export default function Opportunities() {
         body: JSON.stringify({
           companyUrl: userProfile.companyUrl,
           companyDescription: userProfile.companyDescription,
-          opportunities: currentOpportunities,
+          opportunities: opportunities,  // Use the current page's opportunities
           responseFormat: "json",
           includeMatchReason: true
         }),
@@ -154,9 +158,9 @@ export default function Opportunities() {
         
         const enhancedRecommendations = data.recommendations.map(rec => {
           const oppIndex = typeof rec.opportunityIndex === 'number' 
-            ? Math.min(rec.opportunityIndex, currentOpportunities.length - 1) 
+            ? Math.min(rec.opportunityIndex, opportunities.length - 1) 
             : 0;
-          const opportunity = currentOpportunities[oppIndex];
+          const opportunity = opportunities[oppIndex];
           
           return {
             ...rec,
@@ -190,20 +194,11 @@ export default function Opportunities() {
   
   // useEffect to prevent infinite loop of requests
   useEffect(() => {
-    if (hasSearched && currentOpportunities.length > 0 && !requestInProgressRef.current) {
-      const searchId = `${searchQuery}-${currentPage}-${currentOpportunities.length}`;
-      if (searchId !== lastSearchIdRef.current) {
-        console.log("Triggering fetchAiRecommendations from useEffect for search:", searchId);
-        const timer = setTimeout(() => {
-          fetchAiRecommendations();
-        }, 1000); 
-        
-        return () => {
-          clearTimeout(timer);
-        };
-      }
+    if (hasSearched && opportunities.length > 0 && !requestInProgressRef.current) {
+      console.log("Page changed, fetching new recommendations for page", currentPage);
+      fetchAiRecommendations();
     }
-  }, [currentOpportunities, hasSearched, currentPage, searchQuery]);
+  }, [currentPage, opportunities]);
 
   const toggleFilter = (filter) => {
     setActiveFilters({
@@ -264,7 +259,9 @@ export default function Opportunities() {
         body: JSON.stringify({
           query: query,
           contract_type: null,
-          platform: null
+          platform: null,
+          page: 1, // Start with page 1
+          page_size: resultsPerPage
         }),
       });
       
@@ -273,13 +270,13 @@ export default function Opportunities() {
       }
       
       const data = await response.json();
-      console.log("Search results:", data.results);
+      console.log("Search results:", data);
       
       if (data.results && Array.isArray(data.results)) {
         setHasSearched(true);
         
-        const formattedResults = data.results.map((job, index) => ({
-          id: `job-${index}-${Date.now()}`,
+        const formattedResults = data.results.map((job) => ({
+          id: job.id || `job-${Math.random()}-${Date.now()}`,
           title: job.title || "Untitled Opportunity",
           agency: job.agency || "Unknown Agency",
           jurisdiction: "Federal",
@@ -290,12 +287,15 @@ export default function Opportunities() {
           status: "Active",
           naicsCode: job.naicsCode || "000000",
           platform: job.platform || "sam.gov",
-          description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit."
+          description: job.description?.substring(0, 150) + "..." || "Lorem ipsum dolor sit amet, consectetur adipiscing elit."
         }));
         
         setOpportunities(formattedResults);
-        setTotalResults(formattedResults.length);
-        setCurrentPage(1);
+        setTotalResults(data.total || formattedResults.length);
+        setCurrentPage(data.page || 1);
+        setTotalPages(data.total_pages || Math.ceil(data.total / resultsPerPage));
+        
+        console.log(`Loaded ${formattedResults.length} opportunities. Total: ${data.total}, Pages: ${data.total_pages}`);
       }
     } catch (error) {
       console.error("Error searching opportunities:", error);
@@ -304,10 +304,119 @@ export default function Opportunities() {
     }
   };
 
-  const paginate = (pageNumber) => {
-    setCurrentPage(pageNumber);
-    requestInProgressRef.current = false;
-    lastSearchIdRef.current = "";
+  const paginate = async (pageNumber: number) => {
+    if (pageNumber === currentPage) return;
+    
+    console.log(`Requesting to navigate from page ${currentPage} to page ${pageNumber}`);
+    
+    // Check page bounds
+    if (pageNumber < 1 || (totalPages > 0 && pageNumber > totalPages)) {
+      console.warn(`Invalid page ${pageNumber}. Valid range is 1-${totalPages}`);
+      return;
+    }
+    
+    setIsSearching(true);
+    
+    try {
+      const response = await fetch("http://localhost:5000/search-opportunities", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          query: searchQuery,
+          contract_type: null,
+          platform: null,
+          page: pageNumber,
+          page_size: resultsPerPage
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log(`Page ${pageNumber} data:`, data);
+      
+      if (data.results && Array.isArray(data.results)) {
+        console.log(`Received ${data.results.length} results for page ${data.page}`);
+        
+        // If no results were returned but there should be, revert to page 1
+        if (data.results.length === 0 && data.total > 0) {
+          console.warn("No results returned for this page, returning to page 1");
+          paginate(1);
+          return;
+        }
+        
+        const formattedResults = data.results.map((job) => ({
+          id: job.id ? `job-${job.id}` : `job-${Date.now()}-${Math.random()}`,
+          title: job.title || "Untitled Opportunity",
+          agency: job.agency || "Unknown Agency",
+          jurisdiction: "Federal",
+          type: "RFP",
+          posted: job.posted || "Recent",
+          dueDate: job.dueDate || "TBD",
+          value: job.value || Math.floor(Math.random() * 5000000) + 1000000,
+          status: "Active",
+          naicsCode: job.naicsCode || "000000",
+          platform: job.platform || "sam.gov",
+          description: job.description?.substring(0, 150) + "..." || "Lorem ipsum dolor sit amet"
+        }));
+        
+        // Update the state with the new results
+        setOpportunities(formattedResults);
+        setCurrentPage(data.page || pageNumber);
+        setTotalResults(data.total || 0);
+        setTotalPages(data.total_pages || 1);
+        
+        // Clear recommendations since we're on a new page
+        setAiRecommendations([]);
+        requestInProgressRef.current = false;
+        lastSearchIdRef.current = "";
+        
+        // Scroll back to top
+        const resultsContainer = document.querySelector('.results-container');
+        if (resultsContainer) {
+          resultsContainer.scrollTop = 0;
+        }
+      }
+    } catch (error) {
+      console.error(`Error fetching page ${pageNumber}:`, error);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Pagination component
+  const Pagination = () => {
+    return (
+      hasSearched && !isSearching && totalResults > resultsPerPage && (
+        <div className="flex justify-center items-center my-6">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => paginate(currentPage - 1)}
+              disabled={currentPage === 1}
+              className={`p-2 rounded-md ${currentPage === 1 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-blue-600 hover:bg-blue-50 border border-gray-200'}`}
+            >
+              <ChevronLeft size={16} />
+            </button>
+            
+            <div className="text-sm text-gray-600">
+              Page {currentPage} of {totalPages}
+            </div>
+            
+            <button
+              onClick={() => paginate(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className={`p-2 rounded-md ${currentPage === totalPages ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-blue-600 hover:bg-blue-50 border border-gray-200'}`}
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
+      )
+    );
   };
 
   const handleBeginResponse = (contractId, contractData) => {
@@ -358,6 +467,26 @@ export default function Opportunities() {
       i === index ? { ...rec, showDetailedReason: !rec.showDetailedReason } : rec
     );
     setAiRecommendations(updatedRecommendations);
+  };
+
+  // useEffect to load pursuit count on component mount
+  useEffect(() => {
+    const pursuits = JSON.parse(localStorage.getItem('pursuits') || '[]');
+    setPursuitCount(pursuits.length);
+  }, []);
+
+  // New function to handle adding to pursuits
+  const handleAddToPursuit = (opportunity) => {
+    const currentPursuits = JSON.parse(localStorage.getItem('pursuits') || '[]');
+    const isAlreadyInPursuits = currentPursuits.some(p => p.id === opportunity.id);
+    
+    if (!isAlreadyInPursuits) {
+      const updatedPursuits = [...currentPursuits, opportunity];
+      localStorage.setItem('pursuits', JSON.stringify(updatedPursuits));
+      setPursuitCount(prevCount => prevCount + 1);
+      setShowNotification(true);
+      setTimeout(() => setShowNotification(false), 3000);
+    }
   };
 
   return (
@@ -668,74 +797,88 @@ export default function Opportunities() {
                     )}
 
                     {/* Dynamic Opportunity Cards - Only shown after a search */}
-                    {hasSearched && currentOpportunities.map((opportunity, index) => (
-                      <div key={opportunity.id} className="mx-4 my-4 p-4 bg-white border border-gray-200 rounded-lg shadow-lg hover:shadow-xl transition-all">
-                        <div className="flex justify-between">
-                          <div className="flex items-start gap-2">
-                            <div className="mt-1">
-                              {opportunity.title.toLowerCase().includes('cyber') || opportunity.title.toLowerCase().includes('security') ? (
-                                <Shield className="text-blue-500" size={18} />
-                              ) : opportunity.title.toLowerCase().includes('software') ? (
-                                <Code className="text-amber-500" size={18} />
-                              ) : (
-                                <BarChart2 className="text-blue-500" size={18} />
-                              )}
+                    {hasSearched && !isSearching && opportunities.length > 0 ? (
+                      opportunities.map((opportunity, index) => (
+                        <div key={opportunity.id} className="mx-4 my-4 p-4 bg-white border border-gray-200 rounded-lg shadow-lg hover:shadow-xl transition-all">
+                          <div className="flex justify-between">
+                            <div className="flex items-start gap-2">
+                              <div className="mt-1">
+                                {opportunity.title.toLowerCase().includes('cyber') || opportunity.title.toLowerCase().includes('security') ? (
+                                  <Shield className="text-blue-500" size={18} />
+                                ) : opportunity.title.toLowerCase().includes('software') ? (
+                                  <Code className="text-amber-500" size={18} />
+                                ) : (
+                                  <BarChart2 className="text-blue-500" size={18} />
+                                )}
+                              </div>
+                              <div>
+                                <h2 className="text-lg font-semibold text-gray-800">{opportunity.title}</h2>
+                                <p className="text-sm text-gray-500">{opportunity.agency}</p>
+                              </div>
                             </div>
-                            <div>
-                              <h2 className="text-lg font-semibold text-gray-800">{opportunity.title}</h2>
-                              <p className="text-sm text-gray-500">{opportunity.agency}</p>
-                            </div>
-                          </div>
-                          <button className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-blue-600 hover:bg-blue-50">
-                            <Share size={16} className="text-gray-400" />
-                          </button>
-                        </div>
-
-                        {/* Tags */}
-                        <div className="mt-3 flex items-center gap-2 flex-wrap">
-                          <div className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-md text-xs font-medium">
-                            {opportunity.platform || "sam.gov"}
-                          </div>
-                          <div className="px-2 py-0.5 bg-green-50 text-green-600 rounded-md text-xs font-medium">
-                            {opportunity.status}
-                          </div>
-                          {opportunity.naicsCode && (
-                            <div className="px-2 py-0.5 bg-purple-50 text-purple-600 rounded-md text-xs font-medium">
-                              NAICS: {opportunity.naicsCode}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Description with Read More */}
-                        <div className="mt-3">
-                          <p className="text-sm text-gray-600">
-                            {opportunity.description} 
-                            <button className="text-blue-600 font-medium ml-1 hover:underline text-xs">
-                              Read more
+                            <button className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-blue-600 hover:bg-blue-50">
+                              <Share size={16} className="text-gray-400" />
                             </button>
-                          </p>
-                        </div>
+                          </div>
 
-                        {/* Action Buttons */}
-                        <div className="flex items-center gap-2 mt-3">
-                          <button className="bg-blue-600 text-white px-3 py-1.5 rounded-md text-xs flex items-center gap-1 shadow-sm">
-                            <MessageCircle size={14} />
-                            <span>Ask AI</span>
-                          </button>
-                          <button 
-                            onClick={() => handleBeginResponse(opportunity.id, opportunity)}
-                            className="bg-white border border-gray-200 text-gray-700 px-3 py-1.5 rounded-md text-xs flex items-center gap-1 shadow-sm hover:bg-gray-50 hover:border-blue-200 hover:text-blue-600 transition-colors"
-                          >
-                            <MessageCircle size={14} className="text-blue-500" />
-                            <span>Begin Response</span>
-                          </button>
-                          <button className="bg-white border border-gray-200 text-gray-700 px-3 py-1.5 rounded-md text-xs flex items-center gap-1 shadow-sm hover:bg-gray-50">
-                            <Search size={14} className="text-blue-500" />
-                            <span>Find Similar</span>
-                          </button>
+                          {/* Tags */}
+                          <div className="mt-3 flex items-center gap-2 flex-wrap">
+                            <div className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-md text-xs font-medium">
+                              {opportunity.platform || "sam.gov"}
+                            </div>
+                            <div className="px-2 py-0.5 bg-green-50 text-green-600 rounded-md text-xs font-medium">
+                              {opportunity.status}
+                            </div>
+                            {opportunity.naicsCode && (
+                              <div className="px-2 py-0.5 bg-purple-50 text-purple-600 rounded-md text-xs font-medium">
+                                NAICS: {opportunity.naicsCode}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Description with Read More */}
+                          <div className="mt-3">
+                            <p className="text-sm text-gray-600">
+                              {opportunity.description} 
+                              <button className="text-blue-600 font-medium ml-1 hover:underline text-xs">
+                                Read more
+                              </button>
+                            </p>
+                          </div>
+
+                          {/* Action Buttons */}
+                          <div className="flex items-center gap-2 mt-3">
+                            <button className="bg-blue-600 text-white px-3 py-1.5 rounded-md text-xs flex items-center gap-1 shadow-sm">
+                              <MessageCircle size={14} />
+                              <span>Ask AI</span>
+                            </button>
+                            <button 
+                              onClick={() => handleAddToPursuit(opportunity)}
+                              className="bg-green-600 text-white px-3 py-1.5 rounded-md text-xs flex items-center gap-1 shadow-sm hover:bg-green-700 transition-colors"
+                            >
+                              <Plus size={14} />
+                              <span>Add to Pursuit</span>
+                            </button>
+                            <button 
+                              onClick={() => navigate(`/opportunities/${opportunity.id}`)}
+                              className="bg-white border border-gray-200 text-gray-700 px-3 py-1.5 rounded-md text-xs flex items-center gap-1 shadow-sm hover:bg-gray-50"
+                            >
+                              <ExternalLink size={14} className="text-blue-500" />
+                              <span>View</span>
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))
+                    ) : (
+                      hasSearched && !isSearching && (
+                        <div className="p-6 mx-4 my-4 bg-white border border-gray-200 rounded-lg shadow-lg text-center">
+                          <p className="text-gray-600">No results found for this page. Try another search or go back to the first page.</p>
+                        </div>
+                      )
+                    )}
+
+                    {/* Add pagination component */}
+                    <Pagination />
                   </>
                 )}
               </div>
@@ -752,6 +895,14 @@ export default function Opportunities() {
         >
           ↑
         </button>
+      )}
+
+      {/* Notification Toast */}
+      {showNotification && (
+        <div className="fixed bottom-4 right-4 bg-green-600 text-white py-2 px-4 rounded-md shadow-lg flex items-center gap-2 animate-fade-in-up z-50">
+          <Check size={16} />
+          <span>Added to Pursuits</span>
+        </div>
       )}
     </div>
   );
