@@ -50,7 +50,6 @@ def search_jobs(query: str, contract_type: Optional[str] = None, platform: Optio
         # Generate query embedding
         query_embedding = model.encode(query).tolist()
         logger.info(f"Query embedding shape: {len(query_embedding)}")
-        logger.info(f"First 5 values of embedding: {query_embedding[:5]}")
 
         # Normalize the embedding
         norm = np.linalg.norm(query_embedding)
@@ -58,63 +57,66 @@ def search_jobs(query: str, contract_type: Optional[str] = None, platform: Optio
             query_embedding = (np.array(query_embedding) / norm).tolist()
             logger.info("Embedding normalized")
 
-        # First try without filters to verify vector search works
+        # Query Pinecone with a high top_k to get all potential matches
         try:
-            logger.info("Attempting query without filters first...")
-            base_results = index.query(
+            results = index.query(
                 vector=query_embedding,
-                top_k=5,
+                top_k=100,  # Get more potential matches
                 include_metadata=True,
                 namespace=""
             )
             
-            logger.info(f"Base query results (no filters): {len(base_results.matches)} matches")
-            if base_results.matches:
-                logger.info("Sample metadata from first match:")
-                logger.info(base_results.matches[0].metadata)
-
-            # Now try with filters
-            filters = {}
-            if contract_type and contract_type.lower() != "all":
-                filters["type"] = contract_type.lower()
-            if platform and platform.lower() != "all":
-                filters["source"] = platform.lower()
-
-            logger.info(f"Attempting query with filters: {filters}")
-            filtered_results = index.query(
-                vector=query_embedding,
-                top_k=10,
-                include_metadata=True,
-                namespace="",
-                filter=filters if filters else None
-            )
+            logger.info(f"Query results: {len(results.matches)} matches")
             
-            logger.info(f"Filtered query results: {len(filtered_results.matches)} matches")
-            
-            # Use the filtered results if available, otherwise use base results
-            results = filtered_results if filtered_results.matches else base_results
-
-            if results.matches:
-                logger.info("\nTop matches:")
-                for idx, match in enumerate(results.matches[:3]):
-                    logger.info(f"\nMatch {idx + 1}:")
-                    logger.info(f"ID: {match.id}")
-                    logger.info(f"Score: {match.score:.4f}")
-                    logger.info(f"Metadata: {match.metadata}")
+            if not results.matches:
+                logger.warning("No matches found in vector search")
+                return []
+                
+            # Use a dynamic threshold based on the distribution of scores
+            if len(results.matches) > 0:
+                # Get all scores
+                scores = [match.score for match in results.matches]
+                
+                # Look at the distribution of scores
+                scores.sort(reverse=True)
+                
+                # Use a minimum absolute threshold to maintain quality
+                min_threshold = 0.35
+                
+                # If we have enough results, use a dynamic threshold
+                if len(scores) >= 10:
+                    # Use the mean of the top 10 scores as reference
+                    top_mean = sum(scores[:10]) / 10
+                    
+                    # Use 60% of the top mean as threshold
+                    dynamic_threshold = top_mean * 0.6
+                    
+                    # Use the higher of the two thresholds
+                    threshold = max(min_threshold, dynamic_threshold)
+                else:
+                    # Just use the minimum threshold for small result sets
+                    threshold = min_threshold
+                
+                logger.info(f"Using threshold {threshold:.4f} for filtering")
+                
+                # Apply the threshold
+                filtered_matches = [match for match in results.matches if match.score >= threshold]
             else:
-                logger.warning("No matches found in either filtered or unfiltered search")
+                filtered_matches = []
+            
+            logger.info(f"Filtered from {len(results.matches)} to {len(filtered_matches)} relevant matches")
+            
+            # Extract job IDs from the filtered matches
+            job_ids = [int(match.id) for match in filtered_matches] if filtered_matches else []
+            logger.info(f"Extracted job IDs: {job_ids}")
+            
+            if not job_ids:
+                logger.info("No matching jobs found")
+                return []
 
         except Exception as e:
             logger.error(f"Pinecone query error: {str(e)}")
             logger.error(f"Query embedding dimension: {len(query_embedding)}")
-            return []
-
-        # Extract job IDs
-        job_ids = [int(match.id) for match in results.matches] if results.matches else []
-        logger.info(f"Extracted job IDs: {job_ids}")
-
-        if not job_ids:
-            logger.info("No matching jobs found")
             return []
 
         # Fetch from database
@@ -125,29 +127,35 @@ def search_jobs(query: str, contract_type: Optional[str] = None, platform: Optio
 
         try:
             with connection.cursor() as cursor:
-                cursor.execute("""
-                    SELECT id, title, description, department AS agency, 
-                           'sam.gov' AS platform, NULL AS value
-                    FROM sam_gov 
-                    WHERE id = ANY(%s)
-                """, (job_ids,))
-                
-                columns = ["id", "title", "description", "agency", "platform", "value"]
-                results = [dict(zip(columns, record)) for record in cursor.fetchall()]
-                
-                # Log retrieved jobs
-                logger.info("\n" + "="*50)
-                logger.info("Retrieved Jobs:")
-                logger.info("="*50)
-                for idx, job in enumerate(results, 1):
-                    logger.info(f"\nJob {idx}:")
-                    logger.info(f"Title: {job['title']}")
-                    logger.info(f"Agency: {job['agency']}")
-                    logger.info(f"Platform: {job['platform']}")
-                    logger.info("-"*40)
-                
-                logger.info(f"Total jobs retrieved: {len(results)}")
-                return results
+                # Use a placeholders approach to handle any number of IDs
+                if job_ids:
+                    placeholders = ','.join(['%s'] * len(job_ids))
+                    query_sql = f"""
+                        SELECT id, title, description, department AS agency, 
+                               'sam.gov' AS platform, NULL AS value
+                        FROM sam_gov 
+                        WHERE id IN ({placeholders})
+                    """
+                    cursor.execute(query_sql, job_ids)
+                    
+                    columns = ["id", "title", "description", "agency", "platform", "value"]
+                    results = [dict(zip(columns, record)) for record in cursor.fetchall()]
+                    
+                    # Log retrieved jobs
+                    logger.info("\n" + "="*50)
+                    logger.info("Retrieved Jobs:")
+                    logger.info("="*50)
+                    for idx, job in enumerate(results, 1):
+                        logger.info(f"\nJob {idx}:")
+                        logger.info(f"Title: {job['title']}")
+                        logger.info(f"Agency: {job['agency']}")
+                        logger.info(f"Platform: {job['platform']}")
+                        logger.info("-"*40)
+                    
+                    logger.info(f"Total jobs retrieved: {len(results)}")
+                    return results
+                else:
+                    return []
         finally:
             connection.close()
 
