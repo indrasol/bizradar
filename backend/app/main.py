@@ -5,13 +5,17 @@ from routes.search_routes import search_router
 
 app = FastAPI()
 
-# Use the environment variable for the base URL
-BASE_API_URL = os.getenv("VITE_BASE_API_URL")
+# Configure CORS - allow both local development and production frontend
+origins = [
+    "http://localhost:8080",  # Local React development server
+    "http://localhost:5173",  # Vite default port
+    "https://bizradar.netlify.app",  # Your production frontend domain
+    # "*"  # Temporarily allow all origins during development
+]
 
-# Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[BASE_API_URL],  # Allow requests from the frontend URL
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
