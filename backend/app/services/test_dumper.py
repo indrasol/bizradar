@@ -56,7 +56,7 @@ async def fetch_opportunities() -> Dict[str, Any]:
                     data = await response.json()
                     opportunities = data.get("opportunitiesData", [])
                     rows = []
-                    for opp in opportunities:
+                    for opp in opportunities: 
                         # Convert empty NAICS code to None
                         naics = opp.get("ncode")
                         if naics:
