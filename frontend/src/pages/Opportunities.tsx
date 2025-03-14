@@ -7,6 +7,9 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 import SideBar from "../components/layout/SideBar";
 
+// Import the environment variable
+import.meta.env.VITE_BASE_API_URL;
+
 export default function Opportunities() {
   const navigate = useNavigate(); // Initialize the navigate function
   
@@ -132,7 +135,7 @@ export default function Opportunities() {
     try {
       const userProfile = getUserProfile();
       
-      const response = await fetch("http://localhost:5000/ai-recommendations", {
+      const response = await fetch(`${import.meta.env.VITE_BASE_API_URL}/ai-recommendations`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -251,7 +254,7 @@ export default function Opportunities() {
     lastSearchIdRef.current = "";
     
     try {
-      const response = await fetch("http://localhost:5000/search-opportunities", {
+      const response = await fetch(`${import.meta.env.VITE_BASE_API_URL}/search-opportunities`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -318,7 +321,7 @@ export default function Opportunities() {
     setIsSearching(true);
     
     try {
-      const response = await fetch("http://localhost:5000/search-opportunities", {
+      const response = await fetch(`${import.meta.env.VITE_BASE_API_URL}/search-opportunities`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
