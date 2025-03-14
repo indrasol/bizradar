@@ -6,3 +6,4 @@ pinecone   # For Pinecone vector DB
 sentence-transformers  # For embeddings
 openai            # For OpenAI API
 python-dotenv
+reportlab>=3.6.0
