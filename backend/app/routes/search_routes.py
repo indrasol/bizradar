@@ -226,10 +226,14 @@ async def ask_ai(request: Request):
         messages = data.get("messages", [])
         document_content = data.get("documentContent")
 
-        system_prompt = f"""You are an AI assistant helping with RFP (Request for Proposal) related queries. 
-        {f'Here is the current RFP document content for context:\n\n{document_content}' if document_content else ''}
+        # Create the document context separately
+        document_context = f'Here is the current RFP document content for context:\\n\\n{document_content}' if document_content else ''
         
-        Please provide clear, concise, and professional responses focused on helping users understand and work with RFP documents."""
+        # Then use it in the main string
+        system_prompt = f"""You are an AI assistant helping with RFP (Request for Proposal) related queries. 
+{document_context}
+
+Please provide clear, concise, and professional responses focused on helping users understand and work with RFP documents."""
 
         response = client.chat.completions.create(
             model="gpt-4-turbo-preview",
