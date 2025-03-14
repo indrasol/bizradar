@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { TypeWriter } from "../ui/TypeWriter";  // Update this line
 import { motion, AnimatePresence } from "framer-motion";
+import.meta.env.VITE_BASE_API_URL
 
 interface SearchBarProps {
   selectionType: string;
@@ -30,7 +31,7 @@ export const SearchBar = ({
     setShowRefinedQuery(false);
     
     try {
-      const response = await fetch('http://localhost:5000/search-opportunities', {
+      const response = await fetch(`${import.meta.env.VITE_BASE_API_URL}/search-opportunities`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

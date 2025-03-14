@@ -26,4 +26,23 @@ export async function getAIResponse(messages: ChatMessage[], documentContent?: s
     console.error('Error getting AI response:', error);
     throw error;
   }
-} 
+}
+
+// Import the environment variable
+import.meta.env.VITE_BASE_API_URL;
+
+// Example API function
+export const fetchOpportunities = async (query, page, pageSize) => {
+    const response = await fetch(`${import.meta.env.VITE_BASE_API_URL}/search-opportunities`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+            query,
+            page,
+            page_size: pageSize,
+        }),
+    });
+    return response.json();
+}; 
