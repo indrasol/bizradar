@@ -4,7 +4,8 @@ interface ChatMessage {
 }
 
 // Use a constant for the base API URL
-const API_BASE_URL = import.meta.env.VITE_BASE_API_URL || 'http://localhost:5000';
+const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const API_BASE_URL = isDevelopment ? 'http://localhost:5000' : 'https://bizradar-backend.onrender.com';
 
 export async function getAIResponse(messages: ChatMessage[], documentContent?: string) {
   try {

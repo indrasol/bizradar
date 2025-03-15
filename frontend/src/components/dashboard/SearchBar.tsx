@@ -6,8 +6,8 @@ import { TypeWriter } from "../ui/TypeWriter";  // Update this line
 import { motion, AnimatePresence } from "framer-motion";
 
 
-const API_BASE_URL = import.meta.env.VITE_BASE_API_URL || 'http://localhost:5000';
-
+const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const API_BASE_URL = isDevelopment ? 'http://localhost:5000' : 'https://bizradar-backend.onrender.com';
 
 interface SearchBarProps {
   selectionType: string;
