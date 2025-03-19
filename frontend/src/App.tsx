@@ -15,6 +15,7 @@ import Dashboard from "./pages/Dashboard";
 import Opportunities from "./pages/Opportunities";
 import { AuthProvider } from "./components/Auth/AuthContext"; // Fixed path
 import {Settings} from "./pages/Settings";
+import Pursuits from "./pages/Pursuits";
 
 
 const queryClient = new QueryClient();
@@ -31,6 +32,7 @@ const App = () => (
           <Route path="/Contracts" element={<Contracts />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/opportunites" element={<Opportunities />} />
+          <Route path="/pursuits" element={<Pursuits />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />

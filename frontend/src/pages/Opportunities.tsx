@@ -24,6 +24,7 @@ import {
   ExternalLink,
   Check,
   Info,
+  Clock,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import SideBar from "../components/layout/SideBar";
@@ -49,7 +50,7 @@ export default function Opportunities() {
 
   const [expandedCard, setExpandedCard] = useState("state-executive");
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [filtersOpen, setFiltersOpen] = useState(true);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [aiRecommendations, setAiRecommendations] = useState([]);
@@ -885,12 +886,7 @@ export default function Opportunities() {
                   >
                     <Settings size={16} />
                   </button>
-                  <button
-                    type="button"
-                    className="p-2.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-colors shadow-sm"
-                  >
-                    <Filter size={16} />
-                  </button>
+                  
                 </form>
               </div>
 
@@ -902,7 +898,7 @@ export default function Opportunities() {
                       {totalResults} {totalResults === 1 ? "result" : "results"}
                     </span>
                   ) : (
-                    <span>Search for opportunities</span>
+                    <span>Search for Opportunities</span>
                   )}
                 </div>
                 {hasSearched && (
@@ -1147,6 +1143,167 @@ export default function Opportunities() {
                       </div>
                     )}
 
+                    {/* AI-Matched Opportunities */}
+                    {!hasSearched && (
+                      <div className="mx-4 my-4 p-6 bg-white rounded-lg border border-gray-200 shadow-lg">
+                        <div className="mb-8">
+                          <div className="flex justify-between items-center mb-4">
+                            <div className="flex items-center space-x-2">
+                              <Search className="h-5 w-5 text-gray-500" />
+                              <h2 className="text-lg font-medium text-gray-700">
+                                New AI-Matched Opportunities
+                              </h2>
+                            </div>
+                            <button className="inline-flex items-center px-3 py-1 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                              <Settings className="mr-2 h-4 w-4" />
+                              Edit settings
+                            </button>
+                          </div>
+
+                          {/* Alert */}
+                          <div className="mb-4 bg-yellow-50 border border-yellow-200 rounded-md p-4 text-yellow-800">
+                            We couldn't find any highly relevant new opportunities for your
+                            organization. Please check back tomorrow!
+                          </div>
+
+                          {/* Opportunity cards */}
+                          <div className="space-y-4">
+                            {/* Card 1 */}
+                            <div className="bg-white rounded-md border border-gray-200 overflow-hidden">
+                              <div className="p-4">
+                                <h3 className="text-lg font-medium text-gray-900 mb-1">
+                                  Joint Service General Protective Masks M50, M51, and M53A1
+                                </h3>
+                                <p className="text-sm text-gray-600 mb-2">
+                                  Sources Sought • The Department of Defense, specifically
+                                  the Army, is seeking industry capabilities to produce
+                                  and...
+                                </p>
+                                <div className="flex items-center space-x-4 text-xs">
+                                  <div className="flex items-center text-gray-500">
+                                    <span className="inline-block w-2 h-2 bg-blue-500 rounded-full mr-1"></span>
+                                    DEPT OF DEFENSE
+                                  </div>
+                                  <div className="flex items-center text-gray-500">
+                                    <Clock className="h-3 w-3 mr-1" />
+                                    Released: Mar 5, 2025
+                                  </div>
+                                  <div className="flex items-center text-gray-500">
+                                    <Clock className="h-3 w-3 mr-1" />
+                                    Due: Mar 28, 2025
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="border-t border-gray-200 px-4 py-2 bg-gray-50 text-right">
+                                <button className="inline-flex items-center px-3 py-1 border border-gray-300 text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                                  Add to Pursuits
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Card 2 */}
+                            <div className="bg-white rounded-md border border-gray-200 overflow-hidden">
+                              <div className="p-4">
+                                <h3 className="text-lg font-medium text-gray-900 mb-1">
+                                  Context-Aware Decision Support
+                                </h3>
+                                <p className="text-sm text-gray-600 mb-2">
+                                  SBIR/STTR • Description &lt;p&gt;In today&rsquo;s training
+                                  and operational environments, commanders are confronted
+                                  with...
+                                </p>
+                                <div className="flex items-center space-x-4 text-xs">
+                                  <div className="flex items-center text-gray-500">
+                                    <span className="inline-block w-2 h-2 bg-blue-500 rounded-full mr-1"></span>
+                                    DOD
+                                  </div>
+                                  <div className="flex items-center text-gray-500">
+                                    <Clock className="h-3 w-3 mr-1" />
+                                    Released: Mar 5, 2025
+                                  </div>
+                                  <div className="flex items-center text-gray-500">
+                                    <Clock className="h-3 w-3 mr-1" />
+                                    Due: Apr 23, 2025
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="border-t border-gray-200 px-4 py-2 bg-gray-50 text-right">
+                                <button className="inline-flex items-center px-3 py-1 border border-gray-300 text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                                  Add to Pursuits
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Card 3 */}
+                            <div className="bg-white rounded-md border border-gray-200 overflow-hidden">
+                              <div className="p-4">
+                                <h3 className="text-lg font-medium text-gray-900 mb-1">
+                                  Context-Aware Decision Support
+                                </h3>
+                                <p className="text-sm text-gray-600 mb-2">
+                                  SBIR/STTR • Description &lt;p&gt;In today&rsquo;s training
+                                  and operational environments, commanders are confronted
+                                  with...
+                                </p>
+                                <div className="flex items-center space-x-4 text-xs">
+                                  <div className="flex items-center text-gray-500">
+                                    <span className="inline-block w-2 h-2 bg-blue-500 rounded-full mr-1"></span>
+                                    DOD
+                                  </div>
+                                  <div className="flex items-center text-gray-500">
+                                    <Clock className="h-3 w-3 mr-1" />
+                                    Released: Mar 5, 2025
+                                  </div>
+                                  <div className="flex items-center text-gray-500">
+                                    <Clock className="h-3 w-3 mr-1" />
+                                    Due: Apr 23, 2025
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="border-t border-gray-200 px-4 py-2 bg-gray-50 text-right">
+                                <button className="inline-flex items-center px-3 py-1 border border-gray-300 text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                                  Add to Pursuits
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Card 4 */}
+                            <div className="bg-white rounded-md border border-gray-200 overflow-hidden">
+                              <div className="p-4">
+                                <h3 className="text-lg font-medium text-gray-900 mb-1">
+                                  Design & Installation of Playgrounds
+                                </h3>
+                                <p className="text-sm text-gray-600 mb-2">
+                                  Construction • The City of North Myrtle Beach is
+                                  soliciting proposals for the design and installation of
+                                  playground...
+                                </p>
+                                <div className="flex items-center space-x-4 text-xs">
+                                  <div className="flex items-center text-gray-500">
+                                    <span className="inline-block w-2 h-2 bg-blue-500 rounded-full mr-1"></span>
+                                    City of North Myrtle Beach
+                                  </div>
+                                  <div className="flex items-center text-gray-500">
+                                    <Clock className="h-3 w-3 mr-1" />
+                                    Released: Mar 4, 2025
+                                  </div>
+                                  <div className="flex items-center text-gray-500">
+                                    <Clock className="h-3 w-3 mr-1" />
+                                    Due: Mar 25, 2025
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="border-t border-gray-200 px-4 py-2 bg-gray-50 text-right">
+                                <button className="inline-flex items-center px-3 py-1 border border-gray-300 text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                                  Add to Pursuits
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Dynamic Opportunity Cards - Only shown after a search */}
                     {hasSearched && !isSearching && opportunities.length > 0
                       ? opportunities.map((opportunity, index) => (
@@ -1286,5 +1443,7 @@ export default function Opportunities() {
         </div>
       )}
     </div>
+
+    
   );
 }
