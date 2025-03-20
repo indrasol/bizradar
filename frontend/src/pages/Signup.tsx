@@ -118,15 +118,13 @@ const Signup = ({
       // Attempt registration via AuthContext
       await authRegister(values.firstName, values.lastName, values.email, values.password);
 
-      // Success notification and UI update
+      // Success notification
       toast.success("Account created successfully!");
       onOpenChange(false);
       signupForm.reset();
 
-      // Navigate to dashboard or another appropriate page
-      setTimeout(() => {
-        navigate("/dashboard");
-      }, 1000);
+      // Redirect to company setup instead of dashboard
+      navigate("/company-setup");
     } catch (err: any) {
       console.error("Signup error:", err);
       setError(err.message || "Signup failed");
@@ -476,7 +474,7 @@ const Signup = ({
               <div className="pt-2">
                 <button
                   type="submit"
-                  className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-200  rounded-lg text-white font-medium flex items-center justify-center gap-2 transition-colors shadow-md hover:shadow-lg"
+                  className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 rounded-lg text-white font-medium flex items-center justify-center gap-2 transition-colors shadow-md hover:shadow-lg"
                   disabled={isLoading}
                 >
                   <span>{isLoading ? "Creating account..." : "Sign Up"}</span>
@@ -488,13 +486,6 @@ const Signup = ({
             {/* Login Redirect */}
             <div className="text-center mt-6 text-gray-700">
               Already have an account?{" "}
-              {/* <button
-                type="button"
-                onClick={onSwitchToLogin}
-                className="text-blue-600 font-medium hover:underline"
-              >
-                Log in
-              </button> */}
               <Link
                 to="/login"
                 className="text-blue-600 font-medium hover:underline"

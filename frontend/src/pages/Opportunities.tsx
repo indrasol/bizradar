@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import {
+import { 
   Search,
   Settings,
   ChevronDown,
@@ -39,7 +39,7 @@ const API_BASE_URL = isDevelopment
 
 export default function Opportunities() {
   const navigate = useNavigate(); // Initialize the navigate function
-
+  
   const [activeFilters, setActiveFilters] = useState({
     dueDate: true,
     postedDate: true,
@@ -47,7 +47,7 @@ export default function Opportunities() {
     nigpCode: true,
     unspscCode: true,
   });
-
+  
   const [expandedCard, setExpandedCard] = useState("state-executive");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -64,35 +64,35 @@ export default function Opportunities() {
   // New state variables
   const [pursuitCount, setPursuitCount] = useState(0); // State to track the number of pursuits
   const [showNotification, setShowNotification] = useState(false); // State to manage notification visibility
-
+  
   // Use a ref to track if recommendations request is in progress to prevent duplicate requests
   const requestInProgressRef = useRef(false);
   const lastSearchIdRef = useRef("");
-
+  
   // Suggested search queries
   const suggestedQueries = [
-    {
+    { 
       id: "cybersecurity",
       title: "Cybersecurity Contracts",
       icon: <Shield size={20} className="text-blue-500" />,
       description:
         "Find government contracts related to cybersecurity services, threat monitoring, and security operations.",
     },
-    {
+    { 
       id: "ai-ml",
       title: "AI & Machine Learning",
       icon: <Zap size={20} className="text-purple-500" />,
       description:
         "Explore opportunities involving artificial intelligence, machine learning, and data science.",
     },
-    {
+    { 
       id: "data-management",
       title: "Data Management",
       icon: <Database size={20} className="text-green-500" />,
       description:
         "Discover contracts focused on data management, analytics, and information systems.",
     },
-    {
+    { 
       id: "software-dev",
       title: "Software Development",
       icon: <Code size={20} className="text-amber-500" />,
@@ -100,19 +100,19 @@ export default function Opportunities() {
         "Find contracts for custom software development, maintenance, and IT services.",
     },
   ];
-
+  
   // Initial dummy data - will be replaced with search results
   const initialOpportunities = [];
-
+  
   // State to hold the opportunities data
   const [opportunities, setOpportunities] = useState(initialOpportunities);
-
+  
   // State for pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [totalResults, setTotalResults] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const resultsPerPage = 7; // Using 7 results per page
-
+  
   // Calculate displayed opportunities based on pagination
   const indexOfLastResult = currentPage * resultsPerPage;
   const indexOfFirstResult = indexOfLastResult - resultsPerPage;
@@ -120,7 +120,7 @@ export default function Opportunities() {
     indexOfFirstResult,
     indexOfLastResult
   );
-
+  
   // Add debugging useEffect to monitor state changes
   useEffect(() => {
     console.log("AI Recommendations state changed:", {
@@ -129,7 +129,7 @@ export default function Opportunities() {
       hasData: aiRecommendations.length > 0 && !isLoadingRecommendations,
     });
   }, [aiRecommendations, isLoadingRecommendations]);
-
+  
   // Fetch user profile from settings
   const getUserProfile = () => {
     try {
@@ -145,32 +145,32 @@ export default function Opportunities() {
     } catch (error) {
       console.error("Error fetching user profile:", error);
       return {
-        companyUrl: "https://bizradar.com",
+        companyUrl: "https://bizradar.com", 
         companyDescription: "Default company description",
       };
     }
   };
-
+  
   // Fetch AI recommendations
   const fetchAiRecommendations = async () => {
     if (requestInProgressRef.current || opportunities.length === 0) return;
-
+    
     const searchId = `${searchQuery}-${currentPage}`;
-
+    
     if (searchId === lastSearchIdRef.current) {
       console.log("Skipping duplicate recommendations request for:", searchId);
       return;
     }
-
+    
     requestInProgressRef.current = true;
     lastSearchIdRef.current = searchId;
     setIsLoadingRecommendations(true);
-
+    
     console.log("Starting to fetch AI recommendations for page", currentPage);
-
+    
     try {
       const userProfile = getUserProfile();
-
+      
       const response = await fetch(`${API_BASE_URL}/ai-recommendations`, {
         method: "POST",
         headers: {
@@ -184,14 +184,14 @@ export default function Opportunities() {
           includeMatchReason: true,
         }),
       });
-
+      
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-
+      
       const data = await response.json();
       console.log("AI Recommendations raw response:", data);
-
+      
       if (data.recommendations && Array.isArray(data.recommendations)) {
         console.log(
           `Received ${data.recommendations.length} AI recommendations`
@@ -203,14 +203,14 @@ export default function Opportunities() {
               ? Math.min(rec.opportunityIndex, opportunities.length - 1)
               : 0;
           const opportunity = opportunities[oppIndex];
-
+          
           return {
             ...rec,
             opportunity,
             showDetailedReason: false, // Add this to track the expanded state
           };
         });
-
+        
         setAiRecommendations(enhancedRecommendations);
       } else {
         console.warn("Received invalid recommendations format:", data);
@@ -220,12 +220,12 @@ export default function Opportunities() {
       console.error("Error fetching AI recommendations:", error);
       setAiRecommendations([
         {
-          id: "fallback-rec-1",
-          title: "AI Recommendation Service Temporarily Unavailable",
+        id: "fallback-rec-1",
+        title: "AI Recommendation Service Temporarily Unavailable",
           description:
             "We couldn't retrieve personalized recommendations at this time. Please try again later.",
-          matchScore: 75,
-          opportunityIndex: 0,
+        matchScore: 75,
+        opportunityIndex: 0,
           matchReason:
             "This is a fallback recommendation while the service is temporarily unavailable.",
         },
@@ -237,7 +237,7 @@ export default function Opportunities() {
       }, 500);
     }
   };
-
+  
   // useEffect to prevent infinite loop of requests
   useEffect(() => {
     if (
@@ -249,8 +249,8 @@ export default function Opportunities() {
         "Page changed, fetching new recommendations for page",
         currentPage
       );
-      fetchAiRecommendations();
-    }
+          fetchAiRecommendations();
+      }
   }, [currentPage, opportunities]);
 
   const toggleFilter = (filter) => {
@@ -259,11 +259,11 @@ export default function Opportunities() {
       [filter]: !activeFilters[filter],
     });
   };
-
+  
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
   };
-
+  
   const toggleFiltersBar = () => {
     setFiltersOpen(!filtersOpen);
   };
@@ -294,10 +294,10 @@ export default function Opportunities() {
 
   const handleSearch = async (e, suggestedQuery = null) => {
     if (e) e.preventDefault();
-
+    
     const query = suggestedQuery || searchQuery;
     if (!query.trim()) return;
-
+    
     setIsSearching(true);
     setAiRecommendations([]);
     requestInProgressRef.current = false;
@@ -317,17 +317,17 @@ export default function Opportunities() {
           page_size: resultsPerPage,
         }),
       });
-
+      
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-
+      
       const data = await response.json();
       console.log("Search results:", data);
-
+      
       if (data.results && Array.isArray(data.results)) {
         setHasSearched(true);
-
+        
         const formattedResults = data.results.map((job) => ({
           id: job.id || `job-${Math.random()}-${Date.now()}`,
           title: job.title || "Untitled Opportunity",
@@ -344,7 +344,7 @@ export default function Opportunities() {
             job.description?.substring(0, 150) + "..." ||
             "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
         }));
-
+        
         setOpportunities(formattedResults);
         setTotalResults(data.total || formattedResults.length);
         setCurrentPage(data.page || 1);
@@ -506,7 +506,7 @@ export default function Opportunities() {
       dueDate: contractData.dueDate || "2025-01-01",
       value: contractData.value || 0,
       status: contractData.status || "Open",
-      naicsCode: contractData.naicsCode || "000000",
+      naicsCode: contractData.naicsCode || "000000", 
       description: contractData.description || "",
     };
 
@@ -625,7 +625,7 @@ export default function Opportunities() {
           {/* Body - Two Column Layout */}
           <div className="flex-1 flex overflow-hidden">
             {/* Filters Column */}
-            <div
+            <div 
               className="border-r border-gray-200 overflow-y-auto relative bg-white shadow-sm"
               style={{ width: filtersOpen ? "18rem" : "3rem" }}
             >
@@ -635,7 +635,7 @@ export default function Opportunities() {
                     Filters
                   </h2>
                 )}
-
+                
                 {/* Filters Toggle Button */}
                 <button
                   className="bg-white border border-gray-200 rounded-full w-6 h-6 flex items-center justify-center shadow-sm hover:bg-blue-50 hover:border-blue-200"
@@ -651,9 +651,9 @@ export default function Opportunities() {
 
               {/* Filter content */}
 
-              {/* Due Date Filter */}
+                  {/* Due Date Filter */}
               {filtersOpen && (
-                <div className="border-b border-gray-200">
+                  <div className="border-b border-gray-200">
                   <div
                     onClick={() => toggleFilter("dueDate")}
                     className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50"
@@ -661,7 +661,7 @@ export default function Opportunities() {
                     <h2 className="font-medium">Due Date</h2>
                     <div>
                       <ChevronDown size={14} className="text-gray-400" />
-                    </div>
+                  </div>
                   </div>
                   {activeFilters.dueDate && (
                     <div className="px-4 pb-4">
@@ -789,8 +789,8 @@ export default function Opportunities() {
                           className="w-full p-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                         />
                       </div>
-                    </div>
-                  )}
+                </div>
+              )}
                 </div>
               )}
 
@@ -869,8 +869,8 @@ export default function Opportunities() {
                     />
                     {searchQuery && (
                       <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
-                        <button
-                          type="button"
+                        <button 
+                          type="button" 
                           onClick={clearSearch}
                           className="text-gray-400 hover:text-gray-600"
                         >
@@ -879,8 +879,8 @@ export default function Opportunities() {
                       </div>
                     )}
                   </div>
-                  <button
-                    type="button"
+                  <button 
+                    type="button" 
                     onClick={() => navigate("/settings")}
                     className="p-2.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-colors shadow-sm"
                   >
@@ -946,19 +946,19 @@ export default function Opportunities() {
                               BizradarAI Assistant
                             </h2>
                             <span className="text-xs text-blue-600 bg-blue-100/70 px-2 py-0.5 rounded-full ml-2">
-                              {aiRecommendations.length > 0
-                                ? `${aiRecommendations.length} recommendations found`
+                              {aiRecommendations.length > 0 
+                                ? `${aiRecommendations.length} recommendations found` 
                                 : ""}
                             </span>
                             {aiRecommendations.length > 0 &&
                               isLoadingRecommendations && (
-                                <button
-                                  onClick={forceRender}
+                              <button 
+                                onClick={forceRender}
                                   className="text-xs text-blue-500 underline ml-2 hover:text-blue-700"
-                                >
-                                  (Show Results)
-                                </button>
-                              )}
+                              >
+                                (Show Results)
+                              </button>
+                            )}
                           </div>
                           <div className="flex items-center gap-2">
                             <button
@@ -973,8 +973,8 @@ export default function Opportunities() {
                                 <ChevronUp size={18} />
                               )}
                             </button>
-                            <button
-                              onClick={toggleRecommendationsExpand}
+                          <button 
+                            onClick={toggleRecommendationsExpand}
                               className="text-blue-500 hover:text-blue-700 bg-blue-50 p-1 rounded-md"
                             >
                               {expandRecommendations ? (
@@ -982,10 +982,10 @@ export default function Opportunities() {
                               ) : (
                                 <Maximize size={18} />
                               )}
-                            </button>
+                          </button>
                           </div>
                         </div>
-
+                        
                         {/* Container for content with white background for contrast */}
                         {!aiComponentCollapsed && (
                           <div className="bg-white rounded-md shadow-sm overflow-hidden transition-all duration-300">
@@ -995,23 +995,23 @@ export default function Opportunities() {
                                 <p className="text-blue-700 font-medium">
                                   Analyzing opportunities...
                                 </p>
-                              </div>
-                            ) : (
+                            </div>
+                          ) : (
                               <div
                                 className={`overflow-y-auto ${
                                   expandRecommendations ? "h-full" : "max-h-96"
                                 }`}
                               >
-                                {aiRecommendations.length === 0 ? (
+                              {aiRecommendations.length === 0 ? (
                                   <div className="py-6 text-center bg-blue-50/50">
                                     <p className="text-blue-700 font-medium">
                                       Here is what I think
                                     </p>
-                                  </div>
-                                ) : (
-                                  <table className="w-full table-auto">
-                                    <tbody>
-                                      {aiRecommendations.map((rec, index) => {
+                                </div>
+                              ) : (
+                                <table className="w-full table-auto">
+                                  <tbody>
+                                    {aiRecommendations.map((rec, index) => {
                                         const opportunity =
                                           rec.opportunity ||
                                           currentOpportunities[0];
@@ -1087,8 +1087,8 @@ export default function Opportunities() {
                                                         : "bg-gray-100 text-gray-700"
                                                     }`}
                                                   >
-                                                    {rec.matchScore}% match
-                                                  </span>
+                                                  {rec.matchScore}% match
+                                                </span>
                                                 ) : (
                                                   <span className="text-xs font-medium text-blue-600">
                                                     View
@@ -1098,13 +1098,13 @@ export default function Opportunities() {
                                             </td>
                                           </tr>
                                         );
-                                      })}
-                                    </tbody>
-                                  </table>
-                                )}
-                              </div>
-                            )}
-                          </div>
+                                    })}
+                                  </tbody>
+                                </table>
+                              )}
+                            </div>
+                          )}
+                        </div>
                         )}
                       </div>
                     )}
@@ -1121,7 +1121,7 @@ export default function Opportunities() {
                         </p>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           {suggestedQueries.map((query) => (
-                            <div
+                            <div 
                               key={query.id}
                               onClick={() =>
                                 handleSuggestedQueryClick(query.id)
@@ -1157,7 +1157,7 @@ export default function Opportunities() {
                             <button className="inline-flex items-center px-3 py-1 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
                               <Settings className="mr-2 h-4 w-4" />
                               Edit settings
-                            </button>
+                          </button>
                           </div>
 
                           {/* Alert */}
@@ -1197,7 +1197,7 @@ export default function Opportunities() {
                               <div className="border-t border-gray-200 px-4 py-2 bg-gray-50 text-right">
                                 <button className="inline-flex items-center px-3 py-1 border border-gray-300 text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
                                   Add to Pursuits
-                                </button>
+                            </button>
                               </div>
                             </div>
 
@@ -1230,9 +1230,9 @@ export default function Opportunities() {
                               <div className="border-t border-gray-200 px-4 py-2 bg-gray-50 text-right">
                                 <button className="inline-flex items-center px-3 py-1 border border-gray-300 text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
                                   Add to Pursuits
-                                </button>
-                              </div>
-                            </div>
+                          </button>
+                        </div>
+                      </div>
 
                             {/* Card 3 */}
                             <div className="bg-white rounded-md border border-gray-200 overflow-hidden">
@@ -1249,22 +1249,22 @@ export default function Opportunities() {
                                   <div className="flex items-center text-gray-500">
                                     <span className="inline-block w-2 h-2 bg-blue-500 rounded-full mr-1"></span>
                                     DOD
-                                  </div>
+              </div>
                                   <div className="flex items-center text-gray-500">
                                     <Clock className="h-3 w-3 mr-1" />
                                     Released: Mar 5, 2025
-                                  </div>
+            </div>
                                   <div className="flex items-center text-gray-500">
                                     <Clock className="h-3 w-3 mr-1" />
                                     Due: Apr 23, 2025
-                                  </div>
-                                </div>
-                              </div>
+          </div>
+        </div>
+      </div>
                               <div className="border-t border-gray-200 px-4 py-2 bg-gray-50 text-right">
                                 <button className="inline-flex items-center px-3 py-1 border border-gray-300 text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
                                   Add to Pursuits
                                 </button>
-                              </div>
+    </div>
                             </div>
 
                             {/* Card 4 */}
@@ -1303,7 +1303,7 @@ export default function Opportunities() {
                         </div>
                       </div>
                     )}
-
+                    
                     {/* Dynamic Opportunity Cards - Only shown after a search */}
                     {hasSearched && !isSearching && opportunities.length > 0
                       ? opportunities.map((opportunity, index) => (
@@ -1311,9 +1311,9 @@ export default function Opportunities() {
                             key={opportunity.id}
                             className="mx-4 my-4 p-4 bg-white border border-gray-200 rounded-lg shadow-lg hover:shadow-xl transition-all"
                           >
-                            <div className="flex justify-between">
-                              <div className="flex items-start gap-2">
-                                <div className="mt-1">
+                        <div className="flex justify-between">
+                          <div className="flex items-start gap-2">
+                            <div className="mt-1">
                                   {opportunity.title
                                     .toLowerCase()
                                     .includes("cyber") ||
@@ -1336,60 +1336,60 @@ export default function Opportunities() {
                                       className="text-blue-500"
                                       size={18}
                                     />
-                                  )}
-                                </div>
-                                <div>
+                              )}
+                            </div>
+                            <div>
                                   <h2 className="text-lg font-semibold text-gray-800">
                                     {opportunity.title}
                                   </h2>
                                   <p className="text-sm text-gray-500">
                                     {opportunity.agency}
                                   </p>
-                                </div>
-                              </div>
-                              <button className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-blue-600 hover:bg-blue-50">
-                                <Share size={16} className="text-gray-400" />
-                              </button>
                             </div>
+                          </div>
+                          <button className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-blue-600 hover:bg-blue-50">
+                            <Share size={16} className="text-gray-400" />
+                          </button>
+                        </div>
 
-                            {/* Tags */}
-                            <div className="mt-3 flex items-center gap-2 flex-wrap">
-                              <div className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-md text-xs font-medium">
-                                {opportunity.platform || "sam.gov"}
-                              </div>
-                              <div className="px-2 py-0.5 bg-green-50 text-green-600 rounded-md text-xs font-medium">
-                                {opportunity.status}
-                              </div>
-                              {opportunity.naicsCode && (
-                                <div className="px-2 py-0.5 bg-purple-50 text-purple-600 rounded-md text-xs font-medium">
-                                  NAICS: {opportunity.naicsCode}
-                                </div>
-                              )}
+                        {/* Tags */}
+                        <div className="mt-3 flex items-center gap-2 flex-wrap">
+                          <div className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-md text-xs font-medium">
+                            {opportunity.platform || "sam.gov"}
+                          </div>
+                          <div className="px-2 py-0.5 bg-green-50 text-green-600 rounded-md text-xs font-medium">
+                            {opportunity.status}
+                          </div>
+                          {opportunity.naicsCode && (
+                            <div className="px-2 py-0.5 bg-purple-50 text-purple-600 rounded-md text-xs font-medium">
+                              NAICS: {opportunity.naicsCode}
                             </div>
+                          )}
+                        </div>
 
-                            {/* Description with Read More */}
-                            <div className="mt-3">
-                              <p className="text-sm text-gray-600">
-                                {opportunity.description}
-                                <button className="text-blue-600 font-medium ml-1 hover:underline text-xs">
-                                  Read more
-                                </button>
-                              </p>
-                            </div>
+                        {/* Description with Read More */}
+                        <div className="mt-3">
+                          <p className="text-sm text-gray-600">
+                            {opportunity.description} 
+                            <button className="text-blue-600 font-medium ml-1 hover:underline text-xs">
+                              Read more
+                            </button>
+                          </p>
+                        </div>
 
-                            {/* Action Buttons */}
-                            <div className="flex items-center gap-2 mt-3">
-                              <button className="bg-blue-600 text-white px-3 py-1.5 rounded-md text-xs flex items-center gap-1 shadow-sm">
-                                <MessageCircle size={14} />
-                                <span>Ask AI</span>
-                              </button>
-                              <button
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-2 mt-3">
+                          <button className="bg-blue-600 text-white px-3 py-1.5 rounded-md text-xs flex items-center gap-1 shadow-sm">
+                            <MessageCircle size={14} />
+                            <span>Ask AI</span>
+                          </button>
+                          <button 
                                 onClick={() => handleAddToPursuit(opportunity)}
                                 className="bg-green-600 text-white px-3 py-1.5 rounded-md text-xs flex items-center gap-1 shadow-sm hover:bg-green-700 transition-colors"
-                              >
+                          >
                                 <Plus size={14} />
                                 <span>Add to Pursuit</span>
-                              </button>
+                          </button>
                               <button
                                 onClick={() =>
                                   navigate(`/opportunities/${opportunity.id}`)
@@ -1401,9 +1401,9 @@ export default function Opportunities() {
                                   className="text-blue-500"
                                 />
                                 <span>View</span>
-                              </button>
-                            </div>
-                          </div>
+                          </button>
+                        </div>
+                      </div>
                         ))
                       : hasSearched &&
                         !isSearching && (
@@ -1419,9 +1419,9 @@ export default function Opportunities() {
                     <Pagination />
                   </>
                 )}
-              </div>
-            </div>
-          </div>
+                                            </div>
+                                            </div>
+                                              </div>
         </div>
       </div>
 
@@ -1441,9 +1441,9 @@ export default function Opportunities() {
           <Check size={16} />
           <span>Added to Pursuits</span>
         </div>
-      )}
-    </div>
+                                              )}
+                                            </div>
 
     
-  );
+                                      );
 }

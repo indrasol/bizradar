@@ -71,7 +71,7 @@ async def fetch_opportunities() -> Dict[str, Any]:
                             "published_date": parse_date(opp.get("postedDate")),
                             "response_date": parse_date(opp.get("responseDeadLine")),
                             "naics_code": naics,  # Use the converted NAICS code
-                            "description": opp.get("description", "")
+                            "description": opp.get("description", "") 
                         }
                         rows.append(row)
                     

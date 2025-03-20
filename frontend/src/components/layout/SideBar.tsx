@@ -1,162 +1,127 @@
-import React from "react";
-import { motion } from "framer-motion";
+import React, { useState, useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { 
-  Calendar, Copy, Search, ChevronRight, MessageCircle,
-  Calendar as CalendarIcon, BarChart2, Settings, User, 
-  Radar,
-  Home
-} from "lucide-react";
-import { Link } from "react-router-dom";
+  Home, 
+  Search, 
+  FileText, 
+  Settings,
+  Radar
+} from 'lucide-react';
+import SettingsNotification from './SettingsNotification';
+import { useAuth } from '../Auth/useAuth';
+import { supabase } from '../../utils/supabase';
 
-// Removed the toggle props since sidebar will be fixed
-const SideBar: React.FC = () => {
-  // Fixed sidebar width - no longer toggleable
-  const sidebarOpen = true;
+const Sidebar: React.FC = () => {
+  const location = useLocation();
+  const { user } = useAuth();
+  const [profile, setProfile] = useState<any>(null);
   
-  const menuItems = [
-    { icon: <Home size={18} />, label: "Home", path: "/" },
-    // { icon: <Copy size={18} />, label: "My Proposal Documents", path: "/proposals" },
-    { icon: <Search size={18} />, label: "Opportunities", path: "/opportunites", active: true },
-    // { icon: <CalendarIcon size={18} />, label: "Schedules", path: "/schedules" },
-    { icon: <MessageCircle size={18} />, label: "Ask AI", path: "/ask-ai" },
-    { icon: <BarChart2 size={18} />, label: "Pursuits/Search", path: "/pursuits" },
-    { icon: <Copy size={18} />, label: "Library", path: "/library" },
-    { icon: <Settings size={18} />, label: "Settings", path: "/settings" }
-  ];
-
+  // Fetch user profile separately
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!user) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+          
+        if (error) throw error;
+        if (data) setProfile(data);
+      } catch (error) {
+        console.error('Error fetching profile:', error);
+      }
+    };
+    
+    fetchProfile();
+  }, [user]);
+  
+  // Check if the path matches the given route
+  const isActive = (path: string) => location.pathname === path;
+  
   return (
-    <div className="border-r border-gray-200 flex flex-col relative bg-white shadow-sm w-56">
-      <div className="p-4 border-b border-gray-200 flex items-center">
-        <Link to="/" className="flex items-center gap-3">
-          <div className="relative">
-            <Radar className="w-8 h-8 text-blue-600" />
+    <div className="h-full w-64 bg-gray-50 border-r border-gray-200">
+      <div className="flex flex-col h-full py-6">
+        {/* Logo */}
+        <div className="px-6 mb-8">
+          <Link to="/dashboard" className="flex items-center gap-2">
+            <div className="relative">
+              <Radar className="w-6 h-6 text-blue-600" />
+              <div className="absolute inset-0 bg-blue-100 rounded-full -z-10"></div>
+            </div>
+            <span className="font-semibold text-lg text-gray-900">Bizradar</span>
+          </Link>
+        </div>
+        
+        {/* User Info */}
+        {profile && (
+          <div className="px-6 mb-6">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-medium">
+                {profile.first_name?.[0]}{profile.last_name?.[0]}
+              </div>
+              <div className="overflow-hidden">
+                <p className="text-sm font-medium text-gray-800 truncate">
+                  {profile.first_name} {profile.last_name}
+                </p>
+              </div>
+            </div>
           </div>
-          <span className="text-lg font-semibold bg-gradient-to-r from-blue-600 to-blue-500 text-transparent bg-clip-text overflow-hidden whitespace-nowrap">
-            Bizradar
-          </span>
-        </Link>
-      </div>
-      
-      <div className="p-2 flex-1 overflow-hidden">
-        <ul className="space-y-1">
-          {menuItems.map((item, i) => (
-            <li 
-              key={i}
-              className={`rounded-lg ${item.active ? "bg-blue-50 text-blue-700" : "text-gray-700 hover:text-blue-600 hover:bg-gray-50"}`}
-            >
-              <Link 
-                to={item.path} 
-                className="flex items-center gap-2 px-3 py-2.5 text-sm"
-              >
-                <span className={item.active ? "text-blue-600" : "text-gray-500"}>
-                  {item.icon}
-                </span>
-                <span className="whitespace-nowrap overflow-hidden font-medium">
-                  {item.label}
-                </span>
-                {item.active && (
-                  <div className="ml-auto">
-                    <ChevronRight size={19} className="text-blue-600" />
-                  </div>
-                )}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </div>
-      
-      <div className="p-3 border-t border-gray-200">
-        <div className="flex items-center gap-2 mt-2">
-          <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm">
-            <User size={16} className="text-white" />
-          </div>
-          <span className="text-sm whitespace-nowrap overflow-hidden font-medium">
-            User
-          </span>
+        )}
+        
+        {/* Navigation Links */}
+        <nav className="flex-1 px-4 space-y-1">
+          <Link
+            to="/dashboard"
+            className={`flex items-center gap-2 px-2 py-2 rounded-md transition-colors ${
+              isActive('/dashboard') ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <Home className="w-5 h-5" />
+            <span>Home</span>
+          </Link>
+          
+          <Link
+            to="/opportunities"
+            className={`flex items-center gap-2 px-2 py-2 rounded-md transition-colors ${
+              isActive('/opportunities') ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <Search className="w-5 h-5" />
+            <span>Opportunities</span>
+          </Link>
+          
+          <Link
+            to="/pursuits"
+            className={`flex items-center gap-2 px-2 py-2 rounded-md transition-colors ${
+              isActive('/pursuits') ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <FileText className="w-5 h-5" />
+            <span>Pursuits</span>
+          </Link>
+        </nav>
+        
+        {/* Bottom Links */}
+        <div className="px-4 pt-4 border-t border-gray-200">
+          <Link
+            to="/settings"
+            className={`flex items-center gap-2 px-2 py-2 rounded-md transition-colors group ${
+              isActive('/settings') ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <div className="relative">
+              <Settings className="w-5 h-5" />
+              <SettingsNotification />
+            </div>
+            <span>Settings</span>
+          </Link>
         </div>
       </div>
     </div>
   );
 };
 
-export default SideBar;
-
-// import React from "react";
-// import { motion } from "framer-motion";
-// import { 
-//   Calendar, Copy, Search, ChevronRight, MessageCircle,
-//   Calendar as CalendarIcon, BarChart2, Settings, User, 
-//   Radar,
-//   Home
-// } from "lucide-react";
-// import { Link } from "react-router-dom";
-
-// // Removed the toggle props since sidebar will be fixed
-// const SideBar: React.FC = () => {
-//   // Fixed sidebar width - no longer toggleable
-//   const sidebarOpen = true;
-  
-//   const menuItems = [
-//     { icon: <Home size={18} />, label: "Home" },
-//     // { icon: <Copy size={18} />, label: "My Proposal Documents" },
-//     { icon: <Search size={18} />, label: "Opportunities", active: true },
-//     // { icon: <CalendarIcon size={18} />, label: "Schedules" },
-//     { icon: <MessageCircle size={18} />, label: "Ask AI" },
-//     { icon: <BarChart2 size={18} />, label: "Pursuits/Search" },
-//     { icon: <Copy size={18} />, label: "Library" },
-//     { icon: <Settings size={18} />, label: "Settings" }
-//   ];
-
-//   return (
-//     <div className="border-r border-gray-200 flex flex-col relative bg-white shadow-sm w-56">
-//       <div className="p-4 border-b border-gray-200 flex items-center">
-//         <Link to="/" className="flex items-center gap-3">
-//           <div className="relative">
-//             <Radar className="w-8 h-8 text-blue-600" />
-//           </div>
-//           <span className="text-lg font-semibold bg-gradient-to-r from-blue-600 to-blue-500 text-transparent bg-clip-text overflow-hidden whitespace-nowrap">
-//             Bizradar
-//           </span>
-//         </Link>
-//       </div>
-      
-//       <div className="p-2 flex-1 overflow-hidden">
-//         <ul className="space-y-1">
-//           {menuItems.map((item, i) => (
-//             <li 
-//               key={i}
-//               className={`rounded-lg ${item.active ? "bg-blue-50 text-blue-700" : "text-gray-700 hover:text-blue-600 hover:bg-gray-50"}`}
-//             >
-//               <a href="#" className="flex items-center gap-2 px-3 py-2.5 text-sm">
-//                 <span className={item.active ? "text-blue-600" : "text-gray-500"}>
-//                   {item.icon}
-//                 </span>
-//                 <span className="whitespace-nowrap overflow-hidden font-medium">
-//                   {item.label}
-//                 </span>
-//                 {item.active && (
-//                   <div className="ml-auto">
-//                     <ChevronRight size={19} className="text-blue-600" />
-//                   </div>
-//                 )}
-//               </a>
-//             </li>
-//           ))}
-//         </ul>
-//       </div>
-      
-//       <div className="p-3 border-t border-gray-200">
-//         <div className="flex items-center gap-2 mt-2">
-//           <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm">
-//             <User size={16} className="text-white" />
-//           </div>
-//           <span className="text-sm whitespace-nowrap overflow-hidden font-medium">
-//             User
-//           </span>
-//         </div>
-//       </div>
-//     </div>
-//   );
-// };
-
-// export default SideBar;
+export default Sidebar;

@@ -1,94 +1,149 @@
-import React, { createContext, useState, useEffect, ReactNode } from "react";
-import auth, { User } from "../../api/auth";
+import React, { createContext, useState, useEffect, ReactNode } from 'react';
+import { Session, User, AuthError } from '@supabase/supabase-js';
+import { supabase } from '../../utils/supabase';
 import tokenService from "../../utils/tokenService";
 
-// Define auth context type
 interface AuthContextType {
-  isAuthenticated: boolean;
   user: User | null;
+  session: Session | null;
   loading: boolean;
-  error: string | null;
+  isAuthenticated: boolean;
   login: (identifier: string, password: string) => Promise<void>;
   register: (firstName: string, lastName: string, email: string, password: string) => Promise<void>;
-  logout: () => void;
-  clearError: () => void;
-  updateProfile: (userData: Partial<User>) => Promise<void>;
-  forgotPassword: (email: string) => Promise<{ message: string; success: boolean }>;
-  resetPassword: (token: string, password: string) => Promise<{ message: string; success: boolean }>;
-  changePassword: (currentPassword: string, newPassword: string) => Promise<{ message: string; success: boolean }>;
+  logout: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
+  updateProfile: (data: { firstName?: string; lastName?: string; avatar?: string }) => Promise<void>;
 }
 
-// Create the auth context with default values
+// Create the context with a default value
 const AuthContext = createContext<AuthContextType>({
-  isAuthenticated: false,
   user: null,
-  loading: false,
-  error: null,
+  session: null,
+  loading: true,
+  isAuthenticated: false,
   login: async () => {},
   register: async () => {},
-  logout: () => {},
-  clearError: () => {},
+  logout: async () => {},
+  resetPassword: async () => {},
   updateProfile: async () => {},
-  forgotPassword: async () => ({ message: "", success: false }),
-  resetPassword: async () => ({ message: "", success: false }),
-  changePassword: async () => ({ message: "", success: false }),
 });
 
 interface AuthProviderProps {
   children: ReactNode;
 }
 
-// Create the auth provider component
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(tokenService.isAuthenticated());
-  const [user, setUser] = useState<User | null>(auth.getCurrentUser());
-  const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
+export const AuthProvider = ({ children }: AuthProviderProps) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
 
-  // Check authentication on mount and set up token expiry handling
+  // Initialize the auth state on component mount
   useEffect(() => {
-    const checkAuth = () => {
-      const authenticated = tokenService.isAuthenticated();
-      setIsAuthenticated(authenticated);
+    // Get the current session
+    const initializeAuth = async () => {
+      setLoading(true);
       
-      if (authenticated) {
-        setUser(auth.getCurrentUser());
-      } else {
-        setUser(null);
+      // Check if session exists
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        console.error('Error retrieving session:', error);
       }
+      
+      if (session) {
+        setSession(session);
+        setUser(session.user);
+        
+        // Store tokens for other API requests
+        tokenService.setTokens(
+          session.access_token,
+          session.refresh_token
+        );
+      }
+      
+      setLoading(false);
     };
 
-    // Initial check
-    checkAuth();
+    // Call the initialization
+    initializeAuth();
 
-    // Set up interval to check token expiry periodically
-    const intervalId = setInterval(() => {
-      if (tokenService.getToken() && !tokenService.isAuthenticated()) {
-        // Token expired, update state
-        setIsAuthenticated(false);
-        setUser(null);
+    // Set up listener for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, newSession) => {
+        setSession(newSession);
+        setUser(newSession?.user || null);
+        
+        if (newSession) {
+          tokenService.setTokens(
+            newSession.access_token,
+            newSession.refresh_token
+          );
+        } else {
+          tokenService.clearTokens();
+        }
       }
-    }, 60000); // Check every minute
+    );
 
-    return () => clearInterval(intervalId);
+    // Clean up subscription on unmount
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
-
-  // Clear any error message
-  const clearError = () => setError(null);
 
   // Login function
   const login = async (identifier: string, password: string) => {
     setLoading(true);
-    setError(null);
-
+    
     try {
-      const response = await auth.login(identifier, password);
-      setUser(response.user);
-      setIsAuthenticated(true);
-    } catch (err: any) {
-      const errorMsg = err.message || "Login failed. Please check your credentials.";
-      setError(errorMsg);
-      throw new Error(errorMsg);
+      // Check if identifier is email
+      const isEmail = identifier.includes('@');
+      
+      let response;
+      
+      if (isEmail) {
+        // Login with email/password
+        response = await supabase.auth.signInWithPassword({
+          email: identifier,
+          password,
+        });
+      } else {
+        // For username login, we need a different approach
+        // First, query the user profiles table to get the email
+        const { data: profiles, error: profileError } = await supabase
+          .from('profiles')
+          .select('email')
+          .eq('username', identifier)
+          .single();
+          
+        if (profileError || !profiles) {
+          throw new Error('Username not found');
+        }
+        
+        // Then sign in with the email
+        response = await supabase.auth.signInWithPassword({
+          email: profiles.email,
+          password,
+        });
+      }
+      
+      const { data, error } = response;
+      
+      if (error) throw error;
+      
+      setSession(data.session);
+      setUser(data.user);
+      
+      // Store tokens
+      if (data.session) {
+        tokenService.setTokens(
+          data.session.access_token,
+          data.session.refresh_token
+        );
+      }
+    } catch (error) {
+      const authError = error as AuthError;
+      console.error('Login error:', authError);
+      throw new Error(authError.message || 'Failed to login');
     } finally {
       setLoading(false);
     }
@@ -97,116 +152,144 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Register function
   const register = async (firstName: string, lastName: string, email: string, password: string) => {
     setLoading(true);
-    setError(null);
-
+    
     try {
-      const response = await auth.register(firstName, lastName, email, password);
-      setUser(response.user);
-      setIsAuthenticated(true);
-    } catch (err: any) {
-      const errorMsg = err.message || "Registration failed. Please try again.";
-      setError(errorMsg);
-      throw new Error(errorMsg);
+      // Register the user
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            first_name: firstName,
+            last_name: lastName,
+          },
+        },
+      });
+      
+      if (error) throw error;
+      
+      // Create profile entry
+      if (data.user) {
+        const { error: profileError } = await supabase.from('profiles').insert({
+          id: data.user.id,
+          first_name: firstName,
+          last_name: lastName,
+          email: email,
+          created_at: new Date().toISOString(),
+        });
+        
+        if (profileError) {
+          console.error('Error creating user profile:', profileError);
+          // If profile creation fails, we should ideally delete the auth user
+          // but Supabase doesn't expose a direct method for this from client
+        }
+      }
+      
+      // Update state
+      setSession(data.session);
+      setUser(data.user);
+      
+      // Store tokens
+      if (data.session) {
+        tokenService.setTokens(
+          data.session.access_token,
+          data.session.refresh_token
+        );
+      }
+    } catch (error) {
+      const authError = error as AuthError;
+      console.error('Registration error:', authError);
+      throw new Error(authError.message || 'Failed to register');
     } finally {
       setLoading(false);
     }
   };
 
   // Logout function
-  const logout = () => {
-    auth.logout();
-    setUser(null);
-    setIsAuthenticated(false);
-  };
-
-  // Update profile function
-  const updateProfile = async (userData: Partial<User>) => {
-    setLoading(true);
-    setError(null);
-
+  const logout = async () => {
     try {
-      const updatedUser = await auth.updateProfile(userData);
-      setUser(updatedUser);
-    } catch (err: any) {
-      const errorMsg = err.message || "Profile update failed. Please try again.";
-      setError(errorMsg);
-      throw new Error(errorMsg);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Forgot password function
-  const forgotPassword = async (email: string) => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await auth.forgotPassword(email);
-      return response;
-    } catch (err: any) {
-      const errorMsg = err.message || "Password reset request failed. Please try again.";
-      setError(errorMsg);
-      throw new Error(errorMsg);
-    } finally {
-      setLoading(false);
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      
+      // Clear user and session
+      setUser(null);
+      setSession(null);
+      
+      // Clear tokens
+      tokenService.clearTokens();
+    } catch (error) {
+      console.error('Logout error:', error);
+      throw new Error('Failed to logout');
     }
   };
 
   // Reset password function
-  const resetPassword = async (token: string, password: string) => {
-    setLoading(true);
-    setError(null);
-
+  const resetPassword = async (email: string) => {
     try {
-      const response = await auth.resetPassword(token, password);
-      return response;
-    } catch (err: any) {
-      const errorMsg = err.message || "Password reset failed. Please try again.";
-      setError(errorMsg);
-      throw new Error(errorMsg);
-    } finally {
-      setLoading(false);
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      
+      if (error) throw error;
+    } catch (error) {
+      const authError = error as AuthError;
+      console.error('Reset password error:', authError);
+      throw new Error(authError.message || 'Failed to send reset password email');
     }
   };
 
-  // Change password function
-  const changePassword = async (currentPassword: string, newPassword: string) => {
-    setLoading(true);
-    setError(null);
-
+  // Update user profile
+  const updateProfile = async (data: { firstName?: string; lastName?: string; avatar?: string }) => {
+    if (!user) throw new Error('No authenticated user');
+    
     try {
-      const response = await auth.changePassword(currentPassword, newPassword);
-      return response;
-    } catch (err: any) {
-      const errorMsg = err.message || "Password change failed. Please try again.";
-      setError(errorMsg);
-      throw new Error(errorMsg);
-    } finally {
-      setLoading(false);
+      // Update auth metadata
+      const authUpdate: Record<string, any> = {};
+      if (data.firstName) authUpdate.first_name = data.firstName;
+      if (data.lastName) authUpdate.last_name = data.lastName;
+      
+      if (Object.keys(authUpdate).length > 0) {
+        const { error: authError } = await supabase.auth.updateUser({
+          data: authUpdate,
+        });
+        
+        if (authError) throw authError;
+      }
+      
+      // Update profile
+      const profileUpdate: Record<string, any> = {};
+      if (data.firstName) profileUpdate.first_name = data.firstName;
+      if (data.lastName) profileUpdate.last_name = data.lastName;
+      if (data.avatar) profileUpdate.avatar_url = data.avatar;
+      
+      if (Object.keys(profileUpdate).length > 0) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update(profileUpdate)
+          .eq('id', user.id);
+        
+        if (profileError) throw profileError;
+      }
+    } catch (error) {
+      console.error('Update profile error:', error);
+      throw new Error('Failed to update profile');
     }
   };
 
-  return (
-    <AuthContext.Provider
-      value={{
-        isAuthenticated,
-        user,
-        loading,
-        error,
-        login,
-        register,
-        logout,
-        clearError,
-        updateProfile,
-        forgotPassword,
-        resetPassword,
-        changePassword,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
-  );
+  // The value to be provided to consumers
+  const value = {
+    user,
+    session,
+    loading,
+    isAuthenticated: !!user,
+    login,
+    register,
+    logout,
+    resetPassword,
+    updateProfile,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export default AuthContext;
