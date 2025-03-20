@@ -1,5 +1,5 @@
 name: Data Collection Jobs
-
+# test trigger
 on:
   # Run jobs every minute for testing
   schedule:
