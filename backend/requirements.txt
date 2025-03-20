@@ -1,9 +1,17 @@
 fastapi
 uvicorn
+supabase
+openai
+sentence-transformers
+pinecone-client
+numpy
+beautifulsoup4  # Added for BeautifulSoup support
+pandas          # Required for DataFrame operations
+requests        # For making HTTP requests
 python-multipart  # For form data if needed
 psycopg2-binary   # For Postgres
 pinecone   # For Pinecone vector DB
 sentence-transformers  # For embeddings
-openai            # For OpenAI API
 python-dotenv
 reportlab>=3.6.0
+aiohttp          # Added for asynchronous HTTP requests
