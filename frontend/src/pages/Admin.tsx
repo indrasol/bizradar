@@ -10,7 +10,8 @@ import {
   Terminal, 
   BarChart3,
   TrendingUp,
-  Clock
+  Clock,
+  Github
 } from 'lucide-react';
 
 // Define the correct API base URL
@@ -193,6 +194,30 @@ const Admin = () => {
         return 'bg-purple-100 text-purple-800 border border-purple-200';
       default:
         return 'bg-gray-100 text-gray-800 border border-gray-200';
+    }
+  };
+
+  // Render trigger type badge
+  const renderTriggerBadge = (triggerType) => {
+    if (!triggerType) return null;
+    
+    switch(triggerType) {
+      case 'github-scheduled':
+        return (
+          <span className="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 border border-blue-200">
+            A
+          </span>
+        );
+      case 'github-manual':
+        return (
+          <span className="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800 border border-gray-200">
+            <Github className="h-3 w-3 mr-1" />
+            G
+          </span>
+        );
+      case 'ui-manual':
+      default:
+        return null; // No badge for UI-triggered runs
     }
   };
 
@@ -522,11 +547,7 @@ const Admin = () => {
                               <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeClasses(record.status)}`}>
                                 {record.status ? record.status.charAt(0).toUpperCase() + record.status.slice(1) : 'Unknown'}
                               </span>
-                              {record.trigger_type === 'scheduled' && (
-                                <span className="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 border border-blue-200">
-                                  A
-                                </span>
-                              )}
+                              {renderTriggerBadge(record.trigger_type)}
                             </div>
                           </td>
                         </tr>
@@ -537,12 +558,23 @@ const Admin = () => {
               </div>
               
               <div className="px-4 py-3 bg-gray-50 text-gray-500 text-sm border-t border-gray-200 sm:px-6">
-                <div className="flex items-center">
+                <div className="flex items-center flex-wrap gap-4">
                   <span>Showing {filteredRecords.length} of {records.length} records</span>
-                  <span className="ml-4 text-xs">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200 mr-1">A</span>
-                    = Auto-triggered
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                      A
+                    </span>
+                    <span>= Auto-scheduled</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
+                      <Github className="h-3 w-3 mr-1" />G
+                    </span>
+                    <span>= GitHub manual trigger</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span>No badge = Triggered from this UI</span>
+                  </div>
                 </div>
               </div>
             </div>

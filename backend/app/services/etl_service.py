@@ -1,11 +1,11 @@
-# backend/app/services/etl_service.py
+# backend/app/utils/etl_service.py
 import os
 import httpx
 import logging
 import psycopg2
 import psycopg2.extras
 from typing import Dict, Any, List, Optional
-from utils.db_utils import get_db_connection 
+from utils.db_utils import get_db_connection
 
 logger = logging.getLogger(__name__)
 
@@ -34,19 +34,19 @@ class ETLService:
                 raise ValueError("GitHub token not configured")
                 
             # GitHub repository details
-            owner = os.getenv("GITHUB_OWNER", "indrasol")
-            repo = os.getenv("GITHUB_REPO", "bizradar")
+            owner = os.getenv("GITHUB_OWNER", "bizradar")
+            repo = os.getenv("GITHUB_REPO", "your-repo-name")
             workflow_id = "data-collection-jobs.yml"
             
-            # Create initial record in database
+            # Create initial record in database with trigger_type = 'ui-manual'
             conn = get_db_connection()
             cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
             
             insert_query = '''
             INSERT INTO etl_history 
-                (status) 
+                (status, trigger_type) 
             VALUES 
-                ('pending')
+                ('triggered', 'ui-manual')
             RETURNING id, time_fetched
             '''
             
@@ -154,9 +154,9 @@ class ETLService:
                 
             if search:
                 # Search in relevant text fields
-                where_conditions.append("(CAST(id AS TEXT) LIKE %s OR status LIKE %s)")
+                where_conditions.append("(CAST(id AS TEXT) LIKE %s OR status LIKE %s OR trigger_type LIKE %s)")
                 search_pattern = f"%{search}%"
-                params.extend([search_pattern, search_pattern])
+                params.extend([search_pattern, search_pattern, search_pattern])
                 
             # Add WHERE clause if needed
             if where_conditions:
@@ -185,7 +185,8 @@ class ETLService:
                     "sam_gov_new_count": record["sam_gov_new_count"],
                     "freelancer_count": record["freelancer_count"],
                     "freelancer_new_count": record["freelancer_new_count"],
-                    "status": record["status"]
+                    "status": record["status"],
+                    "trigger_type": record["trigger_type"] if "trigger_type" in record else "ui-manual"
                 })
                 
             cursor.close()
