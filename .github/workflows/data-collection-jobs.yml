@@ -85,7 +85,7 @@ jobs:
               conn.close()
               
               # Output the record ID for downstream jobs
-              print(f"::set-output name=record_id::{record_id}")
+              print(f"record_id={record_id}", file=open(os.environ['GITHUB_OUTPUT'], 'a'))
               print(f"Created ETL history record with ID: {record_id}, trigger_type: {trigger_type}")
               
           except Exception as e:

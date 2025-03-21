@@ -223,10 +223,16 @@ async def fetch_opportunities():
         }
         return result
 
-def update_etl_history(results, trigger_type='manual'):
-    """Update the most recent ETL history record with results from SAM.gov fetching"""
+def update_etl_history(results, record_id=None, trigger_type=None):
+    """
+    Update the most recent ETL history record with results from SAM.gov fetching
+    
+    Args:
+        results: Dictionary with fetching results
+        record_id: Optional specific ETL history record ID to update
+        trigger_type: Optional trigger type for the record
+    """
     try:
-        logger.info(f"Updating ETL history with trigger_type: {trigger_type}")
         conn = psycopg2.connect(
             host=os.getenv("DB_HOST"),
             port=os.getenv("DB_PORT"),
@@ -236,57 +242,84 @@ def update_etl_history(results, trigger_type='manual'):
         )
         cursor = conn.cursor()
         
-        # Find the most recent 'triggered' record
-        query = """
-        SELECT id FROM etl_history 
-        WHERE status = 'triggered' 
-        ORDER BY time_fetched DESC LIMIT 1
-        """
-        cursor.execute(query)
-        result = cursor.fetchone()
-        
-        if not result:
-            logger.warning("No triggered ETL history records found to update")
-            return
+        # If no specific record ID provided, find the most recent 'triggered' record
+        if not record_id:
+            query = """
+            SELECT id FROM etl_history 
+            WHERE status = 'triggered' 
+            ORDER BY time_fetched DESC LIMIT 1
+            """
+            cursor.execute(query)
+            result = cursor.fetchone()
             
-        record_id = result[0]
-        logger.info(f"Found ETL history record to update: {record_id}")
+            if not result:
+                logger.warning("No triggered ETL history records found to update")
+                return
+                
+            record_id = result[0]
+            
+        logger.info(f"Updating ETL history record {record_id}")
         
         # Get current record values
         current_query = """
-        SELECT freelancer_count, freelancer_new_count FROM etl_history
+        SELECT freelancer_count, freelancer_new_count, trigger_type FROM etl_history
         WHERE id = %s
         """
         cursor.execute(current_query, (record_id,))
         current_values = cursor.fetchone()
         freelancer_count = current_values[0] if current_values else 0
         freelancer_new_count = current_values[1] if current_values else 0
+        existing_trigger_type = current_values[2] if current_values and len(current_values) > 2 else 'ui-manual'
         
-        # Update with the results
-        update_query = """
-        UPDATE etl_history 
-        SET 
-            status = %s,
-            sam_gov_count = %s,
-            sam_gov_new_count = %s,
-            total_records = %s,
-            trigger_type = %s
-        WHERE id = %s
-        """
+        # Use provided trigger_type or existing one
+        trigger_type = trigger_type or existing_trigger_type
+        
+        # Prepare update query based on whether trigger_type is provided
+        if trigger_type:
+            update_query = """
+            UPDATE etl_history 
+            SET 
+                status = %s,
+                sam_gov_count = %s,
+                sam_gov_new_count = %s,
+                total_records = %s,
+                trigger_type = %s
+            WHERE id = %s
+            """
+        else:
+            update_query = """
+            UPDATE etl_history 
+            SET 
+                status = %s,
+                sam_gov_count = %s,
+                sam_gov_new_count = %s,
+                total_records = %s
+            WHERE id = %s
+            """
         
         sam_gov_count = results.get('count', 0)
         sam_gov_new_count = results.get('new_count', 0)
         total_records = sam_gov_count + freelancer_count
         status = 'success' if results.get('status') == 'success' else 'failed'
         
-        cursor.execute(update_query, (
-            status,
-            sam_gov_count,
-            sam_gov_new_count,
-            total_records,
-            trigger_type,
-            record_id
-        ))
+        # Execute appropriate update query
+        if trigger_type:
+            cursor.execute(update_query, (
+                status,
+                sam_gov_count,
+                sam_gov_new_count,
+                total_records,
+                trigger_type,
+                record_id
+            ))
+        else:
+            cursor.execute(update_query, (
+                status,
+                sam_gov_count,
+                sam_gov_new_count,
+                total_records,
+                record_id
+            ))
         
         conn.commit()
         logger.info(f"Successfully updated ETL history record {record_id}")
@@ -300,17 +333,19 @@ def update_etl_history(results, trigger_type='manual'):
 
 # This allows the script to be run directly
 if __name__ == "__main__":
-    # Parse command line arguments
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--auto-trigger', action='store_true', help='Flag to indicate this is an auto-triggered run')
+    # Set up argument parser
+    parser = argparse.ArgumentParser(description='SAM.gov API data fetcher')
+    parser.add_argument('--record-id', type=int, help='ETL history record ID to update')
+    parser.add_argument('--trigger-type', choices=['ui-manual', 'github-manual', 'github-scheduled'],
+                       default='ui-manual', help='Trigger type for this run')
     args = parser.parse_args()
-    
-    # Set trigger type
-    trigger_type = 'scheduled' if args.auto_trigger else 'manual'
     
     # Run the fetcher
     result = asyncio.run(fetch_opportunities())
-    print(result)
     
-    # Update ETL history with trigger type
-    update_etl_history(result, trigger_type)
+    # If a specific record ID was provided, update that record
+    if args.record_id:
+        logger.info(f"Updating ETL history record {args.record_id} with trigger type {args.trigger_type}")
+        update_etl_history(result, args.record_id, args.trigger_type)
+    
+    print(result)
