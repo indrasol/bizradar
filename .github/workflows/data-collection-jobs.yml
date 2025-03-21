@@ -1,7 +1,7 @@
 name: Data Collection Jobs
-# test trigger
+
 on:
-  # Run jobs every minute for testing
+  # Run jobs hourly
   schedule:
     - cron: '0 * * * *'
   
@@ -21,8 +21,8 @@ on:
 jobs:
   freelancer-scraper:
     name: Freelancer.com Data Collection
-    # Run when scheduled or manually triggered
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'freelancer' || github.event.inputs.job == '')
+    # Run when scheduled or manually triggered with appropriate input
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'freelancer' || github.event.inputs.job == ''))
     runs-on: ubuntu-latest
     
     steps:
@@ -43,7 +43,13 @@ jobs:
       
       - name: Run Freelancer scraper
         working-directory: ./backend
-        run: python -m app.services.cron.freelancer
+        run: |
+          # Pass --auto-trigger flag for scheduled runs
+          if [ "${{ github.event_name }}" == "schedule" ]; then
+            python -m app.services.cron.freelancer --auto-trigger
+          else
+            python -m app.services.cron.freelancer
+          fi
         env:
           # Database credentials
           DB_HOST: ${{ secrets.DB_HOST }}
@@ -52,12 +58,11 @@ jobs:
           DB_USER: ${{ secrets.DB_USER }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-
   
   sam-gov-api:
     name: SAM.gov API Data Collection
-    # Run when scheduled or manually triggered
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'sam_gov' || github.event.inputs.job == '')
+    # Run when scheduled or manually triggered with appropriate input
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'sam_gov' || github.event.inputs.job == ''))
     runs-on: ubuntu-latest
     
     steps:
@@ -78,7 +83,13 @@ jobs:
       
       - name: Run SAM.gov API fetcher
         working-directory: ./backend
-        run: python -m app.services.cron.sam_gov
+        run: |
+          # Pass --auto-trigger flag for scheduled runs
+          if [ "${{ github.event_name }}" == "schedule" ]; then
+            python -m app.services.cron.sam_gov --auto-trigger
+          else
+            python -m app.services.cron.sam_gov
+          fi
         env:
           # Database credentials
           DB_HOST: ${{ secrets.DB_HOST }}
