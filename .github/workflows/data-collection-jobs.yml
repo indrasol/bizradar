@@ -3,7 +3,7 @@ name: Data Collection Jobs
 on:
   # Run jobs every minute for testing
   schedule:
-    - cron: '* * * * *'
+    - cron: '0 * * * *'
   
   # Allow manual triggering
   workflow_dispatch:
