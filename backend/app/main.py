@@ -2,6 +2,8 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routes.search_routes import search_router
+# Import our new admin routes
+from routes.admin_routes import router as admin_router
 
 app = FastAPI()
 
@@ -25,6 +27,8 @@ app.add_middleware(
 
 # Include routers
 app.include_router(search_router)
+# Include admin routes
+app.include_router(admin_router)
 
 if __name__ == "__main__":
     import uvicorn

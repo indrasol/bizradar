@@ -11,6 +11,7 @@ import ssl
 import certifi
 from datetime import datetime
 import psycopg2
+import psycopg2.extras
 from dotenv import load_dotenv
 
 # Load environment variables from .env file in the backend root directory
@@ -130,9 +131,26 @@ async def fetch_opportunities():
                             cursor.execute(create_table_query)
                             conn.commit()
                             
+                            # Query to check for existing records
+                            existing_count_query = f"SELECT COUNT(*) FROM {SAM_GOV_TABLE};"
+                            cursor.execute(existing_count_query)
+                            existing_records = cursor.fetchone()[0]
+                            logger.info(f"Existing records in database: {existing_records}")
+                            
                             # Insert data
                             insert_count = 0
+                            new_record_count = 0
                             for row in rows:
+                                # Check if this opportunity already exists
+                                check_query = f"SELECT COUNT(*) FROM {SAM_GOV_TABLE} WHERE title = %s AND published_date = %s"
+                                cursor.execute(check_query, (row["title"], row["published_date"]))
+                                count = cursor.fetchone()[0]
+                                
+                                if count == 0:
+                                    # This is a new record
+                                    new_record_count += 1
+                                
+                                # Insert the record
                                 insert_query = f'''
                                 INSERT INTO {SAM_GOV_TABLE} 
                                 (title, department, published_date, response_date, naics_code, description)
@@ -150,49 +168,136 @@ async def fetch_opportunities():
                             
                             conn.commit()
                             logger.info(f"✅ {insert_count} opportunities inserted into database")
+                            logger.info(f"✅ {new_record_count} new opportunities identified")
+                            
+                            # Prepare result dictionary
+                            result = {
+                                "source": "sam.gov", 
+                                "status": "success", 
+                                "count": insert_count,
+                                "new_count": new_record_count
+                            }
+                            
+                            # Update ETL history
+                            update_etl_history(result)
                             
                             # Close connection
                             cursor.close()
                             conn.close()
                             
-                            return {
-                                "source": "sam.gov", 
-                                "status": "success", 
-                                "count": insert_count
-                            }
+                            return result
                             
                         except Exception as e:
                             logger.error(f"❌ Database error: {str(e)}")
-                            return {
+                            result = {
                                 "source": "sam.gov", 
                                 "status": "error", 
                                 "message": f"Database error: {str(e)}"
                             }
+                            update_etl_history(result)
+                            return result
                     else:
                         logger.info("No opportunities found to insert")
-                        return {
+                        result = {
                             "source": "sam.gov", 
                             "status": "success", 
-                            "count": 0
+                            "count": 0,
+                            "new_count": 0
                         }
+                        update_etl_history(result)
+                        return result
                 else:
                     # Log error details
                     error_text = await response.text()
                     logger.error(f"Error fetching from SAM.gov: HTTP {response.status}")
                     logger.error(f"Error response: {error_text}")
                     
-                    return {
+                    result = {
                         "source": "sam.gov", 
                         "status": "error",  
                         "message": f"HTTP error: {response.status}"
                     }
+                    update_etl_history(result)
+                    return result
     except Exception as e:
         logger.error(f"Error fetching from SAM.gov: {str(e)}")
-        return {
+        result = {
             "source": "sam.gov", 
             "status": "error", 
             "message": f"Request error: {str(e)}"
         }
+        update_etl_history(result)
+        return result
+
+def update_etl_history(results):
+    """Update the most recent ETL history record with results from SAM.gov fetching"""
+    try:
+        conn = psycopg2.connect(
+            host=os.getenv("DB_HOST"),
+            port=os.getenv("DB_PORT"),
+            database=os.getenv("DB_NAME"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD")
+        )
+        cursor = conn.cursor()
+        
+        # Find the most recent 'triggered' record
+        query = """
+        SELECT id FROM etl_history 
+        WHERE status = 'triggered' 
+        ORDER BY time_fetched DESC LIMIT 1
+        """
+        cursor.execute(query)
+        result = cursor.fetchone()
+        
+        if not result:
+            logger.warning("No triggered ETL history records found to update")
+            return
+            
+        record_id = result[0]
+        
+        # Get current record values
+        current_query = """
+        SELECT freelancer_count, freelancer_new_count FROM etl_history
+        WHERE id = %s
+        """
+        cursor.execute(current_query, (record_id,))
+        current_values = cursor.fetchone()
+        freelancer_count = current_values[0] if current_values else 0
+        freelancer_new_count = current_values[1] if current_values else 0
+        
+        # Update with the results
+        update_query = """
+        UPDATE etl_history 
+        SET 
+            status = %s,
+            sam_gov_count = %s,
+            sam_gov_new_count = %s,
+            total_records = %s
+        WHERE id = %s
+        """
+        
+        sam_gov_count = results.get('count', 0)
+        sam_gov_new_count = results.get('new_count', 0)
+        total_records = sam_gov_count + freelancer_count
+        status = 'success' if results.get('status') == 'success' else 'failed'
+        
+        cursor.execute(update_query, (
+            status,
+            sam_gov_count,
+            sam_gov_new_count,
+            total_records,
+            record_id
+        ))
+        
+        conn.commit()
+        logger.info(f"Successfully updated ETL history record {record_id}")
+        
+        cursor.close()
+        conn.close()
+        
+    except Exception as e:
+        logger.error(f"Error updating ETL history: {str(e)}")
 
 
 # This allows the script to be run directly

@@ -123,9 +123,26 @@ def run_scraper():
             conn.commit()
             logger.info("✅ Table verified successfully!")
             
+            # Query to check for existing records
+            existing_count_query = f"SELECT COUNT(*) FROM {FREELANCER_TABLE};"
+            cursor.execute(existing_count_query)
+            existing_records = cursor.fetchone()[0]
+            logger.info(f"Existing records in database: {existing_records}")
+            
             # Insert data into PostgreSQL
             insert_count = 0
+            new_record_count = 0
             for _, row in df.iterrows():
+                # Check if project title already exists
+                check_query = f"SELECT COUNT(*) FROM {FREELANCER_TABLE} WHERE title = %s"
+                cursor.execute(check_query, (row['Title'],))
+                count = cursor.fetchone()[0]
+                
+                if count == 0:
+                    # This is a new record
+                    new_record_count += 1
+                
+                # Insert or update record
                 insert_query = f'''
                 INSERT INTO {FREELANCER_TABLE} (title, price, bids, skills_required, additional_details)
                 VALUES (%s, %s, %s, %s, %s)
@@ -141,33 +158,115 @@ def run_scraper():
                 
             conn.commit()
             logger.info(f"✅ {insert_count} records successfully inserted into the database!")
+            logger.info(f"✅ {new_record_count} new records identified!")
+            
+            # Prepare the result dictionary
+            result = {
+                "source": "freelancer", 
+                "status": "success", 
+                "count": insert_count,
+                "new_count": new_record_count
+            }
+            
+            # Update ETL history
+            update_etl_history(result)
             
             # Close the connection
             cursor.close()
             conn.close()
             logger.info("✅ PostgreSQL connection closed.")
             
-            return {
-                "source": "freelancer", 
-                "status": "success", 
-                "count": insert_count
-            }
+            return result
             
         except Exception as e:
             logger.error(f"❌ Database error: {e}")
-            return {
+            result = {
                 "source": "freelancer", 
                 "status": "error", 
                 "message": f"Database error: {str(e)}"
             }
+            update_etl_history(result)
+            return result
             
     except Exception as e:
         logger.error(f"❌ Scraping error: {e}")
-        return {
+        result = {
             "source": "freelancer", 
             "status": "error", 
             "message": f"Scraping error: {str(e)}"
         }
+        update_etl_history(result)
+        return result
+
+def update_etl_history(results):
+    """Update the most recent ETL history record with results from Freelancer scraping"""
+    try:
+        conn = psycopg2.connect(
+            host=os.getenv("DB_HOST"),
+            port=os.getenv("DB_PORT"),
+            database=os.getenv("DB_NAME"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD")
+        )
+        cursor = conn.cursor()
+        
+        # Find the most recent 'triggered' record
+        query = """
+        SELECT id FROM etl_history 
+        WHERE status = 'triggered' 
+        ORDER BY time_fetched DESC LIMIT 1
+        """
+        cursor.execute(query)
+        result = cursor.fetchone()
+        
+        if not result:
+            logger.warning("No triggered ETL history records found to update")
+            return
+            
+        record_id = result[0]
+        
+        # Get current record values
+        current_query = """
+        SELECT sam_gov_count, sam_gov_new_count FROM etl_history
+        WHERE id = %s
+        """
+        cursor.execute(current_query, (record_id,))
+        current_values = cursor.fetchone()
+        sam_gov_count = current_values[0] if current_values else 0
+        sam_gov_new_count = current_values[1] if current_values else 0
+        
+        # Update with the results
+        update_query = """
+        UPDATE etl_history 
+        SET 
+            status = %s,
+            freelancer_count = %s,
+            freelancer_new_count = %s,
+            total_records = %s
+        WHERE id = %s
+        """
+        
+        freelancer_count = results.get('count', 0)
+        freelancer_new_count = results.get('new_count', 0)
+        total_records = freelancer_count + sam_gov_count
+        status = 'success' if results.get('status') == 'success' else 'failed'
+        
+        cursor.execute(update_query, (
+            status,
+            freelancer_count,
+            freelancer_new_count,
+            total_records,
+            record_id
+        ))
+        
+        conn.commit()
+        logger.info(f"Successfully updated ETL history record {record_id}")
+        
+        cursor.close()
+        conn.close()
+        
+    except Exception as e:
+        logger.error(f"Error updating ETL history: {str(e)}")
 
 
 # This allows the script to be run directly or imported as a module
