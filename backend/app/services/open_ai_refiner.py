@@ -13,12 +13,19 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize the OpenAI API client
-openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Instead of initializing at module level, create a function to get the client
+def get_openai_client():
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        logger.warning("OPENAI_API_KEY environment variable not set")
+    return OpenAI(api_key=api_key)
 
 def refine_query(query: str, contract_type: Optional[str] = None, platform: Optional[str] = None) -> str:
     """Refine the user query using OpenAI with improved domain understanding"""
     try:
+        # Initialize the client only when needed
+        openai_client = get_openai_client()
+        
         filters = []
         if contract_type:
             filters.append(f"Contract Type: {contract_type}")
