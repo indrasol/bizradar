@@ -9,7 +9,8 @@ import {
   Activity, 
   Terminal, 
   BarChart3,
-  TrendingUp
+  TrendingUp,
+  Clock
 } from 'lucide-react';
 
 // Define the correct API base URL
@@ -104,28 +105,20 @@ const Admin = () => {
     }
   };
 
-  // Start auto-refresh of records
+  // Start limited auto-refresh of records
   const startAutoRefresh = () => {
     // Clear any existing interval
     if (autoRefreshIntervalRef.current) {
       clearInterval(autoRefreshIntervalRef.current);
     }
     
-    // Set new interval to refresh every 10 seconds
-    const interval = setInterval(() => {
-      fetchRecords();
-      
-      // Check if we should stop auto-refresh (when all records are in final status)
-      if (records.length > 0 && 
-          records.every(record => 
-            ['success', 'failed', 'partial'].includes(record.status)
-          )) {
-        clearInterval(autoRefreshIntervalRef.current);
-        autoRefreshIntervalRef.current = null;
-      }
-    }, 10000);
+    // Just fetch once immediately after triggering
+    fetchRecords();
     
-    autoRefreshIntervalRef.current = interval;
+    // And then once more after a delay
+    setTimeout(() => {
+      fetchRecords();
+    }, 15000);
   };
 
   // Trigger workflow manually
@@ -158,10 +151,8 @@ const Admin = () => {
       });
       
       // Fetch records to show the new pending record
-      await fetchRecords();
-      
-      // Start auto-refresh to see updates
       startAutoRefresh();
+      
     } catch (error) {
       console.error('Error triggering workflow:', error);
       setTriggerStatus({
@@ -527,9 +518,16 @@ const Admin = () => {
                             +{record.freelancer_new_count}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeClasses(record.status)}`}>
-                              {record.status ? record.status.charAt(0).toUpperCase() + record.status.slice(1) : 'Unknown'}
-                            </span>
+                            <div className="flex items-center">
+                              <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeClasses(record.status)}`}>
+                                {record.status ? record.status.charAt(0).toUpperCase() + record.status.slice(1) : 'Unknown'}
+                              </span>
+                              {record.trigger_type === 'scheduled' && (
+                                <span className="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 border border-blue-200">
+                                  A
+                                </span>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       ))
@@ -539,7 +537,13 @@ const Admin = () => {
               </div>
               
               <div className="px-4 py-3 bg-gray-50 text-gray-500 text-sm border-t border-gray-200 sm:px-6">
-                Showing {filteredRecords.length} of {records.length} records
+                <div className="flex items-center">
+                  <span>Showing {filteredRecords.length} of {records.length} records</span>
+                  <span className="ml-4 text-xs">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200 mr-1">A</span>
+                    = Auto-triggered
+                  </span>
+                </div>
               </div>
             </div>
           </div>
