@@ -34,8 +34,8 @@ class ETLService:
                 raise ValueError("GitHub token not configured")
                 
             # GitHub repository details
-            owner = os.getenv("GITHUB_OWNER", "bizradar")
-            repo = os.getenv("GITHUB_REPO", "your-repo-name")
+            owner = os.getenv("GITHUB_OWNER")
+            repo = os.getenv("GITHUB_REPO")
             workflow_id = "data-collection-jobs.yml"
             
             # Create initial record in database with trigger_type = 'ui-manual'
