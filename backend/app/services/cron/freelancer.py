@@ -9,6 +9,7 @@ import pandas as pd
 import psycopg2
 import logging
 import sys
+import argparse
 from .constants import (
     FREELANCER_URL, 
     DEFAULT_HEADERS, 
@@ -168,9 +169,6 @@ def run_scraper():
                 "new_count": new_record_count
             }
             
-            # Update ETL history
-            update_etl_history(result)
-            
             # Close the connection
             cursor.close()
             conn.close()
@@ -185,7 +183,6 @@ def run_scraper():
                 "status": "error", 
                 "message": f"Database error: {str(e)}"
             }
-            update_etl_history(result)
             return result
             
     except Exception as e:
@@ -195,12 +192,12 @@ def run_scraper():
             "status": "error", 
             "message": f"Scraping error: {str(e)}"
         }
-        update_etl_history(result)
         return result
 
-def update_etl_history(results):
+def update_etl_history(results, trigger_type='manual'):
     """Update the most recent ETL history record with results from Freelancer scraping"""
     try:
+        logger.info(f"Updating ETL history with trigger_type: {trigger_type}")
         conn = psycopg2.connect(
             host=os.getenv("DB_HOST"),
             port=os.getenv("DB_PORT"),
@@ -224,6 +221,7 @@ def update_etl_history(results):
             return
             
         record_id = result[0]
+        logger.info(f"Found ETL history record to update: {record_id}")
         
         # Get current record values
         current_query = """
@@ -242,7 +240,8 @@ def update_etl_history(results):
             status = %s,
             freelancer_count = %s,
             freelancer_new_count = %s,
-            total_records = %s
+            total_records = %s,
+            trigger_type = %s
         WHERE id = %s
         """
         
@@ -256,6 +255,7 @@ def update_etl_history(results):
             freelancer_count,
             freelancer_new_count,
             total_records,
+            trigger_type,
             record_id
         ))
         
@@ -271,5 +271,17 @@ def update_etl_history(results):
 
 # This allows the script to be run directly or imported as a module
 if __name__ == "__main__":
+    # Parse command line arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--auto-trigger', action='store_true', help='Flag to indicate this is an auto-triggered run')
+    args = parser.parse_args()
+    
+    # Set trigger type
+    trigger_type = 'scheduled' if args.auto_trigger else 'manual'
+    
+    # Run the scraper
     result = run_scraper()
     print(result)
+    
+    # Update ETL history with trigger type
+    update_etl_history(result, trigger_type)

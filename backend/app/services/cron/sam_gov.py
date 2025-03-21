@@ -9,6 +9,7 @@ import aiohttp
 import logging
 import ssl
 import certifi
+import argparse
 from datetime import datetime
 import psycopg2
 import psycopg2.extras
@@ -178,9 +179,6 @@ async def fetch_opportunities():
                                 "new_count": new_record_count
                             }
                             
-                            # Update ETL history
-                            update_etl_history(result)
-                            
                             # Close connection
                             cursor.close()
                             conn.close()
@@ -194,7 +192,6 @@ async def fetch_opportunities():
                                 "status": "error", 
                                 "message": f"Database error: {str(e)}"
                             }
-                            update_etl_history(result)
                             return result
                     else:
                         logger.info("No opportunities found to insert")
@@ -204,7 +201,6 @@ async def fetch_opportunities():
                             "count": 0,
                             "new_count": 0
                         }
-                        update_etl_history(result)
                         return result
                 else:
                     # Log error details
@@ -217,7 +213,6 @@ async def fetch_opportunities():
                         "status": "error",  
                         "message": f"HTTP error: {response.status}"
                     }
-                    update_etl_history(result)
                     return result
     except Exception as e:
         logger.error(f"Error fetching from SAM.gov: {str(e)}")
@@ -226,12 +221,12 @@ async def fetch_opportunities():
             "status": "error", 
             "message": f"Request error: {str(e)}"
         }
-        update_etl_history(result)
         return result
 
-def update_etl_history(results):
+def update_etl_history(results, trigger_type='manual'):
     """Update the most recent ETL history record with results from SAM.gov fetching"""
     try:
+        logger.info(f"Updating ETL history with trigger_type: {trigger_type}")
         conn = psycopg2.connect(
             host=os.getenv("DB_HOST"),
             port=os.getenv("DB_PORT"),
@@ -255,6 +250,7 @@ def update_etl_history(results):
             return
             
         record_id = result[0]
+        logger.info(f"Found ETL history record to update: {record_id}")
         
         # Get current record values
         current_query = """
@@ -273,7 +269,8 @@ def update_etl_history(results):
             status = %s,
             sam_gov_count = %s,
             sam_gov_new_count = %s,
-            total_records = %s
+            total_records = %s,
+            trigger_type = %s
         WHERE id = %s
         """
         
@@ -287,6 +284,7 @@ def update_etl_history(results):
             sam_gov_count,
             sam_gov_new_count,
             total_records,
+            trigger_type,
             record_id
         ))
         
@@ -302,5 +300,17 @@ def update_etl_history(results):
 
 # This allows the script to be run directly
 if __name__ == "__main__":
+    # Parse command line arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--auto-trigger', action='store_true', help='Flag to indicate this is an auto-triggered run')
+    args = parser.parse_args()
+    
+    # Set trigger type
+    trigger_type = 'scheduled' if args.auto_trigger else 'manual'
+    
+    # Run the fetcher
     result = asyncio.run(fetch_opportunities())
     print(result)
+    
+    # Update ETL history with trigger type
+    update_etl_history(result, trigger_type)
