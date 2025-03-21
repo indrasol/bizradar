@@ -102,6 +102,7 @@ jobs:
   freelancer-scraper:
     name: Freelancer.com Data Collection
     needs: setup-etl-history
+
     # Run when scheduled or manually triggered with appropriate input
     if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'freelancer' || github.event.inputs.job == ''))
     runs-on: ubuntu-latest
@@ -130,6 +131,7 @@ jobs:
         id: run-scraper
         working-directory: ./backend
         run: |
+
           # Pass the ETL record ID and trigger type
           python -m app.services.cron.freelancer --record-id ${{ needs.setup-etl-history.outputs.record_id }} --trigger-type ${{ needs.setup-etl-history.outputs.trigger_type }}
           
@@ -146,6 +148,7 @@ jobs:
           echo "record_count=$count" >> $GITHUB_OUTPUT
           echo "new_record_count=$new_count" >> $GITHUB_OUTPUT
           echo "status=$status" >> $GITHUB_OUTPUT
+          
         env:
           # Database credentials
           DB_HOST: ${{ secrets.DB_HOST }}
@@ -159,6 +162,7 @@ jobs:
   sam-gov-api:
     name: SAM.gov API Data Collection
     needs: setup-etl-history
+
     # Run when scheduled or manually triggered with appropriate input
     if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'sam_gov' || github.event.inputs.job == ''))
     runs-on: ubuntu-latest
@@ -203,6 +207,7 @@ jobs:
           echo "record_count=$count" >> $GITHUB_OUTPUT
           echo "new_record_count=$new_count" >> $GITHUB_OUTPUT
           echo "status=$status" >> $GITHUB_OUTPUT
+
         env:
           # Database credentials
           DB_HOST: ${{ secrets.DB_HOST }}
