@@ -58,3 +58,22 @@ async def get_etl_records(
     except Exception as e:
         logger.error(f"Error in get_etl_records: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to fetch ETL records")
+
+@router.get("/admin/table-counts")
+async def get_table_counts(request: Request):
+    """
+    Get current counts of records in the main data tables
+    
+    This endpoint retrieves the current count of records in:
+    - SAM.gov table
+    - Freelancer projects table
+    - Total records across both tables
+    
+    Used for displaying real-time record counts on the admin dashboard.
+    """
+    try:
+        result = ETLService.get_table_counts()
+        return result
+    except Exception as e:
+        logger.error(f"Error in get_table_counts: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch table counts")
