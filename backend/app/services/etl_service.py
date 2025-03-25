@@ -1,4 +1,4 @@
-# backend/app/utils/etl_service.py
+# backend/app/services/etl_service.py
 import os
 import httpx
 import logging
@@ -16,6 +16,42 @@ class ETLService:
     - Managing ETL history records
     - Fetching ETL statistics
     """
+    
+    @staticmethod
+    def get_table_counts() -> Dict[str, int]:
+        """
+        Get current counts of records in main data tables
+        
+        Returns:
+            Dictionary with counts for total, sam_gov, and freelancer tables
+        """
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            # Get SAM.gov count
+            cursor.execute("SELECT COUNT(*) FROM sam_gov")
+            sam_gov_count = cursor.fetchone()[0]
+            
+            # Get freelancer count
+            cursor.execute("SELECT COUNT(*) FROM freelancer_projects")
+            freelancer_count = cursor.fetchone()[0]
+            
+            # Calculate total
+            total_records = sam_gov_count + freelancer_count
+            
+            cursor.close()
+            conn.close()
+            
+            return {
+                "totalRecords": total_records,
+                "samGovCount": sam_gov_count,
+                "freelancerCount": freelancer_count
+            }
+            
+        except Exception as e:
+            logger.error(f"Error fetching table counts: {str(e)}")
+            raise
     
     @staticmethod
     async def trigger_workflow(job_type: str = "") -> Dict[str, Any]:

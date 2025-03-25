@@ -235,7 +235,7 @@ export const Settings = () => {
       if (error) throw error;
       
       toast.success('Preferences updated successfully');
-      setEditingPreferences(false);
+    setEditingPreferences(false);
       
       // Refresh user data
       window.location.reload();
@@ -276,26 +276,26 @@ export const Settings = () => {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
         <p className="text-gray-600">Manage your account settings and preferences</p>
-      </div>
+          </div>
       
       {/* Account Overview Section */}
       <div className="mb-8">
         <h2 className="text-xl font-semibold text-gray-800 mb-4">Account Overview</h2>
       </div>
-      
+
       {/* Personal Information Section */}
       <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <div className="flex justify-between items-center mb-4">
+            <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-medium text-gray-800">Personal Information</h3>
-          <button 
+                <button 
             className="text-blue-600 hover:text-blue-800 flex items-center gap-1"
             onClick={() => setEditingPersonal(!editingPersonal)}
           >
             <Pencil className="w-4 h-4" />
             <span>Edit</span>
-          </button>
-        </div>
-        
+                </button>
+            </div>
+            
         {editingPersonal ? (
           <form onSubmit={handlePersonalSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -303,8 +303,8 @@ export const Settings = () => {
                 <label htmlFor="first_name" className="block text-sm font-medium text-gray-700 mb-1">
                   First Name
                 </label>
-                <input
-                  type="text"
+                  <input
+                    type="text"
                   id="first_name"
                   name="first_name"
                   value={personalInfo.first_name}
@@ -316,7 +316,7 @@ export const Settings = () => {
                 <label htmlFor="last_name" className="block text-sm font-medium text-gray-700 mb-1">
                   Last Name
                 </label>
-                <input
+                  <input
                   type="text"
                   id="last_name"
                   name="last_name"
@@ -356,12 +356,12 @@ export const Settings = () => {
               />
             </div>
             
-            <div>
+              <div>
               <label htmlFor="company_role" className="block text-sm font-medium text-gray-700 mb-1">
                 Role
               </label>
-              <input
-                type="text"
+                  <input
+                    type="text"
                 id="company_role"
                 name="company_role"
                 value={companyInfo.role}
@@ -449,21 +449,21 @@ export const Settings = () => {
             </div>
           </div>
         )}
-      </div>
-      
+          </div>
+          
       {/* Account Preferences Section */}
       <div className="bg-white rounded-lg shadow p-6">
-        <div className="flex justify-between items-center mb-4">
+            <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-medium text-gray-800">Account Preferences</h3>
-          <button 
+                <button 
             className="text-blue-600 hover:text-blue-800 flex items-center gap-1"
             onClick={() => setEditingPreferences(!editingPreferences)}
           >
             <Pencil className="w-4 h-4" />
             <span>Edit</span>
-          </button>
-        </div>
-        
+                </button>
+            </div>
+            
         {editingPreferences ? (
           <form onSubmit={handlePreferencesSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -471,36 +471,36 @@ export const Settings = () => {
                 <label htmlFor="language" className="block text-sm font-medium text-gray-700 mb-1">
                   Language
                 </label>
-                <select
+                  <select
                   id="language"
-                  name="language"
+                    name="language"
                   value={preferences.language}
-                  onChange={handlePreferencesChange}
+                    onChange={handlePreferencesChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="English (US)">English (US)</option>
-                  <option value="Spanish">Spanish</option>
-                  <option value="French">French</option>
+                  >
+                    <option value="English (US)">English (US)</option>
+                    <option value="Spanish">Spanish</option>
+                    <option value="French">French</option>
                   <option value="German">German</option>
-                </select>
+                  </select>
               </div>
               
               <div>
                 <label htmlFor="time_zone" className="block text-sm font-medium text-gray-700 mb-1">
                   Time Zone
                 </label>
-                <select
+                  <select
                   id="time_zone"
                   name="time_zone"
                   value={preferences.time_zone}
-                  onChange={handlePreferencesChange}
+                    onChange={handlePreferencesChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="Eastern Time (US & Canada)">Eastern Time (US & Canada)</option>
-                  <option value="Central Time (US & Canada)">Central Time (US & Canada)</option>
-                  <option value="Pacific Time (US & Canada)">Pacific Time (US & Canada)</option>
+                  >
+                    <option value="Eastern Time (US & Canada)">Eastern Time (US & Canada)</option>
+                    <option value="Central Time (US & Canada)">Central Time (US & Canada)</option>
+                    <option value="Pacific Time (US & Canada)">Pacific Time (US & Canada)</option>
                   <option value="UTC">UTC</option>
-                </select>
+                  </select>
               </div>
             </div>
             
@@ -509,34 +509,34 @@ export const Settings = () => {
                 <label htmlFor="date_format" className="block text-sm font-medium text-gray-700 mb-1">
                   Date Format
                 </label>
-                <select
+                  <select
                   id="date_format"
                   name="date_format"
                   value={preferences.date_format}
-                  onChange={handlePreferencesChange}
+                    onChange={handlePreferencesChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-                  <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-                  <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-                </select>
+                  >
+                    <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                    <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+                    <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                  </select>
               </div>
               
               <div>
                 <label htmlFor="theme" className="block text-sm font-medium text-gray-700 mb-1">
                   Theme
                 </label>
-                <select
+                  <select
                   id="theme"
-                  name="theme"
+                    name="theme"
                   value={preferences.theme}
-                  onChange={handlePreferencesChange}
+                    onChange={handlePreferencesChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="Light">Light</option>
-                  <option value="Dark">Dark</option>
-                  <option value="System">System</option>
-                </select>
+                  >
+                    <option value="Light">Light</option>
+                    <option value="Dark">Dark</option>
+                    <option value="System">System</option>
+                  </select>
               </div>
             </div>
             
@@ -579,7 +579,7 @@ export const Settings = () => {
             </div>
           </div>
         )}
-      </div>
+        </div>
     </div>
   );
 };

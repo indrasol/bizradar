@@ -30,6 +30,17 @@ const Admin = () => {
   });
   const [selectedWorkflow, setSelectedWorkflow] = useState('');
   const autoRefreshIntervalRef = useRef(null);
+  const [tableCounts, setTableCounts] = useState({
+    totalRecords: 0,
+    samGovCount: 0,
+    freelancerCount: 0
+  });
+  const [lastUpdated, setLastUpdated] = useState('N/A');
+  const [newRecordCounts, setNewRecordCounts] = useState({
+    total: 0,
+    samGov: 0,
+    freelancer: 0
+  });
 
   // Format date for display
   const formatDate = (dateString) => {
@@ -62,6 +73,26 @@ const Admin = () => {
     
     setFilteredRecords(filtered);
   }, [searchQuery, records]);
+  
+  // Fetch table counts from API
+  const fetchTableCounts = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/table-counts`);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch table counts: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      setTableCounts({
+        totalRecords: data.totalRecords || 0,
+        samGovCount: data.samGovCount || 0,
+        freelancerCount: data.freelancerCount || 0
+      });
+    } catch (error) {
+      console.error('Error fetching table counts:', error);
+    }
+  };
 
   // Fetch ETL records from API
   const fetchRecords = async () => {
@@ -85,6 +116,45 @@ const Admin = () => {
       const data = await response.json();
       setRecords(data.records || []);
       setFilteredRecords(data.records || []);
+      
+      // Fetch the latest table counts
+      await fetchTableCounts();
+      
+      // Update the last updated timestamp and new record counts
+      if (data.records && data.records.length > 0) {
+        const latestRecord = data.records[0];
+        setLastUpdated(formatDate(latestRecord.time_fetched));
+        
+        // Fix: Extract new_count values from record or API response
+        // Check both the standard property and JSON structure
+        let samGovNewCount = latestRecord.sam_gov_new_count || 
+                         (latestRecord.source === 'sam.gov' && latestRecord.new_count) || 0;
+        let freelancerNewCount = latestRecord.freelancer_new_count || 
+                             (latestRecord.source === 'freelancer' && latestRecord.new_count) || 0;
+
+        // If JSON string is present in a "result" field, try to parse it
+        if (latestRecord.result && typeof latestRecord.result === 'string') {
+          try {
+            const parsedResult = JSON.parse(latestRecord.result);
+            if (parsedResult && parsedResult.new_count !== undefined) {
+              if (parsedResult.source === 'sam.gov') {
+                samGovNewCount = parsedResult.new_count;
+              } else if (parsedResult.source === 'freelancer') {
+                freelancerNewCount = parsedResult.new_count;
+              }
+            }
+          } catch (e) {
+            console.error('Failed to parse result JSON:', e);
+          }
+        }
+        
+        // Set the new record counts
+        setNewRecordCounts({
+          total: samGovNewCount + freelancerNewCount,
+          samGov: samGovNewCount,
+          freelancer: freelancerNewCount
+        });
+      }
       
       // Show success message briefly
       setTriggerStatus({
@@ -131,12 +201,16 @@ const Admin = () => {
     });
     
     try {
+      // Pass an explicit trigger_source parameter to indicate this came from the Admin UI
       const response = await fetch(`${API_BASE_URL}/admin/trigger-workflow`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ job_type: selectedWorkflow })
+        body: JSON.stringify({ 
+          job_type: selectedWorkflow,
+          trigger_source: 'ui-manual' // Explicitly state this is from the UI
+        })
       });
       
       if (!response.ok) {
@@ -147,7 +221,7 @@ const Admin = () => {
       const data = await response.json();
       
       setTriggerStatus({
-        message: data.message || `Successfully triggered ${selectedWorkflow || 'all'} workflow(s). Check GitHub Actions for progress.`,
+        message: data.message || `Successfully triggered ${selectedWorkflow || 'all'} workflow(s).`,
         type: 'success'
       });
       
@@ -157,7 +231,7 @@ const Admin = () => {
     } catch (error) {
       console.error('Error triggering workflow:', error);
       setTriggerStatus({
-        message: error.message || 'Failed to trigger workflow. Please check GitHub Actions configuration.',
+        message: error.message || 'Failed to trigger workflow. Please check your network connection.',
         type: 'error'
       });
     } finally {
@@ -174,9 +248,10 @@ const Admin = () => {
     };
   }, []);
   
-  // Fetch records on initial component load
+  // Fetch records and table counts on initial component load
   useEffect(() => {
     fetchRecords();
+    fetchTableCounts();
   }, []);
   
   // Get status badge classes 
@@ -216,8 +291,14 @@ const Admin = () => {
           </span>
         );
       case 'ui-manual':
+        return (
+          <span className="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800 border border-purple-200">
+            <Users className="h-3 w-3 mr-1" />
+            U
+          </span>
+        );
       default:
-        return null; // No badge for UI-triggered runs
+        return null;
     }
   };
 
@@ -367,6 +448,15 @@ const Admin = () => {
                     )}
                   </button>
                 </div>
+                
+                {/* Last updated timestamp - prominent display */}
+                <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-md">
+                  <div className="flex items-center text-sm">
+                    <Clock className="h-4 w-4 text-gray-500 mr-2" />
+                    <span className="font-medium">Last Updated:</span>
+                    <span className="ml-2 text-gray-700">{lastUpdated}</span>
+                  </div>
+                </div>
               </div>
             </div>
             
@@ -378,15 +468,15 @@ const Admin = () => {
                     <div>
                       <p className="text-sm font-medium text-gray-500 truncate">Total Records</p>
                       <h3 className="mt-1 text-2xl font-semibold text-gray-900">
-                        {records.length > 0 ? records[0].total_records : 0}
+                        {tableCounts.totalRecords}
                       </h3>
                     </div>
                     <div className="bg-blue-100 p-3 rounded-full">
                       <BarChart3 className="h-6 w-6 text-blue-600" />
                     </div>
                   </div>
-                  <p className="mt-4 text-xs text-gray-500">
-                    Last updated: {records.length > 0 ? formatDate(records[0].time_fetched) : 'N/A'}
+                  <p className="mt-4 text-xs text-blue-600">
+                    {newRecordCounts.total > 0 ? `+${newRecordCounts.total} new records` : 'No new records'}
                   </p>
                 </div>
               </div>
@@ -397,7 +487,7 @@ const Admin = () => {
                     <div>
                       <p className="text-sm font-medium text-gray-500 truncate">SAM.gov Records</p>
                       <h3 className="mt-1 text-2xl font-semibold text-gray-900">
-                        {records.length > 0 ? records[0].sam_gov_count : 0}
+                        {tableCounts.samGovCount}
                       </h3>
                     </div>
                     <div className="bg-green-100 p-3 rounded-full">
@@ -405,7 +495,7 @@ const Admin = () => {
                     </div>
                   </div>
                   <p className="mt-4 text-xs text-green-600">
-                    {records.length > 0 ? `+${records[0].sam_gov_new_count} new records` : 'No new records'}
+                    {newRecordCounts.samGov > 0 ? `+${newRecordCounts.samGov} new records` : 'No new records'}
                   </p>
                 </div>
               </div>
@@ -416,7 +506,7 @@ const Admin = () => {
                     <div>
                       <p className="text-sm font-medium text-gray-500 truncate">Freelancer Records</p>
                       <h3 className="mt-1 text-2xl font-semibold text-gray-900">
-                        {records.length > 0 ? records[0].freelancer_count : 0}
+                        {tableCounts.freelancerCount}
                       </h3>
                     </div>
                     <div className="bg-purple-100 p-3 rounded-full">
@@ -424,7 +514,7 @@ const Admin = () => {
                     </div>
                   </div>
                   <p className="mt-4 text-xs text-purple-600">
-                    {records.length > 0 ? `+${records[0].freelancer_new_count} new records` : 'No new records'}
+                    {newRecordCounts.freelancer > 0 ? `+${newRecordCounts.freelancer} new records` : 'No new records'}
                   </p>
                 </div>
               </div>
@@ -573,7 +663,10 @@ const Admin = () => {
                     <span>= GitHub manual trigger</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span>No badge = Triggered from this UI</span>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
+                      <Users className="h-3 w-3 mr-1" />U
+                    </span>
+                    <span>= UI manual trigger</span>
                   </div>
                 </div>
               </div>
