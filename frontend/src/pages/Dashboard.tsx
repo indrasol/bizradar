@@ -12,11 +12,16 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import SideBar from "../components/layout/SideBar";
-import { useContext } from "react";
-import AuthContext from "../components/Auth/AuthContext";
+import { useAuth } from "../components/Auth/useAuth";
 
 const BizRadarDashboard = () => {
-  const { user } = useContext(AuthContext);
+  const { user } = useAuth();
+  const firstName = user?.user_metadata?.first_name || '';
+  const currentDate = new Date().toLocaleDateString('en-US', { 
+    weekday: 'long', 
+    month: 'long', 
+    day: 'numeric' 
+  });
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">
@@ -72,10 +77,10 @@ const BizRadarDashboard = () => {
               <div className="mr-4 w-12 h-12 bg-gray-200 rounded-full"></div>
               <div>
                 <h1 className="text-2xl font-semibold text-gray-900">
-                  Welcome,{user?.firstName}!
+                  Welcome, {firstName}!
                 </h1>
                 <div className="text-sm text-gray-500">
-                  Portfolio • Friday, March 7th
+                  Portfolio • {currentDate}
                 </div>
               </div>
               <div className="ml-auto flex space-x-2">

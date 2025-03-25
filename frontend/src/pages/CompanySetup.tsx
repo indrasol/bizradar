@@ -10,24 +10,36 @@ const CompanySetup: React.FC = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   
-  // Form state
+  // Form state - removed role field as it will be set to 'user' by default
   const [formData, setFormData] = useState({
     name: '',
     url: '',
-    description: '',
-    role: 'Administrator' // Default role
+    description: ''
   });
   
-  // Check if user is authenticated, if not redirect to login
+  // Check if user is authenticated and if they already have a company setup
   useEffect(() => {
-    const checkAuth = async () => {
+    const checkUserAndCompany = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         navigate('/login');
+        return;
+      }
+      
+      // Check if user already has a company setup
+      const { data: userCompanies } = await supabase
+        .from('user_companies')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .eq('is_primary', true);
+        
+      if (userCompanies && userCompanies.length > 0) {
+        // User already has company setup, redirect to opportunities
+        navigate('/opportunities');
       }
     };
     
-    checkAuth();
+    checkUserAndCompany();
   }, [navigate]);
   
   // Handle input changes
@@ -66,13 +78,13 @@ const CompanySetup: React.FC = () => {
       
       console.log('Company created:', companyData);
       
-      // Then, create the relationship between user and company
+      // Then, create the relationship between user and company with default 'user' role
       const { error: relationError } = await supabase
         .from('user_companies')
         .insert({
           user_id: user.id,
           company_id: companyData.id,
-          role: formData.role,
+          role: 'user', // Default role set to 'user'
           is_primary: true
         });
       
@@ -84,9 +96,9 @@ const CompanySetup: React.FC = () => {
       // Success notification
       toast.success('Company information saved successfully!');
       
-      // Show settings notification and redirect to dashboard
+      // Show settings notification and redirect to opportunities
       sessionStorage.setItem('showSettingsNotification', 'true');
-      navigate('/dashboard');
+      navigate('/opportunities');
     } catch (error) {
       console.error('Error saving company information:', error);
       toast.error('Failed to save company information. Please try again.');
@@ -95,10 +107,10 @@ const CompanySetup: React.FC = () => {
     }
   };
   
-  // Skip setup and continue to dashboard
+  // Skip setup and continue to opportunities
   const handleSkip = () => {
     sessionStorage.setItem('showSettingsNotification', 'true');
-    navigate('/dashboard');
+    navigate('/opportunities');
   };
   
   return (
@@ -183,23 +195,6 @@ const CompanySetup: React.FC = () => {
                 className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all"
                 placeholder="Brief description of your company..."
               ></textarea>
-            </div>
-            
-            {/* Role */}
-            <div>
-              <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1 ml-1">
-                Your Role <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                id="role"
-                name="role"
-                value={formData.role}
-                onChange={handleChange}
-                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all"
-                placeholder="Administrator"
-                required
-              />
             </div>
             
             {/* Action Buttons */}

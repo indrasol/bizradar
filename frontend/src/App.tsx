@@ -10,6 +10,9 @@ import RfpWriter from "./pages/RfpWriter";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
+import Logout from "./pages/Logout";
 import Dashboard from "./pages/Dashboard";
 import Opportunities from "./pages/Opportunities";
 import { AuthProvider } from "./components/Auth/AuthContext";
@@ -33,11 +36,12 @@ const App = () => (
             <Route path="/" element={<Homepage children={null} />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
-            <Route path="/contracts" element={<Contracts />} />
-            
-            {/* Company setup - accessible after signup */}
             <Route path="/company-setup" element={<CompanySetup />} />
-            
+            <Route path="/logout" element={<Logout />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/contracts" element={<Contracts />} />
+                        
             {/* Protected routes */}
             <Route path="/dashboard" element={
               <ProtectedRoute>
@@ -55,9 +59,9 @@ const App = () => (
               </ProtectedRoute>
             } />
             <Route path="/admin" element={
-              // <ProtectedRoute>
+              <ProtectedRoute>
                 <Admin />
-              // </ProtectedRoute>
+              </ProtectedRoute>
             } />
             <Route path="/settings" element={
               <ProtectedRoute>

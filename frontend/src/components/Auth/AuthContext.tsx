@@ -12,6 +12,7 @@ interface AuthContextType {
   register: (firstName: string, lastName: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  updatePassword: (password: string) => Promise<void>;
   updateProfile: (data: { firstName?: string; lastName?: string; avatar?: string }) => Promise<void>;
 }
 
@@ -25,6 +26,7 @@ const AuthContext = createContext<AuthContextType>({
   register: async () => {},
   logout: async () => {},
   resetPassword: async () => {},
+  updatePassword: async () => {},
   updateProfile: async () => {},
 });
 
@@ -175,6 +177,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           first_name: firstName,
           last_name: lastName,
           email: email,
+          role: 'user',
           created_at: new Date().toISOString(),
         });
         
@@ -223,7 +226,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   };
 
-  // Reset password function
+  // Reset password function - sends a password reset email
   const resetPassword = async (email: string) => {
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -235,6 +238,21 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       const authError = error as AuthError;
       console.error('Reset password error:', authError);
       throw new Error(authError.message || 'Failed to send reset password email');
+    }
+  };
+  
+  // Update password function - used when user is already authenticated or has a recovery token
+  const updatePassword = async (password: string) => {
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: password
+      });
+      
+      if (error) throw error;
+    } catch (error) {
+      const authError = error as AuthError;
+      console.error('Update password error:', authError);
+      throw new Error(authError.message || 'Failed to update password');
     }
   };
 
@@ -286,6 +304,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     register,
     logout,
     resetPassword,
+    updatePassword,
     updateProfile,
   };
 
