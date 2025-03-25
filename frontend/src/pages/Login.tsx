@@ -56,7 +56,7 @@ const Login = ({ isOpen = true, onOpenChange = () => {}, onSwitchToRegister = ()
 
       // Introduce a 1-second delay before navigating to "/dashboard"
       setTimeout(() => {
-        navigate("/opportunites");
+        navigate("/opportunities");
       }, 1000); // 1000ms = 1 second delay
     } catch (err: any) {
       console.error("Login error:", err);

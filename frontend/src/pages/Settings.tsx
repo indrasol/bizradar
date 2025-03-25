@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../components/Auth/useAuth';
-import { Pencil } from 'lucide-react';
+import { Pencil, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../utils/supabase';
+import { useNavigate } from 'react-router-dom';
 
 export const Settings = () => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [userProfile, setUserProfile] = useState<any>(null);
   const [userCompany, setUserCompany] = useState<any>(null);
   const [userPreferences, setUserPreferences] = useState<any>(null);
@@ -35,6 +37,18 @@ export const Settings = () => {
     date_format: 'MM/DD/YYYY',
     theme: 'Light',
   });
+
+  // Handle logout
+  const handleLogout = async () => {
+    try {
+      await logout();
+      toast.success("Logging out...");
+      navigate('/logout');
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast.error('There was a problem logging out');
+    }
+  };
   
   // Fetch user data
   useEffect(() => {
@@ -60,20 +74,11 @@ export const Settings = () => {
           });
         }
 
-        // Fetch companies data
-        const { data: companiesData, error: companiesError } = await supabase
-          .from('companies')
-          .select('*');
-          
-        console.log('All companies:', companiesData);
-
-        // Fetch user's primary company with direct approach
+        // Fetch user's primary company
         const { data: userCompanyData, error: userCompanyError } = await supabase
           .from('user_companies')
           .select('*')
           .eq('user_id', user.id);
-        
-        console.log('User company relationships:', userCompanyData);
         
         if (!userCompanyError && userCompanyData && userCompanyData.length > 0) {
           // Get primary company or first one
@@ -85,8 +90,6 @@ export const Settings = () => {
             .select('*')
             .eq('id', primaryCompany.company_id)
             .single();
-          
-          console.log('Company details:', companyDetails);
           
           if (!companyDetailsError && companyDetails) {
             const company = {
@@ -273,32 +276,44 @@ export const Settings = () => {
   
   return (
     <div className="max-w-4xl mx-auto p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-        <p className="text-gray-600">Manage your account settings and preferences</p>
-          </div>
-      
-      {/* Account Overview Section */}
-      <div className="mb-8">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">Account Overview</h2>
+      {/* Header with Title and Logout Button */}
+      <div className="flex justify-between items-center mb-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900">Settings</h1>
+          <p className="text-gray-600 text-sm">Manage your account settings and preferences</p>
+        </div>
+        
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition-colors"
+        >
+          <LogOut size={18} />
+          <span>Logout</span>
+        </button>
       </div>
 
+      {/* Account Overview Section */}
+      <h2 className="text-xl font-medium text-gray-800 mb-6 mt-8">Account Overview</h2>
+      
       {/* Personal Information Section */}
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
-            <div className="flex justify-between items-center mb-4">
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden mb-6">
+        <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100">
           <h3 className="text-lg font-medium text-gray-800">Personal Information</h3>
+          
+          {!editingPersonal ? (
                 <button 
-            className="text-blue-600 hover:text-blue-800 flex items-center gap-1"
-            onClick={() => setEditingPersonal(!editingPersonal)}
-          >
-            <Pencil className="w-4 h-4" />
-            <span>Edit</span>
+              className="text-green-600 hover:text-green-800 flex items-center gap-1"
+              onClick={() => setEditingPersonal(true)}
+                >
+              <Pencil className="w-4 h-4" />
+              <span>Edit</span>
                 </button>
+          ) : null}
             </div>
             
         {editingPersonal ? (
-          <form onSubmit={handlePersonalSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+          <form onSubmit={handlePersonalSubmit} className="p-6">
+            <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
                 <label htmlFor="first_name" className="block text-sm font-medium text-gray-700 mb-1">
                   First Name
@@ -309,40 +324,39 @@ export const Settings = () => {
                   name="first_name"
                   value={personalInfo.first_name}
                   onChange={handlePersonalChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                 />
               </div>
               <div>
                 <label htmlFor="last_name" className="block text-sm font-medium text-gray-700 mb-1">
                   Last Name
                 </label>
-                  <input
+                <input
                   type="text"
                   id="last_name"
                   name="last_name"
                   value={personalInfo.last_name}
                   onChange={handlePersonalChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                 />
               </div>
             </div>
             
-            <div>
+            <div className="mb-4">
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
                 Email
               </label>
-              <input
-                type="email"
+                  <input
+                    type="email"
                 id="email"
-                name="email"
+                    name="email"
                 value={personalInfo.email}
                 disabled
                 className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-gray-500"
               />
-              <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
             </div>
             
-            <div>
+            <div className="mb-4">
               <label htmlFor="company_name" className="block text-sm font-medium text-gray-700 mb-1">
                 Company Name
               </label>
@@ -352,25 +366,25 @@ export const Settings = () => {
                 name="company_name"
                 value={companyInfo.name}
                 onChange={handlePersonalChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
               />
             </div>
             
-              <div>
+            <div className="mb-4">
               <label htmlFor="company_role" className="block text-sm font-medium text-gray-700 mb-1">
                 Role
               </label>
-                  <input
-                    type="text"
+              <input
+                type="text"
                 id="company_role"
                 name="company_role"
                 value={companyInfo.role}
                 onChange={handlePersonalChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
               />
             </div>
             
-            <div>
+            <div className="mb-4">
               <label htmlFor="company_url" className="block text-sm font-medium text-gray-700 mb-1">
                 Company URL
               </label>
@@ -380,11 +394,11 @@ export const Settings = () => {
                 name="company_url"
                 value={companyInfo.url}
                 onChange={handlePersonalChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
               />
             </div>
             
-            <div>
+            <div className="mb-4">
               <label htmlFor="company_description" className="block text-sm font-medium text-gray-700 mb-1">
                 Company Description
               </label>
@@ -394,7 +408,7 @@ export const Settings = () => {
                 value={companyInfo.description}
                 onChange={handlePersonalChange}
                 rows={4}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
               ></textarea>
             </div>
             
@@ -408,65 +422,63 @@ export const Settings = () => {
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md"
               >
                 Save Changes
               </button>
             </div>
           </form>
         ) : (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-8">
+          <div className="px-6 py-4">
+            <div className="grid grid-cols-2 gap-x-8 gap-y-4">
               <div>
-                <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wide">Full Name</h4>
+                <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide">FULL NAME</h4>
                 <p className="mt-1 text-gray-900">{userProfile?.first_name} {userProfile?.last_name}</p>
               </div>
               <div>
-                <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wide">Email</h4>
+                <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide">EMAIL</h4>
                 <p className="mt-1 text-gray-900">{userProfile?.email}</p>
               </div>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-8">
               <div>
-                <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wide">Company</h4>
+                <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide">COMPANY</h4>
                 <p className="mt-1 text-gray-900">{userCompany?.name || 'Not set'}</p>
               </div>
               <div>
-                <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wide">Role</h4>
+                <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide">ROLE</h4>
                 <p className="mt-1 text-gray-900">{userCompany?.role || 'Not set'}</p>
               </div>
-            </div>
-            
-            <div>
-              <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wide">Company URL</h4>
-              <p className="mt-1 text-gray-900">{userCompany?.url || 'Not set'}</p>
-            </div>
-            
-            <div>
-              <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wide">Company Description</h4>
-              <p className="mt-1 text-gray-900">{userCompany?.description || 'Not set'}</p>
+              <div className="col-span-2">
+                <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide">COMPANY URL</h4>
+                <p className="mt-1 text-gray-900">{userCompany?.url || 'Not set'}</p>
+              </div>
+              <div className="col-span-2">
+                <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide">COMPANY DESCRIPTION</h4>
+                <p className="mt-1 text-gray-900">{userCompany?.description || 'Not set'}</p>
+              </div>
             </div>
           </div>
         )}
-          </div>
-          
+      </div>
+      
       {/* Account Preferences Section */}
-      <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex justify-between items-center mb-4">
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden mb-6">
+        <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100">
           <h3 className="text-lg font-medium text-gray-800">Account Preferences</h3>
+          
+              {!editingPreferences ? (
                 <button 
-            className="text-blue-600 hover:text-blue-800 flex items-center gap-1"
-            onClick={() => setEditingPreferences(!editingPreferences)}
-          >
-            <Pencil className="w-4 h-4" />
-            <span>Edit</span>
+              className="text-green-600 hover:text-green-800 flex items-center gap-1"
+              onClick={() => setEditingPreferences(true)}
+                >
+              <Pencil className="w-4 h-4" />
+              <span>Edit</span>
                 </button>
+          ) : null}
             </div>
             
         {editingPreferences ? (
-          <form onSubmit={handlePreferencesSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+          <form onSubmit={handlePreferencesSubmit} className="p-6">
+            <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
                 <label htmlFor="language" className="block text-sm font-medium text-gray-700 mb-1">
                   Language
@@ -476,7 +488,7 @@ export const Settings = () => {
                     name="language"
                   value={preferences.language}
                     onChange={handlePreferencesChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                   >
                     <option value="English (US)">English (US)</option>
                     <option value="Spanish">Spanish</option>
@@ -494,7 +506,7 @@ export const Settings = () => {
                   name="time_zone"
                   value={preferences.time_zone}
                     onChange={handlePreferencesChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                   >
                     <option value="Eastern Time (US & Canada)">Eastern Time (US & Canada)</option>
                     <option value="Central Time (US & Canada)">Central Time (US & Canada)</option>
@@ -504,7 +516,7 @@ export const Settings = () => {
               </div>
             </div>
             
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
                 <label htmlFor="date_format" className="block text-sm font-medium text-gray-700 mb-1">
                   Date Format
@@ -514,7 +526,7 @@ export const Settings = () => {
                   name="date_format"
                   value={preferences.date_format}
                     onChange={handlePreferencesChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                   >
                     <option value="MM/DD/YYYY">MM/DD/YYYY</option>
                     <option value="DD/MM/YYYY">DD/MM/YYYY</option>
@@ -531,7 +543,7 @@ export const Settings = () => {
                     name="theme"
                   value={preferences.theme}
                     onChange={handlePreferencesChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                   >
                     <option value="Light">Light</option>
                     <option value="Dark">Dark</option>
@@ -550,36 +562,56 @@ export const Settings = () => {
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md"
               >
                 Save Changes
               </button>
             </div>
           </form>
         ) : (
-          <div className="grid grid-cols-2 gap-8">
-            <div>
-              <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wide">Language</h4>
-              <p className="mt-1 text-gray-900">{userPreferences?.language || 'English (US)'}</p>
-            </div>
-            
-            <div>
-              <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wide">Time Zone</h4>
-              <p className="mt-1 text-gray-900">{userPreferences?.time_zone || 'Eastern Time (US & Canada)'}</p>
-            </div>
-            
-            <div>
-              <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wide">Date Format</h4>
-              <p className="mt-1 text-gray-900">{userPreferences?.date_format || 'MM/DD/YYYY'}</p>
-            </div>
-            
-            <div>
-              <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wide">Theme</h4>
-              <p className="mt-1 text-gray-900">{userPreferences?.theme || 'Light'}</p>
+          <div className="px-6 py-4">
+            <div className="grid grid-cols-2 gap-x-8 gap-y-4">
+              <div>
+                <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide">LANGUAGE</h4>
+                <p className="mt-1 text-gray-900">{userPreferences?.language || 'English (US)'}</p>
+              </div>
+              
+              <div>
+                <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide">TIME ZONE</h4>
+                <p className="mt-1 text-gray-900">{userPreferences?.time_zone || 'Eastern Time (US & Canada)'}</p>
+              </div>
+              
+              <div>
+                <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide">DATE FORMAT</h4>
+                <p className="mt-1 text-gray-900">{userPreferences?.date_format || 'MM/DD/YYYY'}</p>
+              </div>
+              
+              <div>
+                <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide">THEME</h4>
+                <p className="mt-1 text-gray-900">{userPreferences?.theme || 'Light'}</p>
+              </div>
             </div>
           </div>
         )}
+      </div>
+      
+      {/* Account Actions Section */}
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100">
+          <h3 className="text-lg font-medium text-gray-800">Account Actions</h3>
+          <p className="text-sm text-gray-600">Manage your account access</p>
         </div>
+        
+        <div className="px-6 py-4 flex justify-end">
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition-colors"
+          >
+            <LogOut size={18} />
+            <span>Logout from all devices</span>
+          </button>
+        </div>
+      </div>
     </div>
   );
 };

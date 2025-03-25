@@ -5,21 +5,27 @@ import {
   Search, 
   FileText, 
   Settings,
-  Radar
+  Radar,
+  Lock,
+  AlertCircle
 } from 'lucide-react';
 import SettingsNotification from './SettingsNotification';
 import { useAuth } from '../Auth/useAuth';
 import { supabase } from '../../utils/supabase';
+import { toast } from 'sonner';
 
 const Sidebar: React.FC = () => {
   const location = useLocation();
   const { user } = useAuth();
   const [profile, setProfile] = useState<any>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   
   // Fetch user profile separately
   useEffect(() => {
     const fetchProfile = async () => {
       if (!user) return;
+      
+      console.log('Fetching profile for user:', user.id);
       
       try {
         const { data, error } = await supabase
@@ -28,10 +34,28 @@ const Sidebar: React.FC = () => {
           .eq('id', user.id)
           .single();
           
-        if (error) throw error;
-        if (data) setProfile(data);
+        if (error) {
+          console.error('Error fetching profile from Supabase:', error);
+          throw error;
+        }
+        
+        if (data) {
+          console.log('Profile data received:', data);
+          setProfile(data);
+          
+          // Simple role check - just look for 'admin' in the role field
+          const userRole = (data.role || '').toLowerCase();
+          const adminStatus = userRole === 'admin';
+          
+          console.log('User role:', data.role);
+          console.log('Is admin?', adminStatus);
+          
+          setIsAdmin(adminStatus);
+        } else {
+          console.log('No profile data found for user');
+        }
       } catch (error) {
-        console.error('Error fetching profile:', error);
+        console.error('Error in profile fetch process:', error);
       }
     };
     
@@ -40,6 +64,14 @@ const Sidebar: React.FC = () => {
   
   // Check if the path matches the given route
   const isActive = (path: string) => location.pathname === path;
+  
+  const handleAdminClick = (e: React.MouseEvent) => {
+    console.log('Admin link clicked, isAdmin:', isAdmin);
+    if (!isAdmin) {
+      e.preventDefault();
+      toast.error("You don't have permission to access the Admin Zone");
+    }
+  };
   
   return (
     <div className="h-full w-64 bg-gray-50 border-r border-gray-200">
@@ -66,6 +98,9 @@ const Sidebar: React.FC = () => {
                 <p className="text-sm font-medium text-gray-800 truncate">
                   {profile.first_name} {profile.last_name}
                 </p>
+                {isAdmin && (
+                  <p className="text-xs text-blue-600">Administrator</p>
+                )}
               </div>
             </div>
           </div>
@@ -102,6 +137,39 @@ const Sidebar: React.FC = () => {
             <FileText className="w-5 h-5" />
             <span>Pursuits</span>
           </Link>
+          
+          {/* Admin Zone - Visible to all but styled differently for non-admins */}
+          <div className="relative group">
+            <Link
+              to="/admin"
+              onClick={handleAdminClick}
+              className={`flex items-center gap-2 px-2 py-2 rounded-md transition-colors ${
+                isActive('/admin') && isAdmin 
+                  ? 'bg-blue-100 text-blue-700' 
+                  : isAdmin 
+                    ? 'text-gray-700 hover:bg-gray-100' 
+                    : 'text-gray-400 hover:bg-gray-100/50 cursor-not-allowed'
+              }`}
+            >
+              <Lock className={`w-5 h-5 ${isAdmin ? '' : 'text-gray-400'}`} />
+              <span>Admin Zone</span>
+              
+              {!isAdmin && (
+                <Lock className="w-3.5 h-3.5 ml-auto text-gray-400" />
+              )}
+            </Link>
+            
+            {/* Tooltip for non-admins */}
+            {!isAdmin && (
+              <div className="absolute left-0 -bottom-2 translate-y-full w-48 bg-gray-800 text-white text-xs rounded py-1.5 px-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-50 shadow-lg">
+                <div className="absolute -top-1 left-4 w-2 h-2 bg-gray-800 transform rotate-45"></div>
+                <div className="flex items-center gap-1.5">
+                  <AlertCircle className="w-3 h-3" />
+                  <span>Restricted for admins only</span>
+                </div>
+              </div>
+            )}
+          </div>
         </nav>
         
         {/* Bottom Links */}
