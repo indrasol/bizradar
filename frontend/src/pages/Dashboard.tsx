@@ -25,15 +25,7 @@ const BizRadarDashboard = () => {
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">
-      {/* Top banner */}
-      <div className="w-full bg-blue-600 text-white p-3 text-center text-sm">
-        Your organization's free trial.{" "}
-        <a href="#" className="underline font-medium">
-          Book a demo here
-        </a>
-        .
-      </div>
-
+      
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar - Now imported as a component */}
         <SideBar />

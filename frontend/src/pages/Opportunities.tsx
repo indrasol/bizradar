@@ -576,19 +576,7 @@ export default function Opportunities() {
 
   return (
     <div className="h-screen flex flex-col bg-gray-50 text-gray-800">
-      {/* Trial Notification */}
-      <div className="w-full bg-blue-600 text-white text-center py-2 px-4">
-        <div className="flex items-center justify-center">
-          <span>Subscription Plans.</span>
-          <a
-            href="#"
-            className="ml-2 font-medium underline decoration-2 underline-offset-2"
-          >
-            Book a demo here
-          </a>
-        </div>
-      </div>
-
+      
       {/* Main Content */}
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
