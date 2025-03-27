@@ -447,6 +447,19 @@ const Admin = () => {
                       </>
                     )}
                   </button>
+                  <button 
+                    className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                  >
+                    <Clock className="h-4 w-4 mr-2" />
+                    Pause Workflow
+                  </button>
+                  
+                  <button 
+                    className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                  >
+                    <Github className="h-4 w-4 mr-2" />
+                    View on GitHub
+                  </button>
                 </div>
                 
                 {/* Last updated timestamp - prominent display */}
