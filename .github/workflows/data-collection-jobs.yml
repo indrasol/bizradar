@@ -1,9 +1,9 @@
 name: Data Collection Jobs
 
 on:
-  # Run jobs hourly
+  # Run jobs daily at midnight UTC
   schedule:
-    - cron: '0 * * * *'
+    - cron: '0 0 * * *'
   
   # Allow manual triggering
   workflow_dispatch:
