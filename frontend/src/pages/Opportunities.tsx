@@ -42,6 +42,7 @@ import {
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import SideBar from "../components/layout/SideBar";
+import { supabase } from "../utils/supabase";
 
 // Import the environment variable
 const isDevelopment =
@@ -60,6 +61,7 @@ export default function Opportunities() {
     jurisdiction: true,
     nigpCode: true,
     unspscCode: true,
+    opportunityType: true
   });
 
   const [expandedCard, setExpandedCard] = useState("state-executive");
@@ -567,25 +569,83 @@ export default function Opportunities() {
 
   // useEffect to load pursuit count on component mount
   useEffect(() => {
-    const pursuits = JSON.parse(localStorage.getItem("pursuits") || "[]");
-    setPursuitCount(pursuits.length);
+    const fetchPursuitCount = async () => {
+      try {
+        // Get the current user
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (!user) {
+          console.log("No user logged in");
+          return;
+        }
+        
+        // Count the user's pursuits
+        const { count, error } = await supabase
+          .from('pursuits')
+          .select('id', { count: 'exact' })
+          .eq('user_id', user.id);
+          
+        if (error) throw error;
+        
+        setPursuitCount(count || 0);
+      } catch (error) {
+        console.error("Error fetching pursuit count:", error);
+      }
+    };
+    
+    fetchPursuitCount();
   }, []);
 
-  // New function to handle adding to pursuits
-  const handleAddToPursuit = (opportunity) => {
-    const currentPursuits = JSON.parse(
-      localStorage.getItem("pursuits") || "[]"
-    );
-    const isAlreadyInPursuits = currentPursuits.some(
-      (p) => p.id === opportunity.id
-    );
-
-    if (!isAlreadyInPursuits) {
-      const updatedPursuits = [...currentPursuits, opportunity];
-      localStorage.setItem("pursuits", JSON.stringify(updatedPursuits));
-      setPursuitCount((prevCount) => prevCount + 1);
-      setShowNotification(true);
-      setTimeout(() => setShowNotification(false), 3000);
+  // Update handleAddToPursuit function
+  const handleAddToPursuit = async (opportunity) => {
+    try {
+      // Get the current user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        console.log("No user logged in");
+        // Could show a login prompt here
+        return;
+      }
+      
+      // Check if this opportunity is already in pursuits
+      const { data: existingPursuits } = await supabase
+        .from('pursuits')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('title', opportunity.title);
+        
+      if (existingPursuits && existingPursuits.length > 0) {
+        // Already exists, maybe show a notification
+        console.log("Opportunity already in pursuits");
+        return;
+      }
+      
+      // Create the new pursuit in Supabase
+      const { data, error } = await supabase
+        .from('pursuits')
+        .insert([
+          {
+            title: opportunity.title,
+            description: opportunity.description || "",
+            stage: "Assessment", // Default stage
+            user_id: user.id
+          }
+        ])
+        .select();
+        
+      if (error) throw error;
+      
+      if (data && data.length > 0) {
+        // Show notification
+        setShowNotification(true);
+        setTimeout(() => setShowNotification(false), 3000);
+        
+        // Update pursuit count
+        setPursuitCount(prevCount => prevCount + 1);
+      }
+    } catch (error) {
+      console.error("Error adding to pursuits:", error);
     }
   };
 
@@ -595,6 +655,23 @@ export default function Opportunities() {
       currency: 'USD',
       maximumFractionDigits: 0,
     }).format(value);
+  };
+
+  // Add new state for filter values
+  const [filterValues, setFilterValues] = useState({
+    dueDate: "next_30_days",
+    postedDate: "past_week",
+    jurisdiction: "",
+    nigpCode: "",
+    unspscCode: "",
+    opportunityType: ""
+  });
+
+  // Add applyFilters function
+  const applyFilters = () => {
+    // Here you would implement the filter logic
+    console.log("Applying filters:", filterValues);
+    // You can call your API or filter the opportunities based on these values
   };
 
   return (
@@ -650,16 +727,12 @@ export default function Opportunities() {
             >
               <div className="sticky top-0 z-10 p-4 border-b border-gray-200 bg-white flex items-center justify-between">
                 {filtersOpen && (
-                  <h2 className="font-semibold text-lg text-gray-800">
-                    Filters
-                  </h2>
+                  <h2 className="font-semibold text-lg text-gray-800">Filters</h2>
                 )}
-
-                {/* Filters Toggle Button */}
                 <button
                   className={`rounded-full flex items-center justify-center transition-all duration-300 ${
-                    filtersOpen 
-                      ? "ml-auto bg-gray-100 hover:bg-gray-200 w-8 h-8" 
+                    filtersOpen
+                      ? "ml-auto bg-gray-100 hover:bg-gray-200 w-8 h-8"
                       : "bg-blue-50 hover:bg-blue-100 text-blue-600 w-10 h-10 border border-blue-200"
                   }`}
                   onClick={toggleFiltersBar}
@@ -672,7 +745,7 @@ export default function Opportunities() {
                 </button>
               </div>
 
-              {/* Filter content */}
+              {/* Filter Icons when Closed */}
               {!filtersOpen && (
                 <div className="flex flex-col items-center p-3 gap-3">
                   <button className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
@@ -690,286 +763,252 @@ export default function Opportunities() {
                   <button className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-600">
                     <Layers size={18} />
                   </button>
+                  <button className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-600">
+                    <ListFilter size={18} />
+                  </button>
                 </div>
               )}
 
-              {/* Due Date Filter */}
+              {/* Filter Content when Open */}
               {filtersOpen && (
-                <div className="border-b border-gray-100">
-                  <div
-                    onClick={() => toggleFilter("dueDate")}
-                    className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Clock size={18} className="text-blue-500" />
-                      <h2 className="font-medium text-gray-800">Due Date</h2>
-                    </div>
-                    <div>
+                <>
+                  {/* Due Date Filter */}
+                  <div className="border-b border-gray-100">
+                    <div
+                      onClick={() => toggleFilter("dueDate")}
+                      className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Clock size={18} className="text-blue-500" />
+                        <h2 className="font-medium text-gray-800">Due Date</h2>
+                      </div>
                       {activeFilters.dueDate ? (
                         <ChevronUp size={16} className="text-gray-400" />
                       ) : (
                         <ChevronDown size={16} className="text-gray-400" />
                       )}
                     </div>
+                    {activeFilters.dueDate && (
+                      <div className="px-5 pb-4">
+                        <ul className="space-y-2 ml-7">
+                          {[
+                            { id: "active-only", value: "active_only", label: "Active only" },
+                            { id: "next-30", value: "next_30_days", label: "Next 30 days" },
+                            { id: "next-3", value: "next_3_months", label: "Next 3 months" },
+                            { id: "next-12", value: "next_12_months", label: "Next 12 months" },
+                            { id: "custom-date-due", value: "custom_date", label: "Custom date" },
+                          ].map((option) => (
+                            <li key={option.id} className="flex items-center gap-2">
+                              <input
+                                type="radio"
+                                id={option.id}
+                                name="due-date"
+                                className="accent-blue-500 w-4 h-4"
+                                checked={filterValues.dueDate === option.value}
+                                onChange={() => setFilterValues({ ...filterValues, dueDate: option.value })}
+                              />
+                              <label htmlFor={option.id} className="text-sm text-gray-700">
+                                {option.label}
+                              </label>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
-                  {activeFilters.dueDate && (
-                    <div className="px-5 pb-4">
-                      <ul className="space-y-2 ml-7">
-                        <li className="flex items-center gap-2">
-                          <input
-                            type="radio"
-                            id="active-only"
-                            name="due-date"
-                            className="accent-blue-500 w-4 h-4"
-                          />
-                          <label htmlFor="active-only" className="text-sm text-gray-700">
-                            Active only
-                          </label>
-                        </li>
-                        <li className="flex items-center gap-2">
-                          <input
-                            type="radio"
-                            id="next-30"
-                            name="due-date"
-                            className="accent-blue-500 w-4 h-4"
-                            checked
-                          />
-                          <label htmlFor="next-30" className="text-sm text-gray-700">
-                            Next 30 days
-                          </label>
-                        </li>
-                        <li className="flex items-center gap-2">
-                          <input
-                            type="radio"
-                            id="next-3"
-                            name="due-date"
-                            className="accent-blue-500 w-4 h-4"
-                          />
-                          <label htmlFor="next-3" className="text-sm text-gray-700">
-                            Next 3 months
-                          </label>
-                        </li>
-                        <li className="flex items-center gap-2">
-                          <input
-                            type="radio"
-                            id="next-12"
-                            name="due-date"
-                            className="accent-blue-500 w-4 h-4"
-                          />
-                          <label htmlFor="next-12" className="text-sm text-gray-700">
-                            Next 12 months
-                          </label>
-                        </li>
-                        <li className="flex items-center gap-2">
-                          <input
-                            type="radio"
-                            id="custom-date-due"
-                            name="due-date"
-                            className="accent-blue-500 w-4 h-4"
-                          />
-                          <label htmlFor="custom-date-due" className="text-sm text-gray-700">
-                            Custom date
-                          </label>
-                        </li>
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              )}
 
-              {/* Posted Date Filter */}
-              {filtersOpen && (
-                <div className="border-b border-gray-100">
-                  <div
-                    onClick={() => toggleFilter("postedDate")}
-                    className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Calendar size={18} className="text-gray-500" />
-                      <h2 className="font-medium text-gray-800">Posted Date</h2>
-                    </div>
-                    <div>
+                  {/* Posted Date Filter */}
+                  <div className="border-b border-gray-100">
+                    <div
+                      onClick={() => toggleFilter("postedDate")}
+                      className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Calendar size={18} className="text-gray-500" />
+                        <h2 className="font-medium text-gray-800">Posted Date</h2>
+                      </div>
                       {activeFilters.postedDate ? (
                         <ChevronUp size={16} className="text-gray-400" />
                       ) : (
                         <ChevronDown size={16} className="text-gray-400" />
                       )}
                     </div>
+                    {activeFilters.postedDate && (
+                      <div className="px-5 pb-4">
+                        <ul className="space-y-2 ml-7">
+                          {[
+                            { id: "past-day", value: "past_day", label: "Past day" },
+                            { id: "past-week", value: "past_week", label: "Past week" },
+                            { id: "past-month", value: "past_month", label: "Past month" },
+                            { id: "past-year", value: "past_year", label: "Past year" },
+                            { id: "custom-date-posted", value: "custom_date", label: "Custom date" },
+                          ].map((option) => (
+                            <li key={option.id} className="flex items-center gap-2">
+                              <input
+                                type="radio"
+                                id={option.id}
+                                name="posted-date"
+                                className="accent-blue-500 w-4 h-4"
+                                checked={filterValues.postedDate === option.value}
+                                onChange={() => setFilterValues({ ...filterValues, postedDate: option.value })}
+                              />
+                              <label htmlFor={option.id} className="text-sm text-gray-700">
+                                {option.label}
+                              </label>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
-                  {activeFilters.postedDate && (
-                    <div className="px-5 pb-4">
-                      <ul className="space-y-2 ml-7">
-                        <li className="flex items-center gap-2">
-                          <input
-                            type="radio"
-                            id="past-day"
-                            name="posted-date"
-                            className="accent-blue-500 w-4 h-4"
-                          />
-                          <label htmlFor="past-day" className="text-sm text-gray-700">
-                            Past day
-                          </label>
-                        </li>
-                        <li className="flex items-center gap-2">
-                          <input
-                            type="radio"
-                            id="past-week"
-                            name="posted-date"
-                            className="accent-blue-500 w-4 h-4"
-                            checked
-                          />
-                          <label htmlFor="past-week" className="text-sm text-gray-700">
-                            Past week
-                          </label>
-                        </li>
-                        <li className="flex items-center gap-2">
-                          <input
-                            type="radio"
-                            id="past-month"
-                            name="posted-date"
-                            className="accent-blue-500 w-4 h-4"
-                          />
-                          <label htmlFor="past-month" className="text-sm text-gray-700">
-                            Past month
-                          </label>
-                        </li>
-                        <li className="flex items-center gap-2">
-                          <input
-                            type="radio"
-                            id="past-year"
-                            name="posted-date"
-                            className="accent-blue-500 w-4 h-4"
-                          />
-                          <label htmlFor="past-year" className="text-sm text-gray-700">
-                            Past year
-                          </label>
-                        </li>
-                        <li className="flex items-center gap-2">
-                          <input
-                            type="radio"
-                            id="custom-date-posted"
-                            name="posted-date"
-                            className="accent-blue-500 w-4 h-4"
-                          />
-                          <label
-                            htmlFor="custom-date-posted"
-                            className="text-sm text-gray-700"
-                          >
-                            Custom date
-                          </label>
-                        </li>
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              )}
 
-              {/* Jurisdiction Filter */}
-              {filtersOpen && (
-                <div className="border-b border-gray-100">
-                  <div
-                    onClick={() => toggleFilter("jurisdiction")}
-                    className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Building size={18} className="text-gray-500" />
-                      <h2 className="font-medium text-gray-800">Jurisdiction(s)</h2>
-                    </div>
-                    <div>
+                  {/* Jurisdiction Filter */}
+                  <div className="border-b border-gray-100">
+                    <div
+                      onClick={() => toggleFilter("jurisdiction")}
+                      className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Building size={18} className="text-gray-500" />
+                        <h2 className="font-medium text-gray-800">Jurisdiction(s)</h2>
+                      </div>
                       {activeFilters.jurisdiction ? (
                         <ChevronUp size={16} className="text-gray-400" />
                       ) : (
                         <ChevronDown size={16} className="text-gray-400" />
                       )}
                     </div>
-                  </div>
-                  {activeFilters.jurisdiction && (
-                    <div className="px-5 pb-4">
-                      <div className="relative ml-7">
-                        <input
-                          type="text"
-                          placeholder="Ex: New York"
-                          className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-gray-50"
-                        />
+                    {activeFilters.jurisdiction && (
+                      <div className="px-5 pb-4">
+                        <div className="relative ml-7">
+                          <input
+                            type="text"
+                            placeholder="Ex: New York"
+                            className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-gray-50"
+                            value={filterValues.jurisdiction}
+                            onChange={(e) => setFilterValues({ ...filterValues, jurisdiction: e.target.value })}
+                          />
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              )}
+                    )}
+                  </div>
 
-              {/* NIGP Code(s) Filter */}
-              {filtersOpen && (
-                <div className="border-b border-gray-100">
-                  <div
-                    onClick={() => toggleFilter("nigpCode")}
-                    className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Tag size={18} className="text-gray-500" />
-                      <h2 className="font-medium text-gray-800">NIGP Code(s)</h2>
-                    </div>
-                    <div>
+                  {/* NIGP Code(s) Filter */}
+                  <div className="border-b border-gray-100">
+                    <div
+                      onClick={() => toggleFilter("nigpCode")}
+                      className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Tag size={18} className="text-gray-500" />
+                        <h2 className="font-medium text-gray-800">NIGP Code(s)</h2>
+                      </div>
                       {activeFilters.nigpCode ? (
                         <ChevronUp size={16} className="text-gray-400" />
                       ) : (
                         <ChevronDown size={16} className="text-gray-400" />
                       )}
                     </div>
-                  </div>
-                  {activeFilters.nigpCode && (
-                    <div className="px-5 pb-4">
-                      <div className="relative ml-7">
-                        <input
-                          type="text"
-                          placeholder="Ex: 78500"
-                          className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-gray-50"
-                        />
+                    {activeFilters.nigpCode && (
+                      <div className="px-5 pb-4">
+                        <div className="relative ml-7">
+                          <input
+                            type="text"
+                            placeholder="Ex: 78500"
+                            className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-gray-50"
+                            value={filterValues.nigpCode}
+                            onChange={(e) => setFilterValues({ ...filterValues, nigpCode: e.target.value })}
+                          />
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              )}
+                    )}
+                  </div>
 
-              {/* UNSPSC Code(s) Filter */}
-              {filtersOpen && (
-                <div className="border-b border-gray-100">
-                  <div
-                    onClick={() => toggleFilter("unspscCode")}
-                    className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Layers size={18} className="text-gray-500" />
-                      <h2 className="font-medium text-gray-800">UNSPSC Code(s)</h2>
-                    </div>
-                    <div>
+                  {/* UNSPSC Code(s) Filter */}
+                  <div className="border-b border-gray-100">
+                    <div
+                      onClick={() => toggleFilter("unspscCode")}
+                      className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Layers size={18} className="text-gray-500" />
+                        <h2 className="font-medium text-gray-800">UNSPSC Code(s)</h2>
+                      </div>
                       {activeFilters.unspscCode ? (
                         <ChevronUp size={16} className="text-gray-400" />
                       ) : (
                         <ChevronDown size={16} className="text-gray-400" />
                       )}
                     </div>
-                  </div>
-                  {activeFilters.unspscCode && (
-                    <div className="px-5 pb-4">
-                      <div className="relative ml-7">
-                        <input
-                          type="text"
-                          placeholder="Ex: 10101501"
-                          className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-gray-50"
-                        />
+                    {activeFilters.unspscCode && (
+                      <div className="px-5 pb-4">
+                        <div className="relative ml-7">
+                          <input
+                            type="text"
+                            placeholder="Ex: 10101501"
+                            className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-gray-50"
+                            value={filterValues.unspscCode}
+                            onChange={(e) => setFilterValues({ ...filterValues, unspscCode: e.target.value })}
+                          />
+                        </div>
                       </div>
+                    )}
+                  </div>
+
+                  {/* Opportunity Type Filter */}
+                  <div className="border-b border-gray-100">
+                    <div
+                      onClick={() => toggleFilter("opportunityType")}
+                      className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <ListFilter size={18} className="text-gray-500" />
+                        <h2 className="font-medium text-gray-800">Opportunity Type</h2>
+                      </div>
+                      {activeFilters.opportunityType ? (
+                        <ChevronUp size={16} className="text-gray-400" />
+                      ) : (
+                        <ChevronDown size={16} className="text-gray-400" />
+                      )}
                     </div>
-                  )}
-                </div>
-              )}
-              
-              {filtersOpen && (
-                <div className="p-4">
-                  <button className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2">
-                    <ListFilter size={16} />
-                    <span>Apply Filters</span>
-                  </button>
-                </div>
+                    {activeFilters.opportunityType && (
+                      <div className="px-5 pb-4">
+                        <ul className="space-y-2 ml-7">
+                          {[
+                            { id: "opp-type-all", value: "", label: "All" },
+                            { id: "opp-type-federal", value: "federal", label: "Federal" },
+                            { id: "opp-type-freelancer", value: "freelancer", label: "Freelancer" },
+                          ].map((option) => (
+                            <li key={option.id} className="flex items-center gap-2">
+                              <input
+                                type="radio"
+                                id={option.id}
+                                name="opportunity-type"
+                                className="accent-blue-500 w-4 h-4"
+                                checked={filterValues.opportunityType === option.value}
+                                onChange={() => setFilterValues({ ...filterValues, opportunityType: option.value })}
+                              />
+                              <label htmlFor={option.id} className="text-sm text-gray-700">
+                                {option.label}
+                              </label>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Apply Filters Button */}
+                  <div className="p-4">
+                    <button
+                      onClick={applyFilters}
+                      className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                    >
+                      <ListFilter size={16} />
+                      <span>Apply Filters</span>
+                    </button>
+                  </div>
+                </>
               )}
             </div>
 
@@ -1369,7 +1408,10 @@ export default function Opportunities() {
                               <div className="text-xs text-gray-500">
                                 Est. Value: <span className="font-medium">$750K-$1.5M</span>
                               </div>
-                              <button className="px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 hover:text-blue-600 transition-colors flex items-center gap-1">
+                              <button 
+                                onClick={() => handleAddToPursuit(opportunities[0])}
+                                className="px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 hover:text-blue-600 transition-colors flex items-center gap-1"
+                              >
                                 <Plus size={12} />
                                 Add to Pursuits
                               </button>
@@ -1406,7 +1448,10 @@ export default function Opportunities() {
                               <div className="text-xs text-gray-500">
                                 Est. Value: <span className="font-medium">$100K-$250K</span>
                               </div>
-                              <button className="px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 hover:text-blue-600 transition-colors flex items-center gap-1">
+                              <button 
+                                onClick={() => handleAddToPursuit(opportunities[1])}
+                                className="px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 hover:text-blue-600 transition-colors flex items-center gap-1"
+                              >
                                 <Plus size={12} />
                                 Add to Pursuits
                               </button>

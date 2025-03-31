@@ -39,6 +39,35 @@ try:
 except Exception as e:
     logger.error(f"Error checking metadata structure: {str(e)}")
 
+def extract_id_from_pinecone(pinecone_id):
+    """
+    Extract the original database ID from a Pinecone ID.
+    Handles both formats: 'sam_gov_123' or 'freelancer_456' or plain '123'
+    Returns the numeric ID as an integer.
+    """
+    if pinecone_id is None:
+        return None
+        
+    # If the ID has a prefix like "sam_gov_" or "freelancer_"
+    if "_" in pinecone_id:
+        parts = pinecone_id.split("_")
+        # Get the source/platform
+        source = parts[0] if parts[0] != "sam" else "sam_gov"
+        # The numeric ID is the last part after the prefix
+        id_part = parts[-1]
+        try:
+            return int(id_part), source
+        except ValueError:
+            logger.warning(f"Could not extract numeric ID from {pinecone_id}")
+            return None, source
+    
+    # For plain IDs (no prefix)
+    try:
+        return int(pinecone_id), "unknown"
+    except ValueError:
+        logger.warning(f"Could not convert {pinecone_id} to integer")
+        return None, "unknown"
+
 def search_jobs(query: str, contract_type: Optional[str] = None, platform: Optional[str] = None) -> List[Dict]:
     """
     Search for job opportunities using vector similarity and filters.
@@ -105,12 +134,36 @@ def search_jobs(query: str, contract_type: Optional[str] = None, platform: Optio
                 filtered_matches = []
             
             logger.info(f"Filtered from {len(results.matches)} to {len(filtered_matches)} relevant matches")
+
+            # Group matches by source and extract IDs
+            sam_gov_ids = []
+            freelancer_ids = []
             
-            # Extract job IDs from the filtered matches
-            job_ids = [int(match.id) for match in filtered_matches] if filtered_matches else []
-            logger.info(f"Extracted job IDs: {job_ids}")
+            for match in filtered_matches:
+                try:
+                    # First try to get source from metadata
+                    source = match.metadata.get('source', None)
+                    
+                    # If not in metadata, try to extract from ID
+                    if not source:
+                        original_id, source = extract_id_from_pinecone(match.id)
+                    else:
+                        # If source is in metadata, extract just the ID
+                        original_id, _ = extract_id_from_pinecone(match.id)
+                    
+                    # Only add valid IDs to the list
+                    if original_id is not None:
+                        if source == 'sam_gov':
+                            sam_gov_ids.append(original_id)
+                        elif source == 'freelancer':
+                            freelancer_ids.append(original_id)
+                except Exception as e:
+                    logger.error(f"Error processing match ID {match.id}: {str(e)}")
+                    continue
             
-            if not job_ids:
+            logger.info(f"Extracted job IDs: {len(sam_gov_ids)} from SAM.gov, {len(freelancer_ids)} from freelancer")
+            
+            if not sam_gov_ids and not freelancer_ids:
                 logger.info("No matching jobs found")
                 return []
 
@@ -127,35 +180,54 @@ def search_jobs(query: str, contract_type: Optional[str] = None, platform: Optio
 
         try:
             with connection.cursor() as cursor:
-                # Use a placeholders approach to handle any number of IDs
-                if job_ids:
-                    placeholders = ','.join(['%s'] * len(job_ids))
+                all_results = []
+                
+                # Fetch SAM.gov records if we have IDs
+                if sam_gov_ids:
+                    placeholders = ','.join(['%s'] * len(sam_gov_ids))
                     query_sql = f"""
                         SELECT id, title, description, department AS agency, 
                                'sam.gov' AS platform, NULL AS value
                         FROM sam_gov 
                         WHERE id IN ({placeholders})
                     """
-                    cursor.execute(query_sql, job_ids)
+                    cursor.execute(query_sql, sam_gov_ids)
                     
                     columns = ["id", "title", "description", "agency", "platform", "value"]
-                    results = [dict(zip(columns, record)) for record in cursor.fetchall()]
+                    sam_gov_results = [dict(zip(columns, record)) for record in cursor.fetchall()]
+                    all_results.extend(sam_gov_results)
+                    logger.info(f"Retrieved {len(sam_gov_results)} SAM.gov jobs")
+                
+                # Fetch freelancer records if we have IDs
+                if freelancer_ids:
+                    placeholders = ','.join(['%s'] * len(freelancer_ids))
+                    query_sql = f"""
+                        SELECT id, title, additional_details AS description, 
+                               skills_required AS agency, 'freelancer' AS platform, 
+                               price_budget AS value
+                        FROM freelancer_table 
+                        WHERE id IN ({placeholders})
+                    """
+                    cursor.execute(query_sql, freelancer_ids)
                     
-                    # Log retrieved jobs
-                    logger.info("\n" + "="*50)
-                    logger.info("Retrieved Jobs:")
-                    logger.info("="*50)
-                    for idx, job in enumerate(results, 1):
-                        logger.info(f"\nJob {idx}:")
-                        logger.info(f"Title: {job['title']}")
-                        logger.info(f"Agency: {job['agency']}")
-                        logger.info(f"Platform: {job['platform']}")
-                        logger.info("-"*40)
-                    
-                    logger.info(f"Total jobs retrieved: {len(results)}")
-                    return results
-                else:
-                    return []
+                    columns = ["id", "title", "description", "agency", "platform", "value"]
+                    freelancer_results = [dict(zip(columns, record)) for record in cursor.fetchall()]
+                    all_results.extend(freelancer_results)
+                    logger.info(f"Retrieved {len(freelancer_results)} freelancer jobs")
+                
+                # Log retrieved jobs
+                logger.info("\n" + "="*50)
+                logger.info("Retrieved Jobs:")
+                logger.info("="*50)
+                for idx, job in enumerate(all_results, 1):
+                    logger.info(f"\nJob {idx}:")
+                    logger.info(f"Title: {job['title']}")
+                    logger.info(f"Platform: {job['platform']}")
+                    logger.info(f"Agency/Skills: {job['agency']}")
+                    logger.info("-"*40)
+                
+                logger.info(f"Total jobs retrieved: {len(all_results)}")
+                return all_results
         finally:
             connection.close()
 

@@ -67,31 +67,46 @@ async def generate_match_scores(company_url: str, company_description: str, oppo
         # Process each opportunity
         for i, opportunity in enumerate(opportunities):
             try:
-                # Prepare the prompt with "json" word included
-                system_message = "You are an expert in government contracting and opportunity matching. Analyze the match potential and provide recommendations in JSON format."
-                
-                user_message = f"""
-                Please analyze the match between this company and the contract opportunity.
-                
-                First, visit and scan the company website at {company_url} to understand their capabilities, services, and expertise.
-                
-                Additional company description:
-                {company_description}
-                
-                Contract opportunity:
-                Title: {opportunity.get('title', 'Untitled')}
-                Agency: {opportunity.get('agency', 'Unknown agency')}
-                Description: {opportunity.get('description', 'No description available')}
-                NAICS Code: {opportunity.get('naicsCode', 'No NAICS code')}
-                
-                Based on both the website content and the company description, please respond with a JSON object containing:
-                - matchScore (integer between 0-100)
-                - title (short match analysis summary)
-                - description (detailed explanation of match)
-                {"- matchReason (brief explanation of why this is a good or poor match)" if include_match_reason else ""}
+                # Prepare the prompt with updated logic
+                system_message = """
+                You are an expert in opportunity matching, specializing in government contracts and freelance projects. Your task is to provide precise, logical, and actionable recommendations by analyzing the match potential between a company and an opportunity. Return a JSON response with:
+                - matchScore (integer 0-100)
+                - title (short, sharp summary of the match)
+                - description (detailed, astute reasoning explaining the match quality)
+                - matchReason (concise, value-driven reason, if requested)
+                Focus on clarity and relevance—highlight the recommendation as a unique selling point (USP) for the company.
                 """
                 
-                # Make the API call with the correct format
+                user_message = f"""
+                Analyze the match between this company and the opportunity, using sharp reasoning to craft a recommendation that stands out as a USP. Return the response in JSON format.
+
+                ### Company Details:
+                - Website: {company_url} (use this as context for the company's expertise and services)
+                - Description: {company_description}
+
+                ### Opportunity Details:
+                - Title: {opportunity.get('title', 'Untitled')}
+                - Type: {'Freelance Project' if 'skills_required' in opportunity else 'Government Contract'}
+                {'- Skills Required: ' + opportunity.get('skills_required', 'N/A') if 'skills_required' in opportunity else '- Description: ' + opportunity.get('description', 'No description available')}
+                {'- Price/Budget: ' + str(opportunity.get('price_budget', 'N/A')) if 'price_budget' in opportunity else '- Department/Agency: ' + opportunity.get('department', opportunity.get('agency', 'Unknown agency'))}
+                {'- Bids So Far: ' + str(opportunity.get('bids_so_far', 'N/A')) if 'bids_so_far' in opportunity else ''}
+                {'- Additional Details: ' + opportunity.get('additional_details', 'N/A') if 'additional_details' in opportunity else '- NAICS Code: ' + opportunity.get('naicsCode', 'No NAICS code')}
+                - Published Date: {opportunity.get('published_date', 'N/A')}
+
+                ### Instructions:
+                1. Use the company website URL ({company_url}) as context for their expertise and services, combined with the description to pinpoint their strongest capabilities.
+                2. Match these against the opportunity:
+                   - For freelance projects: Evaluate skills_required, price_budget, bids_so_far, and additional_details for precise fit.
+                   - For government contracts: Assess description, department/agency, and NAICS code for alignment.
+                3. Craft a recommendation that’s a USP—highlight what makes this opportunity uniquely suited (or not) for the company.
+                4. Return a JSON response with:
+                   - matchScore (0-100): Precise fit score based on logical analysis.
+                   - title: A concise, impactful summary (e.g., "Perfect Skill Fit" or "Budget Overreach").
+                   - description: Detailed reasoning—why this match works or doesn’t, with specific references to company strengths and opportunity needs.
+                   {"- matchReason: A short, value-driven reason (e.g., 'Leverages your cybersecurity edge' or 'Budget exceeds capacity')." if include_match_reason else ""}
+                """
+                
+                # Make the API call with updated temperature
                 try:
                     response = openai_client.chat.completions.create(
                         model="gpt-3.5-turbo-1106",  # or whatever model you're using
@@ -99,8 +114,8 @@ async def generate_match_scores(company_url: str, company_description: str, oppo
                             {"role": "system", "content": system_message},
                             {"role": "user", "content": user_message}
                         ],
-                        response_format={"type": "json_object"},  # This is what requires "json" in the messages
-                        temperature=0.7,
+                        response_format={"type": "json_object"},
+                        temperature=0.5,  # Changed to 0.5 for sharper reasoning
                         max_tokens=1000
                     )
                     

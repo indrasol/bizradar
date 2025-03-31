@@ -22,6 +22,7 @@ const Sidebar = () => {
   const [profile, setProfile] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [pursuitCount, setPursuitCount] = useState(0);
   
   // Fetch user profile separately
   useEffect(() => {
@@ -56,6 +57,53 @@ const Sidebar = () => {
     
     fetchProfile();
   }, [user]);
+
+  // Load pursuit count from localStorage
+  useEffect(() => {
+    const fetchPursuitCount = async () => {
+      try {
+        // Get the current user
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (!user) {
+          console.log("No user logged in");
+          return;
+        }
+        
+        // Count the user's pursuits
+        const { count, error } = await supabase
+          .from('pursuits')
+          .select('id', { count: 'exact' })
+          .eq('user_id', user.id);
+          
+        if (error) throw error;
+        
+        setPursuitCount(count || 0);
+      } catch (error) {
+        console.error("Error fetching pursuit count:", error);
+      }
+    };
+    
+    fetchPursuitCount();
+    
+    // Subscribe to changes in the pursuits table for real-time updates
+    const subscription = supabase
+      .channel('pursuits_channel')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'pursuits',
+        filter: `user_id=eq.${supabase.auth.getUser().then(res => res.data.user?.id)}` 
+      }, 
+      () => {
+        fetchPursuitCount();
+      })
+      .subscribe();
+      
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
   
   // Check if the path matches the given route
   const isActive = (path) => location.pathname === path;
@@ -165,15 +213,29 @@ const Sidebar = () => {
                 : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
-            <div className={`flex items-center justify-center ${isActive('/pursuits') ? 'text-blue-600' : 'text-gray-600 group-hover:text-blue-600'}`}>
+            <div className={`relative flex items-center justify-center ${isActive('/pursuits') ? 'text-blue-600' : 'text-gray-600 group-hover:text-blue-600'}`}>
               <FileText className="w-5 h-5" />
+              {/* Add Pursuits Counter */}
+              {pursuitCount > 0 && (
+                <span className="absolute -top-2 -right-2 w-5 h-5 bg-blue-600 text-white text-xs rounded-full flex items-center justify-center">
+                  {pursuitCount}
+                </span>
+              )}
             </div>
             {!collapsed && (
-              <span className="font-medium">Pursuits</span>
+              <div className="flex items-center justify-between flex-1">
+                <span className="font-medium">Pursuits</span>
+                {/* Add counter on the right when sidebar is expanded */}
+                {pursuitCount > 0 && (
+                  <span className="ml-2 px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
+                    {pursuitCount}
+                  </span>
+                )}
+              </div>
             )}
             {collapsed && (
               <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
-                Pursuits
+                Pursuits {pursuitCount > 0 ? `(${pursuitCount})` : ''}
               </div>
             )}
           </Link>
