@@ -1,326 +1,202 @@
 """
 Freelancer.com scraper module for scheduled data collection
 """
-import os
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 from bs4 import BeautifulSoup
-import re
 import pandas as pd
+import numpy as np
+import re
 import psycopg2
-import logging
-import sys
-from .constants import (
-    FREELANCER_URL, 
-    DEFAULT_HEADERS, 
-    FREELANCER_SELECTORS, 
-    FREELANCER_TABLE
+
+# Retry strategy for network resilience
+retry_strategy = Retry(
+    total=3,
+    backoff_factor=2,
+    status_forcelist=[429, 500, 502, 503, 504],
+    raise_on_status=False
 )
+adapter = HTTPAdapter(max_retries=retry_strategy)
+session = requests.Session()
+session.mount("https://", adapter)
+session.mount("http://", adapter)
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout)
-    ]
-)
-logger = logging.getLogger('freelancer_scraper')
+# Step 1: Scrape multiple pages
+headers = {"User-Agent": "Mozilla/5.0"}
+base_url = "https://www.freelancer.com/search/projects?projectLanguages=en&projectSkills=305&page="
+all_projects = []
+page = 1
+max_pages = 10
 
-def run_scraper():
-    """Main function to scrape Freelancer.com and store data in the database"""
-    
-    # Get configuration from constants
-    url = FREELANCER_URL
-    headers = DEFAULT_HEADERS
-    selectors = FREELANCER_SELECTORS
-    
-    # Send a request
+while page <= max_pages:
+    url = base_url + str(page)
     try:
-        logger.info(f"Sending request to {url}")
-        response = requests.get(url, headers=headers)
-        
-        # Check if the request was successful
-        if response.status_code == 200:
-            logger.info("✅ Request was successful!")
-        else:
-            logger.error(f"❌ Request failed with status code: {response.status_code}")
-            return {"source": "freelancer", "status": "error", "message": f"HTTP {response.status_code}"}
-            
-        # Parse the HTML content
-        soup = BeautifulSoup(response.text, "html.parser")
-        
-        # Find all project listings
-        projects = soup.find_all(selectors["project_item"])
-        logger.info(f"🔍 Total Projects Found: {len(projects)}")
-        
-        # Initialize an empty list to store extracted project details
-        projects_data_cleaned = []
-        
-        # Loop through each project listing and extract details
-        for project in projects:
-            try:
-                # Extract title
-                title_element = project.find(selectors["title"], class_=selectors["title_class"])
-                title = title_element.text.strip() if title_element else "No Title"
-                
-                # Extract price and clean unnecessary text
-                price_element = project.find(selectors["price"])
-                price = re.sub(r"\s+Avg Bid\s*", "", price_element.text.strip().split("\n")[0]) if price_element else "No Price"
-                
-                # Extract number of bids and clean text
-                bids_element = project.find(selectors["bids"])
-                bids = re.sub(r"\s+Bids\s*", "", bids_element.text.strip().split("\n")[0]) if bids_element else "No Bids"
-                
-                # Extract skills
-                skills_elements = project.find_all(selectors["skills"])
-                skills = ", ".join([skill.text.strip() for skill in skills_elements]) if skills_elements else "No Skills Listed"
-                
-                # Extract and clean additional details
-                additional_details_element = project.find(selectors["details"])
-                additional_details = re.sub(r"\s+", " ", additional_details_element.text.strip()) if additional_details_element else "No Additional Details"
-                
-                # Append cleaned details to the list
-                projects_data_cleaned.append({
-                    "Title": title,
-                    "Price": price,
-                    "Bids": bids,
-                    "Skills Required": skills,
-                    "Additional Details": additional_details
-                })
-                
-            except Exception as e:
-                logger.warning(f"⚠️ Error extracting project details: {e}")
-                
-        # Convert extracted data to DataFrame
-        df = pd.DataFrame(projects_data_cleaned)
-        
-        # Database connection
-        try:
-            # Get database connection from environment variables
-            conn = psycopg2.connect(
-                host=os.getenv("DB_HOST"),
-                port=os.getenv("DB_PORT"),
-                database=os.getenv("DB_NAME"),
-                user=os.getenv("DB_USER"),
-                password=os.getenv("DB_PASSWORD")
-            )
-            cursor = conn.cursor()
-            logger.info("✅ Connection to PostgreSQL successful!")
-            
-            # SQL query to create a table
-            create_table_query = f'''
-            CREATE TABLE IF NOT EXISTS {FREELANCER_TABLE} (
-                id SERIAL PRIMARY KEY,
-                title TEXT,
-                price TEXT,
-                bids TEXT,
-                skills_required TEXT,
-                additional_details TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            '''
-            cursor.execute(create_table_query)
-            conn.commit()
-            logger.info("✅ Table verified successfully!")
-            
-            # Query to check for existing records
-            existing_count_query = f"SELECT COUNT(*) FROM {FREELANCER_TABLE};"
-            cursor.execute(existing_count_query)
-            existing_records = cursor.fetchone()[0]
-            logger.info(f"Existing records in database: {existing_records}")
-            
-            # Insert data into PostgreSQL
-            insert_count = 0
-            new_record_count = 0
-            for _, row in df.iterrows():
-                # Check if project title already exists
-                check_query = f"SELECT COUNT(*) FROM {FREELANCER_TABLE} WHERE title = %s"
-                cursor.execute(check_query, (row['Title'],))
-                count = cursor.fetchone()[0]
-                
-                if count == 0:
-                    # This is a new record
-                    new_record_count += 1
-                
-                # Insert or update record
-                insert_query = f'''
-                INSERT INTO {FREELANCER_TABLE} (title, price, bids, skills_required, additional_details)
-                VALUES (%s, %s, %s, %s, %s)
-                '''
-                cursor.execute(insert_query, (
-                    row['Title'],
-                    row['Price'],
-                    row['Bids'],
-                    row['Skills Required'],
-                    row['Additional Details']
-                ))
-                insert_count += 1
-                
-            conn.commit()
-            logger.info(f"✅ {insert_count} records successfully inserted into the database!")
-            logger.info(f"✅ {new_record_count} new records identified!")
-            
-            # Prepare the result dictionary
-            result = {
-                "source": "freelancer", 
-                "status": "success", 
-                "count": insert_count,
-                "new_count": new_record_count
-            }
-            
-            # Update ETL history
-            update_etl_history(result)
-            
-            # Close the connection
-            cursor.close()
-            conn.close()
-            logger.info("✅ PostgreSQL connection closed.")
-            
-            return result
-            
-        except Exception as e:
-            logger.error(f"❌ Database error: {e}")
-            result = {
-                "source": "freelancer", 
-                "status": "error", 
-                "message": f"Database error: {str(e)}"
-            }
-            update_etl_history(result)
-            return result
-            
-    except Exception as e:
-        logger.error(f"❌ Scraping error: {e}")
-        result = {
-            "source": "freelancer", 
-            "status": "error", 
-            "message": f"Scraping error: {str(e)}"
-        }
-        update_etl_history(result)
-        return result
+        response = session.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        print(f"❌ Page {page} failed:", e)
+        page += 1
+        continue
 
-def update_etl_history(results, record_id=None, trigger_type=None):
-    """
-    Update the most recent ETL history record with results from Freelancer scraping
-    
-    Args:
-        results: Dictionary with scraping results
-        record_id: Optional specific ETL history record ID to update
-        trigger_type: Optional trigger type for the record
-    """
+    soup = BeautifulSoup(response.text, "html.parser")
+    projects = soup.find_all("div", class_="JobSearchCard-item")
+
+    if not projects:
+        break
+
+    all_projects.extend(projects)
+    page += 1
+
+print(f"\n🎯 Total projects scraped from {page-1} pages: {len(all_projects)}")
+
+# Step 2: Extract project details
+projects_data_cleaned = []
+
+for project in all_projects:
     try:
-        conn = psycopg2.connect(
-            host=os.getenv("DB_HOST"),
-            port=os.getenv("DB_PORT"),
-            database=os.getenv("DB_NAME"),
-            user=os.getenv("DB_USER"),
-            password=os.getenv("DB_PASSWORD")
-        )
-        cursor = conn.cursor()
-        
-        # If no specific record ID provided, find the most recent 'triggered' record
-        if not record_id:
-            query = """
-            SELECT id FROM etl_history 
-            WHERE status = 'triggered' 
-            ORDER BY time_fetched DESC LIMIT 1
-            """
-            cursor.execute(query)
-            result = cursor.fetchone()
-            
-            if not result:
-                logger.warning("No triggered ETL history records found to update")
-                return
-                
-            record_id = result[0]
-        
-        # Get current record values
-        current_query = """
-        SELECT sam_gov_count, sam_gov_new_count, trigger_type FROM etl_history
-        WHERE id = %s
-        """
-        cursor.execute(current_query, (record_id,))
-        current_values = cursor.fetchone()
-        sam_gov_count = current_values[0] if current_values else 0
-        sam_gov_new_count = current_values[1] if current_values else 0
-        existing_trigger_type = current_values[2] if current_values and len(current_values) > 2 else 'ui-manual'
-        
-        # Use provided trigger_type or existing one
-        trigger_type = trigger_type or existing_trigger_type
-        
-        # Prepare update query based on whether trigger_type is provided
-        if trigger_type:
-            update_query = """
-            UPDATE etl_history 
-            SET 
-                status = %s,
-                freelancer_count = %s,
-                freelancer_new_count = %s,
-                total_records = %s,
-                trigger_type = %s
-            WHERE id = %s
-            """
-        else:
-            update_query = """
-            UPDATE etl_history 
-            SET 
-                status = %s,
-                freelancer_count = %s,
-                freelancer_new_count = %s,
-                total_records = %s
-            WHERE id = %s
-            """
-        
-        freelancer_count = results.get('count', 0)
-        freelancer_new_count = results.get('new_count', 0)
-        total_records = freelancer_count + sam_gov_count
-        status = 'success' if results.get('status') == 'success' else 'failed'
-        
-        # Execute appropriate update query
-        if trigger_type:
-            cursor.execute(update_query, (
-                status,
-                freelancer_count,
-                freelancer_new_count,
-                total_records,
-                trigger_type,
-                record_id
-            ))
-        else:
-            cursor.execute(update_query, (
-                status,
-                freelancer_count,
-                freelancer_new_count,
-                total_records,
-                record_id
-            ))
-        
-        conn.commit()
-        logger.info(f"Successfully updated ETL history record {record_id}")
-        
-        cursor.close()
-        conn.close()
-        
+        title_element = project.find("a", class_="JobSearchCard-primary-heading-link")
+        title = title_element.text.strip() if title_element else "No Title"
+        job_url = "https://www.freelancer.com" + title_element["href"] if title_element and title_element.has_attr("href") else None
+
+        published_element = project.find("span", class_="JobSearchCard-primary-heading-days")
+        published_date = published_element.text.strip() if published_element else "No Published Date"
+
+        price_element = project.find("div", class_="JobSearchCard-secondary-price")
+        price = re.sub(r"\s+Avg Bid\s*", "", price_element.text.strip()) if price_element else "No Price"
+
+        bids_element = project.find("div", class_="JobSearchCard-secondary-entry")
+        bids = re.sub(r"\s+Bids\s*", "", bids_element.text.strip()) if bids_element else "No Bids"
+
+        skills_elements = project.find_all("a", class_="JobSearchCard-primary-tagsLink")
+        skills = ", ".join([skill.text.strip() for skill in skills_elements]) if skills_elements else "No Skills Listed"
+
+        details_element = project.find("p", class_="JobSearchCard-primary-description")
+        additional_details = re.sub(r"\s+", " ", details_element.text.strip()) if details_element else "No Additional Details"
+
+        projects_data_cleaned.append({
+            "Job URL": job_url,
+            "Title": title,
+            "Published Date": published_date,
+            "Skills Required": skills,
+            "Price/Budget": price,
+            "Bids so Far": bids,
+            "Additional Details": additional_details
+        })
+
     except Exception as e:
-        logger.error(f"Error updating ETL history: {str(e)}")
+        print(f"⚠️ Error extracting project: {e}")
+
+df = pd.DataFrame(projects_data_cleaned)
+
+# Step 3: Clean and preprocess
+df_cleaned = df.copy()
+
+# Clean null characters
+df_cleaned = df_cleaned.applymap(lambda x: x.replace('\x00', '') if isinstance(x, str) else x)
+
+# Strip whitespace and normalize
+text_cols = ['Title', 'Published Date', 'Skills Required', 'Bids so Far', 'Additional Details']
+for col in text_cols:
+    df_cleaned[col] = df_cleaned[col].astype(str).str.strip()
+df_cleaned['Title'] = df_cleaned['Title'].str.title()
+
+# Clean price
+def clean_price(price):
+    if pd.isnull(price):
+        return np.nan
+    cleaned = re.sub(r'[^\d.]', '', str(price))
+    try:
+        return float(cleaned)
+    except:
+        return np.nan
+
+df_cleaned['Price/Budget'] = df_cleaned['Price/Budget'].apply(clean_price)
+df_cleaned['Bids so Far'] = df_cleaned['Bids so Far'].str.extract(r'(\d+)').astype(float)
+
+# Convert Published Date to hours
+def convert_to_hours(text):
+    if 'hour' in text.lower():
+        match = re.search(r'(\d+)', text)
+        return int(match.group(1)) if match else np.nan
+    elif 'day' in text.lower():
+        match = re.search(r'(\d+)', text)
+        return int(match.group(1)) * 24 if match else np.nan
+    else:
+        return np.nan
+
+df_cleaned['Hours Left'] = df_cleaned['Published Date'].apply(convert_to_hours)
+df_cleaned.drop_duplicates(subset=['Job URL'], keep='first', inplace=True)
+
+# Step 4: Upload to Supabase PostgreSQL
+DB_HOST = "aws-0-us-east-2.pooler.supabase.com"
+DB_PORT = 5432
+DB_NAME = "postgres"
+DB_USER = "postgres.foeywbatdlljlkawixlr"
+DB_PASSWORD = "Indradar0304"
+
+try:
+    conn = psycopg2.connect(
+        host=DB_HOST,
+        port=DB_PORT,
+        database=DB_NAME,
+        user=DB_USER,
+        password=DB_PASSWORD
+    )
+    cursor = conn.cursor()
+    print("✅ Connected to PostgreSQL successfully!")
+except Exception as e:
+    print(f"❌ Connection failed: {e}")
+    raise
+
+# Create table
 
 
-# This allows the script to be run directly or imported as a module
-if __name__ == "__main__":
-    import argparse
-    
-    # Set up argument parser
-    parser = argparse.ArgumentParser(description='Freelancer.com data scraper')
-    parser.add_argument('--record-id', type=int, help='ETL history record ID to update')
-    parser.add_argument('--trigger-type', choices=['ui-manual', 'github-manual', 'github-scheduled'],
-                       default='ui-manual', help='Trigger type for this run')
-    args = parser.parse_args()
-    
-    # Run the scraper
-    result = run_scraper()
-    
-    # If a specific record ID was provided, update that record
-    if args.record_id:
-        logger.info(f"Updating ETL history record {args.record_id} with trigger type {args.trigger_type}")
-        update_etl_history(result, args.record_id, args.trigger_type)
-    
-    print(result)
+cursor.execute('''
+CREATE TABLE freelancer_data_table (
+    id SERIAL PRIMARY KEY,
+    job_url TEXT UNIQUE,
+    title TEXT,
+    published_date TEXT,
+    skills_required TEXT,
+    price_budget TEXT,
+    bids_so_far TEXT,
+    additional_details TEXT
+);
+''')
+conn.commit()
+print("✅ Table created: freelancer_data_table")
+
+# Insert data
+def clean_nul(value):
+    if isinstance(value, str):
+        return value.replace('\x00', '')
+    return value
+
+for _, row in df_cleaned.iterrows():
+    insert_query = '''
+    INSERT INTO freelancer_data_table (
+        job_url, title, published_date, skills_required,
+        price_budget, bids_so_far, additional_details
+    )
+    VALUES (%s, %s, %s, %s, %s, %s, %s)
+    ON CONFLICT (job_url) DO NOTHING;
+    '''
+    cursor.execute(insert_query, (
+        clean_nul(row['Job URL']),
+        clean_nul(row['Title']),
+        clean_nul(row['Published Date']),
+        clean_nul(row['Skills Required']),
+        clean_nul(str(row['Price/Budget'])),
+        clean_nul(str(row['Bids so Far'])),
+        clean_nul(row['Additional Details'])
+    ))
+
+conn.commit()
+print("✅ Data successfully inserted into Supabase!")
+
+# Preview inserted data
+cursor.execute("SELECT * FROM freelancer_data_table LIMIT 5;")
+rows = cursor.fetchall()
+for row in rows:
+    print(row)
