@@ -25,16 +25,15 @@ def get_connection():
 def insert_data(rows):
     """
     Inserts multiple rows into the sam_gov table.
-    'rows' should be a list of dictionaries with keys:
-    title, department, published_date, response_date, naics_code, and description.
     """
     connection = get_connection()
     try:
         with connection.cursor() as cursor:
             query = """
                 INSERT INTO sam_gov
-                (title, department, published_date, response_date, naics_code, description)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                (title, department, published_date, response_date, naics_code, description,
+                 notice_id, solicitation_number, url, active)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """
             for row in rows:
                 cursor.execute(query, (
@@ -43,7 +42,11 @@ def insert_data(rows):
                     row["published_date"],
                     row["response_date"],
                     row["naics_code"],
-                    row["title"]
+                    row["description"],
+                    row["notice_id"],
+                    row["solicitation_number"],
+                    row["url"],
+                    row["active"]
                 ))
         connection.commit()
     except psycopg2.Error as e:

@@ -124,6 +124,18 @@ export const Settings = () => {
               description: company.description || '',
               role: company.role || '',
             });
+
+            // Save to sessionStorage for use in recommendations
+            if (company.description) {
+              sessionStorage.setItem(
+                "userProfile",
+                JSON.stringify({
+                  companyUrl: company.url || "",
+                  companyDescription: company.description,
+                })
+              );
+              console.log("Saved user profile to sessionStorage on load");
+            }
           }
         }
 
@@ -223,11 +235,64 @@ export const Settings = () => {
           if (relationError) throw relationError;
         }
       }
+
+      // Generate company markdown if URL is provided
+      if (companyInfo.url) {
+        try {
+          const response = await fetch('http://localhost:8000/api/generate-company-markdown', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ companyUrl: companyInfo.url })
+          });
+
+          const result = await response.json();
+          if (response.ok) {
+            toast.success("Company website scraped and markdown generated.");
+            console.log("Scrape result:", result);
+            
+            // Update company with markdown if successful
+            if (userCompany?.id) {
+              const { error: markdownError } = await supabase
+                .from('companies')
+                .update({
+                  markdown_content: result.markdown
+                })
+                .eq('id', userCompany.id);
+              
+              if (markdownError) {
+                console.error("Error updating markdown:", markdownError);
+                toast.error("Failed to save company markdown");
+              }
+            }
+          } else {
+            console.error("Scrape error:", result);
+            toast.error("Scraping failed: " + (result.detail || "Unknown error"));
+          }
+        } catch (err) {
+          console.error("Network error calling scraper:", err);
+          toast.error("Could not reach scraper service");
+        }
+      }
       
+      // Save to sessionStorage for use in recommendations
+      if (!companyInfo.description) {
+        console.warn("No company description provided, skipping sessionStorage update");
+        toast.warning("Please provide a company description to enable AI recommendations");
+      } else {
+        sessionStorage.setItem(
+          "userProfile",
+          JSON.stringify({
+            companyUrl: companyInfo.url || "",
+            companyDescription: companyInfo.description,
+          })
+        );
+        console.log("Saved user profile to sessionStorage");
+      }
+
       toast.success('Personal information updated successfully');
       setEditingPersonal(false);
       
-      // Refresh user data
+      // Reload to reflect updated company info
       window.location.reload();
     } catch (error) {
       console.error('Error updating personal information:', error);
@@ -300,23 +365,23 @@ export const Settings = () => {
         {/* Main Content */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Header */}
-          <div className="border-b border-gray-200 bg-white shadow-sm">
+      <div className="border-b border-gray-200 bg-white shadow-sm">
             <div className="flex items-center justify-between px-6 py-4">
-              <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
                 <span className="text-gray-500 text-sm font-medium">Portfolio</span>
-                <ChevronRight size={16} className="text-gray-400" />
+            <ChevronRight size={16} className="text-gray-400" />
                 <span className="font-medium text-gray-800">Settings</span>
-              </div>
+          </div>
               <div className="flex items-center gap-4">
                 <button className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm hover:shadow transition-all flex items-center gap-2">
                   <Shield size={16} />
                   <span>Upgrade</span>
-                </button>
+              </button>
                 <div className="relative">
                   <Bell size={20} className="text-gray-500 hover:text-gray-700 cursor-pointer" />
                   <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 rounded-full"></div>
-                </div>
-                <button
+      </div>
+                <button 
                   onClick={handleLogout}
                   className="bg-blue-50 text-blue-600 hover:bg-blue-100 px-4 py-2 rounded-lg text-sm flex items-center gap-2 border border-blue-100 transition-colors"
                 >
@@ -355,20 +420,20 @@ export const Settings = () => {
                   </div>
                   
                   {!editingPersonal ? (
-                    <button 
+                <button 
                       className="text-blue-500 hover:text-blue-700 flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors"
                       onClick={() => setEditingPersonal(true)}
-                    >
+                >
                       <Pencil className="w-4 h-4" />
                       <span>Edit Profile</span>
-                    </button>
+                </button>
                   ) : null}
-                </div>
-                    
+            </div>
+            
                 {editingPersonal ? (
                   <form onSubmit={handlePersonalSubmit} className="p-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                      <div>
+              <div>
                         <label htmlFor="first_name" className="block text-sm font-medium text-gray-700 mb-2">
                           First Name
                         </label>
@@ -376,8 +441,8 @@ export const Settings = () => {
                           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <User className="h-5 w-5 text-gray-400" />
                           </div>
-                          <input
-                            type="text"
+                  <input
+                    type="text"
                             id="first_name"
                             name="first_name"
                             value={personalInfo.first_name}
@@ -386,8 +451,8 @@ export const Settings = () => {
                             placeholder="Your first name"
                           />
                         </div>
-                      </div>
-                      <div>
+              </div>
+              <div>
                         <label htmlFor="last_name" className="block text-sm font-medium text-gray-700 mb-2">
                           Last Name
                         </label>
@@ -416,10 +481,10 @@ export const Settings = () => {
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                           <Mail className="h-5 w-5 text-gray-400" />
                         </div>
-                        <input
-                          type="email"
+                  <input
+                    type="email"
                           id="email"
-                          name="email"
+                    name="email"
                           value={personalInfo.email}
                           disabled
                           className="pl-10 w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-500"
@@ -437,9 +502,9 @@ export const Settings = () => {
                         <div className="relative">
                           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <Building className="h-5 w-5 text-gray-400" />
-                          </div>
-                          <input
-                            type="text"
+              </div>
+                  <input
+                    type="text"
                             id="company_name"
                             name="company_name"
                             value={companyInfo.name}
@@ -457,9 +522,9 @@ export const Settings = () => {
                         <div className="relative">
                           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <User className="h-5 w-5 text-gray-400" />
-                          </div>
-                          <input
-                            type="text"
+              </div>
+                  <input
+                    type="text"
                             id="company_role"
                             name="company_role"
                             value={companyInfo.role}
@@ -477,9 +542,9 @@ export const Settings = () => {
                         <div className="relative">
                           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <Link className="h-5 w-5 text-gray-400" />
-                          </div>
-                          <input
-                            type="url"
+              </div>
+                  <input
+                    type="url"
                             id="company_url"
                             name="company_url"
                             value={companyInfo.url}
@@ -525,7 +590,7 @@ export const Settings = () => {
                       >
                         Save Changes
                       </button>
-                    </div>
+              </div>
                   </form>
                 ) : (
                   <div className="p-6">
@@ -613,25 +678,25 @@ export const Settings = () => {
                   <div className="flex items-center gap-3">
                     <div className="bg-blue-100 p-2 rounded-lg">
                       <Globe className="w-5 h-5 text-blue-500" />
-                    </div>
+            </div>
                     <h3 className="text-lg font-semibold text-gray-800">Account Preferences</h3>
-                  </div>
-                  
-                  {!editingPreferences ? (
-                    <button 
+          </div>
+          
+              {!editingPreferences ? (
+                <button 
                       className="text-blue-500 hover:text-blue-700 flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors"
                       onClick={() => setEditingPreferences(true)}
-                    >
+                >
                       <Pencil className="w-4 h-4" />
                       <span>Edit Preferences</span>
-                    </button>
+                </button>
                   ) : null}
-                </div>
-                    
+            </div>
+            
                 {editingPreferences ? (
                   <form onSubmit={handlePreferencesSubmit} className="p-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                      <div>
+              <div>
                         <label htmlFor="language" className="block text-sm font-medium text-gray-700 mb-2">
                           Language
                         </label>
@@ -639,27 +704,27 @@ export const Settings = () => {
                           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <Globe className="h-5 w-5 text-gray-400" />
                           </div>
-                          <select
+                  <select
                             id="language"
-                            name="language"
+                    name="language"
                             value={preferences.language}
-                            onChange={handlePreferencesChange}
+                    onChange={handlePreferencesChange}
                             className="pl-10 w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors appearance-none"
-                          >
-                            <option value="English (US)">English (US)</option>
-                            <option value="Spanish">Spanish</option>
-                            <option value="French">French</option>
+                  >
+                    <option value="English (US)">English (US)</option>
+                    <option value="Spanish">Spanish</option>
+                    <option value="French">French</option>
                             <option value="German">German</option>
-                          </select>
+                  </select>
                           <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3">
                             <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
                               <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
                             </svg>
                           </div>
                         </div>
-                      </div>
+              </div>
                       
-                      <div>
+              <div>
                         <label htmlFor="time_zone" className="block text-sm font-medium text-gray-700 mb-2">
                           Time Zone
                         </label>
@@ -667,18 +732,18 @@ export const Settings = () => {
                           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <Clock className="h-5 w-5 text-gray-400" />
                           </div>
-                          <select
+                  <select
                             id="time_zone"
                             name="time_zone"
                             value={preferences.time_zone}
-                            onChange={handlePreferencesChange}
+                    onChange={handlePreferencesChange}
                             className="pl-10 w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors appearance-none"
-                          >
-                            <option value="Eastern Time (US & Canada)">Eastern Time (US & Canada)</option>
-                            <option value="Central Time (US & Canada)">Central Time (US & Canada)</option>
-                            <option value="Pacific Time (US & Canada)">Pacific Time (US & Canada)</option>
+                  >
+                    <option value="Eastern Time (US & Canada)">Eastern Time (US & Canada)</option>
+                    <option value="Central Time (US & Canada)">Central Time (US & Canada)</option>
+                    <option value="Pacific Time (US & Canada)">Pacific Time (US & Canada)</option>
                             <option value="UTC">UTC</option>
-                          </select>
+                  </select>
                           <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3">
                             <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
                               <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
@@ -686,10 +751,10 @@ export const Settings = () => {
                           </div>
                         </div>
                       </div>
-                    </div>
+              </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                      <div>
+              <div>
                         <label htmlFor="date_format" className="block text-sm font-medium text-gray-700 mb-2">
                           Date Format
                         </label>
@@ -697,26 +762,26 @@ export const Settings = () => {
                           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <Calendar className="h-5 w-5 text-gray-400" />
                           </div>
-                          <select
+                  <select
                             id="date_format"
                             name="date_format"
                             value={preferences.date_format}
-                            onChange={handlePreferencesChange}
+                    onChange={handlePreferencesChange}
                             className="pl-10 w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors appearance-none"
-                          >
-                            <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-                            <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-                            <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-                          </select>
+                  >
+                    <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                    <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+                    <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                  </select>
                           <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3">
                             <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
                               <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
                             </svg>
                           </div>
                         </div>
-                      </div>
+              </div>
                       
-                      <div>
+              <div>
                         <label htmlFor="theme" className="block text-sm font-medium text-gray-700 mb-2">
                           Theme
                         </label>
@@ -724,17 +789,17 @@ export const Settings = () => {
                           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <PaintBucket className="h-5 w-5 text-gray-400" />
                           </div>
-                          <select
+                  <select
                             id="theme"
-                            name="theme"
+                    name="theme"
                             value={preferences.theme}
-                            onChange={handlePreferencesChange}
+                    onChange={handlePreferencesChange}
                             className="pl-10 w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors appearance-none"
-                          >
-                            <option value="Light">Light</option>
-                            <option value="Dark">Dark</option>
-                            <option value="System">System</option>
-                          </select>
+                  >
+                    <option value="Light">Light</option>
+                    <option value="Dark">Dark</option>
+                    <option value="System">System</option>
+                  </select>
                           <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3">
                             <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
                               <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />

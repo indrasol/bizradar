@@ -7,6 +7,7 @@ from services.pdf_service import generate_rfp_pdf
 from services.recommendations import generate_recommendations
 from openai import OpenAI
 import logging
+from services.company_scraper import generate_company_markdown
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -306,3 +307,26 @@ async def process_document(request: Request):
                 "message": str(e)
             }
         )
+
+@search_router.post("/generate-company-markdown")
+async def generate_company_markdown_endpoint(request: Request):
+    """
+    Endpoint to trigger markdown generation for a given company URL.
+    Returns the generated markdown as text.
+    """
+    try:
+        data = await request.json()
+        company_url = data.get("companyUrl", "")
+
+        if not company_url:
+            raise HTTPException(status_code=400, detail="Missing 'companyUrl' in request body")
+
+        logger.info(f"Generating markdown for company: {company_url}")
+        
+        markdown = await generate_company_markdown(company_url)
+
+        return {"markdown": markdown}
+
+    except Exception as e:
+        logger.error(f"Error generating markdown: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import {
+import { 
   Search,
   Settings,
   ChevronDown,
@@ -38,7 +38,8 @@ import {
   Bookmark,
   SlidersHorizontal,
   ArrowRight,
-  ListFilter
+  ListFilter,
+  FileText
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import SideBar from "../components/layout/SideBar";
@@ -54,7 +55,7 @@ const API_BASE_URL = isDevelopment
 
 export default function Opportunities() {
   const navigate = useNavigate(); // Initialize the navigate function
-
+  
   const [activeFilters, setActiveFilters] = useState({
     dueDate: true,
     postedDate: true,
@@ -63,7 +64,7 @@ export default function Opportunities() {
     unspscCode: true,
     opportunityType: true
   });
-
+  
   const [expandedCard, setExpandedCard] = useState("state-executive");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -81,35 +82,35 @@ export default function Opportunities() {
   const [showNotification, setShowNotification] = useState(false);
   const [selectedTab, setSelectedTab] = useState("newest");
   const [currentHoveredCard, setCurrentHoveredCard] = useState(null);
-
+  
   // Use a ref to track if recommendations request is in progress to prevent duplicate requests
   const requestInProgressRef = useRef(false);
   const lastSearchIdRef = useRef("");
-
+  
   // Suggested search queries
   const suggestedQueries = [
-    {
+    { 
       id: "cybersecurity",
       title: "Cybersecurity Contracts",
       icon: <Shield size={20} className="text-blue-500" />,
       description:
         "Find government contracts related to cybersecurity services, threat monitoring, and security operations.",
     },
-    {
+    { 
       id: "ai-ml",
       title: "AI & Machine Learning",
       icon: <Zap size={20} className="text-purple-500" />,
       description:
         "Explore opportunities involving artificial intelligence, machine learning, and data science.",
     },
-    {
+    { 
       id: "data-management",
       title: "Data Management",
       icon: <Database size={20} className="text-green-500" />,
       description:
         "Discover contracts focused on data management, analytics, and information systems.",
     },
-    {
+    { 
       id: "software-dev",
       title: "Software Development",
       icon: <Code size={20} className="text-amber-500" />,
@@ -117,19 +118,19 @@ export default function Opportunities() {
         "Find contracts for custom software development, maintenance, and IT services.",
     },
   ];
-
+  
   // Initial dummy data - will be replaced with search results
   const initialOpportunities = [];
-
+  
   // State to hold the opportunities data
   const [opportunities, setOpportunities] = useState(initialOpportunities);
-
+  
   // State for pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [totalResults, setTotalResults] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const resultsPerPage = 7; // Using 7 results per page
-
+  
   // Calculate displayed opportunities based on pagination
   const indexOfLastResult = currentPage * resultsPerPage;
   const indexOfFirstResult = indexOfLastResult - resultsPerPage;
@@ -137,7 +138,7 @@ export default function Opportunities() {
     indexOfFirstResult,
     indexOfLastResult
   );
-
+  
   // Add debugging useEffect to monitor state changes
   useEffect(() => {
     console.log("AI Recommendations state changed:", {
@@ -146,69 +147,80 @@ export default function Opportunities() {
       hasData: aiRecommendations.length > 0 && !isLoadingRecommendations,
     });
   }, [aiRecommendations, isLoadingRecommendations]);
-
+  
   // Fetch user profile from settings
   const getUserProfile = () => {
     try {
+      console.log("Fetching user profile from session storage");
       const profileData = sessionStorage.getItem("userProfile");
+      console.log("Raw profile data:", profileData);
+      
       if (profileData) {
-        return JSON.parse(profileData);
+        const parsedData = JSON.parse(profileData);
+        console.log("Parsed profile data:", parsedData);
+        return parsedData;
       }
+      
+      console.warn("No profile data found in session storage");
+      // Return empty or undefined values for graceful handling downstream
       return {
-        companyUrl: "https://bizradar.com",
-        companyDescription:
-          "Bizradar specializes in AI-powered contract analytics and opportunity matching for government procurement.",
+        companyUrl: "",
+        companyDescription: "",
       };
     } catch (error) {
       console.error("Error fetching user profile:", error);
       return {
-        companyUrl: "https://bizradar.com",
-        companyDescription: "Default company description",
+        companyUrl: "",
+        companyDescription: "",
       };
     }
   };
-
+  
   // Fetch AI recommendations
   const fetchAiRecommendations = async () => {
     if (requestInProgressRef.current || opportunities.length === 0) return;
-
+    
     const searchId = `${searchQuery}-${currentPage}`;
-
+    
     if (searchId === lastSearchIdRef.current) {
       console.log("Skipping duplicate recommendations request for:", searchId);
       return;
     }
-
+    
     requestInProgressRef.current = true;
     lastSearchIdRef.current = searchId;
     setIsLoadingRecommendations(true);
-
+    
     console.log("Starting to fetch AI recommendations for page", currentPage);
-
+    
     try {
       const userProfile = getUserProfile();
-
+      console.log("User profile for AI recommendations:", userProfile);
+      
+      const requestBody = {
+        companyUrl: userProfile.companyUrl,
+        companyDescription: userProfile.companyDescription || "", // Ensure this is set
+        opportunities: opportunities,
+        responseFormat: "json",
+        includeMatchReason: true,
+      };
+      console.log("AI recommendations request body:", requestBody);
+      
       const response = await fetch(`${API_BASE_URL}/ai-recommendations`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          companyUrl: userProfile.companyUrl,
-          companyDescription: userProfile.companyDescription,
-          opportunities: opportunities, // Use the current page's opportunities
-          responseFormat: "json",
-          includeMatchReason: true,
-        }),
+        body: JSON.stringify(requestBody),
       });
-
+      
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-
+      
       const data = await response.json();
       console.log("AI Recommendations raw response:", data);
-
+      
       if (data.recommendations && Array.isArray(data.recommendations)) {
         console.log(
           `Received ${data.recommendations.length} AI recommendations`
@@ -220,14 +232,14 @@ export default function Opportunities() {
               ? Math.min(rec.opportunityIndex, opportunities.length - 1)
               : 0;
           const opportunity = opportunities[oppIndex];
-
+          
           return {
             ...rec,
             opportunity,
             showDetailedReason: false, // Add this to track the expanded state
           };
         });
-
+        
         setAiRecommendations(enhancedRecommendations);
       } else {
         console.warn("Received invalid recommendations format:", data);
@@ -237,12 +249,12 @@ export default function Opportunities() {
       console.error("Error fetching AI recommendations:", error);
       setAiRecommendations([
         {
-          id: "fallback-rec-1",
-          title: "AI Recommendation Service Temporarily Unavailable",
+        id: "fallback-rec-1",
+        title: "AI Recommendation Service Temporarily Unavailable",
           description:
             "We couldn't retrieve personalized recommendations at this time. Please try again later.",
-          matchScore: 75,
-          opportunityIndex: 0,
+        matchScore: 75,
+        opportunityIndex: 0,
           matchReason:
             "This is a fallback recommendation while the service is temporarily unavailable.",
         },
@@ -254,7 +266,7 @@ export default function Opportunities() {
       }, 500);
     }
   };
-
+  
   // useEffect to prevent infinite loop of requests
   useEffect(() => {
     if (
@@ -266,8 +278,8 @@ export default function Opportunities() {
         "Page changed, fetching new recommendations for page",
         currentPage
       );
-      fetchAiRecommendations();
-    }
+          fetchAiRecommendations();
+      }
   }, [currentPage, opportunities]);
 
   const toggleFilter = (filter) => {
@@ -276,11 +288,11 @@ export default function Opportunities() {
       [filter]: !activeFilters[filter],
     });
   };
-
+  
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
   };
-
+  
   const toggleFiltersBar = () => {
     setFiltersOpen(!filtersOpen);
   };
@@ -311,10 +323,10 @@ export default function Opportunities() {
 
   const handleSearch = async (e, suggestedQuery = null) => {
     if (e) e.preventDefault();
-
+    
     const query = suggestedQuery || searchQuery;
     if (!query.trim()) return;
-
+    
     setIsSearching(true);
     setAiRecommendations([]);
     requestInProgressRef.current = false;
@@ -330,38 +342,56 @@ export default function Opportunities() {
           query: query,
           contract_type: null,
           platform: null,
-          page: 1, // Start with page 1
+          page: 1,
           page_size: resultsPerPage,
         }),
       });
-
+      
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-
+      
       const data = await response.json();
       console.log("Search results:", data);
-
+      
       if (data.results && Array.isArray(data.results)) {
         setHasSearched(true);
+        
+        const formattedResults = data.results.map((job) => {
+          // Normalize platform name for display
+          let platformForDisplay = job.platform === "sam_gov" ? "sam.gov" : job.platform;
 
-        const formattedResults = data.results.map((job) => ({
-          id: job.id || `job-${Math.random()}-${Date.now()}`,
-          title: job.title || "Untitled Opportunity",
-          agency: job.agency || "Unknown Agency",
-          jurisdiction: "Federal",
-          type: "RFP",
-          posted: job.posted || "Recent",
-          dueDate: job.dueDate || "TBD",
-          value: Math.floor(Math.random() * 5000000) + 1000000,
-          status: "Active",
-          naicsCode: job.naicsCode || "000000",
-          platform: job.platform || "sam.gov",
-          description:
-            job.description?.substring(0, 150) + "..." ||
-            "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
-        }));
-
+          return {
+            id: job.id || `job-${Math.random()}-${Date.now()}`,
+            title: job.title || "Untitled Opportunity",
+            agency: job.agency || job.department || "Unknown Agency",
+            jurisdiction: "Federal",
+            type: "RFP",
+            posted: job.published_date || job.posted || "Recent",
+            dueDate: job.response_date || job.dueDate || "TBD",
+            value: job.value || Math.floor(Math.random() * 5000000) + 1000000,
+            status: job.active !== undefined ? (job.active ? "Active" : "Inactive") : "Active",
+            naicsCode: job.naics_code?.toString() || job.naicsCode || "000000",
+            platform: platformForDisplay,  // Use normalized platform name
+            description: job.description?.substring(0, 150) + "..." || 
+              "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
+            external_url: job.external_url || job.url || null,
+            url: job.url || null,
+            solicitation_number: job.solicitation_number || null,
+            notice_id: job.notice_id || null,
+            published_date: job.published_date || null,
+            response_date: job.response_date || null
+          };
+        });
+        
+        // Log platform distribution for debugging
+        const platforms = formattedResults.map(job => job.platform);
+        const platformCounts = platforms.reduce((acc, platform) => {
+          acc[platform] = (acc[platform] || 0) + 1;
+          return acc;
+        }, {});
+        console.log("Results by platform:", platformCounts);
+        
         setOpportunities(formattedResults);
         setTotalResults(data.total || formattedResults.length);
         setCurrentPage(data.page || 1);
@@ -449,7 +479,7 @@ export default function Opportunities() {
             job.description?.substring(0, 150) + "..." ||
             "Lorem ipsum dolor sit amet",
         }));
-
+        
         // Update the state with the new results
         setOpportunities(formattedResults);
         setCurrentPage(data.page || pageNumber);
@@ -523,7 +553,7 @@ export default function Opportunities() {
       dueDate: contractData.dueDate || "2025-01-01",
       value: contractData.value || 0,
       status: contractData.status || "Open",
-      naicsCode: contractData.naicsCode || "000000",
+      naicsCode: contractData.naicsCode || "000000", 
       description: contractData.description || "",
     };
 
@@ -674,6 +704,101 @@ export default function Opportunities() {
     // You can call your API or filter the opportunities based on these values
   };
 
+  // Add a new state variable for job type
+  const [jobType, setJobType] = useState("All");
+
+  // Update the toggleFilter function to handle job type selection
+  const toggleJobType = (type) => {
+    setJobType(type);
+  };
+
+  // Modify the opportunities rendering logic based on job type
+  const filteredOpportunities = opportunities.filter((opportunity) => {
+    if (jobType === "Federal") {
+      return opportunity.platform === "sam.gov"; // Show only sam.gov opportunities
+    } else if (jobType === "Freelancer") {
+      return opportunity.platform !== "sam.gov"; // Show only freelancer opportunities
+    }
+    return true; // Show all opportunities if "All" is selected
+  });
+
+  // Add this function to handle viewing details
+  const handleViewDetails = (opportunity) => {
+    console.log("View Details clicked for opportunity:", opportunity);
+    
+    if (opportunity.external_url) {
+      console.log("Opening external URL:", opportunity.external_url);
+      window.open(opportunity.external_url, '_blank');
+    } else if (opportunity.url) {
+      console.log("Opening URL from database:", opportunity.url);
+      window.open(opportunity.url, '_blank');
+    } else {
+      // Generate dynamic fallback URL based on platform
+      if (opportunity.platform === "sam.gov" || opportunity.platform === "sam_gov") {
+        // Use the opportunity's notice_id if available
+        const noticeId = opportunity.notice_id || "778288d2aea24e14a253786bc0ec0369";
+        const fallbackUrl = `https://sam.gov/opp/${noticeId}/view`;
+        
+        console.log("Using notice_id for SAM.gov opportunity:", fallbackUrl);
+        window.open(fallbackUrl, '_blank');
+      } else if (opportunity.platform === "freelancer") {
+        // For Freelancer, use the best fallback approach
+        if (opportunity.job_url) {
+          console.log("Using job_url for Freelancer opportunity:", opportunity.job_url);
+          window.open(opportunity.job_url, '_blank');
+        } else {
+          // If not, create a search URL with the title
+          const searchQuery = encodeURIComponent(opportunity.title.split(' ').slice(0, 3).join(' '));
+          const fallbackUrl = `https://www.freelancer.com/search/projects?q=${searchQuery}`;
+          
+          console.log("No direct URL for Freelancer opportunity. Using search fallback:", fallbackUrl);
+          window.open(fallbackUrl, '_blank');
+        }
+      } else {
+        // Internal fallback - only as a last resort
+        console.log("No external URL or platform-specific fallback available. Navigating internally.");
+        navigate(`/opportunities/${opportunity.id}`);
+      }
+    }
+  };
+
+  useEffect(() => {
+    // Check if we have a direct opportunity ID in the URL
+    const path = window.location.pathname;
+    const match = path.match(/\/opportunities\/(\d+)/);
+    
+    if (match && match[1]) {
+      const oppId = match[1];
+      console.log(`Direct navigation to opportunity ID: ${oppId}`);
+      
+      // Fetch this specific opportunity
+      const fetchOpportunity = async () => {
+        try {
+          const response = await fetch(`${API_BASE_URL}/get-opportunity/${oppId}`);
+          if (response.ok) {
+            const data = await response.json();
+            if (data && data.external_url) {
+              window.open(data.external_url, '_blank');
+              // Redirect to main opportunities page
+              navigate('/opportunities');
+            } else {
+              // Handle the case when the opportunity is found but has no external URL
+              setOpportunities([data]);
+              setHasSearched(true);
+            }
+          } else {
+            // Handle 404 for opportunity
+            console.error(`Opportunity ID ${oppId} not found`);
+          }
+        } catch (error) {
+          console.error("Error fetching opportunity:", error);
+        }
+      };
+      
+      fetchOpportunity();
+    }
+  }, []);
+
   return (
     <div className="h-screen flex flex-col bg-gray-50 text-gray-800">
       {/* Main Content */}
@@ -720,7 +845,7 @@ export default function Opportunities() {
           {/* Body - Two Column Layout */}
           <div className="flex-1 flex overflow-hidden">
             {/* Filters Column */}
-            <div
+            <div 
               className={`border-r border-gray-200 overflow-y-auto relative bg-white shadow-sm transition-all duration-300 ease-in-out ${
                 filtersOpen ? "w-72" : "w-16"
               }`}
@@ -816,7 +941,7 @@ export default function Opportunities() {
                       </div>
                     )}
                   </div>
-
+                  
                   {/* Posted Date Filter */}
                   <div className="border-b border-gray-100">
                     <div
@@ -974,25 +1099,45 @@ export default function Opportunities() {
                     {activeFilters.opportunityType && (
                       <div className="px-5 pb-4">
                         <ul className="space-y-2 ml-7">
-                          {[
-                            { id: "opp-type-all", value: "", label: "All" },
-                            { id: "opp-type-federal", value: "federal", label: "Federal" },
-                            { id: "opp-type-freelancer", value: "freelancer", label: "Freelancer" },
-                          ].map((option) => (
-                            <li key={option.id} className="flex items-center gap-2">
-                              <input
-                                type="radio"
-                                id={option.id}
-                                name="opportunity-type"
-                                className="accent-blue-500 w-4 h-4"
-                                checked={filterValues.opportunityType === option.value}
-                                onChange={() => setFilterValues({ ...filterValues, opportunityType: option.value })}
-                              />
-                              <label htmlFor={option.id} className="text-sm text-gray-700">
-                                {option.label}
-                              </label>
-                            </li>
-                          ))}
+                          <li className="flex items-center gap-2">
+                            <input
+                              type="radio"
+                              id="opp-type-all"
+                              name="opportunity-type"
+                              className="accent-blue-500 w-4 h-4"
+                              checked={jobType === "All"}
+                              onChange={() => setJobType("All")}
+                            />
+                            <label htmlFor="opp-type-all" className="text-sm text-gray-700">
+                              All
+                            </label>
+                          </li>
+                          <li className="flex items-center gap-2">
+                            <input
+                              type="radio"
+                              id="opp-type-federal"
+                              name="opportunity-type"
+                              className="accent-blue-500 w-4 h-4"
+                              checked={jobType === "Federal"}
+                              onChange={() => setJobType("Federal")}
+                            />
+                            <label htmlFor="opp-type-federal" className="text-sm text-gray-700">
+                              Federal (SAM.gov)
+                            </label>
+                          </li>
+                          <li className="flex items-center gap-2">
+                            <input
+                              type="radio"
+                              id="opp-type-freelancer"
+                              name="opportunity-type"
+                              className="accent-blue-500 w-4 h-4"
+                              checked={jobType === "Freelancer"}
+                              onChange={() => setJobType("Freelancer")}
+                            />
+                            <label htmlFor="opp-type-freelancer" className="text-sm text-gray-700">
+                              Freelancer
+                            </label>
+                          </li>
                         </ul>
                       </div>
                     )}
@@ -1033,8 +1178,8 @@ export default function Opportunities() {
                     />
                     {searchQuery && (
                       <div className="absolute inset-y-0 right-12 pr-3 flex items-center">
-                        <button
-                          type="button"
+                        <button 
+                          type="button" 
                           onClick={clearSearch}
                           className="text-gray-400 hover:text-gray-600 p-1.5 rounded-full hover:bg-gray-100"
                         >
@@ -1043,7 +1188,7 @@ export default function Opportunities() {
                       </div>
                     )}
                     <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
-                      <button
+                      <button 
                         type="submit"
                         className="p-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg flex items-center justify-center shadow-sm transition-all"
                       >
@@ -1051,8 +1196,8 @@ export default function Opportunities() {
                       </button>
                     </div>
                   </div>
-                  <button
-                    type="button"
+                  <button 
+                    type="button" 
                     onClick={() => navigate("/settings")}
                     className="p-3 rounded-xl border border-gray-200 text-gray-600 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-colors shadow-sm"
                   >
@@ -1137,7 +1282,7 @@ export default function Opportunities() {
                             )}
                           </div>
                           <div className="flex items-center gap-2">
-                            <button
+                            <button 
                               onClick={() => setAiComponentCollapsed((prev) => !prev)}
                               className="text-gray-500 hover:text-blue-600 hover:bg-blue-50 p-2 rounded-lg transition-colors"
                             >
@@ -1147,7 +1292,7 @@ export default function Opportunities() {
                                 <ChevronUp size={20} />
                               )}
                             </button>
-                            <button
+                            <button 
                               onClick={toggleRecommendationsExpand}
                               className="text-gray-500 hover:text-blue-600 hover:bg-blue-50 p-2 rounded-lg transition-colors"
                             >
@@ -1159,7 +1304,7 @@ export default function Opportunities() {
                             </button>
                           </div>
                         </div>
-
+                        
                         {/* Container for content with white background for contrast */}
                         {!aiComponentCollapsed && (
                           <div className="transition-all duration-300">
@@ -1214,38 +1359,98 @@ export default function Opportunities() {
                                                 </span>
                                                 <span className="flex items-center gap-1 text-gray-500">
                                                   <Calendar className="h-3 w-3" />
-                                                  Due: {opportunity?.dueDate || "TBD"}
+                                                  Published: {opportunity?.posted || "TBD"}
                                                 </span>
                                               </div>
 
-                                              <button
-                                                onClick={() => toggleDetailedReason(index)}
-                                                className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center gap-1 hover:underline"
-                                              >
-                                                Why is this relevant?
-                                                {rec.showDetailedReason ? (
-                                                  <ChevronUp size={16} />
-                                                ) : (
-                                                  <ChevronDown size={16} />
-                                                )}
-                                              </button>
-
-                                              {/* Improved detailed reason display */}
-                                              {rec.showDetailedReason && (
-                                                <div className="mt-3 bg-blue-50 p-4 rounded-lg border border-blue-100">
-                                                  <div className="flex items-start">
-                                                    <div className="bg-white p-1.5 rounded-full mr-3 mt-0.5 border border-blue-200 shadow-sm">
-                                                      <Info size={14} className="text-blue-600" />
-                                                    </div>
-                                                    <div className="flex-1">
-                                                      <h4 className="font-medium text-blue-700 text-sm mb-1">Match Analysis</h4>
-                                                      <p className="text-sm leading-relaxed text-gray-700">
-                                                        {rec.description || "No detailed explanation available."}
-                                                      </p>
-                                                    </div>
+                                              {/* Match Analysis Box - Always visible */}
+                                              <div className="mt-3 bg-blue-50 p-4 rounded-lg border border-blue-100">
+                                                <div className="flex items-start">
+                                                  <div className="bg-white p-1.5 rounded-full mr-3 mt-0.5 border border-blue-200 shadow-sm">
+                                                    <Info size={14} className="text-blue-600" />
+                                                  </div>
+                                                  <div className="flex-1">
+                                                    <h4 className="font-medium text-blue-700 text-sm mb-1">Match Analysis</h4>
+                                                    <p className="text-sm leading-relaxed text-gray-700 line-clamp-2">
+                                                      {rec.description || "No detailed explanation available."}
+                                                    </p>
+                                                    
+                                                    <button
+                                                      onClick={() => toggleDetailedReason(index)}
+                                                      className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-1 mt-2"
+                                                    >
+                                                      Check for detailed analysis
+                                                      {rec.showDetailedReason ? (
+                                                        <ChevronUp size={16} className="ml-1" />
+                                                      ) : (
+                                                        <ChevronDown size={16} className="ml-1" />
+                                                      )}
+                                                    </button>
                                                   </div>
                                                 </div>
-                                              )}
+
+                                                {/* Show ONLY Key Insights and match criteria table when expanded */}
+                                                {rec.showDetailedReason && (
+                                                  <div className="mt-4">
+                                                    {/* Key Insights box */}
+                                                    <div className="bg-white rounded-md p-4 border border-gray-200 mb-4">
+                                                      <h5 className="font-medium text-gray-800 mb-2">Key Insights</h5>
+                                                      <ul className="space-y-2">
+                                                        {rec.keyInsights?.map((insight, idx) => (
+                                                          <li key={idx} className="flex items-start">
+                                                            <div className="h-2 w-2 bg-blue-500 rounded-full mt-1.5 mr-2"></div>
+                                                            <span className="text-sm text-gray-700">{insight}</span>
+                                                          </li>
+                                                        ))}
+                                                      </ul>
+                                                    </div>
+
+                                                    {/* Match Criteria Table */}
+                                                    <div className="overflow-hidden rounded-md border border-gray-200">
+                                                      <table className="min-w-full divide-y divide-gray-200">
+                                                        <thead className="bg-gray-50">
+                                                          <tr>
+                                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                                                              Match Criterion
+                                                            </th>
+                                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                                                              Relevance
+                                                            </th>
+                                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                                                              Notes
+                                                            </th>
+                                                          </tr>
+                                                        </thead>
+                                                        <tbody className="bg-white divide-y divide-gray-200">
+                                                          {rec.matchCriteria?.map((crit, i) => (
+                                                            <tr key={i}>
+                                                              <td className="px-4 py-3 text-sm text-gray-900 font-medium">{crit.criterion}</td>
+                                                              <td className="px-4 py-3">
+                                                                <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                                                  crit.relevance === 'Strong match'
+                                                                    ? 'bg-green-100 text-green-800'
+                                                                    : crit.relevance === 'Partial match'
+                                                                    ? 'bg-yellow-100 text-yellow-800'
+                                                                    : 'bg-gray-100 text-gray-600'
+                                                                }`}>
+                                                                  {crit.relevance}
+                                                                </span>
+                                                              </td>
+                                                              <td className="px-4 py-3 text-sm text-gray-500">{crit.notes}</td>
+                                                            </tr>
+                                                          ))}
+                                                        </tbody>
+                                                      </table>
+                                                    </div>
+
+                                                    {/* Verdict Section */}
+                                                    <div className="mt-4 bg-white rounded-md p-4 border border-gray-200">
+                                                      <h5 className="font-semibold text-gray-800 mb-1">✅ Verdict:</h5>
+                                                      <p className="text-sm text-gray-700">{rec.matchReason}</p>
+                                                    </div>
+                                                  </div>
+                                                )}
+                                              </div>
                                             </div>
                                             
                                             <div className="ml-4 flex flex-col items-end">
@@ -1314,7 +1519,7 @@ export default function Opportunities() {
                         </p>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           {suggestedQueries.map((query) => (
-                            <div
+                            <div 
                               key={query.id}
                               onClick={() => handleSuggestedQueryClick(query.id)}
                               className="bg-white rounded-xl border border-gray-200 p-5 cursor-pointer hover:border-blue-300 hover:shadow-lg transition-all group"
@@ -1389,18 +1594,18 @@ export default function Opportunities() {
                                 the Army, is seeking industry capabilities to produce
                                 and...
                               </p>
-                              <div className="flex items-center flex-wrap gap-2 text-xs">
+                              <div className="flex items-center flex-wrap gap-2 text-xs mb-3">
                                 <div className="px-2 py-1 bg-blue-50 text-blue-600 rounded-full flex items-center">
                                   <span className="inline-block w-1.5 h-1.5 bg-blue-500 rounded-full mr-1.5"></span>
                                   DEPT OF DEFENSE
                                 </div>
                                 <div className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full flex items-center">
                                   <Clock className="h-3 w-3 mr-1" />
-                                  Released: Mar 5, 2025
+                                  Published: Mar 5, 2025
                                 </div>
-                                <div className="px-2 py-1 bg-amber-100 text-amber-600 rounded-full flex items-center">
-                                  <Clock className="h-3 w-3 mr-1" />
-                                  Due: Mar 28, 2025
+                                <div className="px-2 py-1 bg-green-50 text-green-600 rounded-full flex items-center">
+                                  <DollarSign className="h-3 w-3 mr-1" />
+                                  Price Budget: {formatCurrency(750000)}
                                 </div>
                               </div>
                             </div>
@@ -1429,18 +1634,18 @@ export default function Opportunities() {
                                 and operational environments, commanders are confronted
                                 with...
                               </p>
-                              <div className="flex items-center flex-wrap gap-2 text-xs">
+                              <div className="flex items-center flex-wrap gap-2 text-xs mb-3">
                                 <div className="px-2 py-1 bg-blue-50 text-blue-600 rounded-full flex items-center">
                                   <span className="inline-block w-1.5 h-1.5 bg-blue-500 rounded-full mr-1.5"></span>
                                   DOD
                                 </div>
                                 <div className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full flex items-center">
                                   <Clock className="h-3 w-3 mr-1" />
-                                  Released: Mar 5, 2025
+                                  Published: Mar 5, 2025
                                 </div>
-                                <div className="px-2 py-1 bg-green-100 text-green-600 rounded-full flex items-center">
-                                  <Clock className="h-3 w-3 mr-1" />
-                                  Due: Apr 23, 2025
+                                <div className="px-2 py-1 bg-green-50 text-green-600 rounded-full flex items-center">
+                                  <DollarSign className="h-3 w-3 mr-1" />
+                                  Price Budget: {formatCurrency(100000)}
                                 </div>
                               </div>
                             </div>
@@ -1457,127 +1662,154 @@ export default function Opportunities() {
                               </button>
                             </div>
                           </div>
-
-                          {/* Additional cards would go here */}
                         </div>
                       </div>
                     )}
-
+                    
                     {/* Dynamic Opportunity Cards - Only shown after a search */}
                     {hasSearched && !isSearching && opportunities.length > 0 ? (
                       <div className="space-y-5 max-w-4xl mx-auto">
-                        {opportunities.map((opportunity, index) => (
+                        {filteredOpportunities.map((opportunity) => (
                           <div
                             key={opportunity.id}
-                            className="p-5 bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-all hover:border-blue-200"
-                            onMouseEnter={() => setCurrentHoveredCard(opportunity.id)}
-                            onMouseLeave={() => setCurrentHoveredCard(null)}
+                            className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-all hover:border-blue-200"
                           >
-                            <div className="flex justify-between gap-4">
-                              <div className="flex-1">
-                                <div className="flex items-start gap-3 mb-3">
-                                  <div className="p-2 rounded-lg bg-blue-50 mt-1">
-                                    {opportunity.title.toLowerCase().includes("cyber") || 
-                                     opportunity.title.toLowerCase().includes("security") ? (
-                                      <Shield className="text-blue-500" size={18} />
-                                    ) : opportunity.title.toLowerCase().includes("software") ? (
-                                      <Code className="text-amber-500" size={18} />
-                                    ) : (
-                                      <BarChart2 className="text-blue-500" size={18} />
-                                    )}
-                                  </div>
-                                  <div>
-                                    <h2 className="text-lg font-semibold text-gray-800 hover:text-blue-600 transition-colors">
-                                      {opportunity.title}
-                                    </h2>
-                                    <div className="flex items-center gap-2 mt-1 text-sm text-gray-500">
-                                      <Building size={14} />
-                                      <span>{opportunity.agency}</span>
-                                    </div>
+                            {/* Header with icon and title */}
+                            <div className="p-5 pb-3">
+                              <div className="flex items-start gap-3">
+                                <div className="text-blue-500">
+                                  <BarChart2 size={22} />
+                                </div>
+                                <div className="flex-1">
+                                  <h2 className="text-lg font-semibold text-gray-800 hover:text-blue-600 transition-colors">
+                                    {opportunity.title}
+                                  </h2>
+                                  <div className="flex items-center text-sm text-gray-500 mt-1">
+                                    <span>{opportunity.agency}</span>
                                   </div>
                                 </div>
                                 
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-                                  <div className="flex flex-col p-3 bg-gray-50 rounded-lg">
-                                    <span className="text-xs text-gray-500 mb-1 flex items-center gap-1">
-                                      <Calendar size={12} />
-                                      Due Date
-                                    </span>
-                                    <span className="text-sm font-medium text-gray-700">
-                                      {opportunity.dueDate || "TBD"}
-                                    </span>
+                                {/* Due Date Blip - Positioned on the right side to capture focus */}
+                                {opportunity.response_date && (
+                                  <div className="flex-shrink-0">
+                                    <div className={`px-3 py-1.5 rounded-lg text-center ${
+                                      new Date(opportunity.response_date) < new Date() 
+                                        ? 'bg-red-50 text-red-600 border border-red-100' 
+                                        : 'bg-blue-50 text-blue-600 border border-blue-100'
+                                    }`}>
+                                      <div className="text-xs font-medium">DUE</div>
+                                      <div className="text-sm font-bold">{opportunity.response_date || "TBD"}</div>
+                                    </div>
                                   </div>
-                                  <div className="flex flex-col p-3 bg-gray-50 rounded-lg">
-                                    <span className="text-xs text-gray-500 mb-1 flex items-center gap-1">
-                                      <DollarSign size={12} />
-                                      Estimated Value
-                                    </span>
-                                    <span className="text-sm font-medium text-gray-700">
-                                      {formatCurrency(opportunity.value)}
-                                    </span>
-                                  </div>
-                                  <div className="flex flex-col p-3 bg-gray-50 rounded-lg">
-                                    <span className="text-xs text-gray-500 mb-1 flex items-center gap-1">
-                                      <Tag size={12} />
-                                      NAICS Code
-                                    </span>
-                                    <span className="text-sm font-medium text-gray-700">
-                                      {opportunity.naicsCode || "N/A"}
-                                    </span>
-                                  </div>
+                                )}
+                              </div>
+                              
+                              {/* Info grid - 3 columns layout */}
+                              <div className="grid grid-cols-3 gap-4 mt-4">
+                                <div>
+                                  <div className="text-sm text-gray-500">Published</div>
+                                  <div className="font-medium">{opportunity.published_date || "Recent"}</div>
                                 </div>
-
-                                {/* Description with Read More */}
-                                <div className="mb-4">
-                                  <p className="text-sm text-gray-600">
-                                    {opportunity.description}
-                                    <button className="text-blue-600 font-medium ml-1 hover:underline text-xs">
-                                      Read more
-                                    </button>
-                                  </p>
+                                
+                                <div>
+                                  <div className="text-sm text-gray-500">NAICS Code</div>
+                                  <div className="font-medium">{opportunity.naics_code || opportunity.naicsCode || "000000"}</div>
                                 </div>
-
-                                {/* Tags */}
-                                <div className="flex items-center gap-2 flex-wrap mb-4">
-                                  <div className="px-2.5 py-1 bg-blue-50 text-blue-600 rounded-full text-xs font-medium">
-                                    {opportunity.platform || "sam.gov"}
+                                
+                                <div>
+                                  <div className="text-sm text-gray-500">Solicitation #</div>
+                                  <div className="font-medium truncate">
+                                    {opportunity.solicitation_number || "N/A"}
                                   </div>
-                                  <div className="px-2.5 py-1 bg-green-50 text-green-600 rounded-full text-xs font-medium">
-                                    {opportunity.status}
-                                  </div>
-                                  <div className="px-2.5 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-medium">
-                                    {opportunity.type || "RFP"}
-                                  </div>
-                                  <div className="px-2.5 py-1 bg-purple-50 text-purple-600 rounded-full text-xs font-medium">
-                                    {opportunity.jurisdiction}
-                                  </div>
-                                </div>
-
-                                {/* Action Buttons */}
-                                <div className="flex items-center gap-3 pt-3 border-t border-gray-100">
-                                  <button 
-                                    onClick={() => handleAddToPursuit(opportunity)}
-                                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center gap-2"
-                                  >
-                                    <Plus size={16} />
-                                    <span>Add to Pursuits</span>
-                                  </button>
-                                  <button className="px-4 py-2 bg-green-50 text-green-600 hover:bg-green-100 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 border border-green-200">
-                                    <MessageCircle size={16} />
-                                    <span>Ask AI</span>
-                                  </button>
-                                  <button
-                                    onClick={() => navigate(`/opportunities/${opportunity.id}`)}
-                                    className="px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 border border-gray-200"
-                                  >
-                                    <ExternalLink size={16} className="text-gray-500" />
-                                    <span>View Details</span>
-                                  </button>
-                                  <button className="ml-auto p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors">
-                                    <Share size={18} />
-                                  </button>
                                 </div>
                               </div>
+                              
+                              {/* URL/Link with Read more */}
+                              <div className="mt-3 text-sm truncate">
+                                {opportunity.url ? (
+                                  <>
+                                    <span className="text-gray-500">
+                                      {opportunity.url.includes("sam.gov/opp") 
+                                        ? opportunity.url.replace("https://api.sam.gov/prod/opportunities/v1/noticedesc?noticeid=", "https://sam.gov/opp/") + "/view"
+                                        : opportunity.url}
+                                    </span>
+                                    <a 
+                                      href={opportunity.url} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      className="text-blue-600 font-medium ml-2 hover:underline text-sm"
+                                    >
+                                      Read more
+                                    </a>
+                                    <span className="text-gray-400 text-xs ml-1">(API key required)</span>
+                                  </>
+                                ) : opportunity.external_url ? (
+                                  <>
+                                    <span className="text-gray-500">{opportunity.external_url}</span>
+                                    <a 
+                                      href={opportunity.external_url} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      className="text-blue-600 font-medium ml-2 hover:underline text-sm"
+                                    >
+                                      Read more
+                                    </a>
+                                  </>
+                                ) : null}
+                              </div>
+                            </div>
+                            
+                            {/* Tags */}
+                            <div className="px-5 py-1.5 flex flex-wrap items-center gap-2">
+                              <div className="px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-sm">
+                                {opportunity.platform === 'sam_gov' ? 'sam.gov' : opportunity.platform}
+                              </div>
+                              <div className={`px-3 py-1 rounded-full text-sm ${opportunity.active === false ? 'bg-gray-100 text-gray-600' : 'bg-green-50 text-green-600'}`}>
+                                {opportunity.active === false ? "Inactive" : "Active"}
+                              </div>
+                              <div className="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-sm">
+                                {opportunity.type || "RFP"}
+                              </div>
+                              <div className="px-3 py-1 bg-purple-50 text-purple-600 rounded-full text-sm">
+                                Federal
+                              </div>
+                              
+                              {/* If there's a defined due date and it's soon (less than 7 days away), show this tag */}
+                              {opportunity.response_date && new Date(opportunity.response_date) > new Date() && 
+                               (new Date(opportunity.response_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24) < 7 && (
+                                <div className="px-3 py-1 bg-amber-50 text-amber-600 rounded-full text-sm flex items-center">
+                                  <Clock size={12} className="mr-1" />
+                                  Ending Soon
+                                </div>
+                              )}
+                            </div>
+                            
+                            {/* Action Buttons */}
+                            <div className="p-3 flex items-center gap-2">
+                              <button 
+                                onClick={() => handleAddToPursuit(opportunity)}
+                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center gap-2"
+                              >
+                                <Plus size={16} />
+                                <span>Add to Pursuits</span>
+                              </button>
+                              <button 
+                                onClick={() => handleBeginResponse(opportunity.id, opportunity)}
+                                className="px-4 py-2 bg-green-50 text-green-600 hover:bg-green-100 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 border border-green-200"
+                              >
+                                <FileText size={16} />
+                                <span>Generate Response</span>
+                              </button>
+                              <button
+                                onClick={() => handleViewDetails(opportunity)}
+                                className="px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 border border-gray-200"
+                              >
+                                <ExternalLink size={16} className="text-gray-500" />
+                                <span>View on SAM.gov</span>
+                              </button>
+                              <button className="ml-auto p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors">
+                                <Share size={18} />
+                              </button>
                             </div>
                           </div>
                         ))}

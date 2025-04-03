@@ -1,0 +1,43 @@
+2025-04-03 15:46:06,948 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-04-03 15:46:06,950 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-04-03 15:46:08,683 - indexer - INFO - Checking Pinecone index before indexing...
+2025-04-03 15:46:09,102 - indexer - INFO - Index dimension: 384
+2025-04-03 15:46:09,103 - indexer - INFO - Total vectors: 0
+2025-04-03 15:46:09,103 - indexer - INFO - Namespaces: {}
+2025-04-03 15:46:09,103 - indexer - INFO - Starting to index SAM.gov records...
+2025-04-03 15:46:09,729 - indexer - INFO - Fetched 1000 SAM.gov records from database
+2025-04-03 15:46:31,183 - indexer - INFO - Upserted sam_gov batch 1 of 11
+2025-04-03 15:46:31,569 - indexer - INFO - Upserted sam_gov batch 2 of 11
+2025-04-03 15:46:31,921 - indexer - INFO - Upserted sam_gov batch 3 of 11
+2025-04-03 15:46:32,107 - urllib3.connectionpool - WARNING - Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by 'SSLEOFError(8, 'EOF occurred in violation of protocol (_ssl.c:2406)')': /vectors/upsert
+2025-04-03 15:46:32,946 - indexer - INFO - Upserted sam_gov batch 4 of 11
+2025-04-03 15:46:33,259 - indexer - INFO - Upserted sam_gov batch 5 of 11
+2025-04-03 15:46:33,631 - indexer - INFO - Upserted sam_gov batch 6 of 11
+2025-04-03 15:46:33,976 - indexer - INFO - Upserted sam_gov batch 7 of 11
+2025-04-03 15:46:34,252 - indexer - INFO - Upserted sam_gov batch 8 of 11
+2025-04-03 15:46:34,720 - indexer - INFO - Upserted sam_gov batch 9 of 11
+2025-04-03 15:46:35,007 - indexer - INFO - Upserted sam_gov batch 10 of 11
+2025-04-03 15:46:35,008 - indexer - INFO - Successfully indexed 1000 sam_gov records to Pinecone.
+2025-04-03 15:46:35,012 - indexer - INFO - 
+Starting to index Freelancer projects...
+2025-04-03 15:46:35,366 - indexer - INFO - Available columns in freelancer_data_table: ['id', 'job_url', 'title', 'published_date', 'skills_required', 'price_budget', 'bids_so_far', 'additional_details']
+2025-04-03 15:46:35,488 - indexer - INFO - Fetched 50 Freelancer records from database
+2025-04-03 15:46:37,353 - indexer - INFO - Upserted freelancer batch 1 of 1
+2025-04-03 15:46:37,353 - indexer - INFO - Successfully indexed 50 freelancer records to Pinecone.
+2025-04-03 15:46:37,354 - indexer - INFO - Checking Pinecone index after indexing...
+2025-04-03 15:46:37,387 - indexer - INFO - Index dimension: 384
+2025-04-03 15:46:37,388 - indexer - INFO - Total vectors: 0
+2025-04-03 15:46:37,388 - indexer - INFO - Namespaces: {}
+2025-04-03 15:46:37,389 - indexer - INFO - Added 0 vectors to the index
+2025-04-03 15:46:37,389 - indexer - INFO - 
+Testing search functionality...
+2025-04-03 15:46:37,390 - indexer - INFO - Testing search with query: 'cybersecurity'
+2025-04-03 15:46:37,435 - indexer - WARNING - No matches found for query 'cybersecurity'
+2025-04-03 15:46:37,468 - indexer - INFO - Results for sam_gov: 0 matches
+2025-04-03 15:46:37,513 - indexer - INFO - Results for freelancer: 0 matches
+2025-04-03 15:46:37,514 - indexer - INFO - Testing search with query: 'web development'
+2025-04-03 15:46:37,568 - indexer - WARNING - No matches found for query 'web development'
+2025-04-03 15:46:37,607 - indexer - INFO - Results for sam_gov: 0 matches
+2025-04-03 15:46:37,648 - indexer - INFO - Results for freelancer: 0 matches
+2025-04-03 15:46:37,648 - indexer - INFO - 
+Indexing completed for both datasets in 28.97 seconds!

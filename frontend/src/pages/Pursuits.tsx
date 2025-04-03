@@ -292,9 +292,9 @@ export default function Pursuits() {
                 </button>
               </div>
               
-              <button className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg shadow-sm transition-colors">
-                <span>New Pursuit</span>
-              </button>
+                <button className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg shadow-sm transition-colors">
+                  <span>New Pursuit</span>
+                </button>
             </div>
           </div>
 
@@ -332,7 +332,7 @@ export default function Pursuits() {
               <div className="flex flex-col items-center justify-center h-[60vh]">
                 <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full mb-5">
                   <FileText className="w-8 h-8 text-gray-400" />
-                </div>
+                  </div>
                 <h3 className="text-xl font-medium text-gray-500 mb-2">No pursuits added</h3>
                 <p className="text-gray-400 max-w-md mb-6 text-center">
                   Explore opportunities and add them to your pursuits list to track them here.
@@ -344,76 +344,76 @@ export default function Pursuits() {
                   <Search className="w-4 h-4" />
                   <span>Find Opportunities</span>
                 </Link>
-              </div>
-            ) : (
-              <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Pursuit
-                        </th>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Stage
-                        </th>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Created
-                        </th>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Due Date
-                        </th>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Assignees
-                        </th>
-                        <th scope="col" className="relative px-4 py-3 w-10">
-                          <span className="sr-only">Actions</span>
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pursuits.map((pursuit, index) => (
-                        <tr 
-                          key={pursuit.id} 
-                          className={`group ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition-colors cursor-pointer`}
-                          onClick={() => handlePursuitSelect(pursuit)}
-                        >
-                          <td className="px-4 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900 group-hover:text-blue-600 transition-colors">{pursuit.title}</div>
-                          </td>
-                          <td className="px-4 py-4 whitespace-nowrap">
-                            <span className={`px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStageColor(pursuit.stage)}`}>
-                              {pursuit.stage}
-                            </span>
-                          </td>
-                          <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {pursuit.created}
-                          </td>
-                          <td className="px-4 py-4 whitespace-nowrap">
-                            <div className="text-sm text-red-600 font-medium">{pursuit.dueDate}</div>
-                          </td>
-                          <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                            <div className="flex items-center">
-                              <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-medium shadow-sm">
-                                {pursuit.assigneeInitials}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <button
-                              className="p-1.5 rounded-full text-gray-400 opacity-0 group-hover:opacity-100 hover:bg-white hover:text-red-600 transition-all"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleRemovePursuit(pursuit.id);
-                              }}
+                </div>
+              ) : (
+                  <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Pursuit
+                            </th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Stage
+                            </th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Created
+                            </th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Due Date
+                            </th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Assignees
+                            </th>
+                            <th scope="col" className="relative px-4 py-3 w-10">
+                              <span className="sr-only">Actions</span>
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {pursuits.map((pursuit, index) => (
+                            <tr 
+                              key={pursuit.id} 
+                              className={`group ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition-colors cursor-pointer`}
+                              onClick={() => handlePursuitSelect(pursuit)}
                             >
+                              <td className="px-4 py-4 whitespace-nowrap">
+                                <div className="text-sm font-medium text-gray-900 group-hover:text-blue-600 transition-colors">{pursuit.title}</div>
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap">
+                                <span className={`px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStageColor(pursuit.stage)}`}>
+                                  {pursuit.stage}
+                                </span>
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {pursuit.created}
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap">
+                                <div className="text-sm text-red-600 font-medium">{pursuit.dueDate}</div>
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                                <div className="flex items-center">
+                                  <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-medium shadow-sm">
+                                    {pursuit.assigneeInitials}
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <button
+                              className="p-1.5 rounded-full text-gray-400 opacity-0 group-hover:opacity-100 hover:bg-white hover:text-red-600 transition-all"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                handleRemovePursuit(pursuit.id);
+                                  }}
+                                >
                               <Trash2 size={18} />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                 </div>
               </div>
             )}

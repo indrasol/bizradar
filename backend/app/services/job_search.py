@@ -43,10 +43,10 @@ def extract_id_from_pinecone(pinecone_id):
     """
     Extract the original database ID from a Pinecone ID.
     Handles both formats: 'sam_gov_123' or 'freelancer_456' or plain '123'
-    Returns the numeric ID as an integer.
+    Returns the numeric ID as an integer and normalized source name.
     """
     if pinecone_id is None:
-        return None
+        return None, None
         
     # If the ID has a prefix like "sam_gov_" or "freelancer_"
     if "_" in pinecone_id:
@@ -56,7 +56,9 @@ def extract_id_from_pinecone(pinecone_id):
         # The numeric ID is the last part after the prefix
         id_part = parts[-1]
         try:
-            return int(id_part), source
+            # Normalize the source name - use sam_gov internally, but display as sam.gov in the UI
+            normalized_source = "sam.gov" if source == "sam_gov" else source
+            return int(id_part), normalized_source
         except ValueError:
             logger.warning(f"Could not extract numeric ID from {pinecone_id}")
             return None, source
@@ -71,6 +73,7 @@ def extract_id_from_pinecone(pinecone_id):
 def search_jobs(query: str, contract_type: Optional[str] = None, platform: Optional[str] = None) -> List[Dict]:
     """
     Search for job opportunities using vector similarity and filters.
+    Now includes external URLs in the results for direct linking.
     """
     try:
         logger.info(f"Starting search with query: {query}")
@@ -182,35 +185,76 @@ def search_jobs(query: str, contract_type: Optional[str] = None, platform: Optio
             with connection.cursor() as cursor:
                 all_results = []
                 
+                # Debug SAM.gov IDs
+                logger.info(f"SAM.gov IDs to retrieve: {sam_gov_ids}")
+
                 # Fetch SAM.gov records if we have IDs
                 if sam_gov_ids:
                     placeholders = ','.join(['%s'] * len(sam_gov_ids))
                     query_sql = f"""
-                        SELECT id, title, description, department AS agency, 
-                               'sam.gov' AS platform, NULL AS value
+                        SELECT id, notice_id, solicitation_number, title, department, 
+                               naics_code, published_date, response_date, description, 
+                               url, active
                         FROM sam_gov 
                         WHERE id IN ({placeholders})
                     """
-                    cursor.execute(query_sql, sam_gov_ids)
+                    logger.info(f"SAM.gov SQL query: {query_sql}")
+                    logger.info(f"SAM.gov IDs for query: {sam_gov_ids}")
                     
-                    columns = ["id", "title", "description", "agency", "platform", "value"]
-                    sam_gov_results = [dict(zip(columns, record)) for record in cursor.fetchall()]
+                    try:
+                        cursor.execute(query_sql, sam_gov_ids)
+                        sam_gov_results = cursor.fetchall()
+                        logger.info(f"SAM.gov raw results count: {len(sam_gov_results)}")
+                        
+                        if not sam_gov_results:
+                            # Try debugging query to see exact table structure
+                            cursor.execute("SELECT column_name FROM information_schema.columns WHERE table_name = 'sam_gov' LIMIT 20")
+                            columns = cursor.fetchall()
+                            logger.info(f"SAM.gov table columns: {columns}")
+                            
+                            # Try a simpler query to check if table has any data
+                            cursor.execute("SELECT COUNT(*) FROM sam_gov")
+                            count = cursor.fetchone()[0]
+                            logger.info(f"Total records in sam_gov table: {count}")
+                            
+                            # Try to fetch one of the IDs directly to check format
+                            if sam_gov_ids:
+                                cursor.execute(f"SELECT id FROM sam_gov WHERE id = %s", [sam_gov_ids[0]])
+                                direct_match = cursor.fetchone()
+                                logger.info(f"Direct ID check for {sam_gov_ids[0]}: {direct_match}")
+                    except Exception as e:
+                        logger.error(f"Error executing SAM.gov query: {str(e)}")
+                    
+                    columns = ["id", "notice_id", "solicitation_number", "title", "department", 
+                               "naics_code", "published_date", "response_date", "description", 
+                               "url", "active"]
+                    sam_gov_results = [dict(zip(columns, record)) for record in sam_gov_results]
+                    
+                    # Add external_url for SAM.gov results with a fallback
+                    for result in sam_gov_results:
+                        # Use notice_id if available
+                        notice_id = result.get('notice_id')
+                        result['external_url'] = f"https://sam.gov/opp/{notice_id}/view" if notice_id else None
+                        result['platform'] = 'sam.gov'  # Add platform field
+                        result['agency'] = result.get('department')  # Map department to agency field
+                    
                     all_results.extend(sam_gov_results)
                     logger.info(f"Retrieved {len(sam_gov_results)} SAM.gov jobs")
                 
                 # Fetch freelancer records if we have IDs
                 if freelancer_ids:
                     placeholders = ','.join(['%s'] * len(freelancer_ids))
+                    # Include job_url in the query, map it to external_url
                     query_sql = f"""
                         SELECT id, title, additional_details AS description, 
                                skills_required AS agency, 'freelancer' AS platform, 
-                               price_budget AS value
-                        FROM freelancer_table 
+                               price_budget AS value, job_url AS external_url
+                        FROM freelancer_data_table 
                         WHERE id IN ({placeholders})
                     """
                     cursor.execute(query_sql, freelancer_ids)
                     
-                    columns = ["id", "title", "description", "agency", "platform", "value"]
+                    columns = ["id", "title", "description", "agency", "platform", "value", "external_url"]
                     freelancer_results = [dict(zip(columns, record)) for record in cursor.fetchall()]
                     all_results.extend(freelancer_results)
                     logger.info(f"Retrieved {len(freelancer_results)} freelancer jobs")
