@@ -1,13 +1,15 @@
 import os
 import time
 import logging
+import json
+from datetime import datetime, timedelta
 from sentence_transformers import SentenceTransformer
 from pinecone import Pinecone, ServerlessSpec
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from dotenv import load_dotenv
-from typing import List, Dict
-from database import get_connection
+from typing import List, Dict, Optional
+from utils.database import get_connection
 import numpy as np
 from tqdm import tqdm
 
@@ -30,6 +32,34 @@ model = SentenceTransformer('all-MiniLM-L6-v2')  # 384-dimensional embeddings
 pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
 index = pc.Index("job-indexx")  # Ensure this index exists in Pinecone with dimension 384 and metric 'cosine'
 
+# File to track last indexing timestamp
+INDEX_STATE_FILE = "index_state.json"
+
+def load_index_state():
+    """Load the last indexing state from a file"""
+    try:
+        if os.path.exists(INDEX_STATE_FILE):
+            with open(INDEX_STATE_FILE, 'r') as f:
+                return json.load(f)
+        return {
+            "sam_gov": {"last_indexed": None, "count": 0},
+            "freelancer": {"last_indexed": None, "count": 0}
+        }
+    except Exception as e:
+        logger.error(f"Error loading index state: {str(e)}")
+        return {
+            "sam_gov": {"last_indexed": None, "count": 0},
+            "freelancer": {"last_indexed": None, "count": 0}
+        }
+
+def save_index_state(state):
+    """Save the current indexing state to a file"""
+    try:
+        with open(INDEX_STATE_FILE, 'w') as f:
+            json.dump(state, f)
+    except Exception as e:
+        logger.error(f"Error saving index state: {str(e)}")
+
 def check_index_stats():
     """
     Check the current state of the Pinecone index
@@ -44,10 +74,10 @@ def check_index_stats():
         logger.error(f"Error checking index stats: {str(e)}")
         return None
 
-def fetch_sam_gov_records() -> List[Dict]:
+def fetch_sam_gov_records(last_indexed: Optional[str] = None) -> List[Dict]:
     """
-    Fetch all records from the sam_gov table in Postgres.
-    Returns a list of dictionaries with id, title, description, and department.
+    Fetch records from the sam_gov table in Postgres.
+    If last_indexed is provided, only fetch records updated since that time.
     """
     connection = get_connection()
     if connection is None:
@@ -55,13 +85,36 @@ def fetch_sam_gov_records() -> List[Dict]:
 
     try:
         with connection.cursor(cursor_factory=RealDictCursor) as cursor:
+            # Check if created_at and updated_at columns exist
             cursor.execute("""
-                SELECT id, title, description, department, published_date, 
-                       notice_id, solicitation_number, response_date, naics_code, url
-                FROM sam_gov
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'sam_gov' AND 
+                      column_name IN ('created_at', 'updated_at')
             """)
-            records = cursor.fetchall()
-            logger.info(f"Fetched {len(records)} SAM.gov records from database")
+            existing_columns = [row['column_name'] for row in cursor.fetchall()]
+            
+            # If timestamp columns don't exist, get all records
+            if 'created_at' not in existing_columns or 'updated_at' not in existing_columns or not last_indexed:
+                cursor.execute("""
+                    SELECT id, title, description, department, published_date, 
+                           notice_id, solicitation_number, response_date, naics_code, url
+                    FROM sam_gov
+                """)
+                records = cursor.fetchall()
+                logger.info(f"Fetched {len(records)} SAM.gov records from database")
+            else:
+                # Use timestamp columns for incremental updates
+                cursor.execute("""
+                    SELECT id, title, description, department, published_date, 
+                           notice_id, solicitation_number, response_date, naics_code, url,
+                           created_at, updated_at
+                    FROM sam_gov
+                    WHERE created_at > %s OR updated_at > %s
+                """, (last_indexed, last_indexed))
+                records = cursor.fetchall()
+                logger.info(f"Fetched {len(records)} SAM.gov records from database since {last_indexed}")
+            
         return records
     except psycopg2.Error as e:
         logger.error(f"Error fetching sam_gov records: {str(e)}")
@@ -69,10 +122,10 @@ def fetch_sam_gov_records() -> List[Dict]:
     finally:
         connection.close()
 
-def fetch_freelancer_data_table() -> List[Dict]:
+def fetch_freelancer_data_table(last_indexed: Optional[str] = None) -> List[Dict]:
     """
-    Fetch all records from the freelancer_data_table table in Postgres.
-    Returns a list of dictionaries with relevant fields.
+    Fetch records from the freelancer_data_table table in Postgres.
+    If last_indexed is provided, only fetch records updated since that time.
     """
     connection = get_connection()
     if connection is None:
@@ -80,19 +133,35 @@ def fetch_freelancer_data_table() -> List[Dict]:
 
     try:
         with connection.cursor(cursor_factory=RealDictCursor) as cursor:
-            # First get column names to help debug
-            cursor.execute("SELECT * FROM freelancer_data_table LIMIT 1")
-            columns = [desc[0] for desc in cursor.description]
-            logger.info(f"Available columns in freelancer_data_table: {columns}")
-            
-            # Now select with the correct column names
+            # Check if created_at and updated_at columns exist
             cursor.execute("""
-                SELECT id, title, skills_required, price_budget, bids_so_far, 
-                       additional_details, published_date, job_url
-                FROM freelancer_data_table
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'freelancer_data_table' AND 
+                      column_name IN ('created_at', 'updated_at')
             """)
-            records = cursor.fetchall()
-            logger.info(f"Fetched {len(records)} Freelancer records from database")
+            existing_columns = [row['column_name'] for row in cursor.fetchall()]
+            
+            # If timestamp columns don't exist or no last_indexed, get all records
+            if 'created_at' not in existing_columns or 'updated_at' not in existing_columns or not last_indexed:
+                cursor.execute("""
+                    SELECT id, title, skills_required, price_budget, bids_so_far, 
+                           additional_details, published_date, job_url
+                    FROM freelancer_data_table
+                """)
+                records = cursor.fetchall()
+                logger.info(f"Fetched {len(records)} Freelancer records from database")
+            else:
+                # Use timestamp columns for incremental updates
+                cursor.execute("""
+                    SELECT id, title, skills_required, price_budget, bids_so_far, 
+                           additional_details, published_date, job_url, created_at, updated_at
+                    FROM freelancer_data_table
+                    WHERE created_at > %s OR updated_at > %s
+                """, (last_indexed, last_indexed))
+                records = cursor.fetchall()
+                logger.info(f"Fetched {len(records)} Freelancer records from database since {last_indexed}")
+                
         return records
     except psycopg2.Error as e:
         logger.error(f"Error fetching freelancer_data_table records: {str(e)}")
@@ -112,19 +181,39 @@ def normalize_embedding(embedding):
         return (np.array(embedding) / norm).tolist()
     return embedding
 
-def index_sam_gov_to_pinecone():
+def check_vector_exists(record_id):
+    """
+    Check if a vector with the given ID already exists in Pinecone
+    """
+    try:
+        result = index.fetch(ids=[record_id])
+        return bool(result.vectors)
+    except Exception as e:
+        logger.error(f"Error checking if vector exists: {str(e)}")
+        return False
+
+def index_sam_gov_to_pinecone(incremental=True):
     """
     Generate embeddings for sam_gov records and upsert them to Pinecone.
+    If incremental is True, only process records since the last indexing.
     """
-    # Fetch all records from sam_gov table
-    records = fetch_sam_gov_records()
+    # Load the current indexing state
+    state = load_index_state()
+    last_indexed = state["sam_gov"]["last_indexed"] if incremental else None
+    
+    # Fetch records from sam_gov table
+    records = fetch_sam_gov_records(last_indexed)
     if not records:
-        logger.warning("No records found in sam_gov table.")
-        return
-
-    # Prepare vectors for Pinecone
+        logger.warning("No new records found in sam_gov table to index.")
+        return 0
+    
+    # Keep track of successfully indexed records
+    indexed_count = 0
+    skipped_count = 0
     vectors = []
-    for record in records:
+
+    # Process records
+    for record in tqdm(records, desc="Processing SAM.gov records"):
         try:
             # Create content to embed - combine relevant fields
             description = record['description'] if record['description'] else ""
@@ -133,6 +222,7 @@ def index_sam_gov_to_pinecone():
             # Skip records with no meaningful content
             if not title.strip() and not description.strip():
                 logger.warning(f"Skipping record {record['id']} due to empty content")
+                skipped_count += 1
                 continue
                 
             # Combine fields for embedding
@@ -143,6 +233,7 @@ def index_sam_gov_to_pinecone():
             embedding = normalize_embedding(embedding)
             if not embedding:
                 logger.warning(f"Failed to normalize embedding for record {record['id']}")
+                skipped_count += 1
                 continue
                 
             # Create metadata for filtering - include more fields
@@ -156,40 +247,65 @@ def index_sam_gov_to_pinecone():
                 "solicitation_number": record["solicitation_number"] if record["solicitation_number"] else "",
                 "response_date": str(record["response_date"]) if record["response_date"] else "",
                 "naics_code": str(record["naics_code"]) if record["naics_code"] else "",
-                "url_available": "yes" if record.get("url") else "no"
+                "url_available": "yes" if record.get("url") else "no",
+                "indexed_at": datetime.now().isoformat()
             }
 
+            # Create the Pinecone ID
+            record_id = f"sam_gov_{record['id']}"
+            
             # Add vector to list (id must be a string in Pinecone)
-            vectors.append((f"sam_gov_{record['id']}", embedding, metadata))
+            vectors.append((record_id, embedding, metadata))
+            indexed_count += 1
             
         except Exception as e:
             logger.error(f"Error processing SAM.gov record {record['id']}: {str(e)}")
+            skipped_count += 1
 
     # Batch upsert to Pinecone
     batch_size = 100
+    total_batches = (len(vectors) + batch_size - 1) // batch_size
+    
     for i in range(0, len(vectors), batch_size):
         batch = vectors[i:i + batch_size]
         try:
             index.upsert(vectors=batch)
-            logger.info(f"Upserted sam_gov batch {i//batch_size + 1} of {len(vectors)//batch_size + 1}")
+            logger.info(f"Upserted sam_gov batch {i//batch_size + 1} of {total_batches}")
         except Exception as e:
             logger.error(f"Error upserting sam_gov batch {i//batch_size + 1}: {str(e)}")
+            indexed_count -= len(batch)  # Adjust count for failed batch
 
-    logger.info(f"Successfully indexed {len(vectors)} sam_gov records to Pinecone.")
+    # Update the state with the latest indexing time
+    if indexed_count > 0:
+        state["sam_gov"]["last_indexed"] = datetime.now().isoformat()
+        state["sam_gov"]["count"] += indexed_count
+        save_index_state(state)
+    
+    logger.info(f"Successfully indexed {indexed_count} sam_gov records to Pinecone. Skipped {skipped_count} records.")
+    return indexed_count
 
-def index_freelancer_data_table_to_pinecone():
+def index_freelancer_data_table_to_pinecone(incremental=True):
     """
     Generate embeddings for freelancer_data_table records and upsert them to Pinecone.
+    If incremental is True, only process records since the last indexing.
     """
-    # Fetch all records from freelancer_data_table table
-    records = fetch_freelancer_data_table()
+    # Load the current indexing state
+    state = load_index_state()
+    last_indexed = state["freelancer"]["last_indexed"] if incremental else None
+    
+    # Fetch records from freelancer_data_table
+    records = fetch_freelancer_data_table(last_indexed)
     if not records:
-        logger.warning("No records found in freelancer_data_table table.")
-        return
+        logger.warning("No new records found in freelancer_data_table to index.")
+        return 0
 
-    # Prepare vectors for Pinecone
+    # Keep track of successfully indexed records
+    indexed_count = 0
+    skipped_count = 0
     vectors = []
-    for record in records:
+
+    # Process records
+    for record in tqdm(records, desc="Processing Freelancer records"):
         try:
             # Create content to embed - combine relevant fields
             additional_details = record['additional_details'] if record['additional_details'] else ""
@@ -199,6 +315,7 @@ def index_freelancer_data_table_to_pinecone():
             # Skip records with no meaningful content
             if not title.strip() and not skills.strip() and not additional_details.strip():
                 logger.warning(f"Skipping record {record['id']} due to empty content")
+                skipped_count += 1
                 continue
                 
             # Combine fields for embedding
@@ -209,6 +326,7 @@ def index_freelancer_data_table_to_pinecone():
             embedding = normalize_embedding(embedding)
             if not embedding:
                 logger.warning(f"Failed to normalize embedding for record {record['id']}")
+                skipped_count += 1
                 continue
 
             # Create metadata for filtering
@@ -220,26 +338,42 @@ def index_freelancer_data_table_to_pinecone():
                 "bids": str(record["bids_so_far"]) if record["bids_so_far"] else "0",
                 "price": str(record["price_budget"]) if record["price_budget"] else "0",
                 "published_date": str(record["published_date"]) if record["published_date"] else "",
-                "job_url": record["job_url"] if record.get("job_url") else ""
+                "job_url": record["job_url"] if record.get("job_url") else "",
+                "indexed_at": datetime.now().isoformat()
             }
 
+            # Create the Pinecone ID
+            record_id = f"freelancer_{record['id']}"
+            
             # Add vector to list
-            vectors.append((f"freelancer_{record['id']}", embedding, metadata))
+            vectors.append((record_id, embedding, metadata))
+            indexed_count += 1
             
         except Exception as e:
             logger.error(f"Error processing Freelancer record {record['id']}: {str(e)}")
+            skipped_count += 1
 
     # Batch upsert to Pinecone
     batch_size = 100
+    total_batches = (len(vectors) + batch_size - 1) // batch_size
+    
     for i in range(0, len(vectors), batch_size):
         batch = vectors[i:i + batch_size]
         try:
             index.upsert(vectors=batch)
-            logger.info(f"Upserted freelancer batch {i//batch_size + 1} of {len(vectors)//batch_size + 1}")
+            logger.info(f"Upserted freelancer batch {i//batch_size + 1} of {total_batches}")
         except Exception as e:
             logger.error(f"Error upserting freelancer batch {i//batch_size + 1}: {str(e)}")
+            indexed_count -= len(batch)  # Adjust count for failed batch
 
-    logger.info(f"Successfully indexed {len(vectors)} freelancer records to Pinecone.")
+    # Update the state with the latest indexing time
+    if indexed_count > 0:
+        state["freelancer"]["last_indexed"] = datetime.now().isoformat()
+        state["freelancer"]["count"] += indexed_count
+        save_index_state(state)
+    
+    logger.info(f"Successfully indexed {indexed_count} freelancer records to Pinecone. Skipped {skipped_count} records.")
+    return indexed_count
 
 def check_search(query="cybersecurity"):
     """
@@ -280,9 +414,13 @@ def check_search(query="cybersecurity"):
     except Exception as e:
         logger.error(f"Error during test search: {str(e)}")
 
-def index_all_to_pinecone():
+def index_all_to_pinecone(incremental=True, sources=None):
     """
-    Index both sam_gov and freelancer_data_table to Pinecone
+    Index data to Pinecone with flexible options
+    
+    Args:
+        incremental: If True, only index records since last indexing run
+        sources: List of sources to index ["sam_gov", "freelancer"], or None for all
     """
     start_time = time.time()
     
@@ -290,11 +428,19 @@ def index_all_to_pinecone():
     logger.info("Checking Pinecone index before indexing...")
     before_stats = check_index_stats()
     
-    logger.info("Starting to index SAM.gov records...")
-    index_sam_gov_to_pinecone()
+    total_indexed = 0
     
-    logger.info("\nStarting to index Freelancer projects...")
-    index_freelancer_data_table_to_pinecone()
+    # Index SAM.gov records if requested or if no specific sources are specified
+    if not sources or "sam_gov" in sources:
+        logger.info("Starting to index SAM.gov records...")
+        sam_indexed = index_sam_gov_to_pinecone(incremental=incremental)
+        total_indexed += sam_indexed
+    
+    # Index Freelancer records if requested or if no specific sources are specified
+    if not sources or "freelancer" in sources:
+        logger.info("\nStarting to index Freelancer projects...")
+        freelancer_indexed = index_freelancer_data_table_to_pinecone(incremental=incremental)
+        total_indexed += freelancer_indexed
     
     # Check the index after indexing
     logger.info("Checking Pinecone index after indexing...")
@@ -303,7 +449,7 @@ def index_all_to_pinecone():
     # Log the difference
     if before_stats and after_stats:
         vectors_added = after_stats.total_vector_count - before_stats.total_vector_count
-        logger.info(f"Added {vectors_added} vectors to the index")
+        logger.info(f"Added {vectors_added} vectors to the index (total processed: {total_indexed})")
     
     # Run a test search
     logger.info("\nTesting search functionality...")
@@ -311,7 +457,18 @@ def index_all_to_pinecone():
     check_search("web development")
     
     elapsed_time = time.time() - start_time
-    logger.info(f"\nIndexing completed for both datasets in {elapsed_time:.2f} seconds!")
+    logger.info(f"\nIndexing completed in {elapsed_time:.2f} seconds!")
+    return {"total_indexed": total_indexed, "elapsed_time": elapsed_time}
 
 if __name__ == "__main__":
-    index_all_to_pinecone()
+    # By default, run incremental indexing (only new/updated records)
+    # For a full reindex, run with: python index_to_pinecone.py --full
+    import sys
+    incremental = "--full" not in sys.argv
+    
+    if not incremental:
+        logger.info("Running FULL reindexing of all records...")
+    else:
+        logger.info("Running INCREMENTAL indexing (new/updated records only)...")
+    
+    index_all_to_pinecone(incremental=incremental)

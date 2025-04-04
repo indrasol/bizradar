@@ -175,6 +175,14 @@ def search_jobs(query: str, contract_type: Optional[str] = None, platform: Optio
             logger.error(f"Query embedding dimension: {len(query_embedding)}")
             return []
 
+        # Define a set of valid NAICS codes
+        VALID_NAICS_CODES = {
+            541511, 541512, 541513, 541519, 518210,
+            541690, 561622, 511210, 541330, 541341,
+            518210, 519130, 517311, 517312, 517410,
+            541715, 541720
+        }
+
         # Fetch from database
         connection = get_connection()
         if not connection:
@@ -237,9 +245,15 @@ def search_jobs(query: str, contract_type: Optional[str] = None, platform: Optio
                         result['external_url'] = f"https://sam.gov/opp/{notice_id}/view" if notice_id else None
                         result['platform'] = 'sam.gov'  # Add platform field
                         result['agency'] = result.get('department')  # Map department to agency field
-                    
-                    all_results.extend(sam_gov_results)
-                    logger.info(f"Retrieved {len(sam_gov_results)} SAM.gov jobs")
+                        
+                        # Validate NAICS code
+                        if result.get('naics_code') not in VALID_NAICS_CODES:
+                            logger.warning(f"Invalid NAICS code {result.get('naics_code')} for job {result['title']}. Excluding from results.")
+                            continue  # Skip this result if the NAICS code is invalid
+                        
+                        # Only add valid results to all_results
+                        all_results.append(result)  # Add only if valid
+                    logger.info(f"Retrieved {len(all_results)} SAM.gov jobs")
                 
                 # Fetch freelancer records if we have IDs
                 if freelancer_ids:

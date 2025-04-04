@@ -34,7 +34,7 @@ class ETLService:
             sam_gov_count = cursor.fetchone()[0]
             
             # Get freelancer count
-            cursor.execute("SELECT COUNT(*) FROM freelancer_projects")
+            cursor.execute("SELECT COUNT(*) FROM freelancer_data_table")
             freelancer_count = cursor.fetchone()[0]
             
             # Calculate total
