@@ -1,11 +1,9 @@
 import os
 import sys
 
-# Explicitly add project root and backend directories to Python path
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
-backend_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-sys.path.insert(0, project_root)
-sys.path.insert(0, backend_root)
+# Add the backend directory to Python path
+backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, backend_dir)
 
 import urllib.parse
 from typing import Dict, Any, List
@@ -16,9 +14,7 @@ import certifi
 from datetime import datetime, timedelta
 import asyncio
 import pandas as pd
-
-# Use absolute import for database utility
-from backend.app.utils.database import insert_data
+from database import insert_data
 
 # Configure logging
 logging.basicConfig(
@@ -66,7 +62,7 @@ async def fetch_opportunities() -> Dict[str, Any]:
     logger.info(f"Searching for opportunities from {posted_from} to {posted_to}")
 
     # Top NAICS codes to search (from our Colab implementation)
-    naics_list = ["541512", "541511", "541519","518210","541618","541330","541513"]
+    naics_list = ["541512", "541511", "541519"]
     
     all_opportunities = []  # Store all collected opportunities here
     total_fetched = 0
@@ -177,7 +173,7 @@ async def fetch_opportunities() -> Dict[str, Any]:
                     # Try to import the indexing function
                     try:
                         # Import here to avoid circular imports - file is in utils folder
-                        from backend.app.utils.index_to_pinecone import index_sam_gov_to_pinecone
+                        from utils.index_to_pinecone import index_sam_gov_to_pinecone
                         
                         # Run indexing for SAM.gov only (incremental)
                         index_result = index_sam_gov_to_pinecone(incremental=True)
@@ -185,7 +181,7 @@ async def fetch_opportunities() -> Dict[str, Any]:
                         logger.info(f"Successfully indexed {index_result} new records to Pinecone")
                         
                     except ImportError as e:
-                        logger.warning(f"Could not import index_to_pinecone module: {e}")
+                        logger.warning(f"Could not import utils.index_to_pinecone module: {e}")
                         logger.warning("Pinecone indexing will be skipped for this run")
                         db_results["indexed_count"] = 0
                         
@@ -197,44 +193,8 @@ async def fetch_opportunities() -> Dict[str, Any]:
     
     return {"source": "sam.gov", "count": 0, "status": "No opportunities found"}
 
-# For running as a script or module
-def main(record_id=None, trigger_type=None):
-    """
-    Main function to run the SAM.gov data collection
-    
-    Args:
-        record_id (int, optional): ETL record ID
-        trigger_type (str, optional): Type of trigger (scheduled/manual)
-    """
-    try:
-        # Log the record ID and trigger type if provided
-        if record_id:
-            logger.info(f"Running SAM.gov data collection with ETL Record ID: {record_id}")
-        if trigger_type:
-            logger.info(f"Trigger Type: {trigger_type}")
-        
-        # Run the async function and get results
-        result = asyncio.run(fetch_opportunities())
-        
-        # Print the result for workflow output parsing
-        print(result)
-        
-        return result
-    except Exception as e:
-        logger.error(f"Error in SAM.gov data collection: {e}")
-        return {"source": "sam.gov", "count": 0, "status": "error", "error": str(e)}
-
-# Allow running as a script or importing as a module
+# For running as a script
 if __name__ == "__main__":
-    import argparse
-    
-    # Set up argument parser
-    parser = argparse.ArgumentParser(description="SAM.gov Data Collection")
-    parser.add_argument("--record-id", type=int, help="ETL Record ID", required=False)
-    parser.add_argument("--trigger-type", type=str, help="Trigger Type", required=False)
-    
-    # Parse arguments
-    args = parser.parse_args()
-    
-    # Run main function with parsed arguments
-    main(record_id=args.record_id, trigger_type=args.trigger_type)
+    # Run the async function and print its result
+    result = asyncio.run(fetch_opportunities())
+    print(result)
