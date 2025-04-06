@@ -13,8 +13,9 @@ import ssl
 import certifi
 from datetime import datetime, timedelta
 import asyncio
-import pandas as pd
-from database import insert_data
+import psycopg2
+from psycopg2.extras import RealDictCursor
+from dotenv import load_dotenv
 
 # Configure logging
 logging.basicConfig(
@@ -22,6 +23,117 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+# Load environment variables
+load_dotenv()
+
+# === Database Functions (from database.py) ===  // Temporary Fix
+
+def get_connection():
+    """Establish and return a connection to our PostgreSQL database."""
+    try:
+        conn = psycopg2.connect(
+            host=os.getenv("DB_HOST"),
+            port=os.getenv("DB_PORT"),
+            database=os.getenv("DB_NAME"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD"),
+            sslmode="require"  # Add this line for Supabase
+        )
+        return conn
+    except psycopg2.Error as e:
+        logger.error(f"Error connecting to the database: {e}")
+        return None
+
+def check_duplicate(cursor, notice_id):
+    """
+    Check if a record with the given notice_id already exists in the database.
+    
+    Args:
+        cursor: Database cursor
+        notice_id: The notice_id to check
+        
+    Returns:
+        bool: True if the record exists, False otherwise
+    """
+    query = "SELECT 1 FROM sam_gov WHERE notice_id = %s LIMIT 1"
+    cursor.execute(query, (notice_id,))
+    return cursor.fetchone() is not None
+
+def insert_data(rows):
+    """
+    Inserts multiple rows into the sam_gov table, avoiding duplicates.
+    
+    Args:
+        rows: List of dictionaries containing data to insert
+    
+    Returns:
+        dict: Summary with counts of inserted and skipped records
+    """
+    connection = get_connection()
+    if not connection:
+        return {"error": "Could not connect to database", "inserted": 0, "skipped": 0}
+    
+    inserted = 0
+    skipped = 0
+    
+    try:
+        with connection.cursor() as cursor:
+            insert_query = """
+                INSERT INTO sam_gov
+                (title, department, published_date, response_date, naics_code, description,
+                 notice_id, solicitation_number, url, active)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """
+            
+            for row in rows:
+                notice_id = row.get("notice_id")
+                
+                # Skip if notice_id is missing (shouldn't happen but just in case)
+                if not notice_id:
+                    logger.warning("Skipping row with missing notice_id")
+                    skipped += 1
+                    continue
+                
+                # Check if this record already exists
+                if check_duplicate(cursor, notice_id):
+                    logger.info(f"Skipping duplicate record with notice_id: {notice_id}")
+                    skipped += 1
+                    continue
+                
+                # Insert the record if it doesn't exist
+                try:
+                    cursor.execute(insert_query, (
+                        row["title"],
+                        row["department"],
+                        row["published_date"],
+                        row["response_date"],
+                        row["naics_code"],
+                        row["description"],
+                        notice_id,
+                        row["solicitation_number"],
+                        row["url"],
+                        row["active"]
+                    ))
+                    inserted += 1
+                except psycopg2.Error as e:
+                    logger.error(f"Error inserting record {notice_id}: {e}")
+                    skipped += 1
+                    # Continue with other records even if one fails
+                    continue
+                
+        connection.commit()
+        logger.info(f"Database insertion complete. Inserted: {inserted}, Skipped duplicates: {skipped}")
+        return {"inserted": inserted, "skipped": skipped}
+    
+    except psycopg2.Error as e:
+        connection.rollback()
+        logger.error(f"Error during database transaction: {e}")
+        return {"error": str(e), "inserted": inserted, "skipped": skipped}
+    finally:
+        connection.close()
+
+# === SAM.gov Functions ===
 
 def parse_date(date_str: str):
     """Parse a date string (ISO 8601 format with timezone) into a date object."""
@@ -172,8 +284,16 @@ async def fetch_opportunities() -> Dict[str, Any]:
                     
                     # Try to import the indexing function
                     try:
+                        # Add app directory to python path if not already there
+                        app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                        if app_dir not in sys.path:
+                            sys.path.insert(0, app_dir)
+                            
                         # Import here to avoid circular imports - file is in utils folder
-                        from utils.index_to_pinecone import index_sam_gov_to_pinecone
+                        try:
+                            from utils.index_to_pinecone import index_sam_gov_to_pinecone
+                        except ModuleNotFoundError:
+                            from app.services.utils.index_to_pinecone import index_sam_gov_to_pinecone
                         
                         # Run indexing for SAM.gov only (incremental)
                         index_result = index_sam_gov_to_pinecone(incremental=True)
@@ -193,8 +313,36 @@ async def fetch_opportunities() -> Dict[str, Any]:
     
     return {"source": "sam.gov", "count": 0, "status": "No opportunities found"}
 
+# Function to handle command line arguments
+def parse_args():
+    """Parse command line arguments"""
+    import argparse
+    parser = argparse.ArgumentParser(description='SAM.gov data collection script')
+    parser.add_argument('--record-id', type=int, help='ETL record ID')
+    parser.add_argument('--trigger-type', type=str, help='Trigger type (scheduled or manual)')
+    return parser.parse_args()
+
 # For running as a script
 if __name__ == "__main__":
-    # Run the async function and print its result
+    # Parse command line arguments
+    args = parse_args()
+    
+    if args.record_id:
+        logger.info(f"Running with ETL record ID: {args.record_id}, trigger type: {args.trigger_type}")
+    
+    # Run the async function
     result = asyncio.run(fetch_opportunities())
-    print(result)
+    
+    # Calculate counts for output
+    count = result.get("total_fetched", 0)
+    new_count = result.get("inserted", 0) 
+    status = "error" if result.get("error") else "success"
+    
+    # Output in JSON format for the GitHub workflow
+    output = {
+        "count": count,
+        "new_count": new_count, 
+        "status": status
+    }
+    
+    print(output)
