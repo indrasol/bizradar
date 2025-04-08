@@ -65,7 +65,8 @@ async def search_job_opportunities(request: Request):
             "total": total_results,
             "page": page,
             "page_size": page_size,
-            "total_pages": total_pages
+            "total_pages": total_pages,
+            "refined_query": refined_query,  # Include the refined query in the response
         }
     except Exception as e:
         logger.error(f"Error in search: {str(e)}")

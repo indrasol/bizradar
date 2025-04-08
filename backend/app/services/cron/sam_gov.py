@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 # Load environment variables
 load_dotenv()
 
-# === Database Functions (from database.py) ===  // Temporary Fix
+# === Database Functions (from database.py) ===
 
 def get_connection():
     """Establish and return a connection to our PostgreSQL database."""

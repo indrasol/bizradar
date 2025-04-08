@@ -44,6 +44,7 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 import SideBar from "../components/layout/SideBar";
 import { supabase } from "../utils/supabase";
+import RefinedQueryDisplay from "../components/admin/RefinedQueryDisplay"
 
 // Import the environment variable
 const isDevelopment =
@@ -53,16 +54,27 @@ const API_BASE_URL = isDevelopment
   ? "http://localhost:5000"
   : "https://bizradar-backend.onrender.com";
 
+// Define a type for the request parameters
+interface SearchParams {
+  query: string;
+  contract_type?: string | null;
+  platform?: string | null;
+  page: number;
+  page_size: number;
+  due_date_filter?: string | null; // New property
+  posted_date_filter?: string | null; // New property
+  naics_code?: string | null; // New property
+}
+
 export default function Opportunities() {
   const navigate = useNavigate(); // Initialize the navigate function
   
   const [activeFilters, setActiveFilters] = useState({
     dueDate: true,
     postedDate: true,
-    jurisdiction: true,
-    nigpCode: true,
-    unspscCode: true,
+    naicsCode: true, // Changed from nigpCode
     opportunityType: true
+    // Removed jurisdiction and unspscCode
   });
   
   const [expandedCard, setExpandedCard] = useState("state-executive");
@@ -82,6 +94,8 @@ export default function Opportunities() {
   const [showNotification, setShowNotification] = useState(false);
   const [selectedTab, setSelectedTab] = useState("newest");
   const [currentHoveredCard, setCurrentHoveredCard] = useState(null);
+  const [refinedQuery, setRefinedQuery] = useState("");
+  const [showRefinedQuery, setShowRefinedQuery] = useState(false);
   
   // Use a ref to track if recommendations request is in progress to prevent duplicate requests
   const requestInProgressRef = useRef(false);
@@ -308,8 +322,18 @@ export default function Opportunities() {
     setCurrentPage(1);
     setHasSearched(false);
     setAiRecommendations([]);
+    setShowRefinedQuery(false); // Hide the refined query
+    setRefinedQuery(""); // Clear the refined query
     requestInProgressRef.current = false;
     lastSearchIdRef.current = "";
+    
+    // Reset filter values to defaults
+    setFilterValues({
+      dueDate: "next_30_days",
+      postedDate: "past_week",
+      naicsCode: "",
+      opportunityType: ""
+    });
   };
 
   const handleSearchChange = (e) => {
@@ -332,19 +356,32 @@ export default function Opportunities() {
     requestInProgressRef.current = false;
     lastSearchIdRef.current = "";
 
+    // Reset filters when doing a new search
+    setFilterValues({
+      dueDate: "next_30_days",
+      postedDate: "past_week",
+      naicsCode: "",
+      opportunityType: ""
+    });
+
     try {
+      const searchParams = {
+        query: query,
+        contract_type: null,
+        platform: null,
+        page: 1,
+        page_size: resultsPerPage,
+        due_date_filter: filterValues.dueDate,
+        posted_date_filter: filterValues.postedDate,
+        naics_code: filterValues.naicsCode,
+      };
+
       const response = await fetch(`${API_BASE_URL}/search-opportunities`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          query: query,
-          contract_type: null,
-          platform: null,
-          page: 1,
-          page_size: resultsPerPage,
-        }),
+        body: JSON.stringify(searchParams),
       });
       
       if (!response.ok) {
@@ -353,6 +390,12 @@ export default function Opportunities() {
       
       const data = await response.json();
       console.log("Search results:", data);
+      
+      // Check if the API returned a refined query
+      if (data.refined_query) {
+        setRefinedQuery(data.refined_query);
+        setShowRefinedQuery(true); // Show the refined query - no auto-hide
+      }
       
       if (data.results && Array.isArray(data.results)) {
         setHasSearched(true);
@@ -372,7 +415,7 @@ export default function Opportunities() {
             value: job.value || Math.floor(Math.random() * 5000000) + 1000000,
             status: job.active !== undefined ? (job.active ? "Active" : "Inactive") : "Active",
             naicsCode: job.naics_code?.toString() || job.naicsCode || "000000",
-            platform: platformForDisplay,  // Use normalized platform name
+            platform: platformForDisplay,
             description: job.description?.substring(0, 150) + "..." || 
               "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
             external_url: job.external_url || job.url || null,
@@ -384,23 +427,11 @@ export default function Opportunities() {
           };
         });
         
-        // Log platform distribution for debugging
-        const platforms = formattedResults.map(job => job.platform);
-        const platformCounts = platforms.reduce((acc, platform) => {
-          acc[platform] = (acc[platform] || 0) + 1;
-          return acc;
-        }, {});
-        console.log("Results by platform:", platformCounts);
-        
         setOpportunities(formattedResults);
         setTotalResults(data.total || formattedResults.length);
         setCurrentPage(data.page || 1);
         setTotalPages(
           data.total_pages || Math.ceil(data.total / resultsPerPage)
-        );
-
-        console.log(
-          `Loaded ${formattedResults.length} opportunities. Total: ${data.total}, Pages: ${data.total_pages}`
         );
       }
     } catch (error) {
@@ -413,33 +444,37 @@ export default function Opportunities() {
   const paginate = async (pageNumber) => {
     if (pageNumber === currentPage) return;
 
-    console.log(
-      `Requesting to navigate from page ${currentPage} to page ${pageNumber}`
-    );
-
-    // Check page bounds
-    if (pageNumber < 1 || (totalPages > 0 && pageNumber > totalPages)) {
-      console.warn(
-        `Invalid page ${pageNumber}. Valid range is 1-${totalPages}`
-      );
-      return;
-    }
-
     setIsSearching(true);
 
     try {
+      // Prepare parameters with current filters
+      const params = {
+        query: searchQuery,
+        contract_type: null,
+        platform: null,
+        page: pageNumber,
+        page_size: resultsPerPage
+      };
+      
+      // Add active filters
+      if (filterValues.dueDate && filterValues.dueDate !== "active_only") {
+        params["due_date_filter"] = filterValues.dueDate; // No linter error now
+      }
+      
+      if (filterValues.postedDate && filterValues.postedDate !== "all") {
+        params["posted_date_filter"] = filterValues.postedDate; // No linter error now
+      }
+      
+      if (filterValues.naicsCode && filterValues.naicsCode.trim() !== "") {
+        params["naics_code"] = filterValues.naicsCode.trim(); // No linter error now
+      }
+
       const response = await fetch(`${API_BASE_URL}/search-opportunities`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          query: searchQuery,
-          contract_type: null,
-          platform: null,
-          page: pageNumber,
-          page_size: resultsPerPage,
-        }),
+        body: JSON.stringify(params),
       });
 
       if (!response.ok) {
@@ -450,52 +485,10 @@ export default function Opportunities() {
       console.log(`Page ${pageNumber} data:`, data);
 
       if (data.results && Array.isArray(data.results)) {
-        console.log(
-          `Received ${data.results.length} results for page ${data.page}`
-        );
-
-        // If no results were returned but there should be, revert to page 1
-        if (data.results.length === 0 && data.total > 0) {
-          console.warn(
-            "No results returned for this page, returning to page 1"
-          );
-          paginate(1);
-          return;
-        }
-
-        const formattedResults = data.results.map((job) => ({
-          id: job.id ? `job-${job.id}` : `job-${Date.now()}-${Math.random()}`,
-          title: job.title || "Untitled Opportunity",
-          agency: job.agency || "Unknown Agency",
-          jurisdiction: "Federal",
-          type: "RFP",
-          posted: job.posted || "Recent",
-          dueDate: job.dueDate || "TBD",
-          value: job.value || Math.floor(Math.random() * 5000000) + 1000000,
-          status: "Active",
-          naicsCode: job.naicsCode || "000000",
-          platform: job.platform || "sam.gov",
-          description:
-            job.description?.substring(0, 150) + "..." ||
-            "Lorem ipsum dolor sit amet",
-        }));
-        
-        // Update the state with the new results
-        setOpportunities(formattedResults);
+        setOpportunities(data.results);
         setCurrentPage(data.page || pageNumber);
         setTotalResults(data.total || 0);
         setTotalPages(data.total_pages || 1);
-
-        // Clear recommendations since we're on a new page
-        setAiRecommendations([]);
-        requestInProgressRef.current = false;
-        lastSearchIdRef.current = "";
-
-        // Scroll back to top
-        const resultsContainer = document.querySelector(".results-container");
-        if (resultsContainer) {
-          resultsContainer.scrollTop = 0;
-        }
       }
     } catch (error) {
       console.error(`Error fetching page ${pageNumber}:`, error);
@@ -659,7 +652,8 @@ export default function Opportunities() {
             title: opportunity.title,
             description: opportunity.description || "",
             stage: "Assessment", // Default stage
-            user_id: user.id
+            user_id: user.id,
+            due_date: opportunity.response_date || opportunity.dueDate || opportunity.due_date // Add this line
           }
         ])
         .select();
@@ -691,17 +685,98 @@ export default function Opportunities() {
   const [filterValues, setFilterValues] = useState({
     dueDate: "next_30_days",
     postedDate: "past_week",
-    jurisdiction: "",
-    nigpCode: "",
-    unspscCode: "",
+    naicsCode: "", // Changed from nigpCode
     opportunityType: ""
+    // Removed jurisdiction and unspscCode
   });
 
   // Add applyFilters function
-  const applyFilters = () => {
-    // Here you would implement the filter logic
-    console.log("Applying filters:", filterValues);
-    // You can call your API or filter the opportunities based on these values
+  const applyFilters = async () => {
+    setIsSearching(true);
+    
+    // Prepare filter parameters with the new type
+    const filterParams: SearchParams = {
+      query: searchQuery,
+      contract_type: null,
+      platform: null,
+      page: 1,
+      page_size: resultsPerPage,
+    };
+    
+    // Add date filters
+    if (filterValues.dueDate && filterValues.dueDate !== "active_only") {
+      filterParams.due_date_filter = filterValues.dueDate; // No linter error now
+    }
+    
+    if (filterValues.postedDate && filterValues.postedDate !== "all") {
+      filterParams.posted_date_filter = filterValues.postedDate; // No linter error now
+    }
+    
+    // Add NAICS code filter if present
+    if (filterValues.naicsCode && filterValues.naicsCode.trim() !== "") {
+      filterParams.naics_code = filterValues.naicsCode.trim(); // No linter error now
+    }
+    
+    try {
+      console.log("Applying filters:", filterParams);
+      
+      const response = await fetch(`${API_BASE_URL}/search-opportunities`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(filterParams),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log("Filtered search results:", data);
+      
+      if (data.results && Array.isArray(data.results)) {
+        setHasSearched(true);
+        
+        const formattedResults = data.results.map((job) => {
+          // Normalize platform name for display
+          let platformForDisplay = job.platform === "sam_gov" ? "sam.gov" : job.platform;
+
+          return {
+            id: job.id || `job-${Math.random()}-${Date.now()}`,
+            title: job.title || "Untitled Opportunity",
+            agency: job.agency || job.department || "Unknown Agency",
+            jurisdiction: "Federal",
+            type: "RFP",
+            posted: job.published_date || job.posted || "Recent",
+            dueDate: job.response_date || job.dueDate || "TBD",
+            value: job.value || Math.floor(Math.random() * 5000000) + 1000000,
+            status: job.active !== undefined ? (job.active ? "Active" : "Inactive") : "Active",
+            naicsCode: job.naics_code?.toString() || job.naicsCode || "000000",
+            platform: platformForDisplay,
+            description: job.description?.substring(0, 150) + "..." || 
+              "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
+            external_url: job.external_url || job.url || null,
+            url: job.url || null,
+            solicitation_number: job.solicitation_number || null,
+            notice_id: job.notice_id || null,
+            published_date: job.published_date || null,
+            response_date: job.response_date || null
+          };
+        });
+        
+        setOpportunities(formattedResults);
+        setTotalResults(data.total || formattedResults.length);
+        setCurrentPage(data.page || 1);
+        setTotalPages(
+          data.total_pages || Math.ceil(data.total / resultsPerPage)
+        );
+      }
+    } catch (error) {
+      console.error("Error applying filters:", error);
+    } finally {
+      setIsSearching(false);
+    }
   };
 
   // Add a new state variable for job type
@@ -962,6 +1037,7 @@ export default function Opportunities() {
                       <div className="px-5 pb-4">
                         <ul className="space-y-2 ml-7">
                           {[
+                            { id: "all", value: "all", label: "All dates" },
                             { id: "past-day", value: "past_day", label: "Past day" },
                             { id: "past-week", value: "past_week", label: "Past week" },
                             { id: "past-month", value: "past_month", label: "Past month" },
@@ -987,94 +1063,43 @@ export default function Opportunities() {
                     )}
                   </div>
 
-                  {/* Jurisdiction Filter */}
+                  {/* NAICS Code(s) Filter */}
                   <div className="border-b border-gray-100">
                     <div
-                      onClick={() => toggleFilter("jurisdiction")}
-                      className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <Building size={18} className="text-gray-500" />
-                        <h2 className="font-medium text-gray-800">Jurisdiction(s)</h2>
-                      </div>
-                      {activeFilters.jurisdiction ? (
-                        <ChevronUp size={16} className="text-gray-400" />
-                      ) : (
-                        <ChevronDown size={16} className="text-gray-400" />
-                      )}
-                    </div>
-                    {activeFilters.jurisdiction && (
-                      <div className="px-5 pb-4">
-                        <div className="relative ml-7">
-                          <input
-                            type="text"
-                            placeholder="Ex: New York"
-                            className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-gray-50"
-                            value={filterValues.jurisdiction}
-                            onChange={(e) => setFilterValues({ ...filterValues, jurisdiction: e.target.value })}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* NIGP Code(s) Filter */}
-                  <div className="border-b border-gray-100">
-                    <div
-                      onClick={() => toggleFilter("nigpCode")}
+                      onClick={() => toggleFilter("naicsCode")}
                       className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
                     >
                       <div className="flex items-center gap-3">
                         <Tag size={18} className="text-gray-500" />
-                        <h2 className="font-medium text-gray-800">NIGP Code(s)</h2>
+                        <h2 className="font-medium text-gray-800">NAICS Code</h2>
                       </div>
-                      {activeFilters.nigpCode ? (
+                      {activeFilters.naicsCode ? (
                         <ChevronUp size={16} className="text-gray-400" />
                       ) : (
                         <ChevronDown size={16} className="text-gray-400" />
                       )}
                     </div>
-                    {activeFilters.nigpCode && (
+                    {activeFilters.naicsCode && (
                       <div className="px-5 pb-4">
-                        <div className="relative ml-7">
-                          <input
-                            type="text"
-                            placeholder="Ex: 78500"
-                            className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-gray-50"
-                            value={filterValues.nigpCode}
-                            onChange={(e) => setFilterValues({ ...filterValues, nigpCode: e.target.value })}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* UNSPSC Code(s) Filter */}
-                  <div className="border-b border-gray-100">
-                    <div
-                      onClick={() => toggleFilter("unspscCode")}
-                      className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <Layers size={18} className="text-gray-500" />
-                        <h2 className="font-medium text-gray-800">UNSPSC Code(s)</h2>
-                      </div>
-                      {activeFilters.unspscCode ? (
-                        <ChevronUp size={16} className="text-gray-400" />
-                      ) : (
-                        <ChevronDown size={16} className="text-gray-400" />
-                      )}
-                    </div>
-                    {activeFilters.unspscCode && (
-                      <div className="px-5 pb-4">
-                        <div className="relative ml-7">
-                          <input
-                            type="text"
-                            placeholder="Ex: 10101501"
-                            className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-gray-50"
-                            value={filterValues.unspscCode}
-                            onChange={(e) => setFilterValues({ ...filterValues, unspscCode: e.target.value })}
-                          />
+                        <div className="ml-7">
+                          <div className="mb-2">
+                            <input
+                              type="text"
+                              placeholder="Ex: 541511"
+                              className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-gray-50"
+                              value={filterValues.naicsCode}
+                              onChange={(e) => setFilterValues({ ...filterValues, naicsCode: e.target.value })}
+                            />
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            <p className="mb-1">Common NAICS codes:</p>
+                            <ul className="space-y-1">
+                              <li><span className="font-medium">541511</span> - Custom Computer Programming Services</li>
+                              <li><span className="font-medium">541512</span> - Computer Systems Design Services</li>
+                              <li><span className="font-medium">541519</span> - Other Computer Related Services</li>
+                              <li><span className="font-medium">518210</span> - Data Processing, Hosting, and Related Services</li>
+                            </ul>
+                          </div>
                         </div>
                       </div>
                     )}
@@ -1205,6 +1230,16 @@ export default function Opportunities() {
                   </button>
                 </form>
               </div>
+
+              {/* Add the RefinedQueryDisplay component */}
+              {showRefinedQuery && refinedQuery && (
+                <RefinedQueryDisplay
+                  originalQuery={searchQuery}
+                  refinedQuery={refinedQuery}
+                  isVisible={showRefinedQuery}
+                  onClose={() => setShowRefinedQuery(false)}
+                />
+              )}
 
               {/* Results tabs and counters */}
               <div className="border-b border-gray-200 px-5 py-2 bg-white flex items-center justify-between">
