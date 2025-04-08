@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 # Load environment variables
 load_dotenv()
 
-# === Database Functions (from database.py) ===  // Temporary Fix
+# === Database Functions (from database.py) ===
 
 def get_connection():
     """Establish and return a connection to our PostgreSQL database."""
@@ -174,7 +174,7 @@ async def fetch_opportunities() -> Dict[str, Any]:
     logger.info(f"Searching for opportunities from {posted_from} to {posted_to}")
 
     # Top NAICS codes to search (from our Colab implementation)
-    naics_list = ["541512", "541511", "541519"]
+    naics_list = ["541512", "541611", "541519","541715","518210"]
     
     all_opportunities = []  # Store all collected opportunities here
     total_fetched = 0

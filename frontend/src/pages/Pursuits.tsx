@@ -39,8 +39,9 @@ export default function Pursuits() {
           title: opportunity.title || "Untitled",
           description: opportunity.description || "",
           stage: "Assessment",
-          user_id: user.id
-          // NO due_date field at all
+          user_id: user.id,
+          due_date: opportunity.due_date // Add this line to include the due date
+
         })
         .select();
         
@@ -390,7 +391,9 @@ export default function Pursuits() {
                                 {pursuit.created}
                               </td>
                               <td className="px-4 py-4 whitespace-nowrap">
-                                <div className="text-sm text-red-600 font-medium">{pursuit.dueDate}</div>
+                                <div className="text-sm text-red-600 font-medium">
+                                  {pursuit.dueDate !== "TBD" ? pursuit.dueDate : "No Due Date Set"}
+                                </div>
                               </td>
                               <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                                 <div className="flex items-center">

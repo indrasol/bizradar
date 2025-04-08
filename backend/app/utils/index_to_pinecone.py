@@ -9,7 +9,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from dotenv import load_dotenv
 from typing import List, Dict, Optional
-from utils.database import get_connection
+from database import get_connection
 import numpy as np
 from tqdm import tqdm
 
@@ -74,6 +74,17 @@ def check_index_stats():
         logger.error(f"Error checking index stats: {str(e)}")
         return None
 
+def check_vector_exists(record_id):
+    """
+    Check if a vector with the given ID already exists in Pinecone
+    """
+    try:
+        result = index.fetch(ids=[record_id])
+        return bool(result.vectors)
+    except Exception as e:
+        logger.error(f"Error checking if vector exists: {str(e)}")
+        return False
+
 def fetch_sam_gov_records(last_indexed: Optional[str] = None) -> List[Dict]:
     """
     Fetch records from the sam_gov table in Postgres.
@@ -94,7 +105,7 @@ def fetch_sam_gov_records(last_indexed: Optional[str] = None) -> List[Dict]:
             """)
             existing_columns = [row['column_name'] for row in cursor.fetchall()]
             
-            # If timestamp columns don't exist, get all records
+            # If timestamp columns don't exist or no last_indexed, get all records
             if 'created_at' not in existing_columns or 'updated_at' not in existing_columns or not last_indexed:
                 cursor.execute("""
                     SELECT id, title, description, department, published_date, 
@@ -181,17 +192,6 @@ def normalize_embedding(embedding):
         return (np.array(embedding) / norm).tolist()
     return embedding
 
-def check_vector_exists(record_id):
-    """
-    Check if a vector with the given ID already exists in Pinecone
-    """
-    try:
-        result = index.fetch(ids=[record_id])
-        return bool(result.vectors)
-    except Exception as e:
-        logger.error(f"Error checking if vector exists: {str(e)}")
-        return False
-
 def index_sam_gov_to_pinecone(incremental=True):
     """
     Generate embeddings for sam_gov records and upsert them to Pinecone.
@@ -215,6 +215,15 @@ def index_sam_gov_to_pinecone(incremental=True):
     # Process records
     for record in tqdm(records, desc="Processing SAM.gov records"):
         try:
+            # Create the Pinecone ID
+            record_id = f"sam_gov_{record['id']}"
+            
+            # Check if vector already exists in Pinecone - skip if it does
+            if check_vector_exists(record_id):
+                logger.info(f"Vector {record_id} already exists in Pinecone, skipping")
+                skipped_count += 1
+                continue
+                
             # Create content to embed - combine relevant fields
             description = record['description'] if record['description'] else ""
             title = record['title'] if record['title'] else ""
@@ -251,9 +260,6 @@ def index_sam_gov_to_pinecone(incremental=True):
                 "indexed_at": datetime.now().isoformat()
             }
 
-            # Create the Pinecone ID
-            record_id = f"sam_gov_{record['id']}"
-            
             # Add vector to list (id must be a string in Pinecone)
             vectors.append((record_id, embedding, metadata))
             indexed_count += 1
@@ -307,6 +313,15 @@ def index_freelancer_data_table_to_pinecone(incremental=True):
     # Process records
     for record in tqdm(records, desc="Processing Freelancer records"):
         try:
+            # Create the Pinecone ID
+            record_id = f"freelancer_{record['id']}"
+            
+            # Check if vector already exists in Pinecone - skip if it does
+            if check_vector_exists(record_id):
+                logger.info(f"Vector {record_id} already exists in Pinecone, skipping")
+                skipped_count += 1
+                continue
+                
             # Create content to embed - combine relevant fields
             additional_details = record['additional_details'] if record['additional_details'] else ""
             skills = record['skills_required'] if record['skills_required'] else ""
@@ -341,9 +356,6 @@ def index_freelancer_data_table_to_pinecone(incremental=True):
                 "job_url": record["job_url"] if record.get("job_url") else "",
                 "indexed_at": datetime.now().isoformat()
             }
-
-            # Create the Pinecone ID
-            record_id = f"freelancer_{record['id']}"
             
             # Add vector to list
             vectors.append((record_id, embedding, metadata))
