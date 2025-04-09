@@ -20,6 +20,8 @@ import {
   CheckCircle2,
   ExternalLink,
   X,
+  Sparkle,
+  Sparkles,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import SideBar from "../components/layout/SideBar";
@@ -477,8 +479,8 @@ const BizRadarDashboard = () => {
                   <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 overflow-hidden">
                     <div className="flex justify-between items-center mb-5">
                       <div className="flex items-center space-x-3">
-                        <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
-                          <Search className="h-5 w-5" />
+                        <div className="p-2 bg-emerald-50 text-emerald-500 rounded-lg">
+                          <Sparkles className="h-5 w-5" />
                         </div>
                         <h2 className="text-lg font-semibold text-gray-700">
                           New AI-Matched Opportunities
