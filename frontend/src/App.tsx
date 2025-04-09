@@ -20,6 +20,7 @@ import ProtectedRoute from "./components/Auth/ProtectedRoute";
 import { Settings } from "./pages/Settings";
 import Pursuits from "./pages/Pursuits";
 import CompanySetup from "./pages/CompanySetup";
+import BizradarAI from './components/Sidebar/BizradarAI';
 
 // Create a query client for React Query
 const queryClient = new QueryClient();
@@ -73,6 +74,11 @@ const App = () => (
                 <RfpWriter />
               </ProtectedRoute>
             } />
+            <Route path="/ask-ai" element={
+            <ProtectedRoute>
+              <BizradarAI />
+            </ProtectedRoute>
+          } />
             
             {/* 404 route */}
             <Route path="*" element={<NotFound />} />

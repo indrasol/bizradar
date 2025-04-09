@@ -1545,7 +1545,7 @@ export default function Opportunities() {
 
                     {/* Show suggested searches when no search has been performed */}
                     {!hasSearched && (
-                      <div className="p-6 bg-white rounded-xl border border-gray-200 shadow-md mb-6 max-w-4xl mx-auto">
+                      <div className="p-6 bg-white rounded-xl border border-gray-200 shadow-md mb-6 max-w-8xl mx-auto">
                         <h2 className="text-xl font-bold text-gray-800 mb-2">
                           Popular Searches
                         </h2>
@@ -1588,11 +1588,11 @@ export default function Opportunities() {
 
                     {/* AI-Matched Opportunities */}
                     {!hasSearched && (
-                      <div className="mb-6 bg-white rounded-xl border border-gray-200 shadow-md max-w-4xl mx-auto overflow-hidden">
+                      <div className="mb-6 bg-white rounded-xl border border-gray-200 shadow-md max-w-8xl mx-auto overflow-hidden">
                         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
                           <div className="flex items-center gap-3">
-                            <div className="p-2 bg-blue-100 rounded-lg">
-                              <Sparkles className="h-5 w-5 text-blue-600" />
+                            <div className="p-2 bg-emerald-50 rounded-lg">
+                              <Sparkles className="h-5 w-5  text-emerald-500" />
                             </div>
                             <h2 className="text-lg font-semibold text-gray-800">
                               New AI-Matched Opportunities
@@ -1638,7 +1638,7 @@ export default function Opportunities() {
                                   <Clock className="h-3 w-3 mr-1" />
                                   Published: Mar 5, 2025
                                 </div>
-                                <div className="px-2 py-1 bg-green-50 text-green-600 rounded-full flex items-center">
+                                <div className="px-2 py-1  bg-emerald-50 text-emerald-500 rounded-full flex items-center">
                                   <DollarSign className="h-3 w-3 mr-1" />
                                   Price Budget: {formatCurrency(750000)}
                                 </div>

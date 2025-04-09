@@ -394,7 +394,7 @@ export const Settings = () => {
 
           {/* Main Content Area */}
           <div className="flex-1 overflow-auto">
-            <div className="max-w-5xl mx-auto p-6">
+            <div className="max-w-8xl mx-auto p-6">
               {/* Page Title */}
               <div className="mb-6">
                 <h1 className="text-2xl font-bold text-gray-900">Account Settings</h1>
