@@ -14,7 +14,7 @@ DEFAULT_HEADERS = {
 }
 
 # Table names
-FREELANCER_TABLE = "freelancer_projects"
+FREELANCER_TABLE = "freelancer_table"
 SAM_GOV_TABLE = "sam_gov"
 
 # SAM.gov API configuration

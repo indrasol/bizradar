@@ -163,7 +163,7 @@ export default function Opportunities() {
   }, [aiRecommendations, isLoadingRecommendations]);
   
   // Fetch user profile from settings
-  const getUserProfile = () => {
+  const getUserProfile = async () => {
     try {
       console.log("Fetching user profile from session storage");
       const profileData = sessionStorage.getItem("userProfile");
@@ -175,17 +175,41 @@ export default function Opportunities() {
         return parsedData;
       }
       
-      console.warn("No profile data found in session storage");
-      // Return empty or undefined values for graceful handling downstream
+      // If not in sessionStorage, fetch from Supabase
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error("No active session");
+      }
+      
+      // Get user company relationship
+      const { data: userCompany } = await supabase
+        .from('user_companies')
+        .select('*, companies(*)')
+        .eq('user_id', session.user.id)
+        .eq('is_primary', true)
+        .single();
+      
+      if (userCompany?.companies) {
+        const profile = {
+          companyUrl: userCompany.companies.url || "",
+          companyDescription: userCompany.companies.description || ""
+        };
+        
+        // Save to sessionStorage for future use
+        sessionStorage.setItem("userProfile", JSON.stringify(profile));
+        return profile;
+      }
+      
+      // If we still don't have company info, use generic fallback
       return {
         companyUrl: "",
-        companyDescription: "",
+        companyDescription: "Technology and consulting company specializing in innovative solutions."
       };
     } catch (error) {
       console.error("Error fetching user profile:", error);
       return {
         companyUrl: "",
-        companyDescription: "",
+        companyDescription: "Technology company seeking government contract opportunities."
       };
     }
   };
@@ -208,24 +232,20 @@ export default function Opportunities() {
     console.log("Starting to fetch AI recommendations for page", currentPage);
     
     try {
-      const userProfile = getUserProfile();
-      console.log("User profile for AI recommendations:", userProfile);
-      
-      const requestBody = {
-        companyUrl: userProfile.companyUrl,
-        companyDescription: userProfile.companyDescription || "", // Ensure this is set
-        opportunities: opportunities,
-        responseFormat: "json",
-        includeMatchReason: true,
-      };
-      console.log("AI recommendations request body:", requestBody);
+      const userProfile = await getUserProfile();
       
       const response = await fetch(`${API_BASE_URL}/ai-recommendations`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify({
+          companyUrl: userProfile.companyUrl,
+          companyDescription: userProfile.companyDescription,
+          opportunities: opportunities,
+          responseFormat: "json",
+          includeMatchReason: true,
+        }),
       });
       
       if (!response.ok) {
@@ -263,12 +283,12 @@ export default function Opportunities() {
       console.error("Error fetching AI recommendations:", error);
       setAiRecommendations([
         {
-        id: "fallback-rec-1",
-        title: "AI Recommendation Service Temporarily Unavailable",
+          id: "fallback-rec-1",
+          title: "AI Recommendation Service Temporarily Unavailable",
           description:
             "We couldn't retrieve personalized recommendations at this time. Please try again later.",
-        matchScore: 75,
-        opportunityIndex: 0,
+          matchScore: 75,
+          opportunityIndex: 0,
           matchReason:
             "This is a fallback recommendation while the service is temporarily unavailable.",
         },
@@ -292,8 +312,11 @@ export default function Opportunities() {
         "Page changed, fetching new recommendations for page",
         currentPage
       );
-          fetchAiRecommendations();
-      }
+      // Use an IIFE to handle the async function
+      (async () => {
+        await fetchAiRecommendations();
+      })();
+    }
   }, [currentPage, opportunities]);
 
   const toggleFilter = (filter) => {

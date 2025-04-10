@@ -50,9 +50,34 @@ def extract_id_from_pinecone(pinecone_id):
     except ValueError:
         return None, "unknown"
 
-def search_jobs(query: str, contract_type: Optional[str] = None, platform: Optional[str] = None,
-                due_date_filter: Optional[str] = None, posted_date_filter: Optional[str] = None,
-                naics_code: Optional[str] = None) -> List[Dict]:
+def extract_id_from_pinecone(pinecone_id):
+    """
+    Extract the original database ID from a Pinecone ID.
+    Handles both formats: 'sam_gov_123' or 'freelancer_456' or plain '123'
+    Returns the numeric ID as an integer.
+    """
+    if pinecone_id is None:
+        return None
+        
+    # If the ID has a prefix like "sam_gov_" or "freelancer_"
+    if "_" in pinecone_id:
+        parts = pinecone_id.split("_")
+        # The numeric ID is the last part after the prefix
+        id_part = parts[-1]
+        try:
+            return int(id_part)
+        except ValueError:
+            logger.warning(f"Could not extract numeric ID from {pinecone_id}")
+            return None
+    
+    # For plain IDs (no prefix)
+    try:
+        return int(pinecone_id)
+    except ValueError:
+        logger.warning(f"Could not convert {pinecone_id} to integer")
+        return None
+
+def search_jobs(query: str, contract_type: Optional[str] = None, platform: Optional[str] = None) -> List[Dict]:
     """
     Search for job opportunities using vector similarity and filters.
     Now includes filtering by due date, posted date, and NAICS code.
@@ -65,6 +90,17 @@ def search_jobs(query: str, contract_type: Optional[str] = None, platform: Optio
         norm = np.linalg.norm(query_embedding)
         if norm > 0:
             query_embedding = (np.array(query_embedding) / norm).tolist()
+            logger.info("Embedding normalized")
+
+        # Build filter based on parameters
+        filter_dict = {}
+        if platform:
+            filter_dict["source"] = platform
+        if contract_type:
+            filter_dict["department"] = contract_type
+            
+        # Log the filter being used
+        logger.info(f"Using filter: {filter_dict}")
 
         # Query Pinecone with a high top_k to get all potential matches
         try:
@@ -72,6 +108,7 @@ def search_jobs(query: str, contract_type: Optional[str] = None, platform: Optio
                 vector=query_embedding,
                 top_k=100,  # Get more potential matches
                 include_metadata=True,
+                filter=filter_dict if filter_dict else None,
                 namespace=""
             )
             
@@ -107,33 +144,42 @@ def search_jobs(query: str, contract_type: Optional[str] = None, platform: Optio
                 filtered_matches = [match for match in results.matches if match.score >= threshold]
             else:
                 filtered_matches = []
-
-            # Group matches by source and extract IDs
-            sam_gov_ids = []
-            freelancer_ids = []
             
+            logger.info(f"Filtered from {len(results.matches)} to {len(filtered_matches)} relevant matches")
+            
+            # Process the matches to extract the correct IDs and sources
+            processed_matches = []
             for match in filtered_matches:
-                try:
-                    # First try to get source from metadata
-                    source = match.metadata.get('source', None)
-                    
-                    # If not in metadata, try to extract from ID
-                    if not source:
-                        original_id, source = extract_id_from_pinecone(match.id)
-                    else:
-                        # If source is in metadata, extract just the ID
-                        original_id, _ = extract_id_from_pinecone(match.id)
-                    
-                    # Only add valid IDs to the list
-                    if original_id is not None:
-                        if source == 'sam_gov':
-                            sam_gov_ids.append(original_id)
-                        elif source == 'freelancer':
-                            freelancer_ids.append(original_id)
-                except Exception:
-                    continue
+                # Extract source from metadata
+                source = match.metadata.get('source', 'unknown')
+                
+                # Extract original ID from Pinecone ID
+                original_id = extract_id_from_pinecone(match.id)
+                
+                if original_id is not None:
+                    processed_matches.append({
+                        'id': original_id,
+                        'score': match.score,
+                        'source': source
+                    })
+            
+            # Group matches by source
+            sam_gov_matches = [m for m in processed_matches if m['source'] == 'sam_gov']
+            freelancer_matches = [m for m in processed_matches if m['source'] == 'freelancer']
+            
+            logger.info(f"Processed matches: {len(processed_matches)} total, "
+                       f"{len(sam_gov_matches)} from SAM.gov, "
+                       f"{len(freelancer_matches)} from freelancer")
+            
+            # Extract job IDs for each source
+            sam_gov_ids = [m['id'] for m in sam_gov_matches]
+            freelancer_ids = [m['id'] for m in freelancer_matches]
+            
+            logger.info(f"SAM.gov IDs: {sam_gov_ids}")
+            logger.info(f"Freelancer IDs: {freelancer_ids}")
             
             if not sam_gov_ids and not freelancer_ids:
+                logger.info("No matching jobs found")
                 return []
 
         except Exception as e:
@@ -149,14 +195,13 @@ def search_jobs(query: str, contract_type: Optional[str] = None, platform: Optio
         try:
             with connection.cursor() as cursor:
                 all_results = []
-
+                
                 # Fetch SAM.gov records if we have IDs
                 if sam_gov_ids:
-                    # Start building the SQL query
-                    sql_query = """
-                        SELECT id, notice_id, solicitation_number, title, department, 
-                               naics_code, published_date, response_date, description, 
-                               url, active
+                    placeholders = ','.join(['%s'] * len(sam_gov_ids))
+                    query_sql = f"""
+                        SELECT id, title, description, department AS agency, 
+                               'sam.gov' AS platform, NULL AS value
                         FROM sam_gov 
                         WHERE id IN ({})
                     """
@@ -237,14 +282,42 @@ def search_jobs(query: str, contract_type: Optional[str] = None, platform: Optio
                         FROM freelancer_data_table 
                         WHERE id IN ({placeholders})
                     """
+                    cursor.execute(query_sql, sam_gov_ids)
                     
-                    # Include all freelancer results regardless of NAICS filter
+                    columns = ["id", "title", "description", "agency", "platform", "value"]
+                    sam_gov_results = [dict(zip(columns, record)) for record in cursor.fetchall()]
+                    all_results.extend(sam_gov_results)
+                    logger.info(f"Retrieved {len(sam_gov_results)} SAM.gov jobs")
+                
+                # Fetch freelancer records if we have IDs
+                if freelancer_ids:
+                    placeholders = ','.join(['%s'] * len(freelancer_ids))
+                    query_sql = f"""
+                        SELECT id, title, additional_details AS description, 
+                               skills_required AS agency, 'freelancer' AS platform, 
+                               price_budget AS value
+                        FROM freelancer_table 
+                        WHERE id IN ({placeholders})
+                    """
                     cursor.execute(query_sql, freelancer_ids)
                     
-                    columns = ["id", "title", "description", "agency", "platform", "value", "external_url"]
+                    columns = ["id", "title", "description", "agency", "platform", "value"]
                     freelancer_results = [dict(zip(columns, record)) for record in cursor.fetchall()]
                     all_results.extend(freelancer_results)
+                    logger.info(f"Retrieved {len(freelancer_results)} freelancer jobs")
                 
+                # Log retrieved jobs
+                logger.info("\n" + "="*50)
+                logger.info("Retrieved Jobs:")
+                logger.info("="*50)
+                for idx, job in enumerate(all_results, 1):
+                    logger.info(f"\nJob {idx}:")
+                    logger.info(f"Title: {job['title']}")
+                    logger.info(f"Platform: {job['platform']}")
+                    logger.info(f"Agency/Skills: {job['agency']}")
+                    logger.info("-"*40)
+                
+                logger.info(f"Total jobs retrieved: {len(all_results)}")
                 return all_results
         finally:
             connection.close()
