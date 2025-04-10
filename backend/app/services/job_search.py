@@ -77,6 +77,33 @@ def extract_id_from_pinecone(pinecone_id):
         logger.warning(f"Could not convert {pinecone_id} to integer")
         return None
 
+def extract_id_from_pinecone(pinecone_id):
+    """
+    Extract the original database ID from a Pinecone ID.
+    Handles both formats: 'sam_gov_123' or 'freelancer_456' or plain '123'
+    Returns the numeric ID as an integer.
+    """
+    if pinecone_id is None:
+        return None
+        
+    # If the ID has a prefix like "sam_gov_" or "freelancer_"
+    if "_" in pinecone_id:
+        parts = pinecone_id.split("_")
+        # The numeric ID is the last part after the prefix
+        id_part = parts[-1]
+        try:
+            return int(id_part)
+        except ValueError:
+            logger.warning(f"Could not extract numeric ID from {pinecone_id}")
+            return None
+    
+    # For plain IDs (no prefix)
+    try:
+        return int(pinecone_id)
+    except ValueError:
+        logger.warning(f"Could not convert {pinecone_id} to integer")
+        return None
+
 def search_jobs(query: str, contract_type: Optional[str] = None, platform: Optional[str] = None) -> List[Dict]:
     """
     Search for job opportunities using vector similarity and filters.

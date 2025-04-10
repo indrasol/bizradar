@@ -5,78 +5,91 @@ import { ArrowLeft, Loader2 } from 'lucide-react';
 import SideBar from '../components/layout/SideBar';
 
 export default function RfpWriter() {
-  const { contractId } = useParams();
+  // Using noticeId from the URL
+  const { noticeId } = useParams();
   const navigate = useNavigate();
   const [contract, setContract] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    // Try to load contract data from sessionStorage
-    const loadContractData = () => {
+    // Load contract data based on notice ID
+    const loadContractData = async () => {
       try {
+        // First check sessionStorage for contract data that matches the notice ID
         const storedContract = sessionStorage.getItem('currentContract');
         if (storedContract) {
+          console.log("Found contract in session storage:", storedContract);
           const parsedContract = JSON.parse(storedContract);
           
-          // Verify this is the correct contract by checking the ID
-          if (parsedContract.id === contractId) {
+          // Check if this contract has the matching notice ID
+          if (parsedContract.notice_id === noticeId || parsedContract.id === noticeId) {
+            console.log("Found matching contract data in session storage");
             setContract(parsedContract);
             setLoading(false);
             return true;
+          } else {
+            console.log("Stored contract doesn't match the notice ID, fetching from API");
           }
         }
-        return false;
+        
+        // If we didn't find a match in session storage, fetch from API
+        return await fetchFromAPI(noticeId);
       } catch (error) {
         console.error('Error loading contract data:', error);
+        setError('Failed to load contract details. Please try again later.');
+        setLoading(false);
         return false;
       }
     };
 
-    // First try to load from sessionStorage
-    const contractLoaded = loadContractData();
-    
-    // If not found in sessionStorage, fetch from API
-    if (!contractLoaded) {
-      fetchContractData();
-    }
-  }, [contractId]);
+    loadContractData();
+  }, [noticeId]);
 
-  const fetchContractData = async () => {
+  // Fetch contract data from API using the notice ID
+  const fetchFromAPI = async (noticeId) => {
     setLoading(true);
     try {
-      // You would replace this with your actual API call
-      // For demonstration, using a timeout to simulate API call
-      setTimeout(() => {
-        // Example fallback data if API call isn't implemented
-        const fallbackData = {
-          id: contractId,
-          title: `Contract ${contractId}`,
-          agency: "Unknown Agency",
-          dueDate: "2025-03-31",
-          value: 100000,
-          status: "Open",
-          naicsCode: "000000",
-          description: "This is a placeholder description for the contract. In a real implementation, this would be fetched from your API."
-        };
-        
-        setContract(fallbackData);
-        setLoading(false);
-      }, 1000);
+      const isDevelopment = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+      const API_BASE_URL = isDevelopment ? "http://localhost:5000" : "https://bizradar-backend.onrender.com";
       
-      // In a real implementation, you would do something like:
-      /*
-      const response = await fetch(`/api/contracts/${contractId}`);
+      console.log(`Fetching contract data from API for notice ID: ${noticeId}`);
+      
+      const response = await fetch(`${API_BASE_URL}/get-opportunity/${noticeId}`);
+      
       if (!response.ok) {
         throw new Error(`Error fetching contract: ${response.statusText}`);
       }
+      
       const data = await response.json();
-      setContract(data);
-      */
-    } catch (error) {
-      console.error('Error fetching contract data:', error);
-      setError('Failed to load contract details. Please try again later.');
+      console.log("API response:", data);
+      
+      // Process the data
+      const processedData = {
+        id: data.id || noticeId,
+        notice_id: noticeId,
+        title: data.title,
+        department: data.department || data.agency,
+        dueDate: data.response_date || data.dueDate,
+        status: data.active !== undefined ? (data.active ? "Active" : "Inactive") : "Open",
+        naicsCode: data.naics_code || data.naicsCode,
+        description: data.description,
+        external_url: data.external_url || data.url,
+        solicitation_number: data.solicitation_number,
+        published_date: data.published_date,
+        platform: data.platform
+      };
+      
+      setContract(processedData);
+      // Update session storage with the new data
+      sessionStorage.setItem('currentContract', JSON.stringify(processedData));
       setLoading(false);
+      return true;
+    } catch (error) {
+      console.error('Error fetching from API:', error);
+      setError('Failed to load contract details from API. Please try again later.');
+      setLoading(false);
+      return false;
     }
   };
 
@@ -131,7 +144,7 @@ export default function RfpWriter() {
             <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
               <p className="text-red-600 mb-4">{error}</p>
               <button 
-                onClick={fetchContractData}
+                onClick={() => fetchFromAPI(noticeId)}
                 className="px-4 py-2 bg-blue-600 text-white rounded-md"
               >
                 Try Again

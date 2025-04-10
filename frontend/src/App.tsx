@@ -68,7 +68,7 @@ const App = () => (
                 <Settings />
               </ProtectedRoute>
             } />
-            <Route path="/contracts/rfp/:contractId" element={
+            <Route path="/opportunities/rfp/:noticeId" element={
               <ProtectedRoute>
                 <RfpWriter />
               </ProtectedRoute>

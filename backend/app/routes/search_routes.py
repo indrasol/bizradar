@@ -8,6 +8,7 @@ from services.recommendations import generate_recommendations
 from openai import OpenAI
 import logging
 from services.company_scraper import generate_company_markdown
+# from services.rfpResponse import generateRfp  # Import the new function
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -136,20 +137,24 @@ async def get_ai_recommendations(request: Request):
             }
         ]}
 
-@search_router.post("/generate-rfp/{contract_id}")
-async def generate_rfp(contract_id: str, request: Request):
+@search_router.post("/generate-sample-rfp")
+async def generate_sample_rfp(request: Request):
     """
     Generate RFP (Request for Proposal) for a specific contract
     with enhanced error handling and flexible path resolution
     """
-    print("Generating RFP")
+    print("Generating Sample RFP")
     try:
         # Create output directory with robust path handling
         output_dir = os.path.join(os.path.dirname(__file__), "..", "services", "generated_rfps")
         os.makedirs(output_dir, exist_ok=True)
         
+        # Parse request data
+        data = await request.json()
+        contract_id = data.get('contract_id', 'unknown')
+        
         # Define paths with comprehensive error handling
-        output_path = os.path.join(output_dir, f"{contract_id}_rfp.pdf")
+        output_path = os.path.join(output_dir, f"{contract_id}_sample_rfp.pdf")
         
         # Advanced logo path resolution
         logo_paths = [
@@ -163,9 +168,6 @@ async def generate_rfp(contract_id: str, request: Request):
         
         if not logo_path:
             print("Warning: No logo found. Proceeding without logo.")
-        
-        # Robust data parsing
-        data = await request.json()
         
         # Flexible date parsing
         due_date_str = data.get('dueDate', '2025-01-01')
@@ -196,7 +198,7 @@ async def generate_rfp(contract_id: str, request: Request):
         )
         
         return {
-            "message": "RFP generated successfully", 
+            "message": "Sample RFP generated successfully", 
             "file": pdf_path,
             "details": {
                 "contract_id": contract_id,
@@ -206,13 +208,100 @@ async def generate_rfp(contract_id: str, request: Request):
         }
 
     except Exception as e:
-        print(f"Comprehensive error in generate_rfp: {str(e)}")
+        print(f"Comprehensive error in generate_sample_rfp: {str(e)}")
         import traceback
         traceback.print_exc()
         raise HTTPException(
             status_code=500, 
             detail={
-                "error": "RFP Generation Failed",
+                "error": "Sample RFP Generation Failed",
+                "message": str(e),
+                "trace": traceback.format_exc()
+            }
+        )
+
+@search_router.post("/generate-rfp")
+async def generate_rfp(request: Request):
+    """
+    Generate a complete RFP response document with detailed information
+    tailored to the specific contract requirements.
+    """
+    logger.info("Generating RFP Response")
+    try:
+        # Create output directory
+        output_dir = os.path.join(os.path.dirname(__file__), "..", "services", "generated_rfps")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # Parse request data
+        data = await request.json()
+        contract_id = data.get('contract_id', 'unknown')
+        
+        # Define output path for the generated RFP
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        output_path = os.path.join(output_dir, f"{contract_id}_rfp_response_{timestamp}.pdf")
+        
+        # Resolve logo path
+        logo_paths = [
+            os.path.join(os.path.dirname(__file__), "..", "static", "logo.jpg"),
+            os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "public", "logo.jpg"),
+            os.path.join(os.path.dirname(__file__), "..", "public", "logo.jpg"),
+            "/app/frontend/public/logo.jpg"
+        ] 
+        
+        logo_path = next((path for path in logo_paths if os.path.exists(path)), None)
+        
+        if not logo_path:
+            logger.warning("No logo found. Proceeding without logo.")
+        
+        # Parse dates and values safely
+        due_date_str = data.get('dueDate', '2025-01-01')
+        try:
+            due_date = datetime.strptime(due_date_str.split('T')[0], '%Y-%m-%d')
+        except (ValueError, IndexError):
+            logger.warning(f"Invalid date format: {due_date_str}. Using default.")
+            due_date = datetime.now()
+        
+        try:
+            value = int(data.get('value', 0))
+        except (ValueError, TypeError):
+            value = 0
+        
+        # Call the service function to generate the RFP
+        pdf_path = await generateRfp(
+            contract_id=contract_id,
+            title=data.get('title', 'Default Title'),
+            agency=data.get('agency', ''),
+            platform=data.get('platform', 'Default Platform'),
+            value=value,
+            due_date=due_date,
+            status=data.get('status', 'Open'),
+            naics_code=data.get('naicsCode', '000000'),
+            output_path=output_path,
+            logo_path=logo_path
+        )
+        
+        # Make the PDF path relative for the frontend
+        relative_path = pdf_path.replace(os.path.join(os.path.dirname(__file__), "..", "services"), "/static")
+        
+        return {
+            "message": "RFP response generated successfully", 
+            "file": relative_path,
+            "details": {
+                "contract_id": contract_id,
+                "title": data.get('title', 'Default Title'),
+                "generated_at": datetime.now().isoformat(),
+                "type": "response"
+            }
+        }
+
+    except Exception as e:
+        logger.error(f"Error in generate_rfp: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500, 
+            detail={
+                "error": "RFP Response Generation Failed",
                 "message": str(e),
                 "trace": traceback.format_exc()
             }

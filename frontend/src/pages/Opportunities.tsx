@@ -165,14 +165,12 @@ export default function Opportunities() {
   // Fetch user profile from settings
   const getUserProfile = async () => {
     try {
-      console.log("Fetching user profile from session storage");
+      // First try to get from sessionStorage
       const profileData = sessionStorage.getItem("userProfile");
       console.log("Raw profile data:", profileData);
       
       if (profileData) {
-        const parsedData = JSON.parse(profileData);
-        console.log("Parsed profile data:", parsedData);
-        return parsedData;
+        return JSON.parse(profileData);
       }
       
       // If not in sessionStorage, fetch from Supabase
@@ -562,19 +560,25 @@ export default function Opportunities() {
   };
 
   const handleBeginResponse = (contractId, contractData) => {
+    console.log(contractData);
     const contract = {
       id: contractId,
-      title: contractData.title || "Default Title",
-      agency: contractData.agency || "Default Agency",
-      dueDate: contractData.dueDate || "2025-01-01",
-      value: contractData.value || 0,
+      title: contractData.title,
+      department: contractData.agency || contractData.department,
+      agency: contractData.agency,
+      dueDate: contractData.dueDate || contractData.response_date,
       status: contractData.status || "Open",
-      naicsCode: contractData.naicsCode || "000000", 
+      naicsCode: contractData.naicsCode || contractData.naics_code,
       description: contractData.description || "",
+      solicitation_number: contractData.solicitation_number,
+      published_date: contractData.published_date,
+      notice_id: contractData.notice_id, // Make sure to capture notice_id
+      platform: contractData.platform,
+      external_url: contractData.external_url || contractData.url
     };
 
     sessionStorage.setItem("currentContract", JSON.stringify(contract));
-    navigate(`/contracts/rfp/${contractId}`);
+    navigate(`/opportunities/rfp/${contractData.notice_id}`);
   };
 
   const forceRender = () => {
@@ -676,7 +680,8 @@ export default function Opportunities() {
             description: opportunity.description || "",
             stage: "Assessment", // Default stage
             user_id: user.id,
-            due_date: opportunity.response_date || opportunity.dueDate || opportunity.due_date // Add this line
+            due_date: opportunity.response_date || opportunity.dueDate || opportunity.due_date,
+            naicscode: opportunity.naicsCode || null // Add this line
           }
         ])
         .select();

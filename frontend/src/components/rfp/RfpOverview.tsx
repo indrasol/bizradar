@@ -1,140 +1,154 @@
-import { FileText, Building, Calendar, DollarSign, Tag, MessageSquare, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import React from 'react';
+import { ExternalLink, FileText, Building, Calendar, Tag, Hash, Clock, Sparkles, Download } from 'lucide-react';
 
 interface RfpOverviewProps {
   title?: string;
-  agency?: string;
+  department?: string;
   dueDate?: string;
-  value?: number;
   status?: string;
   naicsCode?: string;
   description?: string;
+  solicitation_number?: string;
+  published_date?: string;
   onViewDescription: () => void;
   onGenerateResponse: () => void;
-  onToggleChat: () => void;
-  isChatOpen: boolean;
+  onGenerateRfp: () => void; // New prop for Generate RFP action
 }
 
 export function RfpOverview({
   title = "Not specified",
-  agency = "Not specified",
+  department = "Not specified",
   dueDate = "Not specified",
-  value = 0,
   status = "Draft",
   naicsCode = "Not specified",
-  description = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.",
+  description = "No description available",
+  solicitation_number,
+  published_date,
   onViewDescription,
   onGenerateResponse,
-  onToggleChat,
-  isChatOpen
+  onGenerateRfp // New handler for Generate RFP
 }: RfpOverviewProps) {
   return (
-    <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-8 border border-gray-200">
-      <div className="flex justify-between items-start mb-8">
-        <h2 className="text-2xl font-semibold text-gray-800">RFP Overview</h2>
-        <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium shadow-sm"
-             style={{
-               backgroundColor: status.toLowerCase() === 'draft' ? '#EFF6FF' : '#F0FDF4',
-               color: status.toLowerCase() === 'draft' ? '#2563EB' : '#16A34A'
-             }}>
-          {status}
+    <div className="max-w-5xl mx-auto bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-200">
+      {/* Header with title and status */}
+      <div className="bg-gradient-to-r from-blue-50 to-white p-8 border-b border-gray-200">
+        <div className="flex justify-between items-start mb-4">
+          <h2 className="text-2xl font-bold text-gray-900">RFP Overview</h2>
+          <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium shadow-sm"
+               style={{
+                 backgroundColor: status?.toLowerCase() === 'draft' ? '#EFF6FF' : 
+                                status?.toLowerCase() === 'open' || status?.toLowerCase() === 'active' ? '#ECFDF5' :
+                                '#F9FAFB',
+                 color: status?.toLowerCase() === 'draft' ? '#2563EB' : 
+                        status?.toLowerCase() === 'open' || status?.toLowerCase() === 'active' ? '#059669' :
+                        '#4B5563'
+               }}>
+            {status}
+          </div>
+        </div>
+        
+        {/* Title section */}
+        <div className="mt-4 mb-6">
+          <div className="flex items-center gap-2 text-blue-600 mb-2">
+            <FileText className="w-5 h-5" />
+            <p className="text-sm font-medium">Title</p>
+          </div>
+          <h3 className="text-xl font-semibold text-gray-800 pl-7">{title}</h3>
+        </div>
+      </div>
+
+      {/* Main content */}
+      <div className="p-8">
+        {/* Department section */}
+        <div className="mb-8">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-blue-100 rounded-lg shadow-sm mt-1">
+              <Building className="w-5 h-5 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-600 mb-1">Department</p>
+              <p className="text-lg text-gray-800">{department}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Grid layout for remaining info */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {/* Left column */}
+          <div className="space-y-8">
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-green-100 rounded-lg shadow-sm mt-1">
+                <Calendar className="w-5 h-5 text-green-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-600 mb-1">Due Date</p>
+                <p className="text-lg text-gray-800">{dueDate}</p>
+              </div>
+            </div>
+            
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-amber-100 rounded-lg shadow-sm mt-1">
+                <Clock className="w-5 h-5 text-amber-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-600 mb-1">Published Date</p>
+                <p className="text-lg text-gray-800">{published_date}</p>
+              </div>
+            </div>
+          </div>
+          
+          {/* Right column */}
+          <div className="space-y-8">
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-purple-100 rounded-lg shadow-sm mt-1">
+                <Tag className="w-5 h-5 text-purple-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-600 mb-1">NAICS Code</p>
+                <p className="text-lg text-gray-800">{naicsCode}</p>
+              </div>
+            </div>
+            
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-indigo-100 rounded-lg shadow-sm mt-1">
+                <Hash className="w-5 h-5 text-indigo-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-600 mb-1">Solicitation Number</p>
+                <p className="text-lg text-gray-800">{solicitation_number}</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       
-      <div className="grid grid-cols-2 gap-8">
-        <div className="space-y-6">
-          <div className="flex items-center gap-3 text-gray-700">
-            <div className="p-2 bg-blue-50 rounded-full shadow-sm">
-              <FileText className="w-5 h-5 text-blue-500" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Title</p>
-              <p className="font-medium">{title}</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 text-gray-700">
-            <div className="p-2 bg-blue-50 rounded-full shadow-sm">
-              <Building className="w-5 h-5 text-blue-500" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Agency</p>
-              <p className="font-medium">{agency}</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 text-gray-700">
-            <div className="p-2 bg-blue-50 rounded-full shadow-sm">
-              <Calendar className="w-5 h-5 text-blue-500" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Due Date</p>
-              <p className="font-medium">{dueDate}</p>
-            </div>
-          </div>
+      {/* Action buttons */}
+      <div className="bg-gray-50 p-8 border-t border-gray-200">
+        <div className="flex flex-wrap gap-8 justify-center">
+          <button 
+            onClick={onViewDescription}
+            className="px-6 py-3 bg-white border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 hover:border-gray-400 transition-all shadow-sm flex items-center gap-2"
+          >
+            <ExternalLink className="w-5 h-5 text-gray-500" />
+            <span className="font-sans">View Complete Description</span>
+          </button>
+          
+          <button 
+            onClick={onGenerateResponse}
+            className="px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg font-medium hover:from-green-700 hover:to-green-800 transition-all shadow-md flex items-center gap-2"
+          >
+            <Sparkles className="w-5 h-5 text-green-200" />
+            <span className="font-sans tracking-tight">View Sample RFP Response</span>
+          </button>
+          
+          <button 
+            onClick={onGenerateRfp}
+            className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg font-medium hover:from-blue-700 hover:to-blue-800 transition-all shadow-md flex items-center gap-2"
+          >
+            <Download className="w-5 h-5 text-blue-200" />
+            <span className="font-sans tracking-tight">Generate RFP Response</span>
+          </button>
         </div>
-
-        <div className="space-y-6">
-          <div className="flex items-center gap-3 text-gray-700">
-            <div className="p-2 bg-blue-50 rounded-full shadow-sm">
-              <DollarSign className="w-5 h-5 text-blue-500" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Value</p>
-              <p className="font-medium">
-                {value ? `$${value.toLocaleString()}` : 'Not specified'}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 text-gray-700">
-            <div className="p-2 bg-blue-50 rounded-full shadow-sm">
-              <Tag className="w-5 h-5 text-blue-500" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">NAICS Code</p>
-              <p className="font-medium">{naicsCode}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-8 pt-6 border-t flex flex-wrap gap-4 justify-center">
-        <Button
-          size="lg"
-          onClick={onViewDescription}
-          className="min-w-[200px] shadow-sm bg-green-500 hover:bg-green-600 text-white"
-        >
-          View Complete Description
-        </Button>
-        <Button
-          size="lg"
-          onClick={onGenerateResponse}
-          className="min-w-[200px] bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
-        >
-          Generate RFP Response
-        </Button>
-        <Button
-          size="lg"
-          onClick={onToggleChat}
-          className={`shadow-sm flex items-center gap-2 ${
-            isChatOpen 
-              ? 'bg-gray-200 hover:bg-gray-300 text-gray-800 border border-gray-300' 
-              : 'bg-blue-600 hover:bg-blue-700 text-white'
-          }`}
-        >
-          {isChatOpen ? (
-            <>
-              <X className="w-4 h-4" />
-              Hide Bizradar AI
-            </>
-          ) : (
-            <>
-              <MessageSquare className="w-4 h-4" />
-              Ask Bizradar AI
-            </>
-          )}
-        </Button>
       </div>
     </div>
   );

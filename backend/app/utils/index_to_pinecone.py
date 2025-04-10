@@ -279,6 +279,48 @@ def index_freelancer_table_to_pinecone():
     vectors = []
     for record in records:
         # Create content to embed - combine relevant fields
+        description = record['description'] if record['description'] else ""
+        text = f"{record['title']} {description}"
+        embedding = model.encode(text).tolist()
+
+        # Create metadata for filtering
+        metadata = {
+            "source": "sam_gov",
+            "department": record["department"],
+            "title": record["title"],
+            "published_date": str(record["published_date"]),
+            "id_type": "sam_gov"
+        }
+
+        # Add vector to list (id must be a string in Pinecone)
+        vectors.append((f"sam_gov_{record['id']}", embedding, metadata))
+
+    # Batch upsert to Pinecone
+    batch_size = 100
+    for i in range(0, len(vectors), batch_size):
+        batch = vectors[i:i + batch_size]
+        try:
+            index.upsert(vectors=batch)
+            print(f"Upserted sam_gov batch {i//batch_size + 1} of {len(vectors)//batch_size + 1}")
+        except Exception as e:
+            print(f"Error upserting sam_gov batch {i//batch_size + 1}: {str(e)}")
+
+    print(f"Successfully indexed {len(records)} sam_gov records to Pinecone.")
+
+def index_freelancer_table_to_pinecone():
+    """
+    Generate embeddings for freelancer_table records and upsert them to Pinecone.
+    """
+    # Fetch all records from freelancer_table table
+    records = fetch_freelancer_table()
+    if not records:
+        print("No records found in freelancer_table table.")
+        return
+
+    # Prepare vectors for Pinecone
+    vectors = []
+    for record in records:
+        # Create content to embed - combine relevant fields
         additional_details = record['additional_details'] if record['additional_details'] else ""
         skills = record['skills_required'] if record['skills_required'] else ""
         text = f"{record['title']} {skills} {additional_details}"

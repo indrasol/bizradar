@@ -1,21 +1,61 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Search, FileText, Trash2 } from "lucide-react";
+import { Search, FileText, Trash2, X, PenLine, CheckCircle, CheckSquare } from "lucide-react";
 import SideBar from "../components/layout/SideBar";
 import { supabase } from "../utils/supabase";
 import { toast } from "sonner";
+import RfpResponse from "../components/rfp/rfpResponse";
 
-export default function Pursuits() {
+interface Pursuit {
+  id: string;
+  title: string;
+  description: string;
+  stage: string;
+  created: string;
+  dueDate: string;
+  assignee: string;
+  assigneeInitials: string;
+  is_submitted?: boolean;
+  naicscode: string;
+}
+
+interface Opportunity {
+  title?: string;
+  description?: string;
+  due_date?: string;
+}
+
+export default function Pursuits(): JSX.Element {
   // Initialize with empty array and add loading/error states
-  const [pursuits, setPursuits] = useState([]);
-  const [selectedPursuit, setSelectedPursuit] = useState(null);
-  const [view, setView] = useState("list");
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [showNotification, setShowNotification] = useState(false);
+  const [pursuits, setPursuits] = useState<Pursuit[]>([]);
+  const [selectedPursuit, setSelectedPursuit] = useState<Pursuit | null>(null);
+  const [view, setView] = useState<string>("list");
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [showNotification, setShowNotification] = useState<boolean>(false);
+  
+  // Add new state for the RFP response builder
+  const [showRfpBuilder, setShowRfpBuilder] = useState<boolean>(false);
+  const [currentRfpPursuitId, setCurrentRfpPursuitId] = useState<string | null>(null);
+  
+  // Function to open the RFP builder for a pursuit
+  const openRfpBuilder = (pursuit: Pursuit): void => {
+    setSelectedPursuit(pursuit);
+    setCurrentRfpPursuitId(pursuit.id);
+    setShowRfpBuilder(true);
+  };
+  
+  // Function to close the RFP builder
+  const closeRfpBuilder = (): void => {
+    setShowRfpBuilder(false);
+    setCurrentRfpPursuitId(null);
+    
+    // Refresh the pursuits list to get the updated stage
+    fetchPursuits();
+  };
   
   // Add handleAddToPursuit function
-  const handleAddToPursuit = async (opportunity) => {
+  const handleAddToPursuit = async (opportunity: Opportunity): Promise<void> => {
     try {
       // Get the current user
       const { data: { user } } = await supabase.auth.getUser();
@@ -32,7 +72,7 @@ export default function Pursuits() {
         user_id: user.id
       });
       
-      // Create new pursuit with ONLY these fields - explicitly exclude due_date
+      // Create new pursuit
       const { data, error } = await supabase
         .from('pursuits')
         .insert({
@@ -40,8 +80,8 @@ export default function Pursuits() {
           description: opportunity.description || "",
           stage: "Assessment",
           user_id: user.id,
-          due_date: opportunity.due_date // Add this line to include the due date
-
+          due_date: opportunity.due_date,
+          is_submitted: false
         })
         .select();
         
@@ -58,15 +98,17 @@ export default function Pursuits() {
         setTimeout(() => setShowNotification(false), 3000);
         
         // Update pursuits list with the new pursuit
-        const formattedPursuit = {
+        const formattedPursuit: Pursuit = {
           id: data[0].id,
           title: data[0].title || "Untitled",
           description: data[0].description || "",
           stage: data[0].stage || "Assessment",
           created: new Date(data[0].created_at).toLocaleDateString(),
-          dueDate: "TBD",
+          dueDate: data[0].due_date ? new Date(data[0].due_date).toLocaleDateString() : "TBD",
           assignee: "Unassigned",
-          assigneeInitials: "UA"
+          assigneeInitials: "UA",
+          is_submitted: data[0].is_submitted || false,
+          naicscode: data[0].naicscode || ""
         };
         
         setPursuits(prevPursuits => [formattedPursuit, ...prevPursuits]);
@@ -77,57 +119,60 @@ export default function Pursuits() {
     }
   };
   
+  // Function to fetch pursuits
+  const fetchPursuits = async (): Promise<void> => {
+    setIsLoading(true);
+    try {
+      // Get the current user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        console.log("No user logged in");
+        setIsLoading(false);
+        setPursuits([]);
+        return;
+      }
+      
+      // Simple query to just get the basic data
+      const { data, error } = await supabase
+        .from('pursuits')
+        .select('id, title, description, stage, created_at, user_id, due_date, is_submitted, naicscode')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+        
+      if (error) {
+        console.error("Fetch error:", error);
+        setError(`Failed to fetch pursuits: ${error.message}`);
+        setIsLoading(false);
+        return;
+      }
+      
+      // Transform to a simpler format with safe defaults
+      const formattedPursuits: Pursuit[] = data.map(pursuit => ({
+        id: pursuit.id,
+        title: pursuit.title || "Untitled",
+        description: pursuit.description || "",
+        stage: pursuit.stage || "Assessment",
+        created: new Date(pursuit.created_at).toLocaleDateString(),
+        dueDate: pursuit.due_date ? new Date(pursuit.due_date).toLocaleDateString() : "TBD",
+        assignee: "Unassigned",
+        assigneeInitials: "UA",
+        is_submitted: pursuit.is_submitted || false,
+        naicscode: pursuit.naicscode || ""
+      }));
+      
+      setPursuits(formattedPursuits);
+    } catch (error: any) {
+      console.error("Error fetching pursuits:", error);
+      setError(`Error fetching pursuits: ${error.message}`);
+      setPursuits([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
   // Replace the useEffect for fetching pursuits
   useEffect(() => {
-    const fetchPursuits = async () => {
-      setIsLoading(true);
-      try {
-        // Get the current user
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        if (!user) {
-          console.log("No user logged in");
-          setIsLoading(false);
-          setPursuits([]);
-          return;
-        }
-        
-        // Simple query to just get the basic data
-        const { data, error } = await supabase
-          .from('pursuits')
-          .select('id, title, description, stage, created_at, user_id, due_date')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false });
-          
-        if (error) {
-          console.error("Fetch error:", error);
-          setError(`Failed to fetch pursuits: ${error.message}`);
-          setIsLoading(false);
-          return;
-        }
-        
-        // Transform to a simpler format with safe defaults
-        const formattedPursuits = data.map(pursuit => ({
-          id: pursuit.id,
-          title: pursuit.title || "Untitled",
-          description: pursuit.description || "",
-          stage: pursuit.stage || "Assessment",
-          created: new Date(pursuit.created_at).toLocaleDateString(),
-          dueDate: pursuit.due_date ? new Date(pursuit.due_date).toLocaleDateString() : "TBD",
-          assignee: "Unassigned",
-          assigneeInitials: "UA"
-        }));
-        
-        setPursuits(formattedPursuits);
-      } catch (error) {
-        console.error("Error fetching pursuits:", error);
-        setError(`Error fetching pursuits: ${error.message}`);
-        setPursuits([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
     fetchPursuits();
     
     // Set up real-time subscription for changes
@@ -153,14 +198,51 @@ export default function Pursuits() {
     };
   }, []);
   
-  const handlePursuitSelect = (pursuit) => {
-    setSelectedPursuit(pursuit);
+  // Modify the handlePursuitSelect function
+  const handlePursuitSelect = async (pursuit: Pursuit): Promise<void> => {
+    try {
+      // Fetch the noticeId from the sam_gov table using the naics_code
+      const { data, error } = await supabase
+        .from('sam_gov')
+        .select('notice_id')
+        .eq('title', pursuit.title)
+        .single();
+
+      if (error) {
+        console.error("Error fetching noticeId:", error);
+        toast?.error("Failed to fetch notice ID. Please try again.");
+        return;
+      }
+
+      if (data) {
+        const noticeId = data.notice_id;
+        // Redirect to the specified URL
+        window.location.href = `https://sam.gov/opp/${noticeId}/view`;
+      } else {
+        toast?.error("No notice ID found for the selected pursuit.");
+      }
+    } catch (error) {
+      console.error("Error in handlePursuitSelect:", error);
+      toast?.error("An unexpected error occurred. Please try again.");
+    }
   };
   
   // Replace the handleRemovePursuit function
-  const handleRemovePursuit = async (id) => {
+  const handleRemovePursuit = async (id: string): Promise<void> => {
     try {
-      // First delete any associated assignees
+      // First delete any associated RFP responses
+      const { error: rfpError } = await supabase
+        .from('rfp_responses')
+        .delete()
+        .eq('pursuit_id', id);
+        
+      if (rfpError) {
+        console.error("Error removing RFP responses:", rfpError);
+        toast?.error(`Error removing RFP responses: ${rfpError.message}`);
+        throw rfpError;
+      }
+      
+      // Then delete any associated assignees
       const { error: assigneeError } = await supabase
         .from('pursuit_assignees')
         .delete()
@@ -193,30 +275,121 @@ export default function Pursuits() {
       }
       
       toast?.success("Pursuit removed successfully");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error removing pursuit:", error);
       toast?.error("Failed to remove pursuit. Please try again.");
     }
   };
   
-  const getStageColor = (stage) => {
+  const getStageColor = (stage: string): string => {
+    // Check if the stage contains "RFP Response Initiated"
+    if (stage.includes("RFP Response Initiated")) {
+      return "bg-yellow-100 text-yellow-800";
+    }
+    
+    // Handle other stages
     switch(stage) {
       case "Assessment":
-        return "bg-amber-100 text-amber-800";
+        return "bg-orange-100 text-orange-800"; // Changed to orange
       case "Planning":
         return "bg-blue-100 text-blue-800";
       case "Implementation":
         return "bg-purple-100 text-purple-800";
       case "Review":
-        return "bg-green-100 text-green-800";
+        return "bg-indigo-100 text-indigo-800";
+      case "RFP Response Completed":
+        return "bg-green-100 text-green-800"; // Changed to green
       default:
         return "bg-gray-100 text-gray-800";
     }
   };
   
-  const changeView = (newView) => {
+  // Add a button in the pursuit list view to create/edit RFP responses
+  const renderRfpActionButton = (pursuit: Pursuit): JSX.Element => {
+    // Determine button text based on the stage
+    let buttonText = "Create Response";
+    let icon = <PenLine className="w-3 h-3" />;
+    
+    if (pursuit.is_submitted) {
+      buttonText = "View Submitted";
+      icon = <CheckCircle className="w-3 h-3" />;
+    } else if (pursuit.stage === "RFP Response Completed") {
+      buttonText = "Edit Response";
+      icon = <PenLine className="w-3 h-3" />;
+    } else if (pursuit.stage.includes("RFP Response Initiated")) {
+      buttonText = "Continue Response";
+      icon = <PenLine className="w-3 h-3" />;
+    }
+    
+    return (
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          openRfpBuilder(pursuit);
+        }}
+        className="ml-2 px-3 py-1 text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-full transition-colors flex items-center gap-1"
+      >
+        {icon} {buttonText}
+      </button>
+    );
+  };
+  
+  const changeView = (newView: string): void => {
     setView(newView);
   };
+
+  // Function to toggle submission status
+  const handleToggleSubmission = async (pursuitId: string): Promise<void> => {
+    try {
+      // Update the pursuit to mark it as submitted
+      const { error } = await supabase
+        .from('pursuits')
+        .update({ is_submitted: true })
+        .eq('id', pursuitId);
+      
+      if (error) {
+        console.error("Error updating submission status:", error);
+        toast?.error(`Failed to mark as submitted: ${error.message}`);
+        return;
+      }
+      
+      // Update the local state
+      setPursuits(pursuits.map(pursuit => 
+        pursuit.id === pursuitId 
+          ? { ...pursuit, is_submitted: true } 
+          : pursuit
+      ));
+      
+      toast?.success("Proposal marked as submitted!");
+    } catch (error: any) {
+      console.error("Error toggling submission:", error);
+      toast?.error("Failed to update submission status. Please try again.");
+    }
+  };
+
+  useEffect(() => {
+    const handleRfpSaved = (event: CustomEvent<{ pursuitId: string; stage: string }>) => {
+      const { pursuitId, stage } = event.detail;
+
+      console.log("RFP saved event received:", { pursuitId, stage });
+
+      // Find the pursuit in your list and update its stage
+      setPursuits(prevPursuits => 
+        prevPursuits.map(pursuit => 
+          pursuit.id === pursuitId 
+            ? { ...pursuit, stage: stage } 
+            : pursuit
+        )
+      );
+    };
+
+    window.addEventListener('rfp_saved', handleRfpSaved);
+
+    // Cleanup the event listener on component unmount
+    return () => {
+      window.removeEventListener('rfp_saved', handleRfpSaved);
+    };
+  }, []);
 
   // Show loading state
   if (isLoading) {
@@ -246,6 +419,33 @@ export default function Pursuits() {
           <span>Pursuit added successfully!</span>
         </div>
       )}
+      
+      {/* RFP Builder Modal */}
+      {showRfpBuilder && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-start overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-xl w-full mx-auto relative">
+            <div className="sticky top-0 bg-white z-10 p-4 border-b flex justify-between items-center">
+              <h2 className="text-xl font-bold">RFP Response Builder</h2>
+              <button
+                onClick={closeRfpBuilder}
+                className="text-gray-500 hover:text-gray-700 p-1 bg-gray-100 rounded-full"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="overflow-y-auto">
+              {currentRfpPursuitId && (
+                <RfpResponse 
+                  contract={selectedPursuit} 
+                  pursuitId={currentRfpPursuitId} 
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
         <SideBar />
@@ -293,9 +493,9 @@ export default function Pursuits() {
                 </button>
               </div>
               
-                <button className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg shadow-sm transition-colors">
-                  <span>New Pursuit</span>
-                </button>
+              <button className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg shadow-sm transition-colors">
+                <span>New Pursuit</span>
+              </button>
             </div>
           </div>
 
@@ -333,7 +533,7 @@ export default function Pursuits() {
               <div className="flex flex-col items-center justify-center h-[60vh]">
                 <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full mb-5">
                   <FileText className="w-8 h-8 text-gray-400" />
-                  </div>
+                </div>
                 <h3 className="text-xl font-medium text-gray-500 mb-2">No pursuits added</h3>
                 <p className="text-gray-400 max-w-md mb-6 text-center">
                   Explore opportunities and add them to your pursuits list to track them here.
@@ -345,78 +545,97 @@ export default function Pursuits() {
                   <Search className="w-4 h-4" />
                   <span>Find Opportunities</span>
                 </Link>
-                </div>
-              ) : (
-                  <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Pursuit
-                            </th>
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Stage
-                            </th>
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Created
-                            </th>
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Due Date
-                            </th>
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Assignees
-                            </th>
-                            <th scope="col" className="relative px-4 py-3 w-10">
-                              <span className="sr-only">Actions</span>
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {pursuits.map((pursuit, index) => (
-                            <tr 
-                              key={pursuit.id} 
-                              className={`group ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition-colors cursor-pointer`}
-                              onClick={() => handlePursuitSelect(pursuit)}
-                            >
-                              <td className="px-4 py-4 whitespace-nowrap">
-                                <div className="text-sm font-medium text-gray-900 group-hover:text-blue-600 transition-colors">{pursuit.title}</div>
-                              </td>
-                              <td className="px-4 py-4 whitespace-nowrap">
-                                <span className={`px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStageColor(pursuit.stage)}`}>
-                                  {pursuit.stage}
-                                </span>
-                              </td>
-                              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {pursuit.created}
-                              </td>
-                              <td className="px-4 py-4 whitespace-nowrap">
-                                <div className="text-sm text-red-600 font-medium">
-                                  {pursuit.dueDate !== "TBD" ? pursuit.dueDate : "No Due Date Set"}
-                                </div>
-                              </td>
-                              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                                <div className="flex items-center">
-                                  <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-medium shadow-sm">
-                                    {pursuit.assigneeInitials}
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
+              </div>
+            ) : (
+              <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Pursuit
+                        </th>
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Stage
+                        </th>
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Created
+                        </th>
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Due Date
+                        </th>
+                        <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Submitted
+                        </th>
+                        <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pursuits.map((pursuit, index) => (
+                        <tr 
+                          key={pursuit.id} 
+                          className={`group ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition-colors cursor-pointer`}
+                          onClick={() => handlePursuitSelect(pursuit)}
+                        >
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900 group-hover:text-blue-600 transition-colors">{pursuit.title}</div>
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            <span className={`px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStageColor(pursuit.stage)}`}>
+                              {pursuit.stage}
+                            </span>
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {pursuit.created}
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            <div className="text-sm text-red-600 font-medium">
+                              {pursuit.dueDate !== "TBD" ? pursuit.dueDate : "No Due Date Set"}
+                            </div>
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap text-sm text-center">
+                            {pursuit.is_submitted ? (
+                              <CheckSquare className="w-5 h-5 text-green-600 mx-auto" />
+                            ) : pursuit.stage === "RFP Response Completed" ? (
+                              <div className="flex justify-center">
                                 <button
-                              className="p-1.5 rounded-full text-gray-400 opacity-0 group-hover:opacity-100 hover:bg-white hover:text-red-600 transition-all"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                handleRemovePursuit(pursuit.id);
+                                    handleToggleSubmission(pursuit.id);
                                   }}
+                                  className="w-5 h-5 border border-gray-300 rounded flex items-center justify-center hover:bg-gray-100 transition-colors"
+                                  title="Mark as submitted"
                                 >
-                              <Trash2 size={18} />
+                                  <div className="w-3 h-3 rounded"></div>
                                 </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                              </div>
+                            ) : (
+                              <div className="flex justify-center tooltip relative">
+                                <div className="w-5 h-5 border border-gray-200 rounded bg-gray-100 opacity-60 cursor-not-allowed"></div>
+                                <div className="tooltip-text opacity-0 group-hover:opacity-100 absolute mt-8 -translate-x-1/2 left-1/2 p-2 bg-gray-800 text-white text-xs rounded w-48 transition-all pointer-events-none">
+                                  Please complete the RFP before submitting
+                                </div>
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemovePursuit(pursuit.id);
+                              }}
+                              className="p-1.5 rounded-full text-gray-400 hover:bg-red-100 hover:text-red-600 transition-all"
+                              title="Delete Pursuit"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             )}
