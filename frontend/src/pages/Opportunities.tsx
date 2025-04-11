@@ -539,17 +539,25 @@ export default function Opportunities() {
   };
 
   const handleBeginResponse = (contractId, contractData) => {
+    // Make sure we're capturing all needed fields with consistent naming
     const contract = {
       id: contractId,
       title: contractData.title || "Default Title",
-      agency: contractData.agency || "Default Agency",
-      dueDate: contractData.dueDate || "2025-01-01",
+      department: contractData.agency || contractData.department || "Default Agency", // Added department field
+      // agency: contractData.agency || contractData.department || "Default Agency",
+      dueDate: contractData.response_date || contractData.dueDate || "2025-01-01",
+      response_date: contractData.response_date || contractData.dueDate || "2025-01-01",
+      published_date: contractData.published_date || "",
       value: contractData.value || 0,
       status: contractData.status || "Open",
-      naicsCode: contractData.naicsCode || "000000", 
+      naicsCode: contractData.naics_code?.toString() || contractData.naicsCode || "000000",
+      solicitation_number: contractData.solicitation_number || "",
       description: contractData.description || "",
+      external_url: contractData.external_url || contractData.url || ""
     };
 
+    // Log to verify data is being set correctly
+    console.log("Saving contract to sessionStorage:", contract);
     sessionStorage.setItem("currentContract", JSON.stringify(contract));
     navigate(`/contracts/rfp/${contractId}`);
   };

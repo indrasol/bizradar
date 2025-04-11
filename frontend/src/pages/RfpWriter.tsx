@@ -15,15 +15,25 @@ export default function RfpWriter() {
     // Try to load contract data from sessionStorage
     const loadContractData = () => {
       try {
+        console.log("Attempting to load from sessionStorage");
         const storedContract = sessionStorage.getItem('currentContract');
+        console.log("Raw data from sessionStorage:", storedContract);
+        
         if (storedContract) {
           const parsedContract = JSON.parse(storedContract);
+          console.log("Parsed contract:", parsedContract);
           
           // Verify this is the correct contract by checking the ID
-          if (parsedContract.id === contractId) {
+          if (parsedContract.id && parsedContract.id.toString() === contractId) {
+            console.log("Contract ID matched, setting contract state");
             setContract(parsedContract);
             setLoading(false);
             return true;
+          } else {
+            console.log("Contract ID mismatch or missing:", {
+              parsedId: parsedContract.id,
+              urlId: contractId
+            });
           }
         }
         return false;
@@ -38,6 +48,7 @@ export default function RfpWriter() {
     
     // If not found in sessionStorage, fetch from API
     if (!contractLoaded) {
+      console.log("Contract not loaded from sessionStorage, fetching from API");
       fetchContractData();
     }
   }, [contractId]);
@@ -45,6 +56,8 @@ export default function RfpWriter() {
   const fetchContractData = async () => {
     setLoading(true);
     try {
+      console.log("Fetching contract data for ID:", contractId);
+      
       // You would replace this with your actual API call
       // For demonstration, using a timeout to simulate API call
       setTimeout(() => {
@@ -52,14 +65,15 @@ export default function RfpWriter() {
         const fallbackData = {
           id: contractId,
           title: `Contract ${contractId}`,
-          agency: "Unknown Agency",
+          department: "Unknown Agency",
           dueDate: "2025-03-31",
           value: 100000,
           status: "Open",
-          naicsCode: "000000",
+          naicsCode: "000000", 
           description: "This is a placeholder description for the contract. In a real implementation, this would be fetched from your API."
         };
         
+        console.log("Setting fallback contract data:", fallbackData);
         setContract(fallbackData);
         setLoading(false);
       }, 1000);
@@ -142,6 +156,8 @@ export default function RfpWriter() {
       </div>
     );
   }
+
+  console.log("Rendering RfpContainer with contract:", contract);
 
   return (
     <div className="h-screen flex flex-col">

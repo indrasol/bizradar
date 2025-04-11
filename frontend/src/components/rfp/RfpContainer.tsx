@@ -2,71 +2,276 @@ import React, { useState, useEffect } from 'react';
 import { RfpOverview } from './RfpOverview';
 import RfpResponse from './rfpResponse';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Loader2, Eye } from 'lucide-react';
+import { Loader2, Eye, Download, AlertCircle, Info } from 'lucide-react';
+import { supabase } from '../../utils/supabase';
+import { toast } from 'sonner';
 
-interface RfpContainerProps {
-  initialContent?: string;
-  contract?: any; // Replace with proper contract type
-}
-
-export function RfpContainer({ initialContent = '', contract }: RfpContainerProps) {
+/**
+ * Container component for RFP (Request for Proposal) workflow
+ * Handles the display of RFP overview and response generation
+ */
+export function RfpContainer({ initialContent = '', contract }) {
   const [showEditor, setShowEditor] = useState(false);
   const [generatingRfp, setGeneratingRfp] = useState(false);
+  const [viewDescription, setViewDescription] = useState(false);
+  const [descriptionContent, setDescriptionContent] = useState('');
+  const [existingRfpData, setExistingRfpData] = useState(null);
+  const [isCheckingExisting, setIsCheckingExisting] = useState(true);
+  
+  // Add debugging to check the contract data
+  useEffect(() => {
+    console.log("RfpContainer received contract:", contract);
+  }, [contract]);
 
+  // Check if there's already an RFP response for this contract
+  useEffect(() => {
+    const checkExistingRfp = async () => {
+      if (!contract?.id) return;
+      
+      try {
+        setIsCheckingExisting(true);
+        
+        // Get the current user
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (!user) {
+          console.log("No user logged in");
+          setIsCheckingExisting(false);
+          return;
+        }
+        
+        // Check if there's an existing RFP response
+        const { data, error } = await supabase
+          .from('rfp_responses')
+          .select('*')
+          .eq('pursuit_id', contract.id)
+          .single();
+          
+        if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned" error
+          console.error("Error checking existing RFP:", error);
+          toast?.error("Failed to check for existing RFP data.");
+        }
+        
+        if (data) {
+          console.log("Found existing RFP data:", data);
+          setExistingRfpData(data);
+          
+          // If there's existing data and it's in progress, show the editor
+          if (data.is_submitted !== true) {
+            setShowEditor(true);
+          }
+        }
+      } catch (error) {
+        console.error("Error in checkExistingRfp:", error);
+      } finally {
+        setIsCheckingExisting(false);
+      }
+    };
+    
+    checkExistingRfp();
+  }, [contract?.id]);
+
+  // Function to handle generating a new RFP response
   const handleGenerateRfp = async () => {
     setShowEditor(true);
     setGeneratingRfp(true);
 
-    setTimeout(() => {
-      setGeneratingRfp(false);
-    }, 1200);
+    try {
+      // Get the current user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        console.log("No user logged in");
+        toast?.error("You must be logged in to generate an RFP response.");
+        setGeneratingRfp(false);
+        return;
+      }
+      
+      // If there's no existing RFP response, create one
+      if (!existingRfpData) {
+        // Create a placeholder RFP response
+        const { data, error } = await supabase
+          .from('rfp_responses')
+          .insert({
+            pursuit_id: contract.id,
+            user_id: user.id,
+            content: {
+              companyName: 'BizRadar Solutions',
+              rfpTitle: contract?.title || 'RFP Response',
+              rfpNumber: contract?.solicitation_number || '',
+              issuedDate: contract?.published_date || new Date().toLocaleDateString(),
+              sections: []
+            },
+            is_submitted: false
+          })
+          .select();
+          
+        if (error) {
+          console.error("Error creating RFP response:", error);
+          toast?.error("Failed to create RFP response. Please try again.");
+        } else if (data) {
+          setExistingRfpData(data[0]);
+        }
+      }
+      
+      // Update the pursuit's stage to indicate RFP response has been initiated
+      await supabase
+        .from('pursuits')
+        .update({ stage: 'RFP Response Initiated' })
+        .eq('id', contract.id);
+        
+      // Dispatch the custom event
+      const customEvent = new CustomEvent('rfp_saved', { 
+        detail: { 
+          pursuitId: contract.id, 
+          stage: 'RFP Response Initiated'
+        } 
+      });
+      
+      window.dispatchEvent(customEvent);
+        
+    } catch (error) {
+      console.error("Error in handleGenerateRfp:", error);
+      toast?.error("An error occurred. Please try again.");
+    } finally {
+      // Simulate loading for a better UX
+      setTimeout(() => {
+        setGeneratingRfp(false);
+      }, 1200);
+    }
+  };
+
+  // Handle opening the full description in a modal
+  const handleViewDescription = () => {
+    console.log("View description clicked, contract:", contract);
+    
+    if (contract?.external_url) {
+      // If there's an external URL, open it in a new tab
+      console.log("Opening external URL:", contract.external_url);
+      window.open(contract.external_url, '_blank');
+    } else if (contract?.description) {
+      // Otherwise show the description in a modal
+      console.log("Setting description content:", contract.description);
+      setDescriptionContent(contract.description);
+      setViewDescription(true);
+    } else {
+      console.log("No description available");
+      toast?.error("No description available for this opportunity.");
+    }
+  };
+
+  // Handle downloading the current RFP state
+  const handleDownloadRfp = () => {
+    if (!existingRfpData) {
+      toast?.info("Generate an RFP response first.");
+      return;
+    }
+    
+    // This would be implemented to generate and download the RFP document
+    toast?.info("Download functionality will be implemented in a future update.");
   };
 
   return (
     <div className="min-h-[calc(100vh-8rem)] bg-[#f9fafb] relative">
+      {/* Description Modal */}
+      {viewDescription && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-start overflow-y-auto p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 my-8 relative">
+            <div className="sticky top-0 bg-white z-10 p-4 border-b flex justify-between items-center">
+              <h2 className="text-xl font-bold">RFP Description</h2>
+              <button
+                onClick={() => setViewDescription(false)}
+                className="text-gray-500 hover:text-gray-700 p-2 rounded-full hover:bg-gray-100"
+              >
+                <Eye className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto max-h-[70vh]">
+              <div className="prose max-w-none">
+                {descriptionContent || 'No detailed description available.'}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex h-full">
         <div className="w-full">
-          <div className="p-6">
-            <RfpOverview
-              title={contract?.title}
-              department={contract?.department}
-              dueDate={contract?.dueDate}
-              status={contract?.status}
-              naicsCode={contract?.naicsCode}
-              description={contract?.description}
-              solicitation_number={contract?.solicitation_number}
-              published_date={contract?.published_date}
-              onViewDescription={() => window.open(contract?.external_url || contract?.url || '', '_blank')}
-              onGenerateResponse={() => {}} // unused
-              onGenerateRfp={handleGenerateRfp}
-            />
-          </div>
-
-          <AnimatePresence>
-            {showEditor && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-4 w-full p-6"
-              >
-                <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-200">
-                  {generatingRfp ? (
-                    <div className="flex flex-col items-center justify-center h-64 p-6">
-                      <Loader2 size={32} className="animate-spin text-blue-500 mb-4" />
-                      <p className="text-gray-600 font-medium">
-                        Generating RFP response...
-                      </p>
-                      <p className="text-sm text-gray-500 mt-2">This may take a few moments</p>
+          {isCheckingExisting ? (
+            <div className="p-6 flex justify-center items-center h-40">
+              <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+            </div>
+          ) : (
+            <>
+              <div className="p-6">
+                {existingRfpData?.is_submitted ? (
+                  <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg flex items-start gap-3">
+                    <div className="p-1 bg-green-100 rounded-full">
+                      <Info className="w-5 h-5 text-green-600" />
                     </div>
-                  ) : (
-                    <>
-                      <RfpResponse contract={contract} pursuitId={contract?.id} />
-                    </>
-                  )}
+                    <div>
+                      <h3 className="font-medium text-green-800">RFP Response Submitted</h3>
+                      <p className="text-sm text-green-700">
+                        This RFP response has been marked as submitted. You can view it or download it below.
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
+                
+                <RfpOverview
+                  title={contract?.title}
+                  department={contract?.department}
+                  dueDate={contract?.dueDate || contract?.response_date}
+                  status={contract?.status}
+                  naicsCode={contract?.naicsCode}
+                  description={contract?.description}
+                  solicitation_number={contract?.solicitation_number}
+                  published_date={contract?.published_date}
+                  onViewDescription={handleViewDescription}
+                  onGenerateResponse={handleDownloadRfp}
+                  onGenerateRfp={handleGenerateRfp}
+                />
+              </div>
+
+              <AnimatePresence>
+                {showEditor && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mt-4 w-full p-6"
+                  >
+                    <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-200">
+                      {generatingRfp ? (
+                        <div className="flex flex-col items-center justify-center h-64 p-6">
+                          <Loader2 size={32} className="animate-spin text-blue-500 mb-4" />
+                          <p className="text-gray-600 font-medium">
+                            Generating RFP response...
+                          </p>
+                          <p className="text-sm text-gray-500 mt-2">This may take a few moments</p>
+                        </div>
+                      ) : (
+                        <>
+                          <RfpResponse contract={contract} pursuitId={contract?.id} />
+                        </>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              
+              {!showEditor && existingRfpData && (
+                <div className="px-6 mt-4">
+                  <button
+                    onClick={() => setShowEditor(true)}
+                    className="w-full p-4 border border-blue-300 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors"
+                  >
+                    <Eye className="w-5 h-5" />
+                    <span>View Existing RFP Response</span>
+                  </button>
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+              )}
+            </>
+          )}
         </div>
       </div>
     </div>
