@@ -1,19 +1,5 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ExternalLink, FileText, Building, Calendar, Tag, Hash, Clock, Sparkles, Download } from 'lucide-react';
-
-interface RfpOverviewProps {
-  title?: string;
-  department?: string;
-  dueDate?: string;
-  status?: string;
-  naicsCode?: string;
-  description?: string;
-  solicitation_number?: string;
-  published_date?: string;
-  onViewDescription: () => void;
-  onGenerateResponse: () => void;
-  onGenerateRfp: () => void; // New prop for Generate RFP action
-}
 
 export function RfpOverview({
   title = "Not specified",
@@ -22,12 +8,26 @@ export function RfpOverview({
   status = "Draft",
   naicsCode = "Not specified",
   description = "No description available",
-  solicitation_number,
-  published_date,
+  solicitation_number = "Not specified",
+  published_date = "Not specified",
   onViewDescription,
   onGenerateResponse,
-  onGenerateRfp // New handler for Generate RFP
-}: RfpOverviewProps) {
+  onGenerateRfp 
+}) {
+  // Add debugging to verify props are received
+  useEffect(() => {
+    console.log("RfpOverview received props:", {
+      title,
+      department,
+      dueDate,
+      status,
+      naicsCode,
+      description: description ? (description.length > 50 ? description.substring(0, 50) + "..." : description) : "None",
+      solicitation_number,
+      published_date
+    });
+  }, [title, department, dueDate, status, naicsCode, description, solicitation_number, published_date]);
+
   return (
     <div className="max-w-5xl mx-auto bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-200">
       {/* Header with title and status */}

@@ -21,10 +21,10 @@ const RfpResponse = ({ contract, pursuitId }) => {
   const [companyWebsite, setCompanyWebsite] = useState('https://www.bizradar.com');
   const [letterhead, setLetterhead] = useState('123 Innovation Drive, Suite 100, TechCity, TX 75001');
   const [phone, setPhone] = useState('(510) 754-2001');
-  const [rfpTitle, setRfpTitle] = useState('Proposal for Cybersecurity Audit & Penetration Testing Services');
+  const [rfpTitle, setRfpTitle] = useState(contract?.title || 'Proposal for Cybersecurity Audit & Penetration Testing Services');
   const [rfpNumber, setRfpNumber] = useState(exampleJob.solicitationNumber);
-  const [issuedDate, setIssuedDate] = useState('December 26th, 2024');
-  const [submittedBy, setSubmittedBy] = useState('Jane Smith, BizRadar (CEO)');
+  const [issuedDate, setIssuedDate] = useState(contract?.published_date || new Date().toLocaleDateString());
+  const [submittedBy, setSubmittedBy] = useState('Admin, BizRadar');
   const [expandedSection, setExpandedSection] = useState(null);
   const [theme, setTheme] = useState('professional'); // professional, modern, classic
 
@@ -34,6 +34,10 @@ const RfpResponse = ({ contract, pursuitId }) => {
   const [lastSaved, setLastSaved] = useState(null);
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
 
+  // Change these state variables
+  const [naicsCode, setNaicsCode] = useState(contract?.naicsCode || '000000');
+  const [solicitationNumber, setSolicitationNumber] = useState(contract?.solicitation_number || '');
+
   // Move the defaultTemplate function above the sections state declaration
   const defaultTemplate = (job) => [
     {
@@ -41,14 +45,14 @@ const RfpResponse = ({ contract, pursuitId }) => {
       title: 'COVER PAGE',
       content: `[Automatically generated from your company information]`,
       icon: 'cover',
-      completed: true
+      completed: false
     },
     {
       id: 2,
       title: 'TABLE OF CONTENTS',
       content: 'Executive Summary\nCompany Overview\nQualifications and Experience\nTechnical Approach\nProject Management Plan\nCompliance & Certifications\nPricing Structure\nReferences\nAppendices',
       icon: 'toc',
-      completed: true
+      completed: false
     },
     {
       id: 3,
@@ -62,7 +66,7 @@ const RfpResponse = ({ contract, pursuitId }) => {
       title: 'COMPANY OVERVIEW',
       content: `${companyName} is a leading provider of innovative solutions for government and commercial clients. With extensive experience in delivering high-quality services, we are well-positioned to meet the requirements outlined in this RFP.`,
       icon: 'company',
-      completed: true
+      completed: false
     },
     {
       id: 5,
@@ -142,7 +146,11 @@ const RfpResponse = ({ contract, pursuitId }) => {
           console.log("Successfully loaded saved RFP data");
         } else {
           console.log("No existing RFP response found, using default template");
-          // No saved data found, use default template
+          // No saved data found, use default template with contract data
+          setRfpTitle(contract?.title || 'Proposal for Cybersecurity Audit & Penetration Testing Services');
+          setNaicsCode(contract?.naicsCode || '000000');
+          setSolicitationNumber(contract?.solicitation_number || '');
+          setIssuedDate(contract?.published_date || new Date().toLocaleDateString());
           setSections(defaultTemplate(exampleJob));
         }
       } catch (err) {
@@ -197,7 +205,8 @@ const RfpResponse = ({ contract, pursuitId }) => {
         letterhead,
         phone,
         rfpTitle,
-        rfpNumber,
+        naicsCode,
+        solicitationNumber,
         issuedDate,
         submittedBy,
         theme,
@@ -499,7 +508,8 @@ const RfpResponse = ({ contract, pursuitId }) => {
                 <div className="mt-24 mb-24">
                   <h1 className="text-4xl font-bold text-center mb-8">{rfpTitle}</h1>
                   <div className="border-t border-b border-gray-300 py-6 text-center">
-                    <p className="font-semibold mb-2">REQUEST FOR PROPOSAL NUMBER: {rfpNumber}</p>
+                    <p className="font-semibold mb-2">NAICS CODE: {naicsCode}</p>
+                    <p className="font-semibold mb-2">SOLICITATION NUMBER: {solicitationNumber}</p>
                     <p>Issued: {issuedDate}</p>
                   </div>
                 </div>
@@ -687,12 +697,23 @@ const RfpResponse = ({ contract, pursuitId }) => {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">RFP Number</label>
+                <label className="block text-sm font-medium text-gray-600 mb-1">NAICS Code</label>
                 <input
                   type="text"
-                  value={rfpNumber}
-                  onChange={(e) => setRfpNumber(e.target.value)}
-                  placeholder="RFP Number"
+                  value={naicsCode}
+                  onChange={(e) => setNaicsCode(e.target.value)}
+                  placeholder="NAICS Code"
+                  className="w-full border border-gray-300 rounded-lg p-2 focus:ring-1 focus:ring-gray-400 focus:border-gray-400 focus:outline-none"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Solicitation Number</label>
+                <input
+                  type="text"
+                  value={solicitationNumber}
+                  onChange={(e) => setSolicitationNumber(e.target.value)}
+                  placeholder="Solicitation Number"
                   className="w-full border border-gray-300 rounded-lg p-2 focus:ring-1 focus:ring-gray-400 focus:border-gray-400 focus:outline-none"
                 />
               </div>
