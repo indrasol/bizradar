@@ -25,6 +25,12 @@ interface Opportunity {
   due_date?: string;
 }
 
+interface RfpSaveEventDetail {
+  pursuitId: string;
+  stage: string;
+  percentage: number;
+}
+
 export default function Pursuits(): JSX.Element {
   // Initialize with empty array and add loading/error states
   const [pursuits, setPursuits] = useState<Pursuit[]>([]);
@@ -368,12 +374,13 @@ export default function Pursuits(): JSX.Element {
   };
 
   useEffect(() => {
-    const handleRfpSaved = (event: CustomEvent<{ pursuitId: string; stage: string }>) => {
-      const { pursuitId, stage } = event.detail;
+    const handleRfpSaved = (event: Event): void => {
+      const customEvent = event as CustomEvent<RfpSaveEventDetail>;
+      const { pursuitId, stage, percentage } = customEvent.detail;
 
-      console.log("RFP saved event received:", { pursuitId, stage });
+      console.log("RFP saved event received:", { pursuitId, stage, percentage });
 
-      // Find the pursuit in your list and update its stage
+      // Update the pursuit in your list
       setPursuits(prevPursuits => 
         prevPursuits.map(pursuit => 
           pursuit.id === pursuitId 
@@ -383,6 +390,7 @@ export default function Pursuits(): JSX.Element {
       );
     };
 
+    // Add event listener
     window.addEventListener('rfp_saved', handleRfpSaved);
 
     // Cleanup the event listener on component unmount

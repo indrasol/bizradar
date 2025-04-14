@@ -20,21 +20,10 @@ export default function RfpWriter() {
         console.log("Raw data from sessionStorage:", storedContract);
         
         if (storedContract) {
-          const parsedContract = JSON.parse(storedContract);
-          console.log("Parsed contract:", parsedContract);
-          
-          // Verify this is the correct contract by checking the ID
-          if (parsedContract.id && parsedContract.id.toString() === contractId) {
-            console.log("Contract ID matched, setting contract state");
-            setContract(parsedContract);
-            setLoading(false);
-            return true;
-          } else {
-            console.log("Contract ID mismatch or missing:", {
-              parsedId: parsedContract.id,
-              urlId: contractId
-            });
-          }
+          console.log("Contract data found in sessionStorage");
+          setContract(JSON.parse(storedContract));
+          setLoading(false);
+          return true;
         }
         return false;
       } catch (error) {

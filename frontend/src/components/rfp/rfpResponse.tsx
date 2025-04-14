@@ -3,7 +3,28 @@ import { Download, Sparkles, PenLine, Image, Plus, Trash2, ChevronDown, ChevronU
 import { supabase } from '../../utils/supabase';
 import { toast } from "sonner";
 
+interface Section {
+  id: number;
+  title: string;
+  content: string;
+  icon: string;
+  completed: boolean;
+}
+
+interface RfpSaveEventDetail {
+  pursuitId: string;
+  stage: string;
+  percentage: number;
+}
+
 const RfpResponse = ({ contract, pursuitId }) => {
+  console.log("RfpResponse received contract:", contract);
+  console.log("RfpResponse received pursuitId prop:", pursuitId);
+  
+  // CRITICAL: Always use the explicitly passed pursuitId, not contract.id
+  const actualPursuitId = pursuitId || contract?.pursuitId || contract?.id;
+  console.log("RfpResponse using pursuit ID:", actualPursuitId);
+  
   const exampleJob = contract || {
     title: 'DA10--Retail Merchandising System (RMS) and the Oracle Retail Store Inventory Management (SIM)',
     dueDate: '2025-04-11',
@@ -39,7 +60,7 @@ const RfpResponse = ({ contract, pursuitId }) => {
   const [solicitationNumber, setSolicitationNumber] = useState(contract?.solicitation_number || '');
 
   // Move the defaultTemplate function above the sections state declaration
-  const defaultTemplate = (job) => [
+  const defaultTemplate = (job: any): Section[] => [
     {
       id: 1,
       title: 'COVER PAGE',
@@ -96,16 +117,16 @@ const RfpResponse = ({ contract, pursuitId }) => {
   // Load saved RFP data when component mounts
   useEffect(() => {
     const loadRfpData = async () => {
-      if (!pursuitId) return;
+      if (!actualPursuitId) return;
       
       try {
-        console.log("Loading RFP data for pursuit ID:", pursuitId);
+        console.log("Loading RFP data for pursuit ID:", actualPursuitId);
         
         // Fetch RFP response data for this pursuit
         const { data: responses, error } = await supabase
           .from('rfp_responses')
           .select('*')
-          .eq('pursuit_id', pursuitId);
+          .eq('pursuit_id', actualPursuitId);
         
         if (error) {
           console.error("Error loading RFP data:", error);
@@ -114,6 +135,8 @@ const RfpResponse = ({ contract, pursuitId }) => {
         }
         
         if (responses && responses.length > 0) {
+          // Existing opportunity with saved data found
+          console.log("Found existing RFP response data");
           const data = responses[0];
           
           if (data.content) {
@@ -130,8 +153,16 @@ const RfpResponse = ({ contract, pursuitId }) => {
             setIssuedDate(content.issuedDate || 'December 26th, 2024');
             setSubmittedBy(content.submittedBy || 'Jane Smith, BizRadar (CEO)');
             setTheme(content.theme || 'professional');
+            
+            // For existing opportunities, ALWAYS use their saved sections, EVEN if empty
+            // This preserves user's work (including if they deliberately deleted sections)
             if (Array.isArray(content.sections)) {
+              console.log(`Loading existing opportunity's sections: ${content.sections.length} sections found`);
               setSections(content.sections);
+            } else {
+              // This only happens if sections wasn't saved as an array type
+              console.log("Warning: saved sections is not an array, initializing empty sections");
+              setSections([]);
             }
           }
           
@@ -145,12 +176,15 @@ const RfpResponse = ({ contract, pursuitId }) => {
           
           console.log("Successfully loaded saved RFP data");
         } else {
-          console.log("No existing RFP response found, using default template");
-          // No saved data found, use default template with contract data
+          // New opportunity, no saved data found - use default template
+          console.log("No existing RFP response found, using default template for new opportunity");
           setRfpTitle(contract?.title || 'Proposal for Cybersecurity Audit & Penetration Testing Services');
           setNaicsCode(contract?.naicsCode || '000000');
           setSolicitationNumber(contract?.solicitation_number || '');
           setIssuedDate(contract?.published_date || new Date().toLocaleDateString());
+          
+          // Apply default template only for new opportunities
+          console.log("Initializing with default template sections");
           setSections(defaultTemplate(exampleJob));
         }
       } catch (err) {
@@ -160,11 +194,11 @@ const RfpResponse = ({ contract, pursuitId }) => {
     };
     
     loadRfpData();
-  }, [pursuitId]);
+  }, [actualPursuitId]);
   
   // Auto-save feature
   useEffect(() => {
-    if (!autoSaveEnabled || !pursuitId) return;
+    if (!autoSaveEnabled || !actualPursuitId) return;
     
     const autoSaveTimer = setTimeout(() => {
       saveRfpData(false); // Don't show notification for auto-save
@@ -174,28 +208,28 @@ const RfpResponse = ({ contract, pursuitId }) => {
   }, [
     logo, companyName, companyWebsite, letterhead, phone, 
     rfpTitle, rfpNumber, issuedDate, submittedBy, theme, sections,
-    autoSaveEnabled, pursuitId
+    autoSaveEnabled, actualPursuitId
   ]);
   
   // Function to save RFP data to the database
-  const saveRfpData = async (showNotification = true) => {
+  const saveRfpData = async (showNotification: boolean = true): Promise<void> => {
     try {
       setIsSaving(true);
       
-      // Determine the appropriate stage based on completion percentage
+      // Calculate completion percentage
       const completedSections = sections.filter(section => section.completed).length;
       const totalSections = sections.length;
+      const percentage = totalSections > 0 ? Math.round((completedSections / totalSections) * 100) : 0; // Avoid division by zero
       
-      let stageToSet;
-      if (completedSections === totalSections && totalSections > 0) {
+      // Determine the appropriate stage based on completion percentage
+      let stageToSet: string;
+      if (percentage === 100) {
         stageToSet = "RFP Response Completed";
-      } else if (completedSections > 0) {
+      } else if (percentage > 0) {
         stageToSet = "RFP Response Initiated";
       } else {
         stageToSet = "Assessment";
       }
-      
-      console.log("Saving RFP with stage:", stageToSet);
       
       // Prepare the content object to save
       const contentToSave = {
@@ -215,27 +249,53 @@ const RfpResponse = ({ contract, pursuitId }) => {
         stage: stageToSet
       };
       
-      // Store content in localStorage
-      localStorage.setItem(`rfp_response_${pursuitId || 'draft'}`, JSON.stringify(contentToSave));
+      // Get the current user
+      const { data: { user } } = await supabase.auth.getUser();
       
-      // Update last saved timestamp
-      setLastSaved(new Date().toLocaleTimeString());
+      if (!user) {
+        console.log("No user logged in");
+        toast?.error("You must be logged in to save your RFP response.");
+        return;
+      }
       
-      // Dispatch a custom event that the Pursuits component can listen for
-      console.log("Dispatching rfp_saved event with details:", { pursuitId, stage: stageToSet });
+      console.log("User ID:", user.id);
       
-      const customEvent = new CustomEvent('rfp_saved', { 
-        detail: { 
-          pursuitId, 
-          stage: stageToSet
-        } 
-      });
+      // Save to rfp_responses table
+      const { data: rfpData, error: rfpError } = await supabase
+        .from('rfp_responses')
+        .upsert({
+          pursuit_id: actualPursuitId, // Use the correct ID here
+          user_id: user.id, // Explicitly provide user ID
+          content: contentToSave,
+          completion_percentage: percentage,
+          is_submitted: isSubmitted
+        })
+        .select('id');
+        
+      if (rfpError) {
+        console.error("Error saving RFP response:", rfpError);
+        toast?.error("Failed to save RFP response. Please try again.");
+        return; // Exit if there's an error
+      }
       
-      window.dispatchEvent(customEvent);
+      // Update the pursuit stage
+      const { error: pursuitError } = await supabase
+        .from('pursuits')
+        .update({ 
+          stage: stageToSet,
+          is_submitted: isSubmitted,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', actualPursuitId);
       
-      // Show success notification
+      if (pursuitError) {
+        console.error("Error updating pursuit stage:", pursuitError);
+        toast?.error("Failed to update pursuit stage. Please try again.");
+      }
+      
+      // Optionally show a success notification
       if (showNotification) {
-        toast?.success(`Saved with stage: ${stageToSet}`);
+        toast?.success("RFP response saved successfully!");
       }
       
     } catch (error) {
@@ -419,8 +479,8 @@ const RfpResponse = ({ contract, pursuitId }) => {
   // Function to close the RFP builder
   const closeRfpBuilder = (): void => {
     // Check if there's a current RFP pursuit ID
-    if (pursuitId) {
-      const savedData = localStorage.getItem(`rfp_response_${pursuitId}`);
+    if (actualPursuitId) {
+      const savedData = localStorage.getItem(`rfp_response_${actualPursuitId}`);
       if (savedData) {
         try {
           const parsedData = JSON.parse(savedData);
@@ -428,7 +488,7 @@ const RfpResponse = ({ contract, pursuitId }) => {
             // Update the pursuit stage in the local state
             setSections(prevSections => 
               prevSections.map(section => 
-                section.id === pursuitId
+                section.id === actualPursuitId
                   ? { ...section, stage: parsedData.stage }
                   : section
               )
