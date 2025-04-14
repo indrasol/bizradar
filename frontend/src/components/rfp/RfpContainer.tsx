@@ -6,6 +6,43 @@ import { Loader2, Eye, Download, AlertCircle, Info } from 'lucide-react';
 import { supabase } from '../../utils/supabase';
 import { toast } from 'sonner';
 
+interface RfpResponseData {
+  id: string;
+  pursuit_id: string;
+  user_id: string;
+  content: {
+    logo?: string;
+    companyName?: string;
+    companyWebsite?: string;
+    letterhead?: string;
+    phone?: string;
+    rfpTitle?: string;
+    naicsCode?: string;
+    solicitationNumber?: string;
+    issuedDate?: string;
+    submittedBy?: string;
+    theme?: string;
+    sections?: any[];
+    isSubmitted?: boolean;
+    stage?: string;
+  };
+  completion_percentage: number;
+  is_submitted: boolean;
+  created_at: string;
+  updated_at: string;
+  pursuits?: {
+    stage?: string;
+  }
+}
+
+interface PursuitData {
+  title: string;
+  description: string;
+  stage: string;
+  user_id: string;
+  due_date?: string;
+}
+
 /**
  * Container component for RFP (Request for Proposal) workflow
  * Handles the display of RFP overview and response generation
@@ -15,8 +52,9 @@ export function RfpContainer({ initialContent = '', contract }) {
   const [generatingRfp, setGeneratingRfp] = useState(false);
   const [viewDescription, setViewDescription] = useState(false);
   const [descriptionContent, setDescriptionContent] = useState('');
-  const [existingRfpData, setExistingRfpData] = useState(null);
-  const [isCheckingExisting, setIsCheckingExisting] = useState(true);
+  const [existingRfpData, setExistingRfpData] = useState<RfpResponseData | null>(null);
+  const [isCheckingExisting, setIsCheckingExisting] = useState<boolean>(true);
+  const [pursuitId, setPursuitId] = useState<string | null>(null);
   
   // Add debugging to check the contract data
   useEffect(() => {
@@ -25,7 +63,7 @@ export function RfpContainer({ initialContent = '', contract }) {
 
   // Check if there's already an RFP response for this contract
   useEffect(() => {
-    const checkExistingRfp = async () => {
+    const checkExistingRfp = async (): Promise<void> => {
       if (!contract?.id) return;
       
       try {
@@ -43,9 +81,10 @@ export function RfpContainer({ initialContent = '', contract }) {
         // Check if there's an existing RFP response
         const { data, error } = await supabase
           .from('rfp_responses')
-          .select('*')
+          .select('*, pursuits(stage)')
           .eq('pursuit_id', contract.id)
-          .single();
+          .eq('user_id', user.id)
+          .maybeSingle();
           
         if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned" error
           console.error("Error checking existing RFP:", error);
@@ -54,11 +93,17 @@ export function RfpContainer({ initialContent = '', contract }) {
         
         if (data) {
           console.log("Found existing RFP data:", data);
-          setExistingRfpData(data);
+          setExistingRfpData(data as RfpResponseData);
           
-          // If there's existing data and it's in progress, show the editor
+          // If there's existing data and it's not submitted, show the editor
           if (data.is_submitted !== true) {
             setShowEditor(true);
+          }
+          
+          // Update the contract's stage if needed
+          if ((data as any).pursuits?.stage) {
+            // This updates the local contract object to match the saved stage
+            contract.stage = (data as any).pursuits.stage;
           }
         }
       } catch (error) {
@@ -72,7 +117,7 @@ export function RfpContainer({ initialContent = '', contract }) {
   }, [contract?.id]);
 
   // Function to handle generating a new RFP response
-  const handleGenerateRfp = async () => {
+  const handleGenerateRfp = async (): Promise<void> => {
     setShowEditor(true);
     setGeneratingRfp(true);
 
@@ -87,13 +132,112 @@ export function RfpContainer({ initialContent = '', contract }) {
         return;
       }
       
-      // If there's no existing RFP response, create one
-      if (!existingRfpData) {
-        // Create a placeholder RFP response
+      // Initialize pursuitId with the contract ID
+      let pursuitId = contract.id;
+      let pursuitExists = false;
+      
+      // Check if the pursuit already exists
+      const { data: existingPursuit, error: checkError } = await supabase
+        .from('pursuits')
+        .select('id')
+        .eq('id', pursuitId)
+        .single();
+        
+      if (!checkError && existingPursuit) {
+        console.log("Pursuit exists with ID:", pursuitId);
+        pursuitExists = true;
+      } else {
+        console.log("Pursuit does not exist, checking by title");
+        
+        // Check if a pursuit with this title exists
+        const { data: titlePursuit, error: titleError } = await supabase
+          .from('pursuits')
+          .select('id')
+          .eq('title', contract.title)
+          .maybeSingle();
+          
+        if (!titleError && titlePursuit) {
+          // Use the existing pursuit ID
+          pursuitId = titlePursuit.id;
+          pursuitExists = true;
+          console.log("Found pursuit by title, ID:", pursuitId);
+        }
+      }
+      
+      // If no pursuit exists, create one
+      if (!pursuitExists) {
+        console.log("Creating new pursuit");
+        
+        // Format due_date properly - don't use 'TBD' strings
+        let formattedDueDate = null;
+        if (contract.dueDate && contract.dueDate !== "TBD" && contract.dueDate !== "Not specified") {
+          formattedDueDate = new Date(contract.dueDate).toISOString();
+        } else if (contract.response_date && contract.response_date !== "TBD" && contract.response_date !== "Not specified") {
+          formattedDueDate = new Date(contract.response_date).toISOString();
+        }
+        
+        const pursuitData: PursuitData = {
+          title: contract.title || "Untitled Opportunity",
+          description: contract.description || '',
+          stage: 'RFP Response Initiated',
+          user_id: user.id
+        };
+        
+        // Only add due_date if it's a valid date
+        if (formattedDueDate) {
+          pursuitData.due_date = formattedDueDate;
+        }
+        
+        const { data: newPursuit, error: createError } = await supabase
+          .from('pursuits')
+          .insert(pursuitData)
+          .select();
+          
+        if (createError) {
+          console.error("Error creating pursuit:", createError);
+          toast?.error("Failed to create pursuit. Please try again.");
+          setGeneratingRfp(false);
+          return;
+        }
+        
+        if (newPursuit && newPursuit.length > 0) {
+          const newPursuitId = newPursuit[0].id;
+          setPursuitId(newPursuitId);
+          pursuitId = newPursuitId;
+          console.log("Created new pursuit with ID:", newPursuitId);
+        }
+      }
+      
+      // Update contract with the correct pursuit ID
+      if (contract) {
+        console.log("Updating contract with correct pursuit ID:", pursuitId);
+        contract.pursuitId = pursuitId; // Update the contract with the new pursuit ID
+        contract.id = pursuitId; // Directly replace the original ID
+      }
+      
+      if (!pursuitExists) {
+        toast?.error("Failed to create or find pursuit.");
+        setGeneratingRfp(false);
+        return;
+      }
+      
+      // Now check if an RFP response already exists for this pursuit
+      const { data: existingResponse, error: responseError } = await supabase
+        .from('rfp_responses')
+        .select('*')
+        .eq('pursuit_id', pursuitId)
+        .maybeSingle();
+        
+      if (!responseError && existingResponse) {
+        console.log("Found existing RFP response:", existingResponse);
+        setExistingRfpData(existingResponse as RfpResponseData);
+      } else {
+        // Create a new RFP response
+        console.log("Creating new RFP response for pursuit ID:", pursuitId);
         const { data, error } = await supabase
           .from('rfp_responses')
           .insert({
-            pursuit_id: contract.id,
+            pursuit_id: pursuitId,
             user_id: user.id,
             content: {
               companyName: 'BizRadar Solutions',
@@ -102,6 +246,7 @@ export function RfpContainer({ initialContent = '', contract }) {
               issuedDate: contract?.published_date || new Date().toLocaleDateString(),
               sections: []
             },
+            completion_percentage: 0,
             is_submitted: false
           })
           .select();
@@ -110,21 +255,22 @@ export function RfpContainer({ initialContent = '', contract }) {
           console.error("Error creating RFP response:", error);
           toast?.error("Failed to create RFP response. Please try again.");
         } else if (data) {
-          setExistingRfpData(data[0]);
+          setExistingRfpData(data[0] as RfpResponseData);
         }
       }
       
-      // Update the pursuit's stage to indicate RFP response has been initiated
+      // Update the pursuit's stage
       await supabase
         .from('pursuits')
         .update({ stage: 'RFP Response Initiated' })
-        .eq('id', contract.id);
+        .eq('id', pursuitId);
         
       // Dispatch the custom event
       const customEvent = new CustomEvent('rfp_saved', { 
         detail: { 
-          pursuitId: contract.id, 
-          stage: 'RFP Response Initiated'
+          pursuitId: pursuitId, 
+          stage: 'RFP Response Initiated',
+          percentage: 0
         } 
       });
       
@@ -251,7 +397,10 @@ export function RfpContainer({ initialContent = '', contract }) {
                         </div>
                       ) : (
                         <>
-                          <RfpResponse contract={contract} pursuitId={contract?.id} />
+                          <RfpResponse 
+                            contract={contract} 
+                            pursuitId={pursuitId || contract?.pursuitId || contract?.id}
+                          />
                         </>
                       )}
                     </div>

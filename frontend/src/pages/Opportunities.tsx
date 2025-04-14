@@ -539,12 +539,14 @@ export default function Opportunities() {
   };
 
   const handleBeginResponse = (contractId, contractData) => {
+    console.log("Contract Data: ")
+    console.log(contractData);
     // Make sure we're capturing all needed fields with consistent naming
     const contract = {
       id: contractId,
       title: contractData.title || "Default Title",
       department: contractData.agency || contractData.department || "Default Agency", // Added department field
-      // agency: contractData.agency || contractData.department || "Default Agency",
+      noticeId:contractData.notice_id,
       dueDate: contractData.response_date || contractData.dueDate || "2025-01-01",
       response_date: contractData.response_date || contractData.dueDate || "2025-01-01",
       published_date: contractData.published_date || "",
@@ -559,7 +561,7 @@ export default function Opportunities() {
     // Log to verify data is being set correctly
     console.log("Saving contract to sessionStorage:", contract);
     sessionStorage.setItem("currentContract", JSON.stringify(contract));
-    navigate(`/contracts/rfp/${contractId}`);
+    navigate(`/contracts/rfp/${contractData.notice_id}`);
   };
 
   const forceRender = () => {

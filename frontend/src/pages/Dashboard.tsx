@@ -348,7 +348,7 @@ const BizRadarDashboard = () => {
 
           {/* Page content */}
           <div className="flex-1 p-6 overflow-auto">
-            <div className="max-w-7xl mx-auto">
+            <div className="max-w-9xl mx-auto">
               {/* User greeting */}
               <div className="flex items-center mb-8 bg-white rounded-xl p-6 shadow-sm border border-gray-200">
                 <div className="mr-6 w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center text-white text-xl font-bold shadow-md">
