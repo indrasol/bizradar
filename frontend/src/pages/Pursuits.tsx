@@ -486,21 +486,6 @@ export default function Pursuits(): JSX.Element {
             </div>
             
             <div className="flex items-center gap-3 ml-4">
-              <div className="flex bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
-                <button 
-                  className={`px-4 py-2 text-sm font-medium ${view === "active" ? "bg-blue-50 text-blue-600" : "text-gray-600 hover:bg-gray-50"} transition-colors`}
-                  onClick={() => changeView("active")}
-                >
-                  Active
-                </button>
-                <button 
-                  className={`px-4 py-2 text-sm font-medium ${view === "archived" ? "bg-blue-50 text-blue-600" : "text-gray-600 hover:bg-gray-50"} transition-colors`}
-                  onClick={() => changeView("archived")}
-                >
-                  Archived
-                </button>
-              </div>
-              
               <button className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg shadow-sm transition-colors">
                 <span>New Pursuit</span>
               </button>
