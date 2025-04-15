@@ -358,88 +358,89 @@ export default function Opportunities() {
 
     // Reset filters when doing a new search
     setFilterValues({
-      dueDate: "next_30_days",
-      postedDate: "past_week",
-      naicsCode: "",
-      opportunityType: ""
+        dueDate: "next_30_days",
+        postedDate: "past_week",
+        naicsCode: "",
+        opportunityType: ""
     });
 
     try {
-      const searchParams = {
-        query: query,
-        contract_type: null,
-        platform: null,
-        page: 1,
-        page_size: resultsPerPage,
-        due_date_filter: filterValues.dueDate,
-        posted_date_filter: filterValues.postedDate,
-        naics_code: filterValues.naicsCode,
-      };
+        const searchParams = {
+            query: query,
+            contract_type: null,
+            platform: null,
+            page: 1,
+            page_size: resultsPerPage,
+            due_date_filter: filterValues.dueDate,
+            posted_date_filter: filterValues.postedDate,
+            naics_code: filterValues.naicsCode,
+            is_new_search: true  // Flag this as a new search to trigger query refinement
+        };
 
-      const response = await fetch(`${API_BASE_URL}/search-opportunities`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(searchParams),
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      console.log("Search results:", data);
-      
-      // Check if the API returned a refined query
-      if (data.refined_query) {
-        setRefinedQuery(data.refined_query);
-        setShowRefinedQuery(true); // Show the refined query - no auto-hide
-      }
-      
-      if (data.results && Array.isArray(data.results)) {
-        setHasSearched(true);
-        
-        const formattedResults = data.results.map((job) => {
-          // Normalize platform name for display
-          let platformForDisplay = job.platform === "sam_gov" ? "sam.gov" : job.platform;
-
-          return {
-            id: job.id || `job-${Math.random()}-${Date.now()}`,
-            title: job.title || "Untitled Opportunity",
-            agency: job.agency || job.department || "Unknown Agency",
-            jurisdiction: "Federal",
-            type: "RFP",
-            posted: job.published_date || job.posted || "Recent",
-            dueDate: job.response_date || job.dueDate || "TBD",
-            value: job.value || Math.floor(Math.random() * 5000000) + 1000000,
-            status: job.active !== undefined ? (job.active ? "Active" : "Inactive") : "Active",
-            naicsCode: job.naics_code?.toString() || job.naicsCode || "000000",
-            platform: platformForDisplay,
-            description: job.description?.substring(0, 150) + "..." || 
-              "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
-            external_url: job.external_url || job.url || null,
-            url: job.url || null,
-            solicitation_number: job.solicitation_number || null,
-            notice_id: job.notice_id || null,
-            published_date: job.published_date || null,
-            response_date: job.response_date || null
-          };
+        const response = await fetch(`${API_BASE_URL}/search-opportunities`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(searchParams),
         });
         
-        setOpportunities(formattedResults);
-        setTotalResults(data.total || formattedResults.length);
-        setCurrentPage(data.page || 1);
-        setTotalPages(
-          data.total_pages || Math.ceil(data.total / resultsPerPage)
-        );
-      }
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log("Search results:", data);
+        
+        // Check if the API returned a refined query
+        if (data.refined_query) {
+            setRefinedQuery(data.refined_query);
+            setShowRefinedQuery(true); // Show the refined query - no auto-hide
+        }
+        
+        if (data.results && Array.isArray(data.results)) {
+            setHasSearched(true);
+            
+            const formattedResults = data.results.map((job) => {
+                // Normalize platform name for display
+                let platformForDisplay = job.platform === "sam_gov" ? "sam.gov" : job.platform;
+
+                return {
+                    id: job.id || `job-${Math.random()}-${Date.now()}`,
+                    title: job.title || "Untitled Opportunity",
+                    agency: job.agency || job.department || "Unknown Agency",
+                    jurisdiction: "Federal",
+                    type: "RFP",
+                    posted: job.published_date || job.posted || "Recent",
+                    dueDate: job.response_date || job.dueDate || "TBD",
+                    value: job.value || Math.floor(Math.random() * 5000000) + 1000000,
+                    status: job.active !== undefined ? (job.active ? "Active" : "Inactive") : "Active",
+                    naicsCode: job.naics_code?.toString() || job.naicsCode || "000000",
+                    platform: platformForDisplay,
+                    description: job.description?.substring(0, 150) + "..." || 
+                      "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
+                    external_url: job.external_url || job.url || null,
+                    url: job.url || null,
+                    solicitation_number: job.solicitation_number || null,
+                    notice_id: job.notice_id || null,
+                    published_date: job.published_date || null,
+                    response_date: job.response_date || null
+                };
+            });
+            
+            setOpportunities(formattedResults);
+            setTotalResults(data.total || formattedResults.length);
+            setCurrentPage(data.page || 1);
+            setTotalPages(
+                data.total_pages || Math.ceil(data.total / resultsPerPage)
+            );
+        }
     } catch (error) {
-      console.error("Error searching opportunities:", error);
+        console.error("Error searching opportunities:", error);
     } finally {
-      setIsSearching(false);
+        setIsSearching(false);
     }
-  };
+};
 
   const paginate = async (pageNumber) => {
     if (pageNumber === currentPage) return;
@@ -447,55 +448,57 @@ export default function Opportunities() {
     setIsSearching(true);
 
     try {
-      // Prepare parameters with current filters
-      const params = {
-        query: searchQuery,
-        contract_type: null,
-        platform: null,
-        page: pageNumber,
-        page_size: resultsPerPage
-      };
-      
-      // Add active filters
-      if (filterValues.dueDate && filterValues.dueDate !== "active_only") {
-        params["due_date_filter"] = filterValues.dueDate; // No linter error now
-      }
-      
-      if (filterValues.postedDate && filterValues.postedDate !== "all") {
-        params["posted_date_filter"] = filterValues.postedDate; // No linter error now
-      }
-      
-      if (filterValues.naicsCode && filterValues.naicsCode.trim() !== "") {
-        params["naics_code"] = filterValues.naicsCode.trim(); // No linter error now
-      }
+        // Prepare parameters with current filters and the existing refined query
+        const params = {
+            query: searchQuery,
+            contract_type: null,
+            platform: null,
+            page: pageNumber,
+            page_size: resultsPerPage,
+            is_new_search: false,              // Add this flag
+            existing_refined_query: refinedQuery // Pass the existing refined query
+        };
+        
+        // Add active filters
+        if (filterValues.dueDate && filterValues.dueDate !== "active_only") {
+            params["due_date_filter"] = filterValues.dueDate;
+        }
+        
+        if (filterValues.postedDate && filterValues.postedDate !== "all") {
+            params["posted_date_filter"] = filterValues.postedDate;
+        }
+        
+        if (filterValues.naicsCode && filterValues.naicsCode.trim() !== "") {
+            params["naics_code"] = filterValues.naicsCode.trim();
+        }
 
-      const response = await fetch(`${API_BASE_URL}/search-opportunities`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(params),
-      });
+        const response = await fetch(`${API_BASE_URL}/search-opportunities`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(params),
+        });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
 
-      const data = await response.json();
-      console.log(`Page ${pageNumber} data:`, data);
+        const data = await response.json();
+        console.log(`Page ${pageNumber} data:`, data);
 
-      if (data.results && Array.isArray(data.results)) {
-        setOpportunities(data.results);
-        setCurrentPage(data.page || pageNumber);
-        setTotalResults(data.total || 0);
-        setTotalPages(data.total_pages || 1);
-      }
+        if (data.results && Array.isArray(data.results)) {
+            setOpportunities(data.results);
+            setCurrentPage(data.page || pageNumber);
+            setTotalResults(data.total || 0);
+            setTotalPages(data.total_pages || 1);
+        }
     } catch (error) {
-      console.error(`Error fetching page ${pageNumber}:`, error);
+        console.error(`Error fetching page ${pageNumber}:`, error);
     } finally {
-      setIsSearching(false);
+        setIsSearching(false);
     }
-  };
+};
 
   // Pagination component
   const Pagination = () => {
