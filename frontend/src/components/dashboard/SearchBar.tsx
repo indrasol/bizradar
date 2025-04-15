@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 
 const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-const API_BASE_URL = isDevelopment ? 'http://localhost:5001' : 'https://bizradar-backend.onrender.com';
+const API_BASE_URL = isDevelopment ? 'http://localhost:5000' : 'https://bizradar-backend.onrender.com';
 
 interface SearchBarProps {
   selectionType: string;

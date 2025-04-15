@@ -5,7 +5,7 @@ interface ChatMessage {
 
 // Use a constant for the base API URL
 const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-const API_BASE_URL = isDevelopment ? 'http://localhost:5001' : 'https://bizradar-backend.onrender.com';
+const API_BASE_URL = isDevelopment ? 'http://localhost:5000' : 'https://bizradar-backend.onrender.com';
 
 export async function getAIResponse(messages: ChatMessage[], documentContent?: string) {
   try {

@@ -17,7 +17,7 @@ import {
 import SideBar from "../components/layout/SideBar";
 
 // Define the correct API base URL
-const API_BASE_URL = 'http://localhost:5001';
+const API_BASE_URL = 'http://localhost:5000';
 
 const Admin = () => {
   const [activeTab, setActiveTab] = useState("etl");
