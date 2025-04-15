@@ -64,6 +64,7 @@ interface SearchParams {
   due_date_filter?: string | null; // New property
   posted_date_filter?: string | null; // New property
   naics_code?: string | null; // New property
+  opportunity_type?: string | null; // New property for opportunity type
 }
 
 export default function Opportunities() {
@@ -374,7 +375,8 @@ export default function Opportunities() {
             due_date_filter: filterValues.dueDate,
             posted_date_filter: filterValues.postedDate,
             naics_code: filterValues.naicsCode,
-            is_new_search: true  // Flag this as a new search to trigger query refinement
+            is_new_search: true,  // Flag this as a new search to trigger query refinement
+            sort_by: sortBy  // Use the current sort type
         };
 
         const response = await fetch(`${API_BASE_URL}/search-opportunities`, {
@@ -456,7 +458,8 @@ export default function Opportunities() {
             page: pageNumber,
             page_size: resultsPerPage,
             is_new_search: false,              // Add this flag
-            existing_refined_query: refinedQuery // Pass the existing refined query
+            existing_refined_query: refinedQuery, // Pass the existing refined query
+            sort_by: sortBy  // Include current sort type
         };
         
         // Add active filters
@@ -703,32 +706,30 @@ export default function Opportunities() {
     // Removed jurisdiction and unspscCode
   });
 
-  // Add applyFilters function
+  // New state for job type
+  const [jobType, setJobType] = useState("All"); // Default to "All"
+
+  // Apply all filters function
   const applyFilters = async () => {
     setIsSearching(true);
     
-    // Prepare filter parameters with the new type
-    const filterParams: SearchParams = {
+    // Prepare filter parameters
+    const filterParams = {
       query: searchQuery,
       contract_type: null,
       platform: null,
-      page: 1,
+      page: 1,  // Reset to page 1 when applying filters
       page_size: resultsPerPage,
+      is_new_search: false,
+      existing_refined_query: refinedQuery,
+      sort_by: sortBy,
+      
+      // All filter values
+      due_date_filter: filterValues.dueDate,
+      posted_date_filter: filterValues.postedDate,
+      naics_code: filterValues.naicsCode,
+      opportunity_type: jobType  // Map jobType to opportunity_type
     };
-    
-    // Add date filters
-    if (filterValues.dueDate && filterValues.dueDate !== "active_only") {
-      filterParams.due_date_filter = filterValues.dueDate; // No linter error now
-    }
-    
-    if (filterValues.postedDate && filterValues.postedDate !== "all") {
-      filterParams.posted_date_filter = filterValues.postedDate; // No linter error now
-    }
-    
-    // Add NAICS code filter if present
-    if (filterValues.naicsCode && filterValues.naicsCode.trim() !== "") {
-      filterParams.naics_code = filterValues.naicsCode.trim(); // No linter error now
-    }
     
     try {
       console.log("Applying filters:", filterParams);
@@ -751,10 +752,9 @@ export default function Opportunities() {
       if (data.results && Array.isArray(data.results)) {
         setHasSearched(true);
         
+        // Process and set the results
         const formattedResults = data.results.map((job) => {
-          // Normalize platform name for display
-          let platformForDisplay = job.platform === "sam_gov" ? "sam.gov" : job.platform;
-
+          // Your existing result formatting logic
           return {
             id: job.id || `job-${Math.random()}-${Date.now()}`,
             title: job.title || "Untitled Opportunity",
@@ -766,7 +766,7 @@ export default function Opportunities() {
             value: job.value || Math.floor(Math.random() * 5000000) + 1000000,
             status: job.active !== undefined ? (job.active ? "Active" : "Inactive") : "Active",
             naicsCode: job.naics_code?.toString() || job.naicsCode || "000000",
-            platform: platformForDisplay,
+            platform: job.platform === "sam_gov" ? "sam.gov" : job.platform,
             description: job.description?.substring(0, 150) + "..." || 
               "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
             external_url: job.external_url || job.url || null,
@@ -792,23 +792,46 @@ export default function Opportunities() {
     }
   };
 
-  // Add a new state variable for job type
-  const [jobType, setJobType] = useState("All");
-
-  // Update the toggleFilter function to handle job type selection
+  // Update the opportunity type filter to use the applyFilters function
   const toggleJobType = (type) => {
     setJobType(type);
+    
+    // If we have search results, immediately apply the new filter
+    if (hasSearched) {
+      setTimeout(() => {
+        applyFilters();
+      }, 10);
+    }
   };
 
-  // Modify the opportunities rendering logic based on job type
-  const filteredOpportunities = opportunities.filter((opportunity) => {
-    if (jobType === "Federal") {
-      return opportunity.platform === "sam.gov"; // Show only sam.gov opportunities
-    } else if (jobType === "Freelancer") {
-      return opportunity.platform !== "sam.gov"; // Show only freelancer opportunities
+  // Similarly, update the other filter handlers to trigger applyFilters
+  const handleDueDateFilterChange = (value) => {
+    setFilterValues({...filterValues, dueDate: value});
+    
+    // If we have search results, immediately apply the new filter
+    if (hasSearched) {
+      setTimeout(() => {
+        applyFilters();
+      }, 10);
     }
-    return true; // Show all opportunities if "All" is selected
-  });
+  };
+
+  // Add similar handlers for other filters
+  const handlePostedDateFilterChange = (value) => {
+    setFilterValues({...filterValues, postedDate: value});
+    
+    // If we have search results, immediately apply the new filter
+    if (hasSearched) {
+      setTimeout(() => {
+        applyFilters();
+      }, 10);
+    }
+  };
+
+  const handleNaicsCodeChange = (e) => {
+    setFilterValues({...filterValues, naicsCode: e.target.value});
+    // Don't immediately apply for text input - use the "Apply Filters" button
+  };
 
   // Add this function to handle viewing details
   const handleViewDetails = (opportunity) => {
@@ -886,6 +909,75 @@ export default function Opportunities() {
       fetchOpportunity();
     }
   }, []);
+
+  const applySearchWithSort = async (newSortType) => {
+    setIsSearching(true);
+    
+    try {
+      const searchParams = {
+        query: searchQuery,
+        contract_type: null,
+        platform: null,
+        page: 1,  // Reset to page 1 when changing sort
+        page_size: resultsPerPage,
+        due_date_filter: filterValues.dueDate,
+        posted_date_filter: filterValues.postedDate,
+        naics_code: filterValues.naicsCode,
+        is_new_search: false,  // Not a new search, just resorting
+        existing_refined_query: refinedQuery,
+        sort_by: newSortType  // Add the sort parameter
+      };
+
+      const response = await fetch(`${API_BASE_URL}/search-opportunities`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(searchParams),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      // Update state with new sorted results
+      if (data.results && Array.isArray(data.results)) {
+        setOpportunities(data.results);
+        setTotalResults(data.total || data.results.length);
+        setCurrentPage(data.page || 1);
+        setTotalPages(data.total_pages || Math.ceil(data.total / resultsPerPage));
+      }
+    } catch (error) {
+      console.error("Error applying sort:", error);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleSortByChange = (newSortBy) => {
+    if (newSortBy === sortBy) return;  // No change
+    
+    setSortBy(newSortBy);
+    
+    // If we have search results already, reapply the search with the new sort
+    if (hasSearched) {
+      applySearchWithSort(newSortBy);
+    }
+  };
+
+  const [sortBy, setSortBy] = useState("relevance");  // Default to "relevance"
+
+  // Filtered opportunities based on job type
+  const filteredOpportunities = opportunities.filter((opportunity) => {
+    if (jobType === "Federal") {
+      return opportunity.platform === "sam.gov"; // Show only sam.gov opportunities
+    } else if (jobType === "Freelancer") {
+      return opportunity.platform !== "sam.gov"; // Show only freelancer opportunities
+    }
+    return true; // Show all opportunities if "All" is selected
+  });
 
   return (
     <div className="h-screen flex flex-col bg-gray-50 text-gray-800">
@@ -1009,7 +1101,6 @@ export default function Opportunities() {
                             { id: "next-30", value: "next_30_days", label: "Next 30 days" },
                             { id: "next-3", value: "next_3_months", label: "Next 3 months" },
                             { id: "next-12", value: "next_12_months", label: "Next 12 months" },
-                            { id: "custom-date-due", value: "custom_date", label: "Custom date" },
                           ].map((option) => (
                             <li key={option.id} className="flex items-center gap-2">
                               <input
@@ -1018,7 +1109,7 @@ export default function Opportunities() {
                                 name="due-date"
                                 className="accent-blue-500 w-4 h-4"
                                 checked={filterValues.dueDate === option.value}
-                                onChange={() => setFilterValues({ ...filterValues, dueDate: option.value })}
+                                onChange={() => handleDueDateFilterChange(option.value)}
                               />
                               <label htmlFor={option.id} className="text-sm text-gray-700">
                                 {option.label}
@@ -1257,13 +1348,20 @@ export default function Opportunities() {
               {/* Results tabs and counters */}
               <div className="border-b border-gray-200 px-5 py-2 bg-white flex items-center justify-between">
                 <div className="flex items-center gap-6">
-                  <div className={`py-3 px-1 border-b-2 ${selectedTab === 'newest' ? 'border-blue-500 text-blue-600 font-medium' : 'border-transparent text-gray-500 hover:text-gray-700'} cursor-pointer`} onClick={() => setSelectedTab('newest')}>
-                    Newest
-                  </div>
-                  <div className={`py-3 px-1 border-b-2 ${selectedTab === 'relevant' ? 'border-blue-500 text-blue-600 font-medium' : 'border-transparent text-gray-500 hover:text-gray-700'} cursor-pointer`} onClick={() => setSelectedTab('relevant')}>
+                  <div 
+                    className={`py-3 px-1 border-b-2 ${
+                      sortBy === 'relevance' ? 'border-blue-500 text-blue-600 font-medium' : 'border-transparent text-gray-500 hover:text-gray-700'
+                    } cursor-pointer`} 
+                    onClick={() => handleSortByChange('relevance')}
+                  >
                     Most Relevant
                   </div>
-                  <div className={`py-3 px-1 border-b-2 ${selectedTab === 'ending' ? 'border-blue-500 text-blue-600 font-medium' : 'border-transparent text-gray-500 hover:text-gray-700'} cursor-pointer`} onClick={() => setSelectedTab('ending')}>
+                  <div 
+                    className={`py-3 px-1 border-b-2 ${
+                      sortBy === 'ending_soon' ? 'border-blue-500 text-blue-600 font-medium' : 'border-transparent text-gray-500 hover:text-gray-700'
+                    } cursor-pointer`} 
+                    onClick={() => handleSortByChange('ending_soon')}
+                  >
                     Ending Soon
                   </div>
                 </div>

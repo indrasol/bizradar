@@ -21,8 +21,7 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 @search_router.post("/search-opportunities")
 async def search_job_opportunities(request: Request):
     """
-    Search for job opportunities based on query and optional filters.
-    Returns paginated job results.
+    Search for job opportunities with comprehensive filtering options.
     """
     try:
         data = await request.json()
@@ -31,38 +30,48 @@ async def search_job_opportunities(request: Request):
         platform = data.get("platform", None)
         page = int(data.get("page", 1))
         page_size = int(data.get("page_size", 7))
+        sort_by = data.get("sort_by", "relevance")
         
-        # NEW: Check if this is a new search or just pagination
+        # Get all filter values
+        due_date_filter = data.get("due_date_filter", None)
+        posted_date_filter = data.get("posted_date_filter", None)
+        naics_code = data.get("naics_code", None)
+        opportunity_type = data.get("opportunity_type", None)  # New filter
+        
+        # Handle refined query caching
         is_new_search = data.get("is_new_search", False)
         existing_refined_query = data.get("existing_refined_query", None)
 
         if not query:
             return {"results": [], "total": 0, "page": 1, "page_size": page_size, "total_pages": 0}
 
-        # Only refine the query for new searches, use existing refined query for pagination
+        # Only refine the query for new searches
         if is_new_search or not existing_refined_query:
             refined_query = refine_query(query, contract_type, platform)
-            # Reset to page 1 for new searches
             page = 1
         else:
-            # Use the existing refined query for pagination
             refined_query = existing_refined_query
-            logger.info(f"Using existing refined query: {refined_query}")
 
-        # Get all relevant results with the refined query
-        all_results = search_jobs(refined_query, contract_type, platform)
+        # Get all relevant results with all filters
+        all_results = search_jobs(
+            refined_query, 
+            contract_type, 
+            platform,
+            due_date_filter,
+            posted_date_filter,
+            naics_code,
+            opportunity_type,  # Pass the new filter
+            data.get("user_id"),
+            sort_by
+        )
         
-        # Log the actual number of results
-        logger.info(f"Total results found: {len(all_results)}")
-        
-        # Calculate pagination
+        # Pagination logic
         total_results = len(all_results)
         total_pages = (total_results + page_size - 1) // page_size if total_results > 0 else 0
         
         # Check if requested page is valid
         if page > total_pages and total_pages > 0:
             page = 1  # Reset to page 1 if requested page is out of bounds
-            logger.info(f"Requested page {page} exceeds total pages {total_pages}, resetting to page 1")
         
         # Calculate slice indices
         start_idx = (page - 1) * page_size
@@ -71,15 +80,13 @@ async def search_job_opportunities(request: Request):
         # Get the page results
         page_results = all_results[start_idx:end_idx]
         
-        logger.info(f"Pagination: page {page}/{total_pages}, showing items {start_idx + 1}-{end_idx} of {total_results}")
-        
         return {
             "results": page_results,
             "total": total_results,
             "page": page,
             "page_size": page_size,
             "total_pages": total_pages,
-            "refined_query": refined_query,  # Always include the refined query in the response
+            "refined_query": refined_query,
         }
     except Exception as e:
         logger.error(f"Error in search: {str(e)}")
@@ -103,7 +110,6 @@ async def get_ai_recommendations(request: Request):
             raise HTTPException(status_code=400, detail="Company description is required")
         
         # Call the service function to generate recommendations
-        # FIXED: Added 'await' keyword here
         recommendations = await generate_recommendations(
             company_url=company_url,
             company_description=company_description,

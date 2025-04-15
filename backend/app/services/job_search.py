@@ -5,6 +5,7 @@ import os
 import numpy as np
 from typing import List, Dict, Optional
 from utils.database import get_connection  # Import from utils/ (your postgres_connection renamed to database.py)
+from datetime import datetime  # Import datetime for date handling
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -52,9 +53,10 @@ def extract_id_from_pinecone(pinecone_id):
 
 def search_jobs(query: str, contract_type: Optional[str] = None, platform: Optional[str] = None,
                 due_date_filter: Optional[str] = None, posted_date_filter: Optional[str] = None,
-                naics_code: Optional[str] = None, user_id: Optional[str] = None) -> List[Dict]:
+                naics_code: Optional[str] = None, opportunity_type: Optional[str] = None,
+                user_id: Optional[str] = None, sort_by: Optional[str] = "relevance") -> List[Dict]:
     """
-    Enhanced search with re-ranking for better relevance and user interaction boosting.
+    Enhanced search with re-ranking for better relevance, ending soon, or newest sorting options.
     """
     try:
         # Extract query terms for re-ranking
@@ -153,8 +155,8 @@ def search_jobs(query: str, contract_type: Optional[str] = None, platform: Optio
             with connection.cursor() as cursor:
                 all_results = []
 
-                # Fetch SAM.gov records if we have IDs
-                if sam_gov_ids:
+                # Fetch SAM.gov records if we have IDs and not filtering for Freelancer only
+                if sam_gov_ids and (not opportunity_type or opportunity_type in ["All", "Federal"]):
                     # Start building the SQL query
                     sql_query = """
                         SELECT id, notice_id, solicitation_number, title, department, 
@@ -169,12 +171,14 @@ def search_jobs(query: str, contract_type: Optional[str] = None, platform: Optio
                     params = sam_gov_ids.copy()  # Start with the IDs
                     
                     # NAICS code filter - we still keep this filter if user explicitly requests it
-                    if naics_code:
-                        additional_conditions.append("naics_code = %s")
-                        params.append(naics_code)
+                    if naics_code and naics_code.strip():
+                        # Check if it's a number and handle it accordingly
+                        naics_code_value = naics_code.strip()
+                        additional_conditions.append("naics_code::text LIKE %s")
+                        params.append(f"%{naics_code_value}%")  # Using LIKE for partial matches
                     
                     # Posted date filter
-                    if posted_date_filter:
+                    if posted_date_filter and posted_date_filter != "all":
                         if posted_date_filter == "past_day":
                             additional_conditions.append("published_date >= CURRENT_DATE - INTERVAL '1 day'")
                         elif posted_date_filter == "past_week":
@@ -229,8 +233,8 @@ def search_jobs(query: str, contract_type: Optional[str] = None, platform: Optio
                         # All results are considered valid, no NAICS validation
                         all_results.append(result)
                 
-                # Fetch freelancer records if we have IDs
-                if freelancer_ids:
+                # Fetch freelancer records if we have IDs and not filtering for Federal only
+                if freelancer_ids and (not opportunity_type or opportunity_type in ["All", "Freelancer"]):
                     placeholders = ','.join(['%s'] * len(freelancer_ids))
                     # Include job_url in the query, map it to external_url
                     query_sql = f"""
@@ -270,67 +274,85 @@ def search_jobs(query: str, contract_type: Optional[str] = None, platform: Optio
                     except Exception as e:
                         logger.error(f"Error fetching user interactions: {str(e)}")
                 
-                # Re-rank results based on multiple factors
+                # Calculate all scoring factors regardless of sort type
                 for result in all_results:
-                    # Start with the original vector similarity score
-                    base_score = 0.5  # Default score
-                    
-                    # 1. Title-Based Re-Ranking
+                    # Base relevance scoring with increased weight for title matches
                     title = result.get('title', '').lower()
+                    title_exact_match = 1 if query.lower() in title else 0  # Check for exact query match
                     title_matches = sum(1 for term in query_terms if term in title)
                     
-                    # 2. Using Metadata for Scoring
+                    # Agency matches (secondary importance)
                     agency = result.get('agency', '').lower() or result.get('department', '').lower()
                     agency_matches = sum(1 for term in query_terms if term in agency)
                     
-                    # NAICS code exact match bonus
-                    naics_bonus = 0.15 if naics_code and str(result.get('naics_code', '')) == str(naics_code) else 0
-                    
-                    # 3. Term Frequency Analysis - weight by how many different terms match
+                    # Term frequency and n-gram matching
                     term_match_ratio = title_matches / len(query_terms) if query_terms else 0
-                    
-                    # 4. N-gram Matching
-                    # Create bi-grams (two consecutive words) from the query terms
                     query_words = [word for word in query.lower().replace('OR', ' ').replace('AND', ' ')
-                                  .replace('site:sam.gov', '').split() if word]
+                                .replace('site:sam.gov', '').split() if word]
                     query_bigrams = [f"{query_words[i]} {query_words[i+1]}" for i in range(len(query_words)-1)]
-                    
-                    # Check for bi-gram matches in the title
                     bigram_matches = sum(1 for bigram in query_bigrams if bigram in title)
                     
-                    # 5. User Interaction Boosting
-                    interaction_boost = 0
-                    result_id = str(result.get('id', ''))
-                    if result_id in user_interactions:
-                        interaction_boost = user_interactions[result_id] * 0.3  # 30% weight to user history
+                    # Calculate the due date difference for sorting by "ending soon"
+                    due_date_str = result.get('response_date') or result.get('dueDate')
+                    days_until_due = None
+                    if due_date_str:
+                        try:
+                            due_date = datetime.strptime(str(due_date_str).split('T')[0], '%Y-%m-%d')
+                            today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+                            days_until_due = (due_date - today).days
+                            
+                            # Only consider future dates and active opportunities
+                            if days_until_due < 0 or result.get('active') is False:
+                                days_until_due = float('inf')  # Push expired opportunities to the end
+                        except (ValueError, AttributeError):
+                            days_until_due = float('inf')
+                    else:
+                        days_until_due = float('inf')  # No due date means lowest priority for "ending soon"
                     
-                    # Domain-specific boosts based on NAICS code patterns
-                    domain_boost = 0
-                    if naics_code:
-                        naics = str(result.get('naics_code', ''))
-                        # Examples of domain-specific boosts
-                        cybersecurity_naics = ['541519', '541512']
-                        software_naics = ['541511']
-                        
-                        if 'cyber' in query.lower() and naics in cybersecurity_naics:
-                            domain_boost = 0.1
-                        elif 'software' in query.lower() and naics in software_naics:
-                            domain_boost = 0.1
+                    # Store all scoring components in the result
+                    result['relevance_components'] = {
+                        'title_exact_match': title_exact_match * 0.5,    # Huge boost for exact matches
+                        'title_matches': title_matches * 0.25,           # Increased weight for any title matches
+                        'agency_matches': agency_matches * 0.05,         # Lower weight for agency matches
+                        'term_match_ratio': term_match_ratio * 0.1,      # Decent weight for matching more terms
+                        'bigram_matches': bigram_matches * 0.15,         # Good weight for phrase matches
+                        'days_until_due': days_until_due
+                    }
                     
-                    # Combine all scores with appropriate weights
+                    # Calculate relevance score based on all components with title given highest priority
                     result['relevance_score'] = (
-                        base_score + 
-                        (title_matches * 0.15) +           # Title match bonus
-                        (agency_matches * 0.05) +          # Agency match bonus
-                        naics_bonus +                      # NAICS exact match bonus
-                        (term_match_ratio * 0.1) +         # Term frequency bonus
-                        (bigram_matches * 0.2) +           # N-gram matching (higher weight)
-                        interaction_boost +                # User interaction history
-                        domain_boost                       # Domain-specific relevance
+                        0.4 +  # Base score
+                        result['relevance_components']['title_exact_match'] +
+                        result['relevance_components']['title_matches'] +
+                        result['relevance_components']['agency_matches'] +
+                        result['relevance_components']['term_match_ratio'] +
+                        result['relevance_components']['bigram_matches']
                     )
                 
-                # Re-sort by the new relevance score
-                all_results.sort(key=lambda x: x.get('relevance_score', 0), reverse=True)
+                # Now sort based on the requested sort type
+                if sort_by == "ending_soon":
+                    # Sort by days until due date (ascending)
+                    all_results.sort(key=lambda x: x['relevance_components'].get('days_until_due', float('inf')))
+                    
+                    # Secondary sort: prioritize more relevant results that are due on the same day
+                    from itertools import groupby
+                    grouped_results = []
+                    for _, group in groupby(all_results, key=lambda x: x['relevance_components'].get('days_until_due', float('inf'))):
+                        group_list = list(group)
+                        group_list.sort(key=lambda x: x.get('relevance_score', 0), reverse=True)
+                        grouped_results.extend(group_list)
+                    all_results = grouped_results
+                    
+                elif sort_by == "newest":
+                    # Sort by published date (descending)
+                    all_results.sort(
+                        key=lambda x: datetime.strptime(str(x.get('published_date', '2000-01-01')).split('T')[0], '%Y-%m-%d') 
+                        if x.get('published_date') else datetime(2000, 1, 1),
+                        reverse=True
+                    )
+                else:  # Default to "relevance"
+                    # Sort by calculated relevance score (descending)
+                    all_results.sort(key=lambda x: x.get('relevance_score', 0), reverse=True)
                 
                 return all_results
         finally:
