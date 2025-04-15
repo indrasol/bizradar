@@ -33,4 +33,4 @@ app.include_router(admin_router)
 if __name__ == "__main__":
     import uvicorn
     # Run the server on port 5000 for local development
-    uvicorn.run(app, host="0.0.0.0", port=5000, reload=True)
+    uvicorn.run(app, host="0.0.0.0", port=5001, reload=True)

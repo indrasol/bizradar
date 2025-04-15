@@ -51,7 +51,7 @@ const isDevelopment =
   window.location.hostname === "localhost" ||
   window.location.hostname === "127.0.0.1";
 const API_BASE_URL = isDevelopment
-  ? "http://localhost:5000"
+  ? "http://localhost:5001"
   : "https://bizradar-backend.onrender.com";
 
 // Define a type for the request parameters
@@ -1291,7 +1291,7 @@ export default function Opportunities() {
               <div className="flex-1 overflow-y-auto p-5 results-container">
                 {/* Show loading state while searching */}
                 {isSearching && (
-                  <div className="p-6 mx-auto my-4 bg-white border border-gray-200 rounded-xl shadow-sm max-w-4xl">
+                  <div className="p-6 mx-auto my-4 bg-white border border-gray-200 rounded-xl shadow-sm max-w-8xl">
                     <div className="flex flex-col items-center justify-center py-6">
                       <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500"></div>
                       <p className="mt-4 text-gray-600 font-medium">Searching opportunities...</p>
@@ -1716,7 +1716,7 @@ export default function Opportunities() {
                     
                     {/* Dynamic Opportunity Cards - Only shown after a search */}
                     {hasSearched && !isSearching && opportunities.length > 0 ? (
-                      <div className="space-y-5 max-w-4xl mx-auto">
+                      <div className="space-y-5 max-w-8xl mx-auto">
                         {filteredOpportunities.map((opportunity) => (
                           <div
                             key={opportunity.id}
