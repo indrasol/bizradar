@@ -2825,3 +2825,258 @@ Testing search functionality...
 2025-04-07 02:08:45,041 - indexer - INFO - Results for freelancer: 3 matches
 2025-04-07 02:08:45,042 - indexer - INFO - 
 Indexing completed in 8.24 seconds!
+2025-04-15 00:51:06,143 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-04-15 00:51:06,154 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-04-15 00:51:14,861 - indexer - INFO - Running INCREMENTAL indexing (new/updated records only)...
+2025-04-15 00:51:14,862 - indexer - INFO - Checking Pinecone index before indexing...
+2025-04-15 00:51:15,379 - indexer - INFO - Index dimension: 384
+2025-04-15 00:51:15,380 - indexer - INFO - Total vectors: 759
+2025-04-15 00:51:15,380 - indexer - INFO - Namespaces: {'': {'vector_count': 759}}
+2025-04-15 00:51:15,380 - indexer - INFO - Starting to index SAM.gov records...
+2025-04-15 00:51:16,265 - indexer - INFO - Fetched 241 SAM.gov records from database since 2025-04-07T02:06:40.844857
+2025-04-15 00:51:21,344 - indexer - INFO - Vector sam_gov_1615 already exists in Pinecone, skipping
+2025-04-15 00:51:21,402 - indexer - INFO - Vector sam_gov_1616 already exists in Pinecone, skipping
+2025-04-15 00:51:21,447 - indexer - INFO - Vector sam_gov_1617 already exists in Pinecone, skipping
+2025-04-15 00:51:21,493 - indexer - INFO - Vector sam_gov_1618 already exists in Pinecone, skipping
+2025-04-15 00:51:21,537 - indexer - INFO - Vector sam_gov_1619 already exists in Pinecone, skipping
+2025-04-15 00:51:21,575 - indexer - INFO - Vector sam_gov_1620 already exists in Pinecone, skipping
+2025-04-15 00:51:21,609 - indexer - INFO - Vector sam_gov_1621 already exists in Pinecone, skipping
+2025-04-15 00:51:21,642 - indexer - INFO - Vector sam_gov_1622 already exists in Pinecone, skipping
+2025-04-15 00:51:21,677 - indexer - INFO - Vector sam_gov_1623 already exists in Pinecone, skipping
+2025-04-15 00:51:21,710 - indexer - INFO - Vector sam_gov_1624 already exists in Pinecone, skipping
+2025-04-15 00:51:21,749 - indexer - INFO - Vector sam_gov_1625 already exists in Pinecone, skipping
+2025-04-15 00:51:21,782 - indexer - INFO - Vector sam_gov_1626 already exists in Pinecone, skipping
+2025-04-15 00:51:21,825 - indexer - INFO - Vector sam_gov_1627 already exists in Pinecone, skipping
+2025-04-15 00:51:21,863 - indexer - INFO - Vector sam_gov_1628 already exists in Pinecone, skipping
+2025-04-15 00:51:21,898 - indexer - INFO - Vector sam_gov_1629 already exists in Pinecone, skipping
+2025-04-15 00:51:21,948 - indexer - INFO - Vector sam_gov_1630 already exists in Pinecone, skipping
+2025-04-15 00:51:21,980 - indexer - INFO - Vector sam_gov_1631 already exists in Pinecone, skipping
+2025-04-15 00:51:22,031 - indexer - INFO - Vector sam_gov_1632 already exists in Pinecone, skipping
+2025-04-15 00:51:22,063 - indexer - INFO - Vector sam_gov_1633 already exists in Pinecone, skipping
+2025-04-15 00:51:22,097 - indexer - INFO - Vector sam_gov_1634 already exists in Pinecone, skipping
+2025-04-15 00:51:22,132 - indexer - INFO - Vector sam_gov_1635 already exists in Pinecone, skipping
+2025-04-15 00:51:22,176 - indexer - INFO - Vector sam_gov_1636 already exists in Pinecone, skipping
+2025-04-15 00:51:22,209 - indexer - INFO - Vector sam_gov_1637 already exists in Pinecone, skipping
+2025-04-15 00:51:22,244 - indexer - INFO - Vector sam_gov_1638 already exists in Pinecone, skipping
+2025-04-15 00:51:22,286 - indexer - INFO - Vector sam_gov_1639 already exists in Pinecone, skipping
+2025-04-15 00:51:22,330 - indexer - INFO - Vector sam_gov_1640 already exists in Pinecone, skipping
+2025-04-15 00:51:22,381 - indexer - INFO - Vector sam_gov_1641 already exists in Pinecone, skipping
+2025-04-15 00:51:22,421 - indexer - INFO - Vector sam_gov_1642 already exists in Pinecone, skipping
+2025-04-15 00:51:22,460 - indexer - INFO - Vector sam_gov_1643 already exists in Pinecone, skipping
+2025-04-15 00:51:22,509 - indexer - INFO - Vector sam_gov_1644 already exists in Pinecone, skipping
+2025-04-15 00:51:22,541 - indexer - INFO - Vector sam_gov_1645 already exists in Pinecone, skipping
+2025-04-15 00:51:22,577 - indexer - INFO - Vector sam_gov_1646 already exists in Pinecone, skipping
+2025-04-15 00:51:22,605 - indexer - INFO - Vector sam_gov_1647 already exists in Pinecone, skipping
+2025-04-15 00:51:22,642 - indexer - INFO - Vector sam_gov_1648 already exists in Pinecone, skipping
+2025-04-15 00:51:22,672 - indexer - INFO - Vector sam_gov_1649 already exists in Pinecone, skipping
+2025-04-15 00:51:22,705 - indexer - INFO - Vector sam_gov_1650 already exists in Pinecone, skipping
+2025-04-15 00:51:22,753 - indexer - INFO - Vector sam_gov_1651 already exists in Pinecone, skipping
+2025-04-15 00:51:22,783 - indexer - INFO - Vector sam_gov_1652 already exists in Pinecone, skipping
+2025-04-15 00:51:22,813 - indexer - INFO - Vector sam_gov_1653 already exists in Pinecone, skipping
+2025-04-15 00:51:22,850 - indexer - INFO - Vector sam_gov_1654 already exists in Pinecone, skipping
+2025-04-15 00:51:22,884 - indexer - INFO - Vector sam_gov_1655 already exists in Pinecone, skipping
+2025-04-15 00:51:22,919 - indexer - INFO - Vector sam_gov_1656 already exists in Pinecone, skipping
+2025-04-15 00:51:22,961 - indexer - INFO - Vector sam_gov_1657 already exists in Pinecone, skipping
+2025-04-15 00:51:22,991 - indexer - INFO - Vector sam_gov_1658 already exists in Pinecone, skipping
+2025-04-15 00:51:23,024 - indexer - INFO - Vector sam_gov_1659 already exists in Pinecone, skipping
+2025-04-15 00:51:23,065 - indexer - INFO - Vector sam_gov_1660 already exists in Pinecone, skipping
+2025-04-15 00:51:23,098 - indexer - INFO - Vector sam_gov_1661 already exists in Pinecone, skipping
+2025-04-15 00:51:23,132 - indexer - INFO - Vector sam_gov_1662 already exists in Pinecone, skipping
+2025-04-15 00:51:23,165 - indexer - INFO - Vector sam_gov_1663 already exists in Pinecone, skipping
+2025-04-15 00:51:23,199 - indexer - INFO - Vector sam_gov_1664 already exists in Pinecone, skipping
+2025-04-15 00:51:23,234 - indexer - INFO - Vector sam_gov_1665 already exists in Pinecone, skipping
+2025-04-15 00:51:23,269 - indexer - INFO - Vector sam_gov_1666 already exists in Pinecone, skipping
+2025-04-15 00:51:23,308 - indexer - INFO - Vector sam_gov_1667 already exists in Pinecone, skipping
+2025-04-15 00:51:23,366 - indexer - INFO - Vector sam_gov_1668 already exists in Pinecone, skipping
+2025-04-15 00:51:23,402 - indexer - INFO - Vector sam_gov_1669 already exists in Pinecone, skipping
+2025-04-15 00:51:23,433 - indexer - INFO - Vector sam_gov_1670 already exists in Pinecone, skipping
+2025-04-15 00:51:23,465 - indexer - INFO - Vector sam_gov_1671 already exists in Pinecone, skipping
+2025-04-15 00:51:23,500 - indexer - INFO - Vector sam_gov_1672 already exists in Pinecone, skipping
+2025-04-15 00:51:23,532 - indexer - INFO - Vector sam_gov_1673 already exists in Pinecone, skipping
+2025-04-15 00:51:23,560 - indexer - INFO - Vector sam_gov_1674 already exists in Pinecone, skipping
+2025-04-15 00:51:23,599 - indexer - INFO - Vector sam_gov_1675 already exists in Pinecone, skipping
+2025-04-15 00:51:23,636 - indexer - INFO - Vector sam_gov_1676 already exists in Pinecone, skipping
+2025-04-15 00:51:23,678 - indexer - INFO - Vector sam_gov_1677 already exists in Pinecone, skipping
+2025-04-15 00:51:23,738 - indexer - INFO - Vector sam_gov_1678 already exists in Pinecone, skipping
+2025-04-15 00:51:23,772 - indexer - INFO - Vector sam_gov_1679 already exists in Pinecone, skipping
+2025-04-15 00:51:23,803 - indexer - INFO - Vector sam_gov_1680 already exists in Pinecone, skipping
+2025-04-15 00:51:23,833 - indexer - INFO - Vector sam_gov_1681 already exists in Pinecone, skipping
+2025-04-15 00:51:23,866 - indexer - INFO - Vector sam_gov_1682 already exists in Pinecone, skipping
+2025-04-15 00:51:23,909 - indexer - INFO - Vector sam_gov_1683 already exists in Pinecone, skipping
+2025-04-15 00:51:23,961 - indexer - INFO - Vector sam_gov_1684 already exists in Pinecone, skipping
+2025-04-15 00:51:24,004 - indexer - INFO - Vector sam_gov_1685 already exists in Pinecone, skipping
+2025-04-15 00:51:24,042 - indexer - INFO - Vector sam_gov_1686 already exists in Pinecone, skipping
+2025-04-15 00:51:24,085 - indexer - INFO - Vector sam_gov_1687 already exists in Pinecone, skipping
+2025-04-15 00:51:24,117 - indexer - INFO - Vector sam_gov_1688 already exists in Pinecone, skipping
+2025-04-15 00:51:24,169 - indexer - INFO - Vector sam_gov_1689 already exists in Pinecone, skipping
+2025-04-15 00:51:24,212 - indexer - INFO - Vector sam_gov_1690 already exists in Pinecone, skipping
+2025-04-15 00:51:24,243 - indexer - INFO - Vector sam_gov_1691 already exists in Pinecone, skipping
+2025-04-15 00:51:24,292 - indexer - INFO - Vector sam_gov_1692 already exists in Pinecone, skipping
+2025-04-15 00:51:24,330 - indexer - INFO - Vector sam_gov_1693 already exists in Pinecone, skipping
+2025-04-15 00:51:24,370 - indexer - INFO - Vector sam_gov_1694 already exists in Pinecone, skipping
+2025-04-15 00:51:24,401 - indexer - INFO - Vector sam_gov_1808 already exists in Pinecone, skipping
+2025-04-15 00:51:24,432 - indexer - INFO - Vector sam_gov_1695 already exists in Pinecone, skipping
+2025-04-15 00:51:24,474 - indexer - INFO - Vector sam_gov_1696 already exists in Pinecone, skipping
+2025-04-15 00:51:24,509 - indexer - INFO - Vector sam_gov_1697 already exists in Pinecone, skipping
+2025-04-15 00:51:24,539 - indexer - INFO - Vector sam_gov_1698 already exists in Pinecone, skipping
+2025-04-15 00:51:24,590 - indexer - INFO - Vector sam_gov_1699 already exists in Pinecone, skipping
+2025-04-15 00:51:24,632 - indexer - INFO - Vector sam_gov_1700 already exists in Pinecone, skipping
+2025-04-15 00:51:24,667 - indexer - INFO - Vector sam_gov_1701 already exists in Pinecone, skipping
+2025-04-15 00:51:24,705 - indexer - INFO - Vector sam_gov_1702 already exists in Pinecone, skipping
+2025-04-15 00:51:24,740 - indexer - INFO - Vector sam_gov_1703 already exists in Pinecone, skipping
+2025-04-15 00:51:24,795 - indexer - INFO - Vector sam_gov_1704 already exists in Pinecone, skipping
+2025-04-15 00:51:24,828 - indexer - INFO - Vector sam_gov_1705 already exists in Pinecone, skipping
+2025-04-15 00:51:24,860 - indexer - INFO - Vector sam_gov_1706 already exists in Pinecone, skipping
+2025-04-15 00:51:24,897 - indexer - INFO - Vector sam_gov_1707 already exists in Pinecone, skipping
+2025-04-15 00:51:24,938 - indexer - INFO - Vector sam_gov_1708 already exists in Pinecone, skipping
+2025-04-15 00:51:24,974 - indexer - INFO - Vector sam_gov_1709 already exists in Pinecone, skipping
+2025-04-15 00:51:25,008 - indexer - INFO - Vector sam_gov_1710 already exists in Pinecone, skipping
+2025-04-15 00:51:25,069 - indexer - INFO - Vector sam_gov_1711 already exists in Pinecone, skipping
+2025-04-15 00:51:25,114 - indexer - INFO - Vector sam_gov_1613 already exists in Pinecone, skipping
+2025-04-15 00:51:25,145 - indexer - INFO - Vector sam_gov_1614 already exists in Pinecone, skipping
+2025-04-15 00:51:25,176 - indexer - INFO - Vector sam_gov_1712 already exists in Pinecone, skipping
+2025-04-15 00:51:25,205 - indexer - INFO - Vector sam_gov_1713 already exists in Pinecone, skipping
+2025-04-15 00:51:25,241 - indexer - INFO - Vector sam_gov_1714 already exists in Pinecone, skipping
+2025-04-15 00:51:25,287 - indexer - INFO - Vector sam_gov_1715 already exists in Pinecone, skipping
+2025-04-15 00:51:25,332 - indexer - INFO - Vector sam_gov_1716 already exists in Pinecone, skipping
+2025-04-15 00:51:25,362 - indexer - INFO - Vector sam_gov_1717 already exists in Pinecone, skipping
+2025-04-15 00:51:25,408 - indexer - INFO - Vector sam_gov_1718 already exists in Pinecone, skipping
+2025-04-15 00:51:25,440 - indexer - INFO - Vector sam_gov_1719 already exists in Pinecone, skipping
+2025-04-15 00:51:25,473 - indexer - INFO - Vector sam_gov_1720 already exists in Pinecone, skipping
+2025-04-15 00:51:25,513 - indexer - INFO - Vector sam_gov_1721 already exists in Pinecone, skipping
+2025-04-15 00:51:25,543 - indexer - INFO - Vector sam_gov_1722 already exists in Pinecone, skipping
+2025-04-15 00:51:25,576 - indexer - INFO - Vector sam_gov_1723 already exists in Pinecone, skipping
+2025-04-15 00:51:25,626 - indexer - INFO - Vector sam_gov_1724 already exists in Pinecone, skipping
+2025-04-15 00:51:25,658 - indexer - INFO - Vector sam_gov_1725 already exists in Pinecone, skipping
+2025-04-15 00:51:25,697 - indexer - INFO - Vector sam_gov_1726 already exists in Pinecone, skipping
+2025-04-15 00:51:25,744 - indexer - INFO - Vector sam_gov_1727 already exists in Pinecone, skipping
+2025-04-15 00:51:25,779 - indexer - INFO - Vector sam_gov_1728 already exists in Pinecone, skipping
+2025-04-15 00:51:25,825 - indexer - INFO - Vector sam_gov_1729 already exists in Pinecone, skipping
+2025-04-15 00:51:25,865 - indexer - INFO - Vector sam_gov_1730 already exists in Pinecone, skipping
+2025-04-15 00:51:25,915 - indexer - INFO - Vector sam_gov_1731 already exists in Pinecone, skipping
+2025-04-15 00:51:25,949 - indexer - INFO - Vector sam_gov_1732 already exists in Pinecone, skipping
+2025-04-15 00:51:25,979 - indexer - INFO - Vector sam_gov_1733 already exists in Pinecone, skipping
+2025-04-15 00:51:26,023 - indexer - INFO - Vector sam_gov_1734 already exists in Pinecone, skipping
+2025-04-15 00:51:26,061 - indexer - INFO - Vector sam_gov_1735 already exists in Pinecone, skipping
+2025-04-15 00:51:26,099 - indexer - INFO - Vector sam_gov_1736 already exists in Pinecone, skipping
+2025-04-15 00:51:26,159 - indexer - INFO - Vector sam_gov_1737 already exists in Pinecone, skipping
+2025-04-15 00:51:26,193 - indexer - INFO - Vector sam_gov_1738 already exists in Pinecone, skipping
+2025-04-15 00:51:26,235 - indexer - INFO - Vector sam_gov_1739 already exists in Pinecone, skipping
+2025-04-15 00:51:26,276 - indexer - INFO - Vector sam_gov_1740 already exists in Pinecone, skipping
+2025-04-15 00:51:26,320 - indexer - INFO - Vector sam_gov_1741 already exists in Pinecone, skipping
+2025-04-15 00:51:26,359 - indexer - INFO - Vector sam_gov_1742 already exists in Pinecone, skipping
+2025-04-15 00:51:26,392 - indexer - INFO - Vector sam_gov_1743 already exists in Pinecone, skipping
+2025-04-15 00:51:26,428 - indexer - INFO - Vector sam_gov_1744 already exists in Pinecone, skipping
+2025-04-15 00:51:26,465 - indexer - INFO - Vector sam_gov_1745 already exists in Pinecone, skipping
+2025-04-15 00:51:26,497 - indexer - INFO - Vector sam_gov_1746 already exists in Pinecone, skipping
+2025-04-15 00:51:26,526 - indexer - INFO - Vector sam_gov_1747 already exists in Pinecone, skipping
+2025-04-15 00:51:26,561 - indexer - INFO - Vector sam_gov_1748 already exists in Pinecone, skipping
+2025-04-15 00:51:26,594 - indexer - INFO - Vector sam_gov_1749 already exists in Pinecone, skipping
+2025-04-15 00:51:26,661 - indexer - INFO - Vector sam_gov_1750 already exists in Pinecone, skipping
+2025-04-15 00:51:26,695 - indexer - INFO - Vector sam_gov_1751 already exists in Pinecone, skipping
+2025-04-15 00:51:26,733 - indexer - INFO - Vector sam_gov_1752 already exists in Pinecone, skipping
+2025-04-15 00:51:26,768 - indexer - INFO - Vector sam_gov_1753 already exists in Pinecone, skipping
+2025-04-15 00:51:26,814 - indexer - INFO - Vector sam_gov_1754 already exists in Pinecone, skipping
+2025-04-15 00:51:26,903 - indexer - INFO - Vector sam_gov_1755 already exists in Pinecone, skipping
+2025-04-15 00:51:26,938 - indexer - INFO - Vector sam_gov_1756 already exists in Pinecone, skipping
+2025-04-15 00:51:26,970 - indexer - INFO - Vector sam_gov_1757 already exists in Pinecone, skipping
+2025-04-15 00:51:27,008 - indexer - INFO - Vector sam_gov_1758 already exists in Pinecone, skipping
+2025-04-15 00:51:27,038 - indexer - INFO - Vector sam_gov_1759 already exists in Pinecone, skipping
+2025-04-15 00:51:27,074 - indexer - INFO - Vector sam_gov_1760 already exists in Pinecone, skipping
+2025-04-15 00:51:27,108 - indexer - INFO - Vector sam_gov_1761 already exists in Pinecone, skipping
+2025-04-15 00:51:27,142 - indexer - INFO - Vector sam_gov_1762 already exists in Pinecone, skipping
+2025-04-15 00:51:27,175 - indexer - INFO - Vector sam_gov_1763 already exists in Pinecone, skipping
+2025-04-15 00:51:27,212 - indexer - INFO - Vector sam_gov_1764 already exists in Pinecone, skipping
+2025-04-15 00:51:27,258 - indexer - INFO - Vector sam_gov_1765 already exists in Pinecone, skipping
+2025-04-15 00:51:27,307 - indexer - INFO - Vector sam_gov_1766 already exists in Pinecone, skipping
+2025-04-15 00:51:27,352 - indexer - INFO - Vector sam_gov_1767 already exists in Pinecone, skipping
+2025-04-15 00:51:27,385 - indexer - INFO - Vector sam_gov_1804 already exists in Pinecone, skipping
+2025-04-15 00:51:27,419 - indexer - INFO - Vector sam_gov_1768 already exists in Pinecone, skipping
+2025-04-15 00:51:27,456 - indexer - INFO - Vector sam_gov_1769 already exists in Pinecone, skipping
+2025-04-15 00:51:27,489 - indexer - INFO - Vector sam_gov_1770 already exists in Pinecone, skipping
+2025-04-15 00:51:27,540 - indexer - INFO - Vector sam_gov_1771 already exists in Pinecone, skipping
+2025-04-15 00:51:27,577 - indexer - INFO - Vector sam_gov_1772 already exists in Pinecone, skipping
+2025-04-15 00:51:27,611 - indexer - INFO - Vector sam_gov_1773 already exists in Pinecone, skipping
+2025-04-15 00:51:27,643 - indexer - INFO - Vector sam_gov_1774 already exists in Pinecone, skipping
+2025-04-15 00:51:27,673 - indexer - INFO - Vector sam_gov_1775 already exists in Pinecone, skipping
+2025-04-15 00:51:27,706 - indexer - INFO - Vector sam_gov_1776 already exists in Pinecone, skipping
+2025-04-15 00:51:27,741 - indexer - INFO - Vector sam_gov_1777 already exists in Pinecone, skipping
+2025-04-15 00:51:27,773 - indexer - INFO - Vector sam_gov_1778 already exists in Pinecone, skipping
+2025-04-15 00:51:27,806 - indexer - INFO - Vector sam_gov_1779 already exists in Pinecone, skipping
+2025-04-15 00:51:27,837 - indexer - INFO - Vector sam_gov_1780 already exists in Pinecone, skipping
+2025-04-15 00:51:27,879 - indexer - INFO - Vector sam_gov_1781 already exists in Pinecone, skipping
+2025-04-15 00:51:27,910 - indexer - INFO - Vector sam_gov_1782 already exists in Pinecone, skipping
+2025-04-15 00:51:27,945 - indexer - INFO - Vector sam_gov_1783 already exists in Pinecone, skipping
+2025-04-15 00:51:27,984 - indexer - INFO - Vector sam_gov_1784 already exists in Pinecone, skipping
+2025-04-15 00:51:28,016 - indexer - INFO - Vector sam_gov_1785 already exists in Pinecone, skipping
+2025-04-15 00:51:28,054 - indexer - INFO - Vector sam_gov_1786 already exists in Pinecone, skipping
+2025-04-15 00:51:28,087 - indexer - INFO - Vector sam_gov_1787 already exists in Pinecone, skipping
+2025-04-15 00:51:28,118 - indexer - INFO - Vector sam_gov_1788 already exists in Pinecone, skipping
+2025-04-15 00:51:28,150 - indexer - INFO - Vector sam_gov_1789 already exists in Pinecone, skipping
+2025-04-15 00:51:28,225 - indexer - INFO - Vector sam_gov_1790 already exists in Pinecone, skipping
+2025-04-15 00:51:28,263 - indexer - INFO - Vector sam_gov_1791 already exists in Pinecone, skipping
+2025-04-15 00:51:28,296 - indexer - INFO - Vector sam_gov_1792 already exists in Pinecone, skipping
+2025-04-15 00:51:28,327 - indexer - INFO - Vector sam_gov_1793 already exists in Pinecone, skipping
+2025-04-15 00:51:28,360 - indexer - INFO - Vector sam_gov_1794 already exists in Pinecone, skipping
+2025-04-15 00:51:28,395 - indexer - INFO - Vector sam_gov_1795 already exists in Pinecone, skipping
+2025-04-15 00:51:28,442 - indexer - INFO - Vector sam_gov_1796 already exists in Pinecone, skipping
+2025-04-15 00:51:28,474 - indexer - INFO - Vector sam_gov_1797 already exists in Pinecone, skipping
+2025-04-15 00:51:28,513 - indexer - INFO - Vector sam_gov_1798 already exists in Pinecone, skipping
+2025-04-15 00:51:28,544 - indexer - INFO - Vector sam_gov_1799 already exists in Pinecone, skipping
+2025-04-15 00:51:28,576 - indexer - INFO - Vector sam_gov_1800 already exists in Pinecone, skipping
+2025-04-15 00:51:28,617 - indexer - INFO - Vector sam_gov_1801 already exists in Pinecone, skipping
+2025-04-15 00:51:28,647 - indexer - INFO - Vector sam_gov_1802 already exists in Pinecone, skipping
+2025-04-15 00:51:28,685 - indexer - INFO - Vector sam_gov_1803 already exists in Pinecone, skipping
+2025-04-15 00:51:28,718 - indexer - INFO - Vector sam_gov_1805 already exists in Pinecone, skipping
+2025-04-15 00:51:28,749 - indexer - INFO - Vector sam_gov_1806 already exists in Pinecone, skipping
+2025-04-15 00:51:28,788 - indexer - INFO - Vector sam_gov_1807 already exists in Pinecone, skipping
+2025-04-15 00:51:28,832 - indexer - INFO - Vector sam_gov_1809 already exists in Pinecone, skipping
+2025-04-15 00:51:28,860 - indexer - INFO - Vector sam_gov_1810 already exists in Pinecone, skipping
+2025-04-15 00:51:28,902 - indexer - INFO - Vector sam_gov_1811 already exists in Pinecone, skipping
+2025-04-15 00:51:28,952 - indexer - INFO - Vector sam_gov_1812 already exists in Pinecone, skipping
+2025-04-15 00:51:28,985 - indexer - INFO - Vector sam_gov_1813 already exists in Pinecone, skipping
+2025-04-15 00:51:29,021 - indexer - INFO - Vector sam_gov_1814 already exists in Pinecone, skipping
+2025-04-15 00:51:29,309 - indexer - INFO - Upserted sam_gov batch 1 of 1
+2025-04-15 00:51:29,310 - indexer - INFO - Successfully indexed 39 sam_gov records to Pinecone. Skipped 202 records.
+2025-04-15 00:51:29,310 - indexer - INFO - 
+Starting to index Freelancer projects...
+2025-04-15 00:51:29,854 - indexer - INFO - Fetched 50 Freelancer records from database
+2025-04-15 00:51:34,271 - indexer - INFO - Upserted freelancer batch 1 of 1
+2025-04-15 00:51:34,272 - indexer - INFO - Successfully indexed 50 freelancer records to Pinecone. Skipped 0 records.
+2025-04-15 00:51:34,272 - indexer - INFO - Checking Pinecone index after indexing...
+2025-04-15 00:51:34,311 - indexer - INFO - Index dimension: 384
+2025-04-15 00:51:34,311 - indexer - INFO - Total vectors: 759
+2025-04-15 00:51:34,311 - indexer - INFO - Namespaces: {'': {'vector_count': 759}}
+2025-04-15 00:51:34,311 - indexer - INFO - Added 0 vectors to the index (total processed: 89)
+2025-04-15 00:51:34,312 - indexer - INFO - 
+Testing search functionality...
+2025-04-15 00:51:34,312 - indexer - INFO - Testing search with query: 'cybersecurity'
+2025-04-15 00:51:34,635 - indexer - INFO - Found 5 matches for query 'cybersecurity'
+2025-04-15 00:51:34,635 - indexer - INFO - Match 1: ID=sam_gov_1084, Score=0.561208487, Source=sam_gov
+2025-04-15 00:51:34,636 - indexer - INFO -   Title: Electronic Security Systems (ESS) VIII
+2025-04-15 00:51:34,636 - indexer - INFO - Match 2: ID=sam_gov_1281, Score=0.545043647, Source=sam_gov
+2025-04-15 00:51:34,636 - indexer - INFO -   Title: CyberSecure Alarm System Sole Source
+2025-04-15 00:51:34,637 - indexer - INFO - Match 3: ID=sam_gov_1512, Score=0.509484708, Source=sam_gov
+2025-04-15 00:51:34,637 - indexer - INFO -   Title: Advanced Cyber Operations Prototypes (A-COP)
+2025-04-15 00:51:34,637 - indexer - INFO - Match 4: ID=sam_gov_1358, Score=0.499520123, Source=sam_gov
+2025-04-15 00:51:34,638 - indexer - INFO -   Title: Cybersecurity Support Services:  Sources Sought Notice (SSN)
+2025-04-15 00:51:34,638 - indexer - INFO - Match 5: ID=sam_gov_1487, Score=0.498649448, Source=sam_gov
+2025-04-15 00:51:34,638 - indexer - INFO -   Title: CAPABILITIES FOR CYBER ADVANCEMENT
+2025-04-15 00:51:34,711 - indexer - INFO - Results for sam_gov: 3 matches
+2025-04-15 00:51:34,749 - indexer - INFO - Results for freelancer: 0 matches
+2025-04-15 00:51:34,750 - indexer - INFO - Testing search with query: 'web development'
+2025-04-15 00:51:34,799 - indexer - INFO - Found 5 matches for query 'web development'
+2025-04-15 00:51:34,800 - indexer - INFO - Match 1: ID=sam_gov_1098, Score=0.308258295, Source=sam_gov
+2025-04-15 00:51:34,800 - indexer - INFO -   Title: Information Technology (IT) Artificial Intelligence (AI) & Machine Learning Programmatic Support Services
+2025-04-15 00:51:34,801 - indexer - INFO - Match 2: ID=sam_gov_1257, Score=0.304828525, Source=sam_gov
+2025-04-15 00:51:34,801 - indexer - INFO -   Title: DCSA Learning Management Ecosystem and Learning Management Content Controller Hosting and Licenses
+2025-04-15 00:51:34,801 - indexer - INFO - Match 3: ID=sam_gov_1520, Score=0.300958335, Source=sam_gov
+2025-04-15 00:51:34,801 - indexer - INFO -   Title: GEOSPATIAL INTELLIGENCE PROCESSING AND EXPLOITATION (GeoPEX)
+2025-04-15 00:51:34,802 - indexer - INFO - Match 4: ID=sam_gov_1113, Score=0.297494441, Source=sam_gov
+2025-04-15 00:51:34,802 - indexer - INFO -   Title: SEWIP AN/SLQ-32(V) Full Rate Production, Design Agent Engineering, and Integration - Copy 2
+2025-04-15 00:51:34,802 - indexer - INFO - Match 5: ID=sam_gov_1650, Score=0.272908747, Source=sam_gov
+2025-04-15 00:51:34,802 - indexer - INFO -   Title: Workbench Software
+2025-04-15 00:51:34,846 - indexer - INFO - Results for sam_gov: 3 matches
+2025-04-15 00:51:34,889 - indexer - INFO - Results for freelancer: 0 matches
+2025-04-15 00:51:34,889 - indexer - INFO - 
+Indexing completed in 20.03 seconds!

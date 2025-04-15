@@ -52,13 +52,16 @@ def extract_id_from_pinecone(pinecone_id):
 
 def search_jobs(query: str, contract_type: Optional[str] = None, platform: Optional[str] = None,
                 due_date_filter: Optional[str] = None, posted_date_filter: Optional[str] = None,
-                naics_code: Optional[str] = None) -> List[Dict]:
+                naics_code: Optional[str] = None, user_id: Optional[str] = None) -> List[Dict]:
     """
-    Search for job opportunities using vector similarity and filters.
-    Now includes filtering by due date, posted date, and NAICS code.
+    Enhanced search with re-ranking for better relevance and user interaction boosting.
     """
     try:
-        # Generate query embedding with minimal logging
+        # Extract query terms for re-ranking
+        query_terms = set([term.lower() for term in query.replace('OR', ' ').replace('AND', ' ')
+                          .replace('site:sam.gov', '').split()])
+        
+        # Generate query embedding
         query_embedding = model.encode(query).tolist()
 
         # Normalize the embedding
@@ -244,6 +247,90 @@ def search_jobs(query: str, contract_type: Optional[str] = None, platform: Optio
                     columns = ["id", "title", "description", "agency", "platform", "value", "external_url"]
                     freelancer_results = [dict(zip(columns, record)) for record in cursor.fetchall()]
                     all_results.extend(freelancer_results)
+                
+                # Get user interaction data if user_id is provided
+                user_interactions = {}
+                if user_id and connection:
+                    try:
+                        # Get opportunities the user has interacted with
+                        cursor.execute("""
+                            SELECT opportunity_id, 
+                                   SUM(CASE WHEN action_type = 'view' THEN 1 ELSE 0 END) as views,
+                                   SUM(CASE WHEN action_type = 'pursuit' THEN 3 ELSE 0 END) as pursuits,
+                                   SUM(CASE WHEN action_type = 'generate_response' THEN 5 ELSE 0 END) as responses
+                            FROM user_interactions
+                            WHERE user_id = %s
+                            GROUP BY opportunity_id
+                        """, (user_id,))
+                        
+                        for record in cursor.fetchall():
+                            opp_id, views, pursuits, responses = record
+                            # Calculate an interaction score
+                            user_interactions[str(opp_id)] = (views + pursuits + responses) / 10  # Normalize to 0-1 range
+                    except Exception as e:
+                        logger.error(f"Error fetching user interactions: {str(e)}")
+                
+                # Re-rank results based on multiple factors
+                for result in all_results:
+                    # Start with the original vector similarity score
+                    base_score = 0.5  # Default score
+                    
+                    # 1. Title-Based Re-Ranking
+                    title = result.get('title', '').lower()
+                    title_matches = sum(1 for term in query_terms if term in title)
+                    
+                    # 2. Using Metadata for Scoring
+                    agency = result.get('agency', '').lower() or result.get('department', '').lower()
+                    agency_matches = sum(1 for term in query_terms if term in agency)
+                    
+                    # NAICS code exact match bonus
+                    naics_bonus = 0.15 if naics_code and str(result.get('naics_code', '')) == str(naics_code) else 0
+                    
+                    # 3. Term Frequency Analysis - weight by how many different terms match
+                    term_match_ratio = title_matches / len(query_terms) if query_terms else 0
+                    
+                    # 4. N-gram Matching
+                    # Create bi-grams (two consecutive words) from the query terms
+                    query_words = [word for word in query.lower().replace('OR', ' ').replace('AND', ' ')
+                                  .replace('site:sam.gov', '').split() if word]
+                    query_bigrams = [f"{query_words[i]} {query_words[i+1]}" for i in range(len(query_words)-1)]
+                    
+                    # Check for bi-gram matches in the title
+                    bigram_matches = sum(1 for bigram in query_bigrams if bigram in title)
+                    
+                    # 5. User Interaction Boosting
+                    interaction_boost = 0
+                    result_id = str(result.get('id', ''))
+                    if result_id in user_interactions:
+                        interaction_boost = user_interactions[result_id] * 0.3  # 30% weight to user history
+                    
+                    # Domain-specific boosts based on NAICS code patterns
+                    domain_boost = 0
+                    if naics_code:
+                        naics = str(result.get('naics_code', ''))
+                        # Examples of domain-specific boosts
+                        cybersecurity_naics = ['541519', '541512']
+                        software_naics = ['541511']
+                        
+                        if 'cyber' in query.lower() and naics in cybersecurity_naics:
+                            domain_boost = 0.1
+                        elif 'software' in query.lower() and naics in software_naics:
+                            domain_boost = 0.1
+                    
+                    # Combine all scores with appropriate weights
+                    result['relevance_score'] = (
+                        base_score + 
+                        (title_matches * 0.15) +           # Title match bonus
+                        (agency_matches * 0.05) +          # Agency match bonus
+                        naics_bonus +                      # NAICS exact match bonus
+                        (term_match_ratio * 0.1) +         # Term frequency bonus
+                        (bigram_matches * 0.2) +           # N-gram matching (higher weight)
+                        interaction_boost +                # User interaction history
+                        domain_boost                       # Domain-specific relevance
+                    )
+                
+                # Re-sort by the new relevance score
+                all_results.sort(key=lambda x: x.get('relevance_score', 0), reverse=True)
                 
                 return all_results
         finally:

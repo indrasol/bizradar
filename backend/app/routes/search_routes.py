@@ -31,12 +31,25 @@ async def search_job_opportunities(request: Request):
         platform = data.get("platform", None)
         page = int(data.get("page", 1))
         page_size = int(data.get("page_size", 7))
+        
+        # NEW: Check if this is a new search or just pagination
+        is_new_search = data.get("is_new_search", False)
+        existing_refined_query = data.get("existing_refined_query", None)
 
         if not query:
             return {"results": [], "total": 0, "page": 1, "page_size": page_size, "total_pages": 0}
 
-        # Get all relevant results
-        refined_query = refine_query(query, contract_type, platform)
+        # Only refine the query for new searches, use existing refined query for pagination
+        if is_new_search or not existing_refined_query:
+            refined_query = refine_query(query, contract_type, platform)
+            # Reset to page 1 for new searches
+            page = 1
+        else:
+            # Use the existing refined query for pagination
+            refined_query = existing_refined_query
+            logger.info(f"Using existing refined query: {refined_query}")
+
+        # Get all relevant results with the refined query
         all_results = search_jobs(refined_query, contract_type, platform)
         
         # Log the actual number of results
@@ -66,7 +79,7 @@ async def search_job_opportunities(request: Request):
             "page": page,
             "page_size": page_size,
             "total_pages": total_pages,
-            "refined_query": refined_query,  # Include the refined query in the response
+            "refined_query": refined_query,  # Always include the refined query in the response
         }
     except Exception as e:
         logger.error(f"Error in search: {str(e)}")
