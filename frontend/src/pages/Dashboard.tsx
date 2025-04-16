@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   Bell,
   Settings,
@@ -22,6 +22,7 @@ import {
   X,
   Sparkle,
   Sparkles,
+  ChevronLeft,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import SideBar from "../components/layout/SideBar";
@@ -38,6 +39,15 @@ const BizRadarDashboard = () => {
     day: "numeric",
   });
 
+  // State for monthly pursuit data
+  const [monthlyPursuits, setMonthlyPursuits] = useState({
+    count: 0,
+    month: "April",
+    year: 2025,
+  });
+  
+  const [isLoading, setIsLoading] = useState(true);
+
   // Add dialog state
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newPursuit, setNewPursuit] = useState({
@@ -51,6 +61,137 @@ const BizRadarDashboard = () => {
   // File input ref
   const fileInputRef = useRef(null);
   const [selectedFiles, setSelectedFiles] = useState([]);
+
+  // Add these new state variables
+  const [monthlyStats, setMonthlyStats] = useState([]);
+  const [isChartVisible, setIsChartVisible] = useState(false);
+
+  // Update the action items state definition
+  const [actionItems, setActionItems] = useState({
+    count: 0,
+    dueToday: 0,
+    items: [],
+    completed: 0,
+  });
+
+  // First, add this state for submitted pursuits
+  const [submittedPursuits, setSubmittedPursuits] = useState([]);
+
+  // Function to navigate to previous month
+  const navigateToPreviousMonth = () => {
+    // Get previous month data using proper Date object handling
+    const currentMonthNum = parseInt(getMonthNumber(monthlyPursuits.month)) - 1; // Convert to 0-based index
+    const previousMonthDate = new Date(monthlyPursuits.year, currentMonthNum - 1, 1);
+    
+    const monthName = previousMonthDate.toLocaleString('default', { month: 'long' });
+    const year = previousMonthDate.getFullYear();
+    
+    fetchMonthData(monthName, year);
+  };
+
+  // Function to navigate to next month
+  const navigateToNextMonth = () => {
+    // Get current date for comparison
+    const today = new Date();
+    const currentRealMonth = today.getMonth();
+    const currentRealYear = today.getFullYear();
+    
+    // Get next month data
+    const currentMonthNum = parseInt(getMonthNumber(monthlyPursuits.month)) - 1; // Convert to 0-based index
+    const nextMonthDate = new Date(monthlyPursuits.year, currentMonthNum + 1, 1);
+    
+    // Don't allow navigation past current real month/year
+    if (nextMonthDate.getMonth() > currentRealMonth && 
+        nextMonthDate.getFullYear() >= currentRealYear) {
+      return; // Don't navigate past current month
+    }
+    
+    const monthName = nextMonthDate.toLocaleString('default', { month: 'long' });
+    const year = nextMonthDate.getFullYear();
+    
+    fetchMonthData(monthName, year);
+  };
+
+  // Function to fetch data for a specific month with proper date handling
+  const fetchMonthData = async (monthName: string, year: number) => {
+    try {
+      setIsLoading(true);
+      
+      // Calculate start and end dates for the month (using proper Date object handling)
+      const monthNum = getMonthNumber(monthName);
+      const startDate = new Date(year, parseInt(monthNum) - 1, 1); // Convert to 0-based month index
+      
+      // Calculate end date as last day of month
+      const endDate = new Date(year, parseInt(monthNum), 0);
+      
+      // For current month, limit end date to today
+      const today = new Date();
+      const isCurrentMonth = startDate.getMonth() === today.getMonth() && 
+                           startDate.getFullYear() === today.getFullYear();
+      
+      const queryEndDate = isCurrentMonth ? today : endDate;
+      
+      // Format dates for database query
+      const startDateStr = startDate.toISOString().split('T')[0];
+      const endDateStr = queryEndDate.toISOString().split('T')[0];
+      
+      console.log(`Fetching data for ${monthName} ${year}: ${startDateStr} to ${endDateStr}`);
+      
+      // Query sam_gov table for this month's pursuits
+      const { data: monthPursuits, error } = await supabase
+        .from('sam_gov')
+        .select('id')
+        .gte('published_date', startDateStr)
+        .lte('published_date', endDateStr);
+        
+      if (error) throw error;
+      
+      // Update state with the calculated data
+      setMonthlyPursuits({
+        count: monthPursuits?.length || 0,
+        month: monthName,
+        year: year
+      });
+      
+    } catch (error) {
+      console.error(`Error fetching data for ${monthName} ${year}:`, error);
+      toast.error("Failed to load pursuits data");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Helper function to get month number from name
+  const getMonthNumber = (monthName) => {
+    const months = {
+      'January': '01', 'February': '02', 'March': '03', 'April': '04',
+      'May': '05', 'June': '06', 'July': '07', 'August': '08',
+      'September': '09', 'October': '10', 'November': '11', 'December': '12'
+    };
+    return months[monthName] || '01';
+  };
+
+  // Fetch current month's pursuit data on component mount
+  useEffect(() => {
+    const loadDashboardData = async () => {
+      try {
+        const today = new Date();
+        const currentMonth = today.toLocaleString('default', { month: 'long' });
+        const currentYear = today.getFullYear();
+        
+        await Promise.all([
+          fetchMonthData(currentMonth, currentYear),
+          fetchHistoricalData(),
+          fetchActionItems()
+        ]);
+      } catch (error) {
+        console.error("Error loading dashboard data:", error);
+        toast.error("Failed to load some dashboard data");
+      }
+    };
+
+    loadDashboardData();
+  }, []);
 
   // Add function to toggle dialog
   const toggleDialog = () => {
@@ -137,16 +278,187 @@ const BizRadarDashboard = () => {
 
       if (data && data.length > 0) {
         // Show success message
-        toast?.success("Pursuit created successfully");
+        toast.success("Pursuit created successfully");
+
+        // Refresh monthly data
+        fetchMonthData(monthlyPursuits.month, monthlyPursuits.year);
 
         // Close dialog
         toggleDialog();
       }
     } catch (error) {
       console.error("Error creating pursuit:", error);
-      toast?.error("Failed to create pursuit. Please try again.");
+      toast.error("Failed to create pursuit. Please try again.");
     }
   };
+
+  // Add this after your existing fetchMonthData function
+
+const fetchHistoricalData = async () => {
+  try {
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth();
+    
+    const historicalData = [];
+    
+    for (let i = 0; i < 6; i++) {
+      const targetDate = new Date(currentYear, currentMonth - i, 1);
+      const monthName = targetDate.toLocaleString('default', { month: 'short' });
+      const year = targetDate.getFullYear();
+      
+      const startDate = new Date(year, targetDate.getMonth(), 1);
+      const endDate = new Date(year, targetDate.getMonth() + 1, 0);
+      
+      const startDateStr = startDate.toISOString().split('T')[0];
+      const endDateStr = endDate.toISOString().split('T')[0];
+      
+      const { data, error } = await supabase
+        .from('sam_gov')
+        .select('id')
+        .gte('published_date', startDateStr)
+        .lte('published_date', endDateStr);
+        
+      if (error) throw error;
+      
+      historicalData.unshift({
+        month: monthName,
+        year: year,
+        count: data?.length || 0
+      });
+    }
+    
+    setMonthlyStats(historicalData);
+  } catch (error) {
+    console.error("Error fetching historical data:", error);
+  }
+};
+
+// Update the fetchActionItems function with better error handling and sorting
+const fetchActionItems = async () => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      console.error("No user logged in");
+      return;
+    }
+    
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    
+    // Fixed OR query syntax
+    const { data, error } = await supabase
+      .from('pursuits')
+      .select('id, title, stage, due_date, is_submitted')
+      .eq('user_id', user.id)
+      .eq('is_submitted', false)
+      .or('stage.eq.Assessment,stage.ilike.%RFP Response Initiated%');
+      
+    if (error) {
+      console.error("Error fetching action items:", error);
+      throw error;
+    }
+    
+    // Rest of the function remains the same
+    const { data: completedData, error: completedError } = await supabase
+      .from('pursuits')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('is_submitted', true);
+      
+    if (completedError) {
+      console.error("Error fetching completed items:", completedError);
+      throw completedError;
+    }
+    
+    const dueTodayCount = data?.filter(item => {
+      if (!item.due_date) return false;
+      const dueDate = item.due_date.split('T')[0];
+      return dueDate === todayStr;
+    }).length || 0;
+    
+    const sortedItems = [...(data || [])].sort((a, b) => {
+      if (!a.due_date) return 1;
+      if (!b.due_date) return -1;
+      return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
+    });
+    
+    setActionItems({
+      count: data?.length || 0,
+      dueToday: dueTodayCount,
+      items: sortedItems.slice(0, 2),
+      completed: completedData?.length || 0,
+    });
+    
+  } catch (error) {
+    console.error("Error in fetchActionItems:", error);
+    toast.error("Failed to load action items");
+  }
+};
+
+// Add this function to fetch submitted pursuits
+const fetchSubmittedPursuits = async () => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) return;
+    
+    const { data, error } = await supabase
+      .from('pursuits')
+      .select('id, title, stage, updated_at, is_submitted')
+      .eq('user_id', user.id)
+      .eq('is_submitted', true)
+      .order('updated_at', { ascending: false });
+      
+    if (error) throw error;
+    
+    setSubmittedPursuits(data || []);
+  } catch (error) {
+    console.error("Error fetching submitted pursuits:", error);
+    toast.error("Failed to load submitted pursuits");
+  }
+};
+
+// Add this to your useEffect
+useEffect(() => {
+  fetchSubmittedPursuits();
+}, []);
+
+// Add this helper function for formatting time ago
+const formatTimeAgo = (timestamp: string): string => {
+  try {
+    const date = new Date(timestamp);
+    if (isNaN(date.getTime())) {
+      return 'Invalid date';
+    }
+
+    const now = new Date();
+    const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+    const months = Math.floor(days / 30);
+    const years = Math.floor(days / 365);
+
+    if (years > 0) return `${years} ${years === 1 ? 'year' : 'years'} ago`;
+    if (months > 0) return `${months} ${months === 1 ? 'month' : 'months'} ago`;
+    if (days > 0) return `${days} ${days === 1 ? 'day' : 'days'} ago`;
+    if (hours > 0) return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`;
+    if (minutes > 0) return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} ago`;
+    return 'just now';
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return 'Date unavailable';
+  }
+};
+
+// Add this function to handle follow up button clicks
+const handleFollowUp = (pursuitId) => {
+  // Implement your follow up logic here
+  console.log('Following up on pursuit:', pursuitId);
+  // You could open a modal, navigate to a messages page, etc.
+};
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">
@@ -387,83 +699,190 @@ const BizRadarDashboard = () => {
                 <div className="col-span-2 space-y-6">
                   {/* Metrics */}
                   <div className="grid grid-cols-2 gap-6">
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 transition-all hover:shadow-md">
-                      <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-lg font-semibold text-gray-700 flex items-center">
-                          <FileText className="h-5 w-5 mr-2 text-blue-500" />
-                          New Pursuits in March
-                        </h2>
-                        <div className="p-2 bg-teal-100 text-teal-800 rounded-lg">
-                          <Info className="h-5 w-5" />
-                        </div>
-                      </div>
-                      <div className="flex items-end space-x-3 mb-4">
-                        <div className="text-4xl font-bold text-gray-900">
-                          2
-                        </div>
-                        <div className="pb-1 flex items-center text-sm font-medium text-teal-600 bg-teal-50 px-2 py-1 rounded-lg">
-                          <ArrowUpRight className="h-4 w-4 mr-1" />
-                          <span>200%</span>
-                        </div>
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        200% more than this time last month
-                      </div>
+                    <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200 transition-all hover:shadow-lg relative">
+  {/* Header with navigation */}
+  <div className="flex justify-between items-center mb-6">
+    <div className="flex items-center">
+      <button 
+        onClick={navigateToPreviousMonth}
+        className="mr-3 p-2 rounded-full hover:bg-gray-100 text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-300"
+      >
+        <ChevronLeft className="h-5 w-5" />
+      </button>
+      <h2 className="text-lg font-semibold text-gray-700 flex items-center">
+        <FileText className="h-5 w-5 mr-2 text-blue-500" />
+        <span className="mr-1">Pursuits in</span>
+        <span className="text-blue-600">{monthlyPursuits.month} {monthlyPursuits.year}</span>
+      </h2>
+      <button 
+        onClick={navigateToNextMonth}
+        className="ml-3 p-2 rounded-full hover:bg-gray-100 text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-300"
+      >
+        <ChevronRight className="h-5 w-5" />
+      </button>
+    </div>
+    
+    <div className="flex items-center">
+      <button 
+        className="p-2 rounded-full hover:bg-gray-100 text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-300 mr-2"
+        onClick={() => setIsChartVisible(!isChartVisible)}
+      >
+        <TrendingUp className="h-5 w-5" />
+      </button>
+      <div className="p-2 bg-teal-100 text-teal-800 rounded-lg">
+        <Info className="h-5 w-5" />
+      </div>
+    </div>
+  </div>
+  
+  {/* Count display */}
+  {isLoading ? (
+    <div className="flex items-center justify-center h-32">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+    </div>
+  ) : (
+    <div className="flex flex-col items-center my-4">
+      <div className="relative">
+        <div className="text-6xl font-bold text-gray-800 transition-all">
+          {monthlyPursuits.count}
+        </div>
+        <div className="absolute -top-3 -right-3 bg-blue-500 text-white text-xs font-bold rounded-full h-6 w-6 flex items-center justify-center">
+          <span>+</span>
+        </div>
+      </div>
+      <div className="mt-2 text-gray-500 font-medium">
+        New Pursuits Added
+      </div>
+    </div>
+  )}
+  
+  {/* Historical data chart */}
+  {isChartVisible && (
+    <div className="mt-6 pt-4 border-t border-gray-100">
+      <div className="flex justify-between items-end h-32 px-2">
+        {monthlyStats.map((month, index) => (
+          <div 
+            key={index}
+            className="flex flex-col items-center group cursor-pointer"
+          >
+            <div 
+              className="w-8 bg-blue-400 hover:bg-blue-600 rounded-t-sm transition-all" 
+              style={{ 
+                height: `${Math.max(10, (month.count / (Math.max(...monthlyStats.map(m => m.count)) || 1)) * 80)}px`
+              }}
+            ></div>
+            <div className="text-xs font-medium text-gray-500 mt-1">
+              {month.month}
+            </div>
+            <div className="absolute bottom-full mb-2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+              <div className="font-bold">{month.month} {month.year}</div>
+              <div>{month.count} {month.count === 1 ? 'Pursuit' : 'Pursuits'}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="text-center text-xs text-blue-600 mt-2 hover:underline cursor-pointer">
+        View detailed analytics
+      </div>
+    </div>
+  )}
+</div>
 
-                      {/* Minimal chart visualization */}
-                      <div className="mt-4 h-8 flex items-end space-x-1">
-                        <div className="w-1/12 bg-gray-200 h-2 rounded-sm"></div>
-                        <div className="w-1/12 bg-gray-200 h-2 rounded-sm"></div>
-                        <div className="w-1/12 bg-gray-200 h-6 rounded-sm"></div>
-                        <div className="w-1/12 bg-gray-200 h-4 rounded-sm"></div>
-                        <div className="w-1/12 bg-gray-200 h-2 rounded-sm"></div>
-                        <div className="w-1/12 bg-gray-200 h-3 rounded-sm"></div>
-                        <div className="w-1/12 bg-gray-200 h-2 rounded-sm"></div>
-                        <div className="w-1/12 bg-gray-200 h-5 rounded-sm"></div>
-                        <div className="w-1/12 bg-gray-200 h-3 rounded-sm"></div>
-                        <div className="w-1/12 bg-gray-200 h-2 rounded-sm"></div>
-                        <div className="w-1/12 bg-gray-200 h-2 rounded-sm"></div>
-                        <div className="w-1/12 bg-blue-500 h-8 rounded-sm"></div>
-                      </div>
-                    </div>
+                    {/* Action Items Card */}
+<div className="bg-white p-6 rounded-xl shadow-md border border-gray-200 transition-all hover:shadow-lg">
+  <div className="flex justify-between items-center mb-6">
+    <h2 className="text-lg font-semibold text-gray-700 flex items-center">
+      <Clock className="h-5 w-5 mr-2 text-blue-500" />
+      Action Items
+    </h2>
+    {actionItems.dueToday > 0 ? (
+      <div className="p-2 bg-red-100 text-red-800 rounded-lg">
+        <AlertTriangle className="h-5 w-5" />
+      </div>
+    ) : (
+      <div className="p-2 bg-gray-100 text-gray-500 rounded-lg">
+        <Clock className="h-5 w-5" />
+      </div>
+    )}
+  </div>
+  
+  {isLoading ? (
+    <div className="flex items-center justify-center h-32">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+    </div>
+  ) : (
+    <>
+      <div className="flex items-end space-x-3 mb-4">
+        <div className="text-4xl font-bold text-gray-900">
+          {actionItems.count}
+        </div>
+        <div className="pb-1 flex items-center text-sm font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">
+          <Clock className="h-4 w-4 mr-1" />
+          <span>Pending</span>
+        </div>
+        
+        {actionItems.dueToday > 0 && (
+          <div className="pb-1 flex items-center text-sm font-medium text-red-600 bg-red-50 px-2 py-1 rounded-lg">
+            <AlertTriangle className="h-4 w-4 mr-1" />
+            <span>{actionItems.dueToday} Due Today</span>
+          </div>
+        )}
+      </div>
 
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 transition-all hover:shadow-md">
-                      <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-lg font-semibold text-gray-700 flex items-center">
-                          <Clock className="h-5 w-5 mr-2 text-blue-500" />
-                          Action Items
-                        </h2>
-                        <div className="p-2 bg-red-100 text-red-800 rounded-lg">
-                          <AlertTriangle className="h-5 w-5" />
-                        </div>
-                      </div>
-                      <div className="flex items-end space-x-3 mb-4">
-                        <div className="text-4xl font-bold text-gray-900">
-                          2
-                        </div>
-                        <div className="pb-1 flex items-center text-sm font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">
-                          <Clock className="h-4 w-4 mr-1" />
-                          <span>Upcoming</span>
-                        </div>
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        None due today
-                      </div>
+      {/* Action items list */}
+      {actionItems.items.length > 0 && (
+        <div className="mt-4 space-y-2">
+          {actionItems.items.map((item, index) => (
+            <div key={index} className="p-3 bg-gray-50 rounded-lg border border-gray-200 text-sm flex items-start">
+              <div className="mr-3 mt-0.5">
+                <div className={`h-2 w-2 rounded-full ${
+                  item.stage === "Assessment" ? "bg-orange-500" : "bg-yellow-500"
+                }`}></div>
+              </div>
+              <div className="flex-1 truncate">
+                <div className="font-medium text-gray-800 truncate">{item.title}</div>
+                <div className="text-xs text-gray-500 mt-0.5">{item.stage}</div>
+              </div>
+              <div className="ml-2 text-xs text-gray-500 whitespace-nowrap">
+                {item.due_date ? new Date(item.due_date).toLocaleDateString() : "No due date"}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
-                      {/* Progress visualization */}
-                      <div className="mt-4 space-y-2">
-                        <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-blue-500 rounded-full"
-                            style={{ width: "75%" }}
-                          ></div>
-                        </div>
-                        <div className="flex justify-between text-xs text-gray-500">
-                          <span>0 Completed</span>
-                          <span>2 Remaining</span>
-                        </div>
-                      </div>
-                    </div>
+      {/* Progress bar */}
+      <div className="mt-4 space-y-2">
+        <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-blue-500 rounded-full"
+            style={{ 
+              width: `${actionItems.count + actionItems.completed > 0 
+                ? Math.round((actionItems.completed / (actionItems.count + actionItems.completed)) * 100) 
+                : 0}%` 
+            }}
+          ></div>
+        </div>
+        <div className="flex justify-between text-xs text-gray-500">
+          <span>{actionItems.completed} Completed</span>
+          <span>{actionItems.count} Remaining</span>
+        </div>
+      </div>
+
+      {/* Added Link to Pursuits page */}
+      <div className="mt-4 text-center">
+        <Link 
+          to="/pursuits"
+          className="text-blue-600 hover:text-blue-800 text-sm font-medium inline-flex items-center"
+        >
+          View all action items
+          <ChevronRight className="h-4 w-4 ml-1" />
+        </Link>
+      </div>
+    </>
+  )}
+</div>
+
                   </div>
 
                   {/* AI-Matched Opportunities */}
@@ -776,86 +1195,79 @@ const BizRadarDashboard = () => {
                     </div>
                   </div>
 
-                  {/* Action Items */}
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                    <div className="px-6 py-4 border-b border-gray-100">
-                      <div className="flex items-center space-x-3">
-                        <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
-                          <Clock className="h-5 w-5" />
-                        </div>
-                        <h2 className="text-lg font-semibold text-gray-700">
-                          Action Items
-                        </h2>
-                        <div className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
-                          2
-                        </div>
-                      </div>
-                    </div>
+                  {/* Submission Status */}
+<div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+  <div className="px-6 py-4 border-b border-gray-100">
+    <div className="flex items-center space-x-3">
+      <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
+        <CheckCircle2 className="h-5 w-5" />
+      </div>
+      <h2 className="text-lg font-semibold text-gray-700">
+        Submission Status
+      </h2>
+      <div className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
+        {submittedPursuits.length}
+      </div>
+    </div>
+  </div>
 
-                    <div className="p-4 space-y-3">
-                      <div className="rounded-lg border border-gray-200 p-4 hover:shadow-sm transition-all group">
-                        <div className="flex items-start">
-                          <div className="flex-shrink-0 p-2 bg-green-100 text-green-600 rounded-lg mr-3">
-                            <TrendingUp className="h-4 w-4" />
-                          </div>
-                          <div className="flex-1">
-                            <h3 className="text-md font-medium text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
-                              Light Poles, Fixtures and Globes
-                            </h3>
-                            <div className="mb-2 flex items-center text-xs font-medium text-gray-600 bg-gray-100 px-3 py-1 rounded-full w-fit">
-                              <Clock className="h-3 w-3 mr-1 text-blue-500" />
-                              <span>Due in 21 days</span>
-                            </div>
-                            <div className="flex items-center space-x-2 text-xs text-gray-500">
-                              <span className="flex items-center">
-                                <FileText className="h-3 w-3 mr-1" />
-                                Pursuit
-                              </span>
-                              <span>•</span>
-                              <span>Assessment</span>
-                            </div>
-                          </div>
-                          <button className="ml-2 p-1 text-gray-400 hover:text-blue-500 transition-colors">
-                            <CheckCircle2 className="h-5 w-5" />
-                          </button>
-                        </div>
-                      </div>
+  <div className="p-4 space-y-3">
+    {submittedPursuits.map((pursuit) => (
+      <div key={pursuit.id} className="rounded-lg border border-gray-200 p-4 hover:shadow-sm transition-all group">
+        <div className="flex items-start">
+          <div className="flex-shrink-0 p-2 bg-green-100 text-green-600 rounded-lg mr-3">
+            <CheckCircle2 className="h-4 w-4" />
+          </div>
+          <div className="flex-1">
+            <h3 className="text-md font-medium text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
+              {pursuit.title}
+            </h3>
+            <div className="mb-2 flex items-center text-xs font-medium text-gray-600 bg-gray-100 px-3 py-1 rounded-full w-fit">
+              <Clock className="h-3 w-3 mr-1 text-green-500" />
+              <span>
+                {`Submitted ${formatTimeAgo(pursuit.updated_at)}`}
+              </span>
+            </div>
+            <div className="flex items-center space-x-2 text-xs text-gray-500">
+              <span className="flex items-center">
+                <FileText className="h-3 w-3 mr-1" />
+                Pursuit
+              </span>
+              <span>•</span>
+              <span>{pursuit.stage}</span>
+            </div>
+          </div>
+          <button 
+            className="ml-2 p-2 text-gray-400 hover:text-blue-500 transition-colors rounded-lg hover:bg-blue-50"
+            title="Follow up"
+            onClick={() => handleFollowUp(pursuit.id)}
+          >
+            <MessageSquare className="h-5 w-5" />
+          </button>
+        </div>
+      </div>
+    ))}
 
-                      <div className="rounded-lg border border-gray-200 p-4 hover:shadow-sm transition-all group">
-                        <div className="flex items-start">
-                          <div className="flex-shrink-0 p-2 bg-green-100 text-green-600 rounded-lg mr-3">
-                            <TrendingUp className="h-4 w-4" />
-                          </div>
-                          <div className="flex-1">
-                            <h3 className="text-md font-medium text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
-                              ROC Programmers
-                            </h3>
-                            <div className="mb-2 flex items-center text-xs font-medium text-gray-600 bg-gray-100 px-3 py-1 rounded-full w-fit">
-                              <Clock className="h-3 w-3 mr-1 text-blue-500" />
-                              <span>Due in 14 days</span>
-                            </div>
-                            <div className="flex items-center space-x-2 text-xs text-gray-500">
-                              <span className="flex items-center">
-                                <FileText className="h-3 w-3 mr-1" />
-                                Pursuit
-                              </span>
-                              <span>•</span>
-                              <span>Assessment</span>
-                            </div>
-                          </div>
-                          <button className="ml-2 p-1 text-gray-400 hover:text-blue-500 transition-colors">
-                            <CheckCircle2 className="h-5 w-5" />
-                          </button>
-                        </div>
-                      </div>
+    {submittedPursuits.length === 0 && (
+      <div className="text-center py-6 text-gray-500">
+        No submitted pursuits yet
+      </div>
+    )}
 
-                      <div className="p-3 text-center">
-                        <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">
-                          View all action items
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+    {submittedPursuits.length > 0 && (
+      <div className="p-3 text-center">
+        <Link 
+          to="/pursuits?filter=submitted"
+          className="text-blue-600 hover:text-blue-800 text-sm font-medium inline-flex items-center"
+        >
+          View all submitted pursuits
+          <ChevronRight className="h-4 w-4 ml-1" />
+        </Link>
+      </div>
+    )}
+  </div>
+</div>
+
                 </div>
               </div>
             </div>

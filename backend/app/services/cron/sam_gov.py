@@ -276,39 +276,38 @@ async def fetch_opportunities() -> Dict[str, Any]:
                 "error": result.get("error")
             }
             
-            # Only run indexing if new records were inserted
-            if result.get("inserted", 0) > 0:
+            # Always run indexing for ALL records in the database
+            try:
+                # Import indexing function and run indexing for ALL data
+                logger.info("Running Pinecone indexing for ALL records...")
+                
+                # Try to import the indexing function
                 try:
-                    # Import indexing function and run indexing for newly inserted data
-                    logger.info("New records inserted, running Pinecone indexing...")
-                    
-                    # Try to import the indexing function
+                    # Add app directory to python path if not already there
+                    app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                    if app_dir not in sys.path:
+                        sys.path.insert(0, app_dir)
+                        
+                    # Import here to avoid circular imports - file is in utils folder
                     try:
-                        # Add app directory to python path if not already there
-                        app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                        if app_dir not in sys.path:
-                            sys.path.insert(0, app_dir)
-                            
-                        # Import here to avoid circular imports - file is in utils folder
-                        try:
-                            from utils.index_to_pinecone import index_sam_gov_to_pinecone
-                        except ModuleNotFoundError:
-                            from app.services.utils.index_to_pinecone import index_sam_gov_to_pinecone
-                        
-                        # Run indexing for SAM.gov only (incremental)
-                        index_result = index_sam_gov_to_pinecone(incremental=True)
-                        db_results["indexed_count"] = index_result
-                        logger.info(f"Successfully indexed {index_result} new records to Pinecone")
-                        
-                    except ImportError as e:
-                        logger.warning(f"Could not import utils.index_to_pinecone module: {e}")
-                        logger.warning("Pinecone indexing will be skipped for this run")
-                        db_results["indexed_count"] = 0
-                        
-                except Exception as e:
-                    logger.error(f"Error during Pinecone indexing: {e}")
-                    db_results["indexing_error"] = str(e)
+                        from utils.index_to_pinecone import index_sam_gov_to_pinecone
+                    except ModuleNotFoundError:
+                        from app.services.utils.index_to_pinecone import index_sam_gov_to_pinecone
                     
+                    # Run indexing for ALL SAM.gov records, rely on Pinecone's upsert to handle duplicates
+                    index_result = index_sam_gov_to_pinecone(incremental=False)
+                    db_results["indexed_count"] = index_result
+                    logger.info(f"Successfully indexed {index_result} records to Pinecone")
+                    
+                except ImportError as e:
+                    logger.warning(f"Could not import utils.index_to_pinecone module: {e}")
+                    logger.warning("Pinecone indexing will be skipped for this run")
+                    db_results["indexed_count"] = 0
+                    
+            except Exception as e:
+                logger.error(f"Error during Pinecone indexing: {e}")
+                db_results["indexing_error"] = str(e)
+                
             return db_results
     
     return {"source": "sam.gov", "count": 0, "status": "No opportunities found"}
