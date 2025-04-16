@@ -1,6 +1,18 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import { Search, FileText, Trash2, X, PenLine, CheckCircle, CheckSquare } from "lucide-react";
+import { 
+  Search, 
+  FileText, 
+  Trash2, 
+  X, 
+  PenLine, 
+  CheckCircle, 
+  CheckSquare,
+  Upload,
+  Plus,
+  Calendar,
+  ChevronRight
+} from "lucide-react";
 import SideBar from "../components/layout/SideBar";
 import { supabase } from "../utils/supabase";
 import { toast } from "sonner";
@@ -43,6 +55,65 @@ export default function Pursuits(): JSX.Element {
   // Add new state for the RFP response builder
   const [showRfpBuilder, setShowRfpBuilder] = useState<boolean>(false);
   const [currentRfpPursuitId, setCurrentRfpPursuitId] = useState<string | null>(null);
+  
+  // Add dialog state for Import Pursuit
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [newPursuit, setNewPursuit] = useState({
+    title: "",
+    description: "",
+    stage: "Assessment",
+    due_date: null,
+    tags: [],
+  });
+
+  // File input ref
+  const fileInputRef = useRef(null);
+  const [selectedFiles, setSelectedFiles] = useState([]);
+
+  // Add function to toggle dialog
+  const toggleDialog = () => {
+    setIsDialogOpen(!isDialogOpen);
+    if (!isDialogOpen) {
+      // Reset form when opening
+      setNewPursuit({
+        title: "",
+        description: "",
+        stage: "Assessment",
+        due_date: null,
+        tags: [],
+      });
+      setSelectedFiles([]);
+    }
+  };
+
+  // Function to handle file selection
+  const handleFileSelect = (e) => {
+    if (e.target.files) {
+      const filesArray = Array.from(e.target.files);
+      setSelectedFiles([...selectedFiles, ...filesArray]);
+    }
+  };
+
+  // Function to remove a selected file
+  const removeFile = (index) => {
+    const newFiles = [...selectedFiles];
+    newFiles.splice(index, 1);
+    setSelectedFiles(newFiles);
+  };
+
+  // Function to handle drag and drop
+  const handleDrop = (e) => {
+    e.preventDefault();
+    if (e.dataTransfer.files) {
+      const filesArray = Array.from(e.dataTransfer.files);
+      setSelectedFiles([...selectedFiles, ...filesArray]);
+    }
+  };
+
+  // Prevent default for drag events
+  const handleDragOver = (e) => {
+    e.preventDefault();
+  };
   
   // Function to open the RFP builder for a pursuit
   const openRfpBuilder = (pursuit: Pursuit): void => {
@@ -122,6 +193,73 @@ export default function Pursuits(): JSX.Element {
     } catch (error) {
       console.error("Error adding to pursuits:", error);
       setError("Failed to add pursuit. Please try again.");
+    }
+  };
+  
+  // Function to handle create pursuit
+  const handleCreatePursuit = async () => {
+    try {
+      // Get the current user
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        console.log("No user logged in");
+        return;
+      }
+
+      // Format due date if provided
+      let formattedDueDate = null;
+      if (newPursuit.due_date) {
+        formattedDueDate = new Date(newPursuit.due_date).toISOString();
+      }
+
+      // Create new pursuit
+      const { data, error } = await supabase
+        .from("pursuits")
+        .insert({
+          title: newPursuit.title || "Untitled",
+          description: newPursuit.description || "",
+          stage: newPursuit.stage || "Assessment",
+          user_id: user.id,
+          due_date: formattedDueDate,
+        })
+        .select();
+
+      if (error) {
+        console.error("Insert error details:", error);
+        throw error;
+      }
+
+      console.log("Added successfully:", data);
+
+      if (data && data.length > 0) {
+        // Show success message
+        toast?.success("Pursuit created successfully");
+
+        // Update pursuits list with the new pursuit
+        const formattedPursuit: Pursuit = {
+          id: data[0].id,
+          title: data[0].title || "Untitled",
+          description: data[0].description || "",
+          stage: data[0].stage || "Assessment",
+          created: new Date(data[0].created_at).toLocaleDateString(),
+          dueDate: data[0].due_date ? new Date(data[0].due_date).toLocaleDateString() : "TBD",
+          assignee: "Unassigned",
+          assigneeInitials: "UA",
+          is_submitted: data[0].is_submitted || false,
+          naicscode: data[0].naicscode || ""
+        };
+        
+        setPursuits(prevPursuits => [formattedPursuit, ...prevPursuits]);
+
+        // Close dialog
+        toggleDialog();
+      }
+    } catch (error) {
+      console.error("Error creating pursuit:", error);
+      toast?.error("Failed to create pursuit. Please try again.");
     }
   };
   
@@ -428,6 +566,155 @@ export default function Pursuits(): JSX.Element {
         </div>
       )}
       
+      {/* Create Pursuit Dialog */}
+      {isDialogOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg relative">
+            {/* Dialog Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-800">
+                Import Pursuit
+              </h3>
+              <button
+                onClick={toggleDialog}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Dialog Body */}
+            <div className="p-6">
+              {/* Title Input */}
+              <input
+                type="text"
+                placeholder="Pursuit title"
+                className="w-full p-2 border-b border-gray-200 text-lg font-medium mb-4 focus:outline-none focus:border-blue-500"
+                value={newPursuit.title}
+                onChange={(e) =>
+                  setNewPursuit({ ...newPursuit, title: e.target.value })
+                }
+              />
+
+              {/* Description Input */}
+              <textarea
+                placeholder="Add description..."
+                className="w-full p-2 border-b border-gray-200 text-sm mb-6 focus:outline-none focus:border-blue-500 min-h-24"
+                value={newPursuit.description}
+                onChange={(e) =>
+                  setNewPursuit({ ...newPursuit, description: e.target.value })
+                }
+              ></textarea>
+
+              {/* Tags and Options */}
+              <div className="flex flex-wrap gap-2 mb-6">
+                {/* Federal Contract Button */}
+                <button className="px-3 py-1.5 border border-gray-300 rounded-full text-sm text-gray-700 hover:bg-gray-50">
+                  Federal Contract
+                </button>
+
+                {/* Assessment Tag */}
+                <div className="px-3 py-1.5 bg-amber-100 text-amber-800 rounded-full text-sm flex items-center gap-1 font-medium">
+                  <span className="h-2 w-2 bg-amber-500 rounded-full"></span>
+                  Assessment
+                </div>
+
+                {/* No Assignee Tag */}
+                <button className="px-3 py-1.5 border border-gray-300 rounded-full text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-1">
+                  <span className="text-gray-500">👤</span>
+                  No assignee
+                </button>
+
+                {/* Date Picker */}
+                <button className="px-3 py-1.5 border border-gray-300 rounded-full text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-1">
+                  <span className="text-gray-500">📅</span>
+                  Apr 5, 2025 11:41 AM
+                </button>
+
+                {/* Select Tags */}
+                <button className="px-3 py-1.5 border border-gray-300 rounded-full text-sm text-gray-700 hover:bg-gray-50">
+                  + Select tags
+                </button>
+              </div>
+
+              {/* File Upload Section */}
+              <div className="mb-6">
+                <h4 className="font-medium text-gray-700 mb-2">
+                  Add Solicitation Files
+                </h4>
+                <div
+                  className="border border-dashed border-gray-300 rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer"
+                  onClick={() => fileInputRef.current?.click()}
+                  onDrop={handleDrop}
+                  onDragOver={handleDragOver}
+                >
+                  <input
+                    type="file"
+                    multiple
+                    className="hidden"
+                    ref={fileInputRef}
+                    onChange={handleFileSelect}
+                  />
+                  {selectedFiles.length === 0 ? (
+                    <>
+                      <FileText className="h-8 w-8 text-gray-400 mb-2" />
+                      <p className="text-sm text-gray-500 text-center">
+                        Drag and drop files here
+                        <br />
+                        <span className="text-blue-500">
+                          or browse for files
+                        </span>
+                      </p>
+                    </>
+                  ) : (
+                    <div className="w-full">
+                      {selectedFiles.map((file, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between p-2 bg-gray-50 rounded mb-2"
+                        >
+                          <div className="flex items-center">
+                            <FileText className="h-4 w-4 text-gray-400 mr-2" />
+                            <span className="text-sm text-gray-700 truncate max-w-xs">
+                              {file.name}
+                            </span>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeFile(index);
+                            }}
+                            className="text-gray-400 hover:text-red-500"
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Dialog Footer */}
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-between">
+              <button
+                onClick={toggleDialog}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreatePursuit}
+                className="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-700"
+              >
+                Import Pursuit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* RFP Builder Modal */}
       {showRfpBuilder && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-start overflow-y-auto">
@@ -463,7 +750,11 @@ export default function Pursuits(): JSX.Element {
           {/* Header */}
           <div className="border-b border-gray-200 bg-white shadow-sm">
             <div className="flex items-center justify-between px-6 py-4">
-              <div className="text-xl font-semibold text-gray-800">Pursuits</div>
+            <div className="flex items-center gap-2">
+                <span className="text-gray-500 text-sm font-medium">Portfolio</span>
+                <ChevronRight size={16} className="text-gray-500" />
+                <span className="font-medium text-gray-500">Pursuits</span>
+              </div>
               <div className="flex items-center gap-4">
                 <button className="bg-blue-50 text-blue-600 hover:bg-blue-100 px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-blue-100">
                   <span>View Analytics</span>
@@ -486,22 +777,11 @@ export default function Pursuits(): JSX.Element {
             </div>
             
             <div className="flex items-center gap-3 ml-4">
-              <div className="flex bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
-                <button 
-                  className={`px-4 py-2 text-sm font-medium ${view === "active" ? "bg-blue-50 text-blue-600" : "text-gray-600 hover:bg-gray-50"} transition-colors`}
-                  onClick={() => changeView("active")}
-                >
-                  Active
-                </button>
-                <button 
-                  className={`px-4 py-2 text-sm font-medium ${view === "archived" ? "bg-blue-50 text-blue-600" : "text-gray-600 hover:bg-gray-50"} transition-colors`}
-                  onClick={() => changeView("archived")}
-                >
-                  Archived
-                </button>
-              </div>
-              
-              <button className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg shadow-sm transition-colors">
+              <button 
+                onClick={toggleDialog}
+                className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-emerald-500 hover:bg-emerald-600 rounded-lg shadow-sm transition-colors"
+              >
+                <Plus className="h-4 w-4" />
                 <span>New Pursuit</span>
               </button>
             </div>
@@ -653,3 +933,9 @@ export default function Pursuits(): JSX.Element {
     </div>
   );
 }
+
+
+
+
+
+

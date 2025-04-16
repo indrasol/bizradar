@@ -90,14 +90,7 @@ export default function RfpWriter() {
   if (loading) {
     return (
       <div className="h-screen flex flex-col">
-        <div className="w-full bg-blue-600 text-white text-center py-2 px-4">
-          <div className="flex items-center justify-center">
-            <span>Subscription Plans.</span>
-            <a href="#" className="ml-2 font-medium underline decoration-2 underline-offset-2">
-              Book a demo here
-            </a>
-          </div>
-        </div>
+        
         <div className="flex flex-1">
           <SideBar />
           <div className="flex-1 flex items-center justify-center">
@@ -114,14 +107,7 @@ export default function RfpWriter() {
   if (error) {
     return (
       <div className="h-screen flex flex-col">
-        <div className="w-full bg-blue-600 text-white text-center py-2 px-4">
-          <div className="flex items-center justify-center">
-            <span>Subscription Plans.</span>
-            <a href="#" className="ml-2 font-medium underline decoration-2 underline-offset-2">
-              Book a demo here
-            </a>
-          </div>
-        </div>
+        
         <div className="flex flex-1">
           <SideBar />
           <div className="flex-1 p-6">
@@ -150,14 +136,7 @@ export default function RfpWriter() {
 
   return (
     <div className="h-screen flex flex-col">
-      <div className="w-full bg-blue-600 text-white text-center py-2 px-4">
-        <div className="flex items-center justify-center">
-          <span>Subscription Plans.</span>
-          <a href="#" className="ml-2 font-medium underline decoration-2 underline-offset-2">
-            Book a demo here
-          </a>
-        </div>
-      </div>
+      
       <div className="flex flex-1">
         <SideBar />
         <div className="flex-1 flex flex-col">

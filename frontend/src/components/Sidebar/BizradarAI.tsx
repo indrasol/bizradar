@@ -14,9 +14,10 @@ import {
   ChevronDown,
   RefreshCw,
   Download,
-  Zap
+  Zap,
+  ArrowLeft // Added ArrowLeft icon for back button
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom'; // Added useNavigate
 
 // Sample conversation history
 const initialConversations = [
@@ -51,6 +52,7 @@ const systemMessage = {
 };
 
 const BizradarAI = () => {
+  const navigate = useNavigate(); // Initialize useNavigate hook
   const [activeConversation, setActiveConversation] = useState(null);
   const [conversations, setConversations] = useState(initialConversations);
   const [messages, setMessages] = useState([systemMessage]);
@@ -63,6 +65,11 @@ const BizradarAI = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Function to handle going back
+  const handleGoBack = () => {
+    navigate(-1); // Navigate back to the previous page
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -259,6 +266,15 @@ Would you like me to customize this further?`;
         {/* Chat Header */}
         <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-white">
           <div className="flex items-center gap-3">
+            {/* Back Button - Added here */}
+            <button 
+              onClick={handleGoBack}
+              className="p-1.5 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+              aria-label="Go back"
+            >
+              <ArrowLeft size={18} />
+            </button>
+            
             <button 
               onClick={() => setShowSidebar(!showSidebar)}
               className="p-1.5 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
@@ -408,4 +424,11 @@ Would you like me to customize this further?`;
 };
 
 export default BizradarAI;
+
+
+
+
+
+
+
 

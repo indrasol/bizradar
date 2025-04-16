@@ -1,30 +1,32 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Download, Sparkles, PenLine, Image, Plus, Trash2, ChevronDown, ChevronUp, FileText, Eye, Settings, CheckCircle, Circle, X, Move, Save } from 'lucide-react';
+import { 
+  Download, 
+  Sparkles, 
+  PenLine, 
+  Image, 
+  Plus, 
+  Trash2, 
+  ChevronDown, 
+  ChevronUp, 
+  FileText, 
+  Eye, 
+  Settings, 
+  CheckCircle, 
+  Circle, 
+  X, 
+  Move, 
+  Save,
+  ArrowRight,
+  CheckCircle2,
+  Clock,
+  AlertCircle,
+  BarChart3,
+  Calendar
+} from 'lucide-react';
 import { supabase } from '../../utils/supabase';
 import { toast } from "sonner";
 
-interface Section {
-  id: number;
-  title: string;
-  content: string;
-  icon: string;
-  completed: boolean;
-}
-
-interface RfpSaveEventDetail {
-  pursuitId: string;
-  stage: string;
-  percentage: number;
-}
-
 const RfpResponse = ({ contract, pursuitId }) => {
-  console.log("RfpResponse received contract:", contract);
-  console.log("RfpResponse received pursuitId prop:", pursuitId);
-  
-  // CRITICAL: Always use the explicitly passed pursuitId, not contract.id
-  const actualPursuitId = pursuitId || contract?.pursuitId || contract?.id;
-  console.log("RfpResponse using pursuit ID:", actualPursuitId);
-  
   const exampleJob = contract || {
     title: 'DA10--Retail Merchandising System (RMS) and the Oracle Retail Store Inventory Management (SIM)',
     dueDate: '2025-04-11',
@@ -60,7 +62,7 @@ const RfpResponse = ({ contract, pursuitId }) => {
   const [solicitationNumber, setSolicitationNumber] = useState(contract?.solicitation_number || '');
 
   // Move the defaultTemplate function above the sections state declaration
-  const defaultTemplate = (job: any): Section[] => [
+  const defaultTemplate = (job) => [
     {
       id: 1,
       title: 'COVER PAGE',
@@ -117,16 +119,16 @@ const RfpResponse = ({ contract, pursuitId }) => {
   // Load saved RFP data when component mounts
   useEffect(() => {
     const loadRfpData = async () => {
-      if (!actualPursuitId) return;
+      if (!pursuitId) return;
       
       try {
-        console.log("Loading RFP data for pursuit ID:", actualPursuitId);
+        console.log("Loading RFP data for pursuit ID:", pursuitId);
         
         // Fetch RFP response data for this pursuit
         const { data: responses, error } = await supabase
           .from('rfp_responses')
           .select('*')
-          .eq('pursuit_id', actualPursuitId);
+          .eq('pursuit_id', pursuitId);
         
         if (error) {
           console.error("Error loading RFP data:", error);
@@ -135,8 +137,6 @@ const RfpResponse = ({ contract, pursuitId }) => {
         }
         
         if (responses && responses.length > 0) {
-          // Existing opportunity with saved data found
-          console.log("Found existing RFP response data");
           const data = responses[0];
           
           if (data.content) {
@@ -153,16 +153,8 @@ const RfpResponse = ({ contract, pursuitId }) => {
             setIssuedDate(content.issuedDate || 'December 26th, 2024');
             setSubmittedBy(content.submittedBy || 'Jane Smith, BizRadar (CEO)');
             setTheme(content.theme || 'professional');
-            
-            // For existing opportunities, ALWAYS use their saved sections, EVEN if empty
-            // This preserves user's work (including if they deliberately deleted sections)
             if (Array.isArray(content.sections)) {
-              console.log(`Loading existing opportunity's sections: ${content.sections.length} sections found`);
               setSections(content.sections);
-            } else {
-              // This only happens if sections wasn't saved as an array type
-              console.log("Warning: saved sections is not an array, initializing empty sections");
-              setSections([]);
             }
           }
           
@@ -176,15 +168,12 @@ const RfpResponse = ({ contract, pursuitId }) => {
           
           console.log("Successfully loaded saved RFP data");
         } else {
-          // New opportunity, no saved data found - use default template
-          console.log("No existing RFP response found, using default template for new opportunity");
+          console.log("No existing RFP response found, using default template");
+          // No saved data found, use default template with contract data
           setRfpTitle(contract?.title || 'Proposal for Cybersecurity Audit & Penetration Testing Services');
           setNaicsCode(contract?.naicsCode || '000000');
           setSolicitationNumber(contract?.solicitation_number || '');
           setIssuedDate(contract?.published_date || new Date().toLocaleDateString());
-          
-          // Apply default template only for new opportunities
-          console.log("Initializing with default template sections");
           setSections(defaultTemplate(exampleJob));
         }
       } catch (err) {
@@ -194,11 +183,11 @@ const RfpResponse = ({ contract, pursuitId }) => {
     };
     
     loadRfpData();
-  }, [actualPursuitId]);
+  }, [pursuitId]);
   
   // Auto-save feature
   useEffect(() => {
-    if (!autoSaveEnabled || !actualPursuitId) return;
+    if (!autoSaveEnabled || !pursuitId) return;
     
     const autoSaveTimer = setTimeout(() => {
       saveRfpData(false); // Don't show notification for auto-save
@@ -208,28 +197,28 @@ const RfpResponse = ({ contract, pursuitId }) => {
   }, [
     logo, companyName, companyWebsite, letterhead, phone, 
     rfpTitle, rfpNumber, issuedDate, submittedBy, theme, sections,
-    autoSaveEnabled, actualPursuitId
+    autoSaveEnabled, pursuitId
   ]);
   
   // Function to save RFP data to the database
-  const saveRfpData = async (showNotification: boolean = true): Promise<void> => {
+  const saveRfpData = async (showNotification = true) => {
     try {
       setIsSaving(true);
       
-      // Calculate completion percentage
+      // Determine the appropriate stage based on completion percentage
       const completedSections = sections.filter(section => section.completed).length;
       const totalSections = sections.length;
-      const percentage = totalSections > 0 ? Math.round((completedSections / totalSections) * 100) : 0; // Avoid division by zero
       
-      // Determine the appropriate stage based on completion percentage
-      let stageToSet: string;
-      if (percentage === 100) {
+      let stageToSet;
+      if (completedSections === totalSections && totalSections > 0) {
         stageToSet = "RFP Response Completed";
-      } else if (percentage > 0) {
+      } else if (completedSections > 0) {
         stageToSet = "RFP Response Initiated";
       } else {
         stageToSet = "Assessment";
       }
+      
+      console.log("Saving RFP with stage:", stageToSet);
       
       // Prepare the content object to save
       const contentToSave = {
@@ -249,53 +238,27 @@ const RfpResponse = ({ contract, pursuitId }) => {
         stage: stageToSet
       };
       
-      // Get the current user
-      const { data: { user } } = await supabase.auth.getUser();
+      // Store content in localStorage
+      localStorage.setItem(`rfp_response_${pursuitId || 'draft'}`, JSON.stringify(contentToSave));
       
-      if (!user) {
-        console.log("No user logged in");
-        toast?.error("You must be logged in to save your RFP response.");
-        return;
-      }
+      // Update last saved timestamp
+      setLastSaved(new Date().toLocaleTimeString());
       
-      console.log("User ID:", user.id);
+      // Dispatch a custom event that the Pursuits component can listen for
+      console.log("Dispatching rfp_saved event with details:", { pursuitId, stage: stageToSet });
       
-      // Save to rfp_responses table
-      const { data: rfpData, error: rfpError } = await supabase
-        .from('rfp_responses')
-        .upsert({
-          pursuit_id: actualPursuitId, // Use the correct ID here
-          user_id: user.id, // Explicitly provide user ID
-          content: contentToSave,
-          completion_percentage: percentage,
-          is_submitted: isSubmitted
-        })
-        .select('id');
-        
-      if (rfpError) {
-        console.error("Error saving RFP response:", rfpError);
-        toast?.error("Failed to save RFP response. Please try again.");
-        return; // Exit if there's an error
-      }
+      const customEvent = new CustomEvent('rfp_saved', { 
+        detail: { 
+          pursuitId, 
+          stage: stageToSet
+        } 
+      });
       
-      // Update the pursuit stage
-      const { error: pursuitError } = await supabase
-        .from('pursuits')
-        .update({ 
-          stage: stageToSet,
-          is_submitted: isSubmitted,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', actualPursuitId);
+      window.dispatchEvent(customEvent);
       
-      if (pursuitError) {
-        console.error("Error updating pursuit stage:", pursuitError);
-        toast?.error("Failed to update pursuit stage. Please try again.");
-      }
-      
-      // Optionally show a success notification
+      // Show success notification
       if (showNotification) {
-        toast?.success("RFP response saved successfully!");
+        toast?.success(`Saved with stage: ${stageToSet}`);
       }
       
     } catch (error) {
@@ -384,23 +347,27 @@ const RfpResponse = ({ contract, pursuitId }) => {
     switch (theme) {
       case 'professional':
         return {
-          primary: 'bg-gray-800',
-          secondary: 'bg-gray-700',
-          accent: 'bg-gray-600',
+          primary: 'bg-blue-600',
+          primaryHover: 'hover:bg-blue-700',
+          secondary: 'bg-blue-500',
+          accent: 'bg-blue-500',
           text: 'text-white',
-          hover: 'hover:bg-gray-700',
-          border: 'border-gray-300',
-          activeBorder: 'border-gray-500',
+          hover: 'hover:bg-blue-700',
+          border: 'border-blue-200',
+          activeBorder: 'border-blue-500',
           sectionBg: 'bg-white',
           sectionHeaderBg: 'bg-gray-50',
-          sectionHeaderBgActive: 'bg-gray-100',
+          sectionHeaderBgActive: 'bg-blue-50',
           completedBg: 'bg-green-50',
+          completedText: 'text-green-700',
           completedIcon: 'text-green-600',
-          incompleteIcon: 'text-gray-400'
+          incompleteIcon: 'text-gray-400',
+          gradient: 'from-blue-600 to-blue-700'
         };
       case 'modern':
         return {
           primary: 'bg-indigo-600',
+          primaryHover: 'hover:bg-indigo-700',
           secondary: 'bg-indigo-500',
           accent: 'bg-purple-500',
           text: 'text-white',
@@ -411,40 +378,48 @@ const RfpResponse = ({ contract, pursuitId }) => {
           sectionHeaderBg: 'bg-indigo-50',
           sectionHeaderBgActive: 'bg-indigo-100',
           completedBg: 'bg-green-50',
+          completedText: 'text-green-700',
           completedIcon: 'text-green-600',
-          incompleteIcon: 'text-indigo-300'
+          incompleteIcon: 'text-indigo-300',
+          gradient: 'from-indigo-600 to-indigo-700'
         };
       case 'classic':
         return {
-          primary: 'bg-amber-700',
+          primary: 'bg-amber-600',
+          primaryHover: 'hover:bg-amber-700',
           secondary: 'bg-amber-600',
           accent: 'bg-amber-500',
           text: 'text-white',
-          hover: 'hover:bg-amber-800',
+          hover: 'hover:bg-amber-700',
           border: 'border-amber-200',
           activeBorder: 'border-amber-500',
           sectionBg: 'bg-amber-50',
           sectionHeaderBg: 'bg-amber-100',
           sectionHeaderBgActive: 'bg-amber-200',
           completedBg: 'bg-green-50',
+          completedText: 'text-green-700',
           completedIcon: 'text-green-600',
-          incompleteIcon: 'text-amber-400'
+          incompleteIcon: 'text-amber-400',
+          gradient: 'from-amber-600 to-amber-700'
         };
       default:
         return {
-          primary: 'bg-gray-800',
-          secondary: 'bg-gray-700',
-          accent: 'bg-gray-600',
+          primary: 'bg-blue-600',
+          primaryHover: 'hover:bg-blue-700',
+          secondary: 'bg-blue-500',
+          accent: 'bg-blue-500',
           text: 'text-white',
-          hover: 'hover:bg-gray-700',
-          border: 'border-gray-300',
-          activeBorder: 'border-gray-500',
+          hover: 'hover:bg-blue-700',
+          border: 'border-blue-200',
+          activeBorder: 'border-blue-500',
           sectionBg: 'bg-white',
           sectionHeaderBg: 'bg-gray-50',
-          sectionHeaderBgActive: 'bg-gray-100',
+          sectionHeaderBgActive: 'bg-blue-50',
           completedBg: 'bg-green-50',
+          completedText: 'text-green-700',
           completedIcon: 'text-green-600',
-          incompleteIcon: 'text-gray-400'
+          incompleteIcon: 'text-gray-400',
+          gradient: 'from-blue-600 to-blue-700'
         };
     }
   };
@@ -479,8 +454,8 @@ const RfpResponse = ({ contract, pursuitId }) => {
   // Function to close the RFP builder
   const closeRfpBuilder = (): void => {
     // Check if there's a current RFP pursuit ID
-    if (actualPursuitId) {
-      const savedData = localStorage.getItem(`rfp_response_${actualPursuitId}`);
+    if (pursuitId) {
+      const savedData = localStorage.getItem(`rfp_response_${pursuitId}`);
       if (savedData) {
         try {
           const parsedData = JSON.parse(savedData);
@@ -488,7 +463,7 @@ const RfpResponse = ({ contract, pursuitId }) => {
             // Update the pursuit stage in the local state
             setSections(prevSections => 
               prevSections.map(section => 
-                section.id === actualPursuitId
+                section.id === pursuitId
                   ? { ...section, stage: parsedData.stage }
                   : section
               )
@@ -505,69 +480,92 @@ const RfpResponse = ({ contract, pursuitId }) => {
     setExpandedSection(null);
   };
 
+  // Calculate due date proximity for display
+  const getDueDateProximity = () => {
+    if (!contract?.dueDate || contract.dueDate === "Not specified") return null;
+    
+    try {
+      const dueDateObj = new Date(contract.dueDate);
+      const today = new Date();
+      const diffTime = dueDateObj.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (diffDays < 0) return { label: "Past Due", color: "text-red-600 bg-red-50 border-red-200" };
+      if (diffDays === 0) return { label: "Due Today", color: "text-red-600 bg-red-50 border-red-200" };
+      if (diffDays <= 7) return { label: `Due in ${diffDays} days`, color: "text-amber-600 bg-amber-50 border-amber-200" };
+      if (diffDays <= 30) return { label: `Due in ${diffDays} days`, color: "text-blue-600 bg-blue-50 border-blue-200" };
+      
+      return { label: `Due in ${diffDays} days`, color: "text-green-600 bg-green-50 border-green-200" };
+    } catch (e) {
+      return null;
+    }
+  };
+  
+  const dueDateInfo = getDueDateProximity();
+
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-2 md:p-6 max-w-6xl mx-auto">
       {/* Preview Modal */}
       {showPreview && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-start overflow-y-auto pt-10">
-          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 relative">
-            <div className="sticky top-0 bg-white z-10 p-4 border-b flex justify-between items-center">
-              <h2 className="text-xl font-bold">Preview</h2>
+        <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-start overflow-y-auto pt-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full mx-4 relative">
+            <div className="sticky top-0 bg-white z-10 p-4 border-b border-gray-100 flex justify-between items-center rounded-t-xl">
+              <h2 className="text-xl font-bold text-gray-800">Proposal Preview</h2>
               <div className="flex items-center gap-3">
                 <div className="relative">
                   <button
                     onClick={() => setShowDownloadOptions(!showDownloadOptions)}
-                    className={`inline-flex items-center gap-2 ${colors.primary} ${colors.text} px-4 py-2 rounded-lg shadow`}
+                    className={`inline-flex items-center gap-2 ${colors.primary} ${colors.text} px-4 py-2 rounded-lg shadow-sm hover:shadow transition-all ${colors.primaryHover}`}
                   >
                     <Download className="w-4 h-4" /> Download
                   </button>
                   {showDownloadOptions && (
-                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-20 border">
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl z-20 border border-gray-100 overflow-hidden">
                       <button 
                         onClick={downloadPDF}
-                        className="w-full text-left px-4 py-2 hover:bg-gray-100 border-b flex items-center gap-2"
+                        className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-100 flex items-center gap-2"
                       >
-                        <FileText className="w-4 h-4" /> Download as PDF
+                        <FileText className="w-4 h-4 text-red-500" /> Download as PDF
                       </button>
                       <button 
                         onClick={downloadWord}
-                        className="w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2"
+                        className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-2"
                       >
-                        <FileText className="w-4 h-4" /> Download as Word
+                        <FileText className="w-4 h-4 text-blue-500" /> Download as Word
                       </button>
                     </div>
                   )}
                 </div>
-        <button
+                <button
                   onClick={enhanceWithAI}
-                  className={`inline-flex items-center gap-2 ${colors.accent} ${colors.text} px-4 py-2 rounded-lg shadow`}
-        >
-                  <Sparkles className="w-4 h-4" /> Enhance with AI
-        </button>
-        <button
-                  onClick={closeRfpBuilder}
-                  className="text-gray-500 hover:text-gray-700 p-1 bg-gray-100 rounded-full"
+                  className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white px-4 py-2 rounded-lg shadow-sm hover:shadow transition-all hover:from-purple-700 hover:to-purple-800"
                 >
-                  <X className="w-6 h-6" />
+                  <Sparkles className="w-4 h-4" /> Enhance with AI
+                </button>
+                <button
+                  onClick={closeRfpBuilder}
+                  className="text-gray-500 hover:text-gray-700 p-2 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <X className="w-5 h-5" />
                 </button>
               </div>
             </div>
             <div className="p-8 min-h-screen bg-gray-50">
               {/* Cover Page Preview */}
-              <div className="bg-white p-12 shadow-md mb-8">
+              <div className="bg-white p-12 shadow-md mb-8 rounded-xl">
                 <div className="flex flex-col items-center text-center mb-16">
                   {logo && (
                     <img src={logo} alt="Company Logo" className="max-h-24 object-contain mb-4" />
                   )}
                   <h1 className="text-3xl font-bold text-gray-800 mb-2">{companyName}</h1>
-                  <a href={companyWebsite} className="text-gray-600 mb-4">{companyWebsite}</a>
+                  <a href={companyWebsite} className="text-blue-600 hover:underline mb-4">{companyWebsite}</a>
                   <p className="text-gray-600">{letterhead}</p>
                   <p className="text-gray-600">Phone: {phone}</p>
                 </div>
                 
                 <div className="mt-24 mb-24">
                   <h1 className="text-4xl font-bold text-center mb-8">{rfpTitle}</h1>
-                  <div className="border-t border-b border-gray-300 py-6 text-center">
+                  <div className="border-t border-b border-gray-200 py-6 text-center">
                     <p className="font-semibold mb-2">NAICS CODE: {naicsCode}</p>
                     <p className="font-semibold mb-2">SOLICITATION NUMBER: {solicitationNumber}</p>
                     <p>Issued: {issuedDate}</p>
@@ -584,7 +582,7 @@ const RfpResponse = ({ contract, pursuitId }) => {
               
               {/* Other Sections Preview */}
               {sections.slice(1).map((section) => (
-                <div key={section.id} className="bg-white p-8 shadow-md mb-8">
+                <div key={section.id} className="bg-white p-8 shadow-md mb-8 rounded-xl">
                   <h2 className="text-2xl font-bold mb-4 text-gray-800">{section.title}</h2>
                   <div className="whitespace-pre-line">{section.content}</div>
                 </div>
@@ -594,31 +592,94 @@ const RfpResponse = ({ contract, pursuitId }) => {
         </div>
       )}
 
-      {/* Top Header with Progress Bar */}
-      <div className="mb-8">
-        <div className="flex justify-between items-center mb-4">
-          <div className="flex items-center gap-3">
-            <div className={`p-3 rounded-full ${colors.primary}`}>
-              <FileText className="w-5 h-5 text-white" />
+      {/* Page Header with Contract Info */}
+      <div className="bg-white rounded-xl shadow-md p-6 mb-6 border border-gray-200">
+        <div className="flex justify-between items-start flex-wrap md:flex-nowrap gap-4">
+          {/* Contract Title and Details */}
+          <div className="flex-1">
+            <h1 className="text-xl md:text-2xl font-bold text-gray-800 mb-2">{contract?.title || 'Create RFP Response'}</h1>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-600 mt-2">
+              {contract?.department && (
+                <div className="flex items-center gap-1.5">
+                  <FileText className="w-4 h-4 text-gray-400" />
+                  <span>{contract.department}</span>
+                </div>
+              )}
+              
+              {dueDateInfo && (
+                <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full border ${dueDateInfo.color}`}>
+                  <Calendar className="w-3.5 h-3.5" />
+                  <span className="font-medium">{dueDateInfo.label}</span>
+                </div>
+              )}
+              
+              {contract?.naicsCode && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-gray-400">#</span>
+                  <span>NAICS: {contract.naicsCode}</span>
+                </div>
+              )}
+              
+              {contract?.solicitation_number && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-gray-400">#</span>
+                  <span>Solicitation: {contract.solicitation_number}</span>
+                </div>
+              )}
             </div>
-            <h1 className="text-2xl font-bold text-gray-800">RFP Response Builder</h1>
           </div>
-          <div className="flex gap-3 items-center">
+          
+          {/* Completion Status */}
+          <div className="flex flex-col items-end">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="text-sm font-medium">
+                <span className="text-gray-600">Completion:</span> 
+                <span className={`ml-1 ${completionPercentage === 100 ? 'text-green-600' : completionPercentage > 50 ? 'text-blue-600' : 'text-amber-600'}`}>
+                  {completionPercentage}%
+                </span>
+              </div>
+              <div className="h-8 w-8 rounded-full flex items-center justify-center text-white shadow-sm"
+                style={{
+                  background: `conic-gradient(#10B981 ${completionPercentage}%, #F3F4F6 0)`
+                }}>
+                <div className="h-6 w-6 rounded-full bg-white flex items-center justify-center">
+                  <span className="text-xs font-semibold text-gray-700">{completionPercentage}%</span>
+                </div>
+              </div>
+            </div>
+            <div className="text-xs text-gray-500">
+              {sections.filter(s => s.completed).length} of {sections.length} sections completed
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Top Header with Action Buttons */}
+      <div className="bg-white rounded-xl shadow-md p-5 mb-6 border border-gray-200">
+        <div className="flex justify-between items-center flex-wrap gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-full bg-blue-600 text-white shadow-sm">
+              <FileText className="w-5 h-5" />
+            </div>
+            <h1 className="text-lg md:text-xl font-bold text-gray-800">RFP Response Builder</h1>
+          </div>
+          <div className="flex gap-3 items-center flex-wrap">
             {/* Save button and indicator */}
             <button
               onClick={() => saveRfpData(true)}
               disabled={isSaving}
-              className={`inline-flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-3 py-2 rounded-lg shadow-sm ${isSaving ? 'opacity-70' : 'hover:bg-gray-50'} transition-colors`}
+              className={`inline-flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-3 py-2 rounded-lg shadow-sm ${isSaving ? 'opacity-70' : 'hover:bg-gray-50 hover:border-gray-400'} transition-all`}
             >
               <Save className="w-4 h-4" /> {isSaving ? 'Saving...' : 'Save'}
             </button>
             
             {lastSaved && (
-              <div className="text-xs text-gray-500">
+              <div className="text-xs text-gray-500 flex items-center gap-1">
+                <Clock className="w-3 h-3" />
                 Last saved: {lastSaved}
               </div>
             )}
-            <div className="flex gap-3">
+            <div className="flex gap-3 flex-wrap">
               <div className="relative">
                 <button
                   onClick={() => {
@@ -627,176 +688,168 @@ const RfpResponse = ({ contract, pursuitId }) => {
                     const nextIndex = (currentIndex + 1) % themes.length;
                     setTheme(themes[nextIndex]);
                   }}
-                  className="inline-flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-3 py-2 rounded-lg shadow-sm hover:bg-gray-50 transition-colors"
+                  className="inline-flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-3 py-2 rounded-lg shadow-sm hover:bg-gray-50 hover:border-gray-400 transition-all"
                 >
-                  <Settings className="w-4 h-4" /> Theme
+                  <Settings className="w-4 h-4" /> Theme: {theme.charAt(0).toUpperCase() + theme.slice(1)}
                 </button>
               </div>
               <button
                 onClick={handlePreview}
-                className={`inline-flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-3 py-2 rounded-lg shadow-sm hover:bg-gray-50 transition-colors`}
+                className="inline-flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-3 py-2 rounded-lg shadow-sm hover:bg-gray-50 hover:border-gray-400 transition-all"
               >
                 <Eye className="w-4 h-4" /> Preview
               </button>
               <button
                 onClick={enhanceWithAI}
-                className={`inline-flex items-center gap-2 ${colors.primary} ${colors.text} px-4 py-2 rounded-lg shadow ${colors.hover} transition-colors`}
+                className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-2 rounded-lg shadow-sm hover:shadow transition-all hover:from-blue-700 hover:to-blue-800"
               >
                 <Sparkles className="w-4 h-4" /> Enhance with AI
-        </button>
+              </button>
             </div>
           </div>
         </div>
-        
-        {/* Progress Bar */}
-        <div className="bg-gray-200 h-2 rounded-full overflow-hidden mb-2">
-          <div 
-            className="h-full bg-green-500 transition-all duration-500 ease-in-out"
-            style={{ width: `${completionPercentage}%` }}
-          ></div>
-        </div>
-        <div className="flex justify-between text-sm text-gray-500">
-          <span>Proposal Completion: {completionPercentage}%</span>
-          <span>{sections.filter(s => s.completed).length} of {sections.length} sections completed</span>
-        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Left Column - Company Info */}
         <div className="md:col-span-1">
-          <div className={`${colors.sectionBg} rounded-xl shadow-md p-6 mb-6`}>
-            <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-              <Image className="w-5 h-5 text-gray-600" />
+          <div className="bg-white rounded-xl shadow-sm p-6 mb-6 border border-gray-200 transition-all hover:shadow-md">
+            <h2 className="text-lg font-semibold text-gray-800 mb-5 flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-blue-100 text-blue-600">
+                <Image className="w-4 h-4" />
+              </div>
               Company Information
             </h2>
             
             <div className="space-y-4">
-          {logo ? (
+              {logo ? (
                 <div className="flex flex-col items-center text-center mb-4">
-                  <img src={logo} alt="Company Logo" className="max-h-20 object-contain mb-3" />
+                  <img src={logo} alt="Company Logo" className="max-h-20 object-contain mb-3 p-2 border border-gray-100 rounded-lg bg-white shadow-sm" />
                   <button 
                     onClick={() => setLogo(null)}
-                    className="text-sm text-gray-500 hover:text-red-500 flex items-center gap-1"
+                    className="text-sm text-gray-500 hover:text-red-500 flex items-center gap-1 mt-1 px-2 py-1 rounded-lg hover:bg-red-50 transition-colors"
                   >
-                    <X className="w-3 h-3" /> Remove
+                    <X className="w-3 h-3" /> Remove Logo
                   </button>
                 </div>
               ) : (
-                <div className="w-full border-2 border-dashed border-gray-300 rounded-lg py-8 flex items-center justify-center bg-gray-50 mb-4">
-                  <label className="flex flex-col items-center gap-2 cursor-pointer text-sm text-gray-500 hover:text-gray-700">
+                <div className="w-full border-2 border-dashed border-gray-200 rounded-xl py-8 flex items-center justify-center bg-gray-50 mb-4 hover:border-blue-300 hover:bg-blue-50 transition-colors cursor-pointer">
+                  <label className="flex flex-col items-center gap-2 cursor-pointer text-sm text-gray-500 hover:text-blue-600 transition-colors">
                     <Image className="w-10 h-10 text-gray-400" />
                     <span className="font-medium">Upload Company Logo</span>
                     <span className="text-xs text-gray-400">Recommended: 300x100px</span>
-              <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
-            </label>
+                    <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+                  </label>
                 </div>
-          )}
+              )}
               
-          <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">Company Name</label>
-            <input
-              type="text"
-              value={companyName}
-              onChange={(e) => setCompanyName(e.target.value)}
-              placeholder="Company Name"
-                  className="w-full border border-gray-300 rounded-lg p-2 focus:ring-1 focus:ring-gray-400 focus:border-gray-400 focus:outline-none"
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1.5">Company Name</label>
+                <input
+                  type="text"
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  placeholder="Company Name"
+                  className="w-full border border-gray-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-200 focus:border-blue-400 focus:outline-none shadow-sm"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">Website</label>
+                <label className="block text-sm font-medium text-gray-600 mb-1.5">Website</label>
                 <input
                   type="text"
                   value={companyWebsite}
                   onChange={(e) => setCompanyWebsite(e.target.value)}
                   placeholder="https://www.example.com"
-                  className="w-full border border-gray-300 rounded-lg p-2 focus:ring-1 focus:ring-gray-400 focus:border-gray-400 focus:outline-none"
+                  className="w-full border border-gray-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-200 focus:border-blue-400 focus:outline-none shadow-sm"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">Address</label>
-            <input
-              type="text"
-              value={letterhead}
-              onChange={(e) => setLetterhead(e.target.value)}
+                <label className="block text-sm font-medium text-gray-600 mb-1.5">Address</label>
+                <input
+                  type="text"
+                  value={letterhead}
+                  onChange={(e) => setLetterhead(e.target.value)}
                   placeholder="Company Address"
-                  className="w-full border border-gray-300 rounded-lg p-2 focus:ring-1 focus:ring-gray-400 focus:border-gray-400 focus:outline-none"
+                  className="w-full border border-gray-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-200 focus:border-blue-400 focus:outline-none shadow-sm"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">Phone Number</label>
+                <label className="block text-sm font-medium text-gray-600 mb-1.5">Phone Number</label>
                 <input
                   type="text"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="Phone Number"
-                  className="w-full border border-gray-300 rounded-lg p-2 focus:ring-1 focus:ring-gray-400 focus:border-gray-400 focus:outline-none"
-            />
+                  className="w-full border border-gray-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-200 focus:border-blue-400 focus:outline-none shadow-sm"
+                />
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
 
-          <div className={`${colors.sectionBg} rounded-xl shadow-md p-6`}>
-            <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-              <FileText className="w-5 h-5 text-gray-600" />
+          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200 transition-all hover:shadow-md">
+            <h2 className="text-lg font-semibold text-gray-800 mb-5 flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-purple-100 text-purple-600">
+                <FileText className="w-4 h-4" />
+              </div>
               Proposal Details
             </h2>
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">RFP Title</label>
+                <label className="block text-sm font-medium text-gray-600 mb-1.5">RFP Title</label>
                 <input
                   type="text"
                   value={rfpTitle}
                   onChange={(e) => setRfpTitle(e.target.value)}
                   placeholder="Proposal Title"
-                  className="w-full border border-gray-300 rounded-lg p-2 focus:ring-1 focus:ring-gray-400 focus:border-gray-400 focus:outline-none"
+                  className="w-full border border-gray-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-200 focus:border-blue-400 focus:outline-none shadow-sm"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">NAICS Code</label>
+                <label className="block text-sm font-medium text-gray-600 mb-1.5">NAICS Code</label>
                 <input
                   type="text"
                   value={naicsCode}
                   onChange={(e) => setNaicsCode(e.target.value)}
                   placeholder="NAICS Code"
-                  className="w-full border border-gray-300 rounded-lg p-2 focus:ring-1 focus:ring-gray-400 focus:border-gray-400 focus:outline-none"
+                  className="w-full border border-gray-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-200 focus:border-blue-400 focus:outline-none shadow-sm"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">Solicitation Number</label>
+                <label className="block text-sm font-medium text-gray-600 mb-1.5">Solicitation Number</label>
                 <input
                   type="text"
                   value={solicitationNumber}
                   onChange={(e) => setSolicitationNumber(e.target.value)}
                   placeholder="Solicitation Number"
-                  className="w-full border border-gray-300 rounded-lg p-2 focus:ring-1 focus:ring-gray-400 focus:border-gray-400 focus:outline-none"
+                  className="w-full border border-gray-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-200 focus:border-blue-400 focus:outline-none shadow-sm"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">Issue Date</label>
+                <label className="block text-sm font-medium text-gray-600 mb-1.5">Issue Date</label>
                 <input
                   type="text"
                   value={issuedDate}
                   onChange={(e) => setIssuedDate(e.target.value)}
                   placeholder="Issue Date"
-                  className="w-full border border-gray-300 rounded-lg p-2 focus:ring-1 focus:ring-gray-400 focus:border-gray-400 focus:outline-none"
+                  className="w-full border border-gray-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-200 focus:border-blue-400 focus:outline-none shadow-sm"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">Submitted By</label>
-            <input
-              type="text"
+                <label className="block text-sm font-medium text-gray-600 mb-1.5">Submitted By</label>
+                <input
+                  type="text"
                   value={submittedBy}
                   onChange={(e) => setSubmittedBy(e.target.value)}
                   placeholder="Your Name and Title"
-                  className="w-full border border-gray-300 rounded-lg p-2 focus:ring-1 focus:ring-gray-400 focus:border-gray-400 focus:outline-none"
+                  className="w-full border border-gray-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-200 focus:border-blue-400 focus:outline-none shadow-sm"
                 />
               </div>
             </div>
@@ -805,29 +858,32 @@ const RfpResponse = ({ contract, pursuitId }) => {
 
         {/* Right Column - Sections */}
         <div className="md:col-span-2">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-              <FileText className="w-5 h-5" /> Proposal Sections
+          <div className="flex justify-between items-center mb-5">
+            <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-green-100 text-green-600">
+                <FileText className="w-4 h-4" />
+              </div>
+              Proposal Sections
             </h2>
             <button
               onClick={() => addSectionBelow(sections.length - 1)}
-              className={`inline-flex items-center gap-2 ${colors.primary} ${colors.text} px-4 py-2 rounded-lg shadow ${colors.hover} transition-colors`}
+              className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow transition-all hover:from-blue-700 hover:to-blue-800"
             >
               <Plus className="w-4 h-4" /> Add Section
             </button>
           </div>
           
-          <div className="space-y-3">
+          <div className="space-y-4">
             {sections.map((section, index) => (
               <div 
                 key={section.id} 
-                className={`rounded-xl shadow-sm border transition-all duration-200 
-                  ${section.completed ? colors.completedBg : colors.sectionBg} 
-                  ${expandedSection === section.id ? `${colors.activeBorder} shadow-md` : 'border-gray-200 hover:border-gray-300'}`}
+                className={`rounded-xl shadow-sm border transition-all duration-300 
+                  ${section.completed ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-white'} 
+                  ${expandedSection === section.id ? 'shadow-md border-blue-200' : 'hover:border-blue-200 hover:shadow-sm'}`}
               >
                 <div 
                   className={`flex justify-between items-center p-4 cursor-pointer rounded-t-xl
-                    ${expandedSection === section.id ? colors.sectionHeaderBgActive : colors.sectionHeaderBg}`}
+                    ${expandedSection === section.id ? 'bg-blue-50' : section.completed ? 'bg-green-50' : 'bg-white'}`}
                   onClick={() => toggleSection(section.id)}
                 >
                   <div className="flex items-center gap-3 flex-1">
@@ -836,15 +892,15 @@ const RfpResponse = ({ contract, pursuitId }) => {
                         e.stopPropagation();
                         toggleCompleted(index);
                       }} 
-                      className="focus:outline-none"
+                      className="focus:outline-none transition-transform hover:scale-110"
                     >
                       {section.completed ? (
-                        <CheckCircle className={`w-6 h-6 ${colors.completedIcon}`} />
+                        <CheckCircle className="w-6 h-6 text-green-500" />
                       ) : (
-                        <Circle className={`w-6 h-6 ${colors.incompleteIcon}`} />
+                        <Circle className="w-6 h-6 text-gray-300 hover:text-blue-400" />
                       )}
                     </button>
-                    <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${section.completed ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'}`}>
                       {getSectionIcon(section.icon)}
                     </div>
                     <div className="flex-1">
@@ -852,7 +908,7 @@ const RfpResponse = ({ contract, pursuitId }) => {
                         type="text"
                         value={section.title}
                         onChange={(e) => updateField(index, 'title', e.target.value)}
-                        className={`text-lg font-semibold w-full bg-transparent border-b border-transparent hover:border-gray-300 focus:border-gray-500 focus:outline-none ${section.completed ? 'text-gray-800' : 'text-gray-700'}`}
+                        className={`text-base font-semibold w-full bg-transparent border-b border-transparent hover:border-gray-300 focus:border-blue-400 focus:outline-none py-1 ${section.completed ? 'text-green-700' : 'text-gray-700'}`}
                         onClick={(e) => e.stopPropagation()}
                       />
                     </div>
@@ -865,7 +921,7 @@ const RfpResponse = ({ contract, pursuitId }) => {
                           e.stopPropagation();
                           moveSection(section.id, 'up');
                         }}
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-200 hover:text-gray-700"
+                        className={`w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 hover:text-blue-600 ${index === 0 ? 'opacity-30 cursor-not-allowed' : ''}`}
                         disabled={index === 0}
                         title="Move Up"
                       >
@@ -876,7 +932,7 @@ const RfpResponse = ({ contract, pursuitId }) => {
                           e.stopPropagation();
                           moveSection(section.id, 'down');
                         }}
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-200 hover:text-gray-700"
+                        className={`w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 hover:text-blue-600 ${index === sections.length - 1 ? 'opacity-30 cursor-not-allowed' : ''}`}
                         disabled={index === sections.length - 1}
                         title="Move Down"
                       >
@@ -888,52 +944,62 @@ const RfpResponse = ({ contract, pursuitId }) => {
                         e.stopPropagation();
                         deleteSection(section.id);
                       }}
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-red-100 hover:text-red-600"
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-red-100 hover:text-red-600 transition-colors"
                       title="Delete Section"
                     >
                       <Trash2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-blue-100 hover:text-blue-600 transition-colors"
+                      onClick={() => toggleSection(section.id)}
+                    >
+                      {expandedSection === section.id ? (
+                        <ChevronUp className="w-5 h-5" />
+                      ) : (
+                        <ChevronDown className="w-5 h-5" />
+                      )}
                     </button>
                   </div>
                 </div>
                 
                 {expandedSection === section.id && (
-                  <div className="p-5 border-t border-gray-200">
-          <textarea
-            rows={6}
-                      className="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-gray-200 focus:border-gray-400 focus:outline-none"
-            value={section.content}
-            onChange={(e) => updateField(index, 'content', e.target.value)}
+                  <div className="p-5 border-t border-gray-200 bg-white">
+                    <textarea
+                      rows={8}
+                      className="w-full border border-gray-200 p-4 rounded-lg focus:ring-2 focus:ring-blue-200 focus:border-blue-400 focus:outline-none shadow-inner bg-white"
+                      value={section.content}
+                      onChange={(e) => updateField(index, 'content', e.target.value)}
                       placeholder="Enter section content here..."
                     />
-                    <div className="flex justify-between mt-3">
-                      <div className="flex items-center">
+                    <div className="flex justify-between mt-4">
+                      <div className="flex items-center gap-2">
                         <button 
                           onClick={() => toggleCompleted(index)}
-                          className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm 
-                            ${section.completed ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors
+                            ${section.completed ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                         >
                           {section.completed ? (
                             <>
-                              <CheckCircle className="w-3 h-3" /> Completed
+                              <CheckCircle className="w-4 h-4" /> Completed
                             </>
                           ) : (
                             <>
-                              <Circle className="w-3 h-3" /> Mark as Complete
+                              <Circle className="w-4 h-4" /> Mark as Complete
                             </>
                           )}
                         </button>
                         <button
                           onClick={() => enhanceWithAI()}
-                          className="ml-2 inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-gray-100 text-gray-700 hover:bg-gray-200"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
                         >
-                          <Sparkles className="w-3 h-3" /> Enhance with AI
+                          <Sparkles className="w-4 h-4" /> Enhance with AI
                         </button>
                       </div>
                       <button
                         onClick={() => addSectionBelow(index)}
-                        className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+                        className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 transition-colors px-3 py-1.5 rounded-full hover:bg-blue-50"
                       >
-                        <Plus className="w-3 h-3" /> Insert Section Below
+                        <Plus className="w-4 h-4" /> Insert Section Below
                       </button>
                     </div>
                   </div>
@@ -946,53 +1012,54 @@ const RfpResponse = ({ contract, pursuitId }) => {
           <div className="mt-8 flex justify-center gap-4">
             <button
               onClick={handlePreview}
-              className="inline-flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-6 py-3 rounded-xl shadow-sm hover:bg-gray-50 transition-colors"
+              className="inline-flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-6 py-3 rounded-xl shadow-sm hover:bg-gray-50 hover:border-gray-400 transition-all"
             >
               <Eye className="w-5 h-5" /> Preview Proposal
             </button>
             <button
               onClick={() => setShowDownloadOptions(true)}
-              className={`inline-flex items-center gap-2 ${colors.primary} ${colors.text} px-6 py-3 rounded-xl shadow-md hover:shadow-lg ${colors.hover} transition-colors`}
+              className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-xl shadow-md hover:shadow-lg hover:from-blue-700 hover:to-blue-800 transition-all"
             >
               <Download className="w-5 h-5" /> Download Proposal
             </button>
             {showDownloadOptions && (
-              <div className="fixed inset-0 bg-black bg-opacity-20 z-40 flex items-center justify-center" onClick={() => setShowDownloadOptions(false)}>
+              <div className="fixed inset-0 bg-black bg-opacity-60 z-40 flex items-center justify-center" onClick={() => setShowDownloadOptions(false)}>
                 <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
-                  <h3 className="text-xl font-bold mb-4">Download Options</h3>
+                  <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-xl font-bold text-gray-800">Download Options</h3>
+                    <button 
+                      onClick={() => setShowDownloadOptions(false)}
+                      className="text-gray-500 hover:text-gray-700 hover:bg-gray-100 p-1 rounded-full transition-colors"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                  
                   <div className="space-y-4">
                     <button 
                       onClick={downloadPDF}
-                      className="w-full flex items-center gap-3 p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                      className="w-full flex items-center gap-4 p-4 border border-gray-200 rounded-xl hover:bg-red-50 hover:border-red-200 transition-colors group"
                     >
-                      <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-                        <FileText className="w-5 h-5 text-red-600" />
+                      <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center group-hover:bg-red-200 transition-colors">
+                        <FileText className="w-6 h-6 text-red-600" />
                       </div>
                       <div className="text-left">
-                        <div className="font-medium">PDF Document</div>
+                        <div className="font-medium text-gray-800 group-hover:text-red-700 transition-colors">PDF Document</div>
                         <div className="text-sm text-gray-500">Best for printing and sharing</div>
                       </div>
                     </button>
                     
                     <button 
                       onClick={downloadWord}
-                      className="w-full flex items-center gap-3 p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                      className="w-full flex items-center gap-4 p-4 border border-gray-200 rounded-xl hover:bg-blue-50 hover:border-blue-200 transition-colors group"
                     >
-                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                        <FileText className="w-5 h-5 text-blue-600" />
+                      <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+                        <FileText className="w-6 h-6 text-blue-600" />
                       </div>
                       <div className="text-left">
-                        <div className="font-medium">Word Document</div>
+                        <div className="font-medium text-gray-800 group-hover:text-blue-700 transition-colors">Word Document</div>
                         <div className="text-sm text-gray-500">Best for editing and customization</div>
                       </div>
-                    </button>
-                  </div>
-                  <div className="mt-6 flex justify-end">
-                    <button 
-                      onClick={() => setShowDownloadOptions(false)}
-                      className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-                    >
-                      Cancel
                     </button>
                   </div>
                 </div>
@@ -1006,3 +1073,19 @@ const RfpResponse = ({ contract, pursuitId }) => {
 };
 
 export default RfpResponse;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
