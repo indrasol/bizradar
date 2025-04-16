@@ -475,8 +475,8 @@ export const Settings = () => {
                 <span className="text-gray-500 text-sm font-medium">
                   Portfolio
                 </span>
-                <ChevronRight size={16} className="text-gray-400" />
-                <span className="font-medium text-gray-800">Settings</span>
+                <ChevronRight size={16} className="text-gray-500" />
+                <span className="font-medium text-gray-500">Settings</span>
               </div>
               <div className="flex items-center gap-4">
                 <button className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm hover:shadow transition-all flex items-center gap-2">

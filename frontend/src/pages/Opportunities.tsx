@@ -901,8 +901,8 @@ export default function Opportunities() {
             <div className="flex items-center justify-between px-6 py-4">
               <div className="flex items-center gap-2">
                 <span className="text-gray-500 text-sm font-medium">Portfolio</span>
-                <ChevronRight size={16} className="text-gray-400" />
-                <span className="font-medium text-gray-800">Contract Opportunities</span>
+                <ChevronRight size={16} className="text-gray-500" />
+                <span className="font-medium text-gray-500">Opportunities</span>
               </div>
               <div className="flex items-center gap-4">
                 <Link to="/pursuits" className="flex items-center gap-2 text-blue-600 hover:text-blue-800 px-3 py-1.5 rounded-md hover:bg-blue-50 transition-colors">
