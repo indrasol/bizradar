@@ -3080,3 +3080,5 @@ Testing search functionality...
 2025-04-15 00:51:34,889 - indexer - INFO - Results for freelancer: 0 matches
 2025-04-15 00:51:34,889 - indexer - INFO - 
 Indexing completed in 20.03 seconds!
+2025-04-16 13:53:20,319 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-04-16 13:53:20,337 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
