@@ -3,6 +3,12 @@ import { Session, User, AuthError } from '@supabase/supabase-js';
 import { supabase } from '../../utils/supabase';
 import tokenService from "../../utils/tokenService";
 
+// Define your API base URL
+const isDevelopment = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+const API_BASE_URL = isDevelopment
+  ? "http://localhost:5000"
+  : "https://bizradar-backend.onrender.com";
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
@@ -61,6 +67,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           session.access_token,
           session.refresh_token
         );
+        
+        // Set session marker for browser close detection
+        sessionStorage.setItem("userActiveSession", "true");
       }
       
       setLoading(false);
@@ -80,15 +89,27 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             newSession.access_token,
             newSession.refresh_token
           );
+          
+          // Update session marker
+          sessionStorage.setItem("userActiveSession", "true");
         } else {
           tokenService.clearTokens();
+          sessionStorage.removeItem("userActiveSession");
         }
       }
     );
 
+    // Browser close detection
+    const handleBeforeUnload = () => {
+      // Session marker will be lost when browser closes
+    };
+    
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
     // Clean up subscription on unmount
     return () => {
       subscription.unsubscribe();
+      window.removeEventListener("beforeunload", handleBeforeUnload);
     };
   }, []);
 
@@ -141,6 +162,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           data.session.access_token,
           data.session.refresh_token
         );
+        
+        // Set session marker
+        sessionStorage.setItem("userActiveSession", "true");
       }
     } catch (error) {
       const authError = error as AuthError;
@@ -208,9 +232,30 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   };
 
-  // Logout function
+  // Logout function - UPDATED to clear cache
   const logout = async () => {
     try {
+      // Clear cache if user exists - WITH BETTER ERROR HANDLING
+      if (user) {
+        try {
+          const response = await fetch(`${API_BASE_URL}/clear-user-cache`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ user_id: user.id }),
+          });
+          
+          // FIX: Check the response status properly
+          if (!response.ok) {
+            console.warn("Error clearing user cache:", await response.text());
+          } else {
+            console.log("User cache cleared successfully");
+          }
+        } catch (e) {
+          console.error("Error clearing user cache:", e);
+          // Continue with logout even if cache clearing fails
+        }
+      }
+      
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       
@@ -218,8 +263,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       setUser(null);
       setSession(null);
       
-      // Clear tokens
+      // Clear tokens and session marker
       tokenService.clearTokens();
+      sessionStorage.removeItem("userActiveSession");
     } catch (error) {
       console.error('Logout error:', error);
       throw new Error('Failed to logout');

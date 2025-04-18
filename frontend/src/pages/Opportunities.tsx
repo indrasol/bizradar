@@ -41,10 +41,12 @@ import {
   ListFilter,
   FileText
 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import SideBar from "../components/layout/SideBar";
 import { supabase } from "../utils/supabase";
 import RefinedQueryDisplay from "../components/admin/RefinedQueryDisplay"
+import tokenService from "../utils/tokenService";
+
 
 // Import the environment variable
 const isDevelopment =
@@ -69,6 +71,8 @@ interface SearchParams {
 
 export default function Opportunities() {
   const navigate = useNavigate(); // Initialize the navigate function
+  const location = useLocation();                
+
   
   const [activeFilters, setActiveFilters] = useState({
     dueDate: true,
@@ -97,6 +101,8 @@ export default function Opportunities() {
   const [currentHoveredCard, setCurrentHoveredCard] = useState(null);
   const [refinedQuery, setRefinedQuery] = useState("");
   const [showRefinedQuery, setShowRefinedQuery] = useState(false);
+  const [sortBy, setSortBy] = useState("relevance");  // Default to "relevance"
+
   
   // Use a ref to track if recommendations request is in progress to prevent duplicate requests
   const requestInProgressRef = useRef(false);
@@ -153,6 +159,32 @@ export default function Opportunities() {
     indexOfFirstResult,
     indexOfLastResult
   );
+
+  useEffect(() => {
+    if (location.pathname === "/opportunities") {
+      const raw = sessionStorage.getItem("lastOpportunitiesSearchState");
+      if (!raw) return;
+
+      try {
+        const state = JSON.parse(raw);
+        const hoursOld =
+          (Date.now() - new Date(state.lastUpdated).getTime()) / 36e5;
+        if (hoursOld < 4) {
+          setSearchQuery(state.query);
+          setOpportunities(state.results);
+          setTotalResults(state.totalResults);
+          setTotalPages(state.totalPages);
+          setRefinedQuery(state.refinedQuery);
+          setFilterValues(state.filters);
+          setSortBy(state.sortBy);
+          setHasSearched(true);
+          fetchCachedRecommendations(state.results.map((r) => r.id));
+        }
+      } catch (e) {
+        console.error("Failed to restore search state:", e);
+      }
+    }
+  }, [location.pathname]);  // ← run this effect whenever the URL changes
   
   // Add debugging useEffect to monitor state changes
   useEffect(() => {
@@ -163,6 +195,50 @@ export default function Opportunities() {
     });
   }, [aiRecommendations, isLoadingRecommendations]);
   
+  // Add this useEffect to restore the search state on component mount
+useEffect(() => {
+  // Check if there's a saved search state
+  const savedSearchState = sessionStorage.getItem('lastOpportunitiesSearchState');
+  
+  if (savedSearchState) {
+    try {
+      const state = JSON.parse(savedSearchState);
+      
+      // Check if the state is still valid (not too old)
+      const lastUpdatedTime = new Date(state.lastUpdated).getTime();
+      const nowTime = new Date().getTime();
+      const hoursSinceUpdate = (nowTime - lastUpdatedTime) / (1000 * 60 * 60);
+      
+      // If state is less than 4 hours old (matching your Redis TTL)
+      if (hoursSinceUpdate < 4) {
+        // Restore the previous search state
+        setSearchQuery(state.query);
+        setOpportunities(state.results);
+        setTotalResults(state.totalResults);
+        setTotalPages(state.totalPages);
+        setRefinedQuery(state.refinedQuery);
+        setFilterValues(state.filters || filterValues);
+        setSortBy(state.sortBy || sortBy);
+        setHasSearched(true);
+        
+        // Fetch recommendations for these results
+        if (state.results?.length) {
+          fetchCachedRecommendations(state.results.map(r => r.id));
+        }
+        
+        console.log("Restored previous search state");
+      } else {
+        // Clear outdated state
+        sessionStorage.removeItem('lastOpportunitiesSearchState');
+      }
+    } catch (error) {
+      console.error("Error restoring search state:", error);
+      sessionStorage.removeItem('lastOpportunitiesSearchState');
+    }
+  }
+}, []);
+
+
   // Fetch user profile from settings
   const getUserProfile = () => {
     try {
@@ -191,6 +267,33 @@ export default function Opportunities() {
     }
   };
   
+// When search results are loaded successfully:
+const saveSearchStateToSession = (query, results, totalResults, totalPages, refinedQuery) => {
+  console.log("🏷️ [saveSearchStateToSession] called with:", {
+    query,
+    resultsLength: Array.isArray(results) ? results.length : results,
+    totalResults,
+    totalPages,
+    refinedQuery,
+    filters: filterValues,
+    sortBy
+  });
+  const searchState = {
+    query,
+    results,
+    totalResults,
+    totalPages,
+    refinedQuery,
+    filters: filterValues,
+    sortBy,
+    lastUpdated: new Date().toISOString()
+  };
+
+  sessionStorage.setItem('lastOpportunitiesSearchState', JSON.stringify(searchState));
+  console.log("✅ [saveSearchStateToSession] wrote key:", sessionStorage.getItem('lastOpportunitiesSearchState'));
+};
+
+
   // Fetch AI recommendations
   const fetchAiRecommendations = async () => {
     if (requestInProgressRef.current || opportunities.length === 0) return;
@@ -297,6 +400,9 @@ export default function Opportunities() {
       }
   }, [currentPage, opportunities]);
 
+  // Inside Opportunities.tsx - add this useEffect
+
+
   const toggleFilter = (filter) => {
     setActiveFilters({
       ...activeFilters,
@@ -325,6 +431,7 @@ export default function Opportunities() {
     setAiRecommendations([]);
     setShowRefinedQuery(false); // Hide the refined query
     setRefinedQuery(""); // Clear the refined query
+    sessionStorage.removeItem('lastOpportunitiesSearchState');
     requestInProgressRef.current = false;
     lastSearchIdRef.current = "";
     
@@ -346,12 +453,96 @@ export default function Opportunities() {
     handleSearch(null, query);
   };
 
+  // ── add this right above handleSearch ────────────────────────────
+
+/**
+ * Try to load a previous search from Redis cache.
+ * Returns true if cached results were found & applied.
+ */
+const checkForCachedSearch = async (query: string) => {
+  const user_id = tokenService.getUserIdFromToken();
+  console.log("Checking for cached search with query:", query);
+  
+  try {
+    const resp = await fetch(`${API_BASE_URL}/search-opportunities`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query,
+        page: 1,
+        page_size: resultsPerPage,
+        is_new_search: false,
+        sort_by: sortBy,
+        user_id,
+      }),
+    });
+    
+    if (!resp.ok) {
+      console.error("Cache check request failed:", await resp.text());
+      return false;
+    }
+    
+    const data = await resp.json();
+    console.log("Cache check response:", data.results ? `Found ${data.results.length} results` : "No results found");
+    
+    if (resp.ok && data.results?.length) {
+      setOpportunities(data.results);
+      setTotalResults(data.total);
+      setTotalPages(data.total_pages);
+      if (data.refined_query) setRefinedQuery(data.refined_query);
+      setHasSearched(true);
+    
+      // fetch any cached AI recs
+      await fetchCachedRecommendations(data.results.map((r) => r.id));
+    
+      // Persist this cached search into sessionStorage so we can restore it later
+      saveSearchStateToSession(
+        query,
+        data.results,
+        data.total,
+        data.total_pages,
+        data.refined_query || ""
+      );
+    
+      return true;
+    }
+    
+    return false;
+  } catch (error) {
+    console.error("Error checking for cached search:", error);
+    return false;
+  }
+};
+
+/**
+ * Fetch any cached AI recommendations for a given list of IDs.
+ */
+const fetchCachedRecommendations = async (ids: string[]) => {
+  const user_id = tokenService.getUserIdFromToken();
+  const resp = await fetch(`${API_BASE_URL}/get-cached-recommendations`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ user_id, opportunity_ids: ids }),
+  });
+  const payload = await resp.json();
+  if (payload.cached && payload.recommendations) {
+    setAiRecommendations(payload.recommendations);
+  }
+};
+
+
   const handleSearch = async (e, suggestedQuery = null) => {
+    
     if (e) e.preventDefault();
     
     const query = suggestedQuery || searchQuery;
+    console.log("▶️ [handleSearch] fired with query:", query);
     if (!query.trim()) return;
-    
+
+    const usedCache = await checkForCachedSearch(query);
+    console.log("🔁 Used cache?", usedCache);
+    if (usedCache) return;
+
     setIsSearching(true);
     setAiRecommendations([]);
     requestInProgressRef.current = false;
@@ -375,7 +566,8 @@ export default function Opportunities() {
             due_date_filter: filterValues.dueDate,
             posted_date_filter: filterValues.postedDate,
             naics_code: filterValues.naicsCode,
-            is_new_search: true,  // Flag this as a new search to trigger query refinement
+            is_new_search: true,
+            user_id: tokenService.getUserIdFromToken(),  // Flag this as a new search to trigger query refinement
             sort_by: sortBy  // Use the current sort type
         };
 
@@ -431,6 +623,8 @@ export default function Opportunities() {
             });
             
             setOpportunities(formattedResults);
+            console.log("🔎 [handleSearch] about to save search state, results:", formattedResults);
+            saveSearchStateToSession(query, formattedResults, data.total, data.total_pages, data.refined_query);
             setTotalResults(data.total || formattedResults.length);
             setCurrentPage(data.page || 1);
             setTotalPages(
@@ -459,7 +653,8 @@ export default function Opportunities() {
             page_size: resultsPerPage,
             is_new_search: false,              // Add this flag
             existing_refined_query: refinedQuery, // Pass the existing refined query
-            sort_by: sortBy  // Include current sort type
+            sort_by: sortBy, // Include current sort type
+            user_id: tokenService.getUserIdFromToken()
         };
         
         // Add active filters
@@ -491,6 +686,7 @@ export default function Opportunities() {
         console.log(`Page ${pageNumber} data:`, data);
 
         if (data.results && Array.isArray(data.results)) {
+            await fetchCachedRecommendations(data.results.map(r => r.id));
             setOpportunities(data.results);
             setCurrentPage(data.page || pageNumber);
             setTotalResults(data.total || 0);
@@ -595,6 +791,38 @@ export default function Opportunities() {
     return () => {
       window.removeEventListener("scroll", handleScroll);
     };
+  }, []);
+
+  useEffect(() => {
+    // Improved session detection logic
+    const wasSessionClosed = () => {
+      // Session marker only exists during a single browser session
+      const sessionMarker = sessionStorage.getItem("userActiveSession");
+      
+      // If we have a token but no session marker, browser was likely closed
+      const isLoggedIn = tokenService.getUserIdFromToken() !== null;
+      
+      if (isLoggedIn && !sessionMarker) {
+        // First visit in a new browser session
+        console.log("New browser session detected - refreshing cache");
+        sessionStorage.setItem("userActiveSession", "true");
+        return true;
+      }
+      
+      // Already visited in this session
+      sessionStorage.setItem("userActiveSession", "true");
+      return false;
+    };
+    
+    // Check if this is a new browser session
+    const newSession = wasSessionClosed();
+    
+    // If this is a new session and user is logged in, refresh the search
+    if (newSession && searchQuery && hasSearched) {
+      console.log("Browser was closed - refreshing search data");
+      // Set is_new_search to true to bypass cache
+      handleSearch(null, searchQuery);
+    }
   }, []);
 
   const toggleDetailedReason = (index) => {
@@ -723,7 +951,7 @@ export default function Opportunities() {
       is_new_search: false,
       existing_refined_query: refinedQuery,
       sort_by: sortBy,
-      
+      user_id: tokenService.getUserIdFromToken(),
       // All filter values
       due_date_filter: filterValues.dueDate,
       posted_date_filter: filterValues.postedDate,
@@ -910,6 +1138,29 @@ export default function Opportunities() {
     }
   }, []);
 
+
+  // Add browser session detection for cache refresh
+// Add browser session detection for cache refresh
+useEffect(() => {
+  // Create or update session marker
+  const sessionMarker = "opportunitiesPageVisited";
+  const previouslyVisited = sessionStorage.getItem(sessionMarker);
+  
+  // Set the marker for this session
+  sessionStorage.setItem(sessionMarker, "true");
+  
+  // If user is authenticated but no previous session marker exists,
+  // this might be a browser that was closed and reopened
+  if (!previouslyVisited && tokenService.getUserIdFromToken()) {
+    console.log("New browser session detected - refreshing search data");
+    
+    // If we have an active search, rerun it with is_new_search=true
+    if (searchQuery && hasSearched) {
+      handleSearch(null, searchQuery);
+    }
+  }
+}, []);
+
   const applySearchWithSort = async (newSortType) => {
     setIsSearching(true);
     
@@ -967,7 +1218,6 @@ export default function Opportunities() {
     }
   };
 
-  const [sortBy, setSortBy] = useState("relevance");  // Default to "relevance"
 
   // Filtered opportunities based on job type
   const filteredOpportunities = opportunities.filter((opportunity) => {
@@ -2015,4 +2265,3 @@ export default function Opportunities() {
     </div>
   );
 }
-

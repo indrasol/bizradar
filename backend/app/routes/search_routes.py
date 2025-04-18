@@ -1,97 +1,424 @@
 import os
-from datetime import datetime
-from fastapi import APIRouter, Request, HTTPException
+import json
+import hashlib
+import logging
+import math
+from datetime import datetime, date
+from fastapi import APIRouter, Request, HTTPException, BackgroundTasks
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
+from openai import OpenAI
 from services.open_ai_refiner import refine_query
-from services.job_search import search_jobs
+from services.job_search import search_jobs  # Keep your original search_jobs function
 from services.pdf_service import generate_rfp_pdf
 from services.recommendations import generate_recommendations
-from openai import OpenAI
-import logging
 from services.company_scraper import generate_company_markdown
+from utils.redis_connection import RedisClient
+from utils.database import get_connection
+from collections import deque
+import asyncio
 
-# Set up logging
+# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Initialize router, OpenAI client, and Redis
 search_router = APIRouter()
-
-# Initialize OpenAI client
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+redis_client = RedisClient()
+CACHE_TTL = 60 * 60 * 24  # 24 hours cache time (1 day)
 
-@search_router.post("/search-opportunities")
-async def search_job_opportunities(request: Request):
+# Recommendation queue for prioritization
+recommendation_queue = deque()
+recommendation_lock = asyncio.Lock()
+
+def sanitize(obj):
     """
-    Search for job opportunities with comprehensive filtering options.
+    Recursively walk a Python structure, converting dates to ISO strings
+    and handling non-serializable types like inf/nan.
     """
+    if isinstance(obj, (date, datetime)):
+        return obj.isoformat()
+    elif isinstance(obj, float):
+        if math.isinf(obj) or math.isnan(obj):
+            return None  # Replace inf/nan with None for JSON compatibility
+        return obj
+    elif isinstance(obj, dict):
+        return {k: sanitize(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [sanitize(v) for v in obj]
+    elif isinstance(obj, tuple):
+        return [sanitize(v) for v in obj]
+    return obj
+
+@search_router.post("/test-redis")
+async def test_redis_connection(request: Request):
+    """Test Redis connection and basic operations"""
     try:
-        data = await request.json()
-        query = data.get("query", "")
-        contract_type = data.get("contract_type", None)
-        platform = data.get("platform", None)
-        page = int(data.get("page", 1))
-        page_size = int(data.get("page_size", 7))
-        sort_by = data.get("sort_by", "relevance")
-        
-        # Get all filter values
-        due_date_filter = data.get("due_date_filter", None)
-        posted_date_filter = data.get("posted_date_filter", None)
-        naics_code = data.get("naics_code", None)
-        opportunity_type = data.get("opportunity_type", None)  # New filter
-        
-        # Handle refined query caching
-        is_new_search = data.get("is_new_search", False)
-        existing_refined_query = data.get("existing_refined_query", None)
-
-        if not query:
-            return {"results": [], "total": 0, "page": 1, "page_size": page_size, "total_pages": 0}
-
-        # Only refine the query for new searches
-        if is_new_search or not existing_refined_query:
-            refined_query = refine_query(query, contract_type, platform)
-            page = 1
-        else:
-            refined_query = existing_refined_query
-
-        # Get all relevant results with all filters
-        all_results = search_jobs(
-            refined_query, 
-            contract_type, 
-            platform,
-            due_date_filter,
-            posted_date_filter,
-            naics_code,
-            opportunity_type,  # Pass the new filter
-            data.get("user_id"),
-            sort_by
-        )
-        
-        # Pagination logic
-        total_results = len(all_results)
-        total_pages = (total_results + page_size - 1) // page_size if total_results > 0 else 0
-        
-        # Check if requested page is valid
-        if page > total_pages and total_pages > 0:
-            page = 1  # Reset to page 1 if requested page is out of bounds
-        
-        # Calculate slice indices
-        start_idx = (page - 1) * page_size
-        end_idx = min(start_idx + page_size, total_results)
-        
-        # Get the page results
-        page_results = all_results[start_idx:end_idx]
-        
+        test_key = "test:connection"
+        test_value = {"status": "success", "timestamp": str(datetime.now()), "message": "Redis connection is working!"}
+        success = redis_client.set_json(test_key, test_value)
+        data = redis_client.get_json(test_key)
         return {
-            "results": page_results,
-            "total": total_results,
-            "page": page,
-            "page_size": page_size,
-            "total_pages": total_pages,
-            "refined_query": refined_query,
+            "connection_status": "success" if redis_client.get_client() else "failed",
+            "set_operation": "success" if success else "failed",
+            "get_operation": "success" if data else "failed",
+            "retrieved_value": data,
+            "timestamp": str(datetime.now())
         }
     except Exception as e:
-        logger.error(f"Error in search: {str(e)}")
-        return {"results": [], "total": 0, "page": 1, "page_size": page_size, "total_pages": 0}
+        logger.error(f"Redis test error: {e}")
+        return {"connection_status": "failed", "error": str(e), "timestamp": str(datetime.now())}
 
+@search_router.post("/search-opportunities")
+async def search_job_opportunities(request: Request, background_tasks: BackgroundTasks):
+    """
+    Search for job opportunities with Redis caching.
+    Uses original search_jobs function when cache is missing.
+    """
+    data = await request.json()
+    query               = data.get("query", "")
+    contract_type       = data.get("contract_type")
+    platform            = data.get("platform")
+    page                = int(data.get("page", 1))
+    page_size           = int(data.get("page_size", 7))
+    sort_by             = data.get("sort_by", "relevance")
+    due_date_filter     = data.get("due_date_filter")
+    posted_date_filter  = data.get("posted_date_filter")
+    naics_code          = data.get("naics_code")
+    opportunity_type    = data.get("opportunity_type")
+    user_id             = data.get("user_id")
+    is_new_search       = data.get("is_new_search", False)
+    existing_refined    = data.get("existing_refined_query")
+
+    # Make sure we have a query
+    if not query.strip():
+        empty = {"results": [], "total": 0, "page": 1, "page_size": page_size, "total_pages": 0}
+        return JSONResponse(content=jsonable_encoder(empty))
+
+    # Build cache keys based on all search parameters
+    cache_params = {
+        "query": query, 
+        "contract_type": contract_type, 
+        "platform": platform,
+        "due_date_filter": due_date_filter, 
+        "posted_date_filter": posted_date_filter,
+        "naics_code": naics_code, 
+        "opportunity_type": opportunity_type, 
+        "sort_by": sort_by
+    }
+    
+    # Create a unique hash based on all parameters
+    base_key = hashlib.md5(json.dumps(cache_params, sort_keys=True).encode()).hexdigest()
+    
+    # Use prefix for user-specific caching
+    prefix   = f"user:{user_id}:" if user_id else ""
+    page_key = f"{prefix}search:{base_key}:page:{page}"
+    ids_key  = f"{prefix}search:{base_key}:all_ids"
+    refined_key = f"{prefix}search:{base_key}:refined_query"
+
+    # FIX 1: Log the exact cache key for debugging
+    logger.info(f"Looking for cache with key: {page_key}")
+
+    # Try serving from cache if this is not a new search
+    if redis_client.get_client() and not is_new_search:
+        cached = redis_client.get_json(page_key)
+        if cached:
+            logger.info(f"Cache hit for key: {page_key}")
+            # IMPORTANT: Sanitize the cached data before returning it
+            sanitized_cached = sanitize(cached)
+            return JSONResponse(content=jsonable_encoder(sanitized_cached))
+        else:
+            logger.info(f"Cache miss for key: {page_key}")
+
+    # Try to get refined query from cache if it exists
+    refined = None
+    if redis_client.get_client() and not is_new_search and not existing_refined:
+        refined = redis_client.get_json(refined_key)
+        logger.info(f"Checking for cached refined query: {'Found' if refined else 'Not found'}")
+
+    # Use provided refined query if available
+    if existing_refined:
+        refined = existing_refined
+        
+    # Refine query if needed
+    if is_new_search or not refined:
+        refined = refine_query(query, contract_type, platform)
+        if refined and redis_client.get_client():
+            # Cache the refined query
+            redis_client.set_json(refined_key, refined, expiry=CACHE_TTL)
+            logger.info(f"Cached new refined query for key: {refined_key}")
+
+    if not refined:
+        empty = {"results": [], "total": 0, "page": 1, "page_size": page_size, "total_pages": 0}
+        return JSONResponse(content=jsonable_encoder(empty))
+
+    # Use your original search_jobs function - this is the critical part!
+    all_results = search_jobs(
+        refined, contract_type, platform,
+        due_date_filter, posted_date_filter,
+        naics_code, opportunity_type, user_id, sort_by
+    )
+    
+    # Handle pagination
+    total       = len(all_results)
+    total_pages = (total + page_size - 1) // page_size if total else 0
+    if page > total_pages > 0:
+        page = 1
+    start, end   = (page - 1) * page_size, min(page * page_size, total)
+    page_results = all_results[start:end]
+
+    # Fix for infinite values - sanitize results before creating the response
+    sanitized_results = sanitize(page_results)
+    
+    # Prepare response
+    response = {
+        "results": sanitized_results,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": total_pages,
+        "refined_query": refined
+    }
+
+    # Cache the results if we have a Redis client and results
+    if redis_client.get_client() and page_results:
+        try:
+            # FIX 2: Use consistent cache TTL strategy
+            # Set shorter TTL for user-specific data (4 hours instead of 24)
+            user_cache_ttl = 60 * 60 * 4  # 4 hours 
+            cache_expiry = user_cache_ttl if user_id else CACHE_TTL
+            
+            # Response is already sanitized
+            # FIX 3: Add better error handling for Redis
+            try:
+                result = redis_client.set_json(page_key, response, expiry=cache_expiry)
+                logger.info(f"Cache set for key {page_key}: {'Success' if result else 'Failed'}")
+            except Exception as redis_err:
+                logger.error(f"Redis set error: {str(redis_err)}")
+            
+            # Also cache the IDs for potential use later
+            result_ids = [str(r.get("id")) for r in page_results]
+            redis_client.set_json(ids_key, result_ids, expiry=cache_expiry)
+            
+            # Add to recommendation queue with priority (at the front)
+            task_data = {
+                "user_id": user_id, 
+                "refined": refined, 
+                "results": page_results,
+                "timestamp": datetime.now().isoformat()
+            }
+            
+            # Add the task to the front of the queue for priority processing
+            background_tasks.add_task(add_to_recommendation_queue, task_data)
+            
+            logger.info(f"Cached results for key: {page_key}")
+        except Exception as e:
+            logger.error(f"Failed to write cache: {str(e)}")
+
+    # Return the response
+    return JSONResponse(content=jsonable_encoder(response))
+
+async def add_to_recommendation_queue(task_data):
+    """Add a task to the recommendation queue with priority"""
+    async with recommendation_lock:
+        # Add new task to the front of the queue (higher priority)
+        recommendation_queue.appendleft(task_data)
+        
+        # If this is the only task, start processing
+        if len(recommendation_queue) == 1:
+            asyncio.create_task(process_recommendation_queue())
+
+async def process_recommendation_queue():
+    """Process recommendation queue, prioritizing newest searches"""
+    async with recommendation_lock:
+        if not recommendation_queue:
+            return
+            
+        # Get the most recent task (from the left of the deque)
+        task = recommendation_queue.popleft()
+    
+    # Process this task
+    user_id = task.get("user_id")
+    refined = task.get("refined")
+    results = task.get("results")
+    
+    if not user_id or not results:
+        # Recursively process next item if needed
+        async with recommendation_lock:
+            if recommendation_queue:
+                asyncio.create_task(process_recommendation_queue())
+        return
+        
+    for opp in results:
+        try:
+            # Sanitize opportunity before passing to generate_recommendations
+            sanitized_opp = sanitize(opp)
+            
+            # Skip if no ID in the opportunity
+            if not sanitized_opp.get('id'):
+                continue
+                
+            rec = await generate_recommendations(
+                company_url=None,
+                company_description=refined,
+                opportunities=[sanitized_opp]
+            )
+            
+            if not rec:
+                continue
+                
+            key = f"user:{user_id}:recommendation:{sanitized_opp.get('id')}"
+            
+            # Sanitize recommendations before caching
+            if redis_client.get_client():
+                try:
+                    sanitized_rec = sanitize(rec)
+                    # Use shorter TTL for user-specific recommendations
+                    user_cache_ttl = 60 * 60 * 4  # 4 hours
+                    cache_expiry = user_cache_ttl if user_id else CACHE_TTL
+                    redis_client.set_json(key, sanitized_rec, expiry=cache_expiry)
+                    logger.info(f"Cached recommendation for key: {key}")
+                except Exception as e:
+                    logger.error(f"Failed to cache recommendation: {e}")
+        except Exception as e:
+            logger.error(f"Error generating recommendation: {e}")
+    
+    # Process the next item in the queue if there is one
+    async with recommendation_lock:
+        if recommendation_queue:
+            # Create a new task for the next item
+            asyncio.create_task(process_recommendation_queue())
+
+@search_router.post("/get-cached-recommendations")
+async def get_cached_recommendations(request: Request):
+    """Get cached recommendations for opportunity IDs"""
+    data    = await request.json()
+    user_id = data.get("user_id")
+    ids     = data.get("opportunity_ids", [])
+    prefix  = f"user:{user_id}:" if user_id else ""
+    recs    = []
+
+    if not redis_client.get_client():
+        return {"recommendations": [], "cached": False}
+
+    for id_ in ids:
+        c = redis_client.get_json(f"{prefix}recommendation:{id_}")
+        if c:
+            # Sanitize cached recommendations before returning
+            sanitized_rec = sanitize(c)
+            recs.append(sanitized_rec)
+
+    return {"recommendations": recs, "cached": bool(recs)}
+
+@search_router.post("/get-opportunities-by-ids")
+async def get_opportunities_by_ids(request: Request):
+    """Get opportunities by IDs, using cache when available"""
+    data    = await request.json()
+    ids     = data.get("ids", [])
+    user_id = data.get("user_id")
+    prefix  = f"user:{user_id}:" if user_id else ""
+    results, missing = [], []
+
+    for id_ in ids:
+        cached = redis_client.get_json(f"{prefix}result:{id_}")
+        if cached:
+            # Sanitize cached results
+            sanitized_cached = sanitize(cached)
+            results.append(sanitized_cached)
+        else:
+            missing.append(id_)
+
+    if missing:
+        # Fetch missing opportunities from database
+        # This would need to be implemented based on your DB structure
+        pass
+
+    # Re‑order to match requested IDs
+    order = {id_: idx for idx, id_ in enumerate(ids)}
+    results.sort(key=lambda x: order.get(str(x.get("id")), 999999))
+
+    return {"results": results}
+
+@search_router.post("/clear-cache")
+async def clear_cache(request: Request):
+    """Clear Redis cache for a user or all users"""
+    data    = await request.json()
+    user_id = data.get("user_id")
+
+    if not redis_client.get_client():
+        raise HTTPException(503, "Redis unavailable")
+
+    if not user_id:
+        redis_client.get_client().flushall()
+        return {"cleared_all": True}
+
+    pattern = f"user:{user_id}:*"
+    cursor, keys = 0, []
+    while True:
+        cursor, ks = redis_client.get_client().scan(cursor, match=pattern, count=100)
+        keys.extend(ks)
+        if cursor == 0:
+            break
+
+    if keys:
+        redis_client.get_client().delete(*keys)
+
+    return {"cleared_keys": len(keys)}
+
+@search_router.post("/clear-user-cache")
+async def clear_user_cache(request: Request):
+    """Clear Redis cache for a user - called during logout"""
+    data = await request.json()
+    user_id = data.get("user_id")
+    
+    if not user_id:
+        raise HTTPException(400, "User ID is required")
+        
+    if not redis_client.get_client():
+        # FIX: Don't raise an exception, just log and return
+        logger.warning("Redis unavailable for cache clearing")
+        return {"cleared_keys": 0, "status": "redis_unavailable"}
+
+    # FIX: Improved key deletion with retry logic
+    try:
+        # Clear all user-specific cache entries
+        pattern = f"user:{user_id}:*"
+        cursor, keys = 0, []
+        
+        # Scan in multiple attempts with batches
+        for attempt in range(3):  # Try up to 3 times
+            try:
+                all_keys = []
+                cursor = 0
+                
+                # Get all keys matching pattern
+                while True:
+                    cursor, batch = redis_client.get_client().scan(cursor, match=pattern, count=100)
+                    all_keys.extend(batch)
+                    if cursor == 0:
+                        break
+                
+                # Delete in reasonable batches
+                deleted_count = 0
+                for i in range(0, len(all_keys), 50):  # Process 50 at a time
+                    batch = all_keys[i:i+50]
+                    if batch:
+                        redis_client.get_client().delete(*batch)
+                        deleted_count += len(batch)
+                
+                logger.info(f"Successfully cleared {deleted_count} keys for user {user_id}")
+                return {"cleared_keys": deleted_count, "status": "success"}
+            
+            except Exception as e:
+                logger.error(f"Cache clearing attempt {attempt+1} failed: {str(e)}")
+                if attempt == 2:  # Last attempt failed
+                    raise
+    except Exception as e:
+        logger.error(f"Failed to clear user cache: {str(e)}")
+        return {"cleared_keys": 0, "status": "error", "message": str(e)}
+
+# Keep your original endpoints from the old file
 @search_router.post("/ai-recommendations")
 async def get_ai_recommendations(request: Request):
     """
@@ -109,11 +436,14 @@ async def get_ai_recommendations(request: Request):
         if not company_description:
             raise HTTPException(status_code=400, detail="Company description is required")
         
+        # Sanitize opportunities before passing to generate_recommendations
+        sanitized_opportunities = sanitize(opportunities)
+        
         # Call the service function to generate recommendations
         recommendations = await generate_recommendations(
             company_url=company_url,
             company_description=company_description,
-            opportunities=opportunities
+            opportunities=sanitized_opportunities
         )
         
         # Check if recommendations has the expected structure
@@ -141,7 +471,9 @@ async def get_ai_recommendations(request: Request):
             
             enhanced_recommendations.append(enhanced_rec)
         
-        return {"recommendations": enhanced_recommendations}
+        # Sanitize recommendations before returning
+        sanitized_recommendations = sanitize(enhanced_recommendations)
+        return {"recommendations": sanitized_recommendations}
             
     except Exception as e:
         logger.error(f"Error in AI recommendations endpoint: {str(e)}")
@@ -154,6 +486,8 @@ async def get_ai_recommendations(request: Request):
                 "fallbackReason": str(e)
             }
         ]}
+
+# Keep the rest of your original endpoints (generate-rfp, ask-ai, etc.)
 
 @search_router.post("/generate-rfp/{contract_id}")
 async def generate_rfp(contract_id: str, request: Request):

@@ -253,26 +253,26 @@ def search_jobs(query: str, contract_type: Optional[str] = None, platform: Optio
                     all_results.extend(freelancer_results)
                 
                 # Get user interaction data if user_id is provided
-                user_interactions = {}
-                if user_id and connection:
-                    try:
-                        # Get opportunities the user has interacted with
-                        cursor.execute("""
-                            SELECT opportunity_id, 
-                                   SUM(CASE WHEN action_type = 'view' THEN 1 ELSE 0 END) as views,
-                                   SUM(CASE WHEN action_type = 'pursuit' THEN 3 ELSE 0 END) as pursuits,
-                                   SUM(CASE WHEN action_type = 'generate_response' THEN 5 ELSE 0 END) as responses
-                            FROM user_interactions
-                            WHERE user_id = %s
-                            GROUP BY opportunity_id
-                        """, (user_id,))
+                # user_interactions = {}
+                # if user_id and connection:
+                #     try:
+                #         # Get opportunities the user has interacted with
+                #         cursor.execute("""
+                #             SELECT opportunity_id, 
+                #                    SUM(CASE WHEN action_type = 'view' THEN 1 ELSE 0 END) as views,
+                #                    SUM(CASE WHEN action_type = 'pursuit' THEN 3 ELSE 0 END) as pursuits,
+                #                    SUM(CASE WHEN action_type = 'generate_response' THEN 5 ELSE 0 END) as responses
+                #             FROM user_interactions
+                #             WHERE user_id = %s
+                #             GROUP BY opportunity_id
+                #         """, (user_id,))
                         
-                        for record in cursor.fetchall():
-                            opp_id, views, pursuits, responses = record
-                            # Calculate an interaction score
-                            user_interactions[str(opp_id)] = (views + pursuits + responses) / 10  # Normalize to 0-1 range
-                    except Exception as e:
-                        logger.error(f"Error fetching user interactions: {str(e)}")
+                #         for record in cursor.fetchall():
+                #             opp_id, views, pursuits, responses = record
+                #             # Calculate an interaction score
+                #             user_interactions[str(opp_id)] = (views + pursuits + responses) / 10  # Normalize to 0-1 range
+                #     except Exception as e:
+                #         logger.error(f"Error fetching user interactions: {str(e)}")
                 
                 # Calculate all scoring factors regardless of sort type
                 for result in all_results:
