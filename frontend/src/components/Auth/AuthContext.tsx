@@ -238,7 +238,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       // Clear cache if user exists - WITH BETTER ERROR HANDLING
       if (user) {
         try {
-          const response = await fetch(`${API_BASE_URL}/clear-user-cache`, {
+          const response = await fetch(`${API_BASE_URL}/clear-cache`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ user_id: user.id }),
@@ -266,6 +266,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       // Clear tokens and session marker
       tokenService.clearTokens();
       sessionStorage.removeItem("userActiveSession");
+      sessionStorage.removeItem("lastOpportunitiesSearchState");
     } catch (error) {
       console.error('Logout error:', error);
       throw new Error('Failed to logout');

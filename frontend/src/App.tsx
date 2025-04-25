@@ -74,11 +74,17 @@ const App = () => (
                 <RfpWriter />
               </ProtectedRoute>
             } />
+            {/* Added both routes for BizradarAI for compatibility */}
             <Route path="/ask-ai" element={
-            <ProtectedRoute>
-              <BizradarAI />
-            </ProtectedRoute>
-          } />
+              <ProtectedRoute>
+                <BizradarAI />
+              </ProtectedRoute>
+            } />
+            <Route path="/bizradar-ai" element={
+              <ProtectedRoute>
+                <BizradarAI />
+              </ProtectedRoute>
+            } />
             
             {/* 404 route */}
             <Route path="*" element={<NotFound />} />

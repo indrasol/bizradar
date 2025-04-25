@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom"; // Added useNavigate
 import { 
   Search, 
   FileText, 
@@ -11,7 +11,8 @@ import {
   Upload,
   Plus,
   Calendar,
-  ChevronRight
+  ChevronRight,
+  Bot // Added Bot icon for AI button
 } from "lucide-react";
 import SideBar from "../components/layout/SideBar";
 import { supabase } from "../utils/supabase";
@@ -44,6 +45,7 @@ interface RfpSaveEventDetail {
 }
 
 export default function Pursuits(): JSX.Element {
+  const navigate = useNavigate(); // Initialize useNavigate for redirection
   // Initialize with empty array and add loading/error states
   const [pursuits, setPursuits] = useState<Pursuit[]>([]);
   const [selectedPursuit, setSelectedPursuit] = useState<Pursuit | null>(null);
@@ -70,7 +72,88 @@ export default function Pursuits(): JSX.Element {
   const fileInputRef = useRef(null);
   const [selectedFiles, setSelectedFiles] = useState([]);
 
-  // Add function to toggle dialog
+  // Function to handle navigation to BizRadar AI with pursuit context
+  const navigateToBizRadarAI = async (pursuit: Pursuit, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent row click event from firing
+    console.log("Ask BizRadar AI button clicked for pursuit:", pursuit);
+    
+    try {
+      // Fetch the noticeId from the sam_gov table using the title
+      const { data, error } = await supabase
+        .from('sam_gov')
+        .select('notice_id')
+        .eq('title', pursuit.title)
+        .single();
+
+      if (error) {
+        console.error("Error fetching noticeId:", error);
+        toast?.error("Failed to fetch notice ID. Please try again.");
+        return;
+      }
+
+      const noticeId = data ? data.notice_id : null;
+      console.log("Found notice ID:", noticeId);
+      
+      // Get the current user ID
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = user?.id;
+      
+      // Call the backend endpoint directly with the correct port
+      try {
+        const backendResponse = await fetch('http://localhost:5000/ask-bizradar-ai', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            pursuitId: pursuit.id,
+            noticeId: noticeId,
+            userId: userId, // Include the user ID
+            pursuitContext: {
+              id: pursuit.id,
+              title: pursuit.title,
+              description: pursuit.description,
+              stage: pursuit.stage,
+              dueDate: pursuit.dueDate,
+              naicsCode: pursuit.naicscode,
+              noticeId: noticeId
+            }
+          }),
+        });
+        
+        if (!backendResponse.ok) {
+          throw new Error(`API error: ${backendResponse.status}`);
+        }
+        
+        const responseData = await backendResponse.json();
+        console.log("Successfully hit backend endpoint:", responseData);
+      } catch (apiError) {
+        console.error("Error hitting backend endpoint:", apiError);
+        // Continue with navigation even if the API call fails
+      }
+      
+      // Navigate to BizRadarAI with pursuit context
+      navigate('/bizradar-ai', { 
+        state: { 
+          pursuitContext: {
+            id: pursuit.id,
+            title: pursuit.title,
+            description: pursuit.description,
+            stage: pursuit.stage,
+            dueDate: pursuit.dueDate,
+            naicsCode: pursuit.naicscode,
+            noticeId: noticeId,
+            userId: userId // Include user ID in the context
+          }
+        }
+      });
+    } catch (error) {
+      console.error("Error navigating to BizRadarAI:", error);
+      toast?.error("An error occurred. Please try again.");
+    }
+  };
+
+  // Toggle dialog function...
   const toggleDialog = () => {
     setIsDialogOpen(!isDialogOpen);
     if (!isDialogOpen) {
@@ -909,16 +992,31 @@ export default function Pursuits(): JSX.Element {
                             )}
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleRemovePursuit(pursuit.id);
-                              }}
-                              className="p-1.5 rounded-full text-gray-400 hover:bg-red-100 hover:text-red-600 transition-all"
-                              title="Delete Pursuit"
-                            >
-                              <Trash2 size={18} />
-                            </button>
+                            <div className="flex items-center justify-end space-x-2">
+                              {/* New Ask BizRadar AI Button */}
+                              <button
+                                onClick={(e) => navigateToBizRadarAI(pursuit, e)}
+                                className="p-1.5 rounded-full text-emerald-600 hover:bg-emerald-100 transition-all"
+                                title="Ask BizRadar AI"
+                              >
+                                <Bot size={18} />
+                              </button>
+                              
+                              {/* RFP Action Button */}
+                              {renderRfpActionButton(pursuit)}
+                              
+                              {/* Delete Button */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleRemovePursuit(pursuit.id);
+                                }}
+                                className="p-1.5 rounded-full text-gray-400 hover:bg-red-100 hover:text-red-600 transition-all"
+                                title="Delete Pursuit"
+                              >
+                                <Trash2 size={18} />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -933,9 +1031,3 @@ export default function Pursuits(): JSX.Element {
     </div>
   );
 }
-
-
-
-
-
-

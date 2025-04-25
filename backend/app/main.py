@@ -4,8 +4,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from routes.search_routes import search_router
 # Import our new admin routes
 from routes.admin_routes import router as admin_router
+from utils.rec_queue import start_consumer_loop
 
 app = FastAPI()
+
+@app.on_event("startup")
+async def on_startup_event():
+    start_consumer_loop()
+
 
 # Configure CORS - allow both local development and production frontend
 origins = [
