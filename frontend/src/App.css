@@ -40,3 +40,11 @@
 .read-the-docs {
   color: #888;
 }
+
+/* App.css */
+.line-clamp-3 {
+  display: -webkit-box;            /* Use flexbox layout */
+  -webkit-box-orient: vertical;   /* Set the box orientation to vertical */
+  overflow: hidden;                /* Hide overflow text */
+  max-height: 4.5em;              /* Limit height to 3 lines (assuming line height is 1.5em) */
+}

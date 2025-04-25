@@ -14,3 +14,5 @@ sentence-transformers  # For embeddings
 python-dotenv
 reportlab>=3.6.0
 aiohttp          # Added for asynchronous HTTP requests
+redis
+celery[redis]>=5.5.0

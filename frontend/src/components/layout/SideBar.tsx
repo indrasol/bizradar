@@ -15,6 +15,7 @@ import SettingsNotification from './SettingsNotification';
 import { useAuth } from '../Auth/useAuth';
 import { supabase } from '../../utils/supabase';
 import { toast } from 'sonner';
+import BizradarAIModal from './BizradarAIModal';
 
 const Sidebar = () => {
   const location = useLocation();
@@ -23,6 +24,7 @@ const Sidebar = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [pursuitCount, setPursuitCount] = useState(0);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   
   // Fetch user profile separately
   useEffect(() => {
@@ -113,6 +115,14 @@ const Sidebar = () => {
       e.preventDefault();
       toast.error("You don't have permission to access the Admin Zone");
     }
+  };
+  
+  const handleOpenModal = () => {
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
   };
   
   return (
@@ -308,10 +318,9 @@ const Sidebar = () => {
         {/* Bottom Links */}
         <div className={`${collapsed ? 'px-2' : 'px-4'} pt-4 border-t border-gray-200 mt-2`}>
           <Link
-            to="/ask-ai"
-            className={`group flex ${collapsed ? 'flex-col items-center' : 'items-center gap-3'} px-3 py-3 rounded-xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-white shadow-sm hover:shadow-md transition-all duration-300 ${
-              isActive('/ask-ai') ? 'from-emerald-100 to-emerald-50 border-emerald-300' : ''
-            }`}
+            to="#"
+            onClick={handleOpenModal}
+            className={`group flex ${collapsed ? 'flex-col items-center' : 'items-center gap-3'} px-3 py-3 rounded-xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-white shadow-sm hover:shadow-md transition-all duration-300`}
           >
             <div className="p-1.5 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 shadow-sm">
               <Bot className="w-4 h-4 text-white" />
@@ -336,6 +345,9 @@ const Sidebar = () => {
           </Link>
         </div>
       </div>
+
+      {/* Render the modal if it's open */}
+      {isModalOpen && <BizradarAIModal onClose={handleCloseModal} />}
     </div>
   );
 };

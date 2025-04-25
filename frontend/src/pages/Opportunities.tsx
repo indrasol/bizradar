@@ -39,12 +39,20 @@ import {
   SlidersHorizontal,
   ArrowRight,
   ListFilter,
-  FileText
+  FileText,
+  Loader,
+  Play,
+  Eye
 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import SideBar from "../components/layout/SideBar";
 import { supabase } from "../utils/supabase";
 import RefinedQueryDisplay from "../components/admin/RefinedQueryDisplay"
+import tokenService from "../utils/tokenService";
+import RecommendationsPanel from "../components/dashboard/RecommendationsPanel"; // Import the component
+import { J } from "node_modules/framer-motion/dist/types.d-6pKw1mTI";
+// import '../../src/App.css'
+
 
 // Import the environment variable
 const isDevelopment =
@@ -69,6 +77,8 @@ interface SearchParams {
 
 export default function Opportunities() {
   const navigate = useNavigate(); // Initialize the navigate function
+  const location = useLocation();                
+
   
   const [activeFilters, setActiveFilters] = useState({
     dueDate: true,
@@ -97,6 +107,12 @@ export default function Opportunities() {
   const [currentHoveredCard, setCurrentHoveredCard] = useState(null);
   const [refinedQuery, setRefinedQuery] = useState("");
   const [showRefinedQuery, setShowRefinedQuery] = useState(false);
+  const [sortBy, setSortBy] = useState("relevance");  // Default to "relevance"
+  const [showRecommendationsPanel, setShowRecommendationsPanel] = useState(true);
+
+  // Add this with your other state variables
+  const [expandedDescriptions, setExpandedDescriptions] = useState({});
+
   
   // Use a ref to track if recommendations request is in progress to prevent duplicate requests
   const requestInProgressRef = useRef(false);
@@ -153,6 +169,32 @@ export default function Opportunities() {
     indexOfFirstResult,
     indexOfLastResult
   );
+
+  useEffect(() => {
+    if (location.pathname === "/opportunities") {
+      const raw = sessionStorage.getItem("lastOpportunitiesSearchState");
+      if (!raw) return;
+
+      try {
+        const state = JSON.parse(raw);
+        const hoursOld =
+          (Date.now() - new Date(state.lastUpdated).getTime()) / 36e5;
+        if (hoursOld < 4) {
+          setSearchQuery(state.query);
+          setOpportunities(state.results);
+          setTotalResults(state.totalResults);
+          setTotalPages(state.totalPages);
+          setRefinedQuery(state.refinedQuery);
+          setFilterValues(state.filters);
+          setSortBy(state.sortBy);
+          setHasSearched(true);
+          fetchCachedRecommendations(state.results.map((r) => r.id));
+        }
+      } catch (e) {
+        console.error("Failed to restore search state:", e);
+      }
+    }
+  }, [location.pathname]);  // ← run this effect whenever the URL changes
   
   // Add debugging useEffect to monitor state changes
   useEffect(() => {
@@ -163,6 +205,47 @@ export default function Opportunities() {
     });
   }, [aiRecommendations, isLoadingRecommendations]);
   
+  // Add this useEffect to restore the search state on component mount
+  useEffect(() => {
+    const raw = sessionStorage.getItem('lastOpportunitiesSearchState');
+    if (!raw) return;
+  
+    try {
+      const state = JSON.parse(raw);
+      const lastUpdated = new Date(state.lastUpdated).getTime();
+      const ageMs       = Date.now() - lastUpdated;
+      const maxAgeMs    = 4 * 60 * 60 * 1000; // 4 hours
+  
+      // if older than 4 hrs, drop it
+      if (ageMs > maxAgeMs) {
+        sessionStorage.removeItem('lastOpportunitiesSearchState');
+        console.log('Discarded stale search state (>4h old)');
+        return;
+      }
+  
+      // otherwise restore
+      setSearchQuery(state.query);
+      setOpportunities(state.results);
+      setTotalResults(state.totalResults);
+      setTotalPages(state.totalPages);
+      setCurrentPage(state.currentPage || 1); // Restore current page
+      setRefinedQuery(state.refinedQuery);
+      setFilterValues(state.filters);
+      setSortBy(state.sortBy);
+      setHasSearched(true);
+  
+      // re‑hydrate any cached AI recs
+      if (state.results?.length) {
+        fetchCachedRecommendations(state.results.map((r) => r.id));
+      }
+      console.log('Restored previous search state from sessionStorage');
+    } catch (e) {
+      console.error('Failed to restore search state:', e);
+      sessionStorage.removeItem('lastOpportunitiesSearchState');
+    }
+  }, []);
+
+
   // Fetch user profile from settings
   const getUserProfile = () => {
     try {
@@ -191,6 +274,33 @@ export default function Opportunities() {
     }
   };
   
+// When search results are loaded successfully:
+const saveSearchStateToSession = (query, results, totalResults, totalPages, refinedQuery) => {
+  console.log("🏷️ [saveSearchStateToSession] called with:", {
+    query,
+    resultsLength: Array.isArray(results) ? results.length : results,
+    totalResults,
+    totalPages,
+    refinedQuery,
+    filters: filterValues,
+    sortBy
+  });
+  const searchState = {
+    query,
+    results,
+    totalResults,
+    totalPages,
+    refinedQuery,
+    filters: filterValues,
+    sortBy,
+    lastUpdated: new Date().toISOString()
+  };
+
+  sessionStorage.setItem('lastOpportunitiesSearchState', JSON.stringify(searchState));
+  console.log("✅ [saveSearchStateToSession] wrote key:", sessionStorage.getItem('lastOpportunitiesSearchState'));
+};
+
+
   // Fetch AI recommendations
   const fetchAiRecommendations = async () => {
     if (requestInProgressRef.current || opportunities.length === 0) return;
@@ -284,18 +394,12 @@ export default function Opportunities() {
   
   // useEffect to prevent infinite loop of requests
   useEffect(() => {
-    if (
-      hasSearched &&
-      opportunities.length > 0 &&
-      !requestInProgressRef.current
-    ) {
-      console.log(
-        "Page changed, fetching new recommendations for page",
-        currentPage
-      );
-          fetchAiRecommendations();
-      }
-  }, [currentPage, opportunities]);
+    // No automatic recommendation fetching on page change
+    console.log("Page changed to", currentPage);
+  }, [currentPage]);
+
+  // Inside Opportunities.tsx - add this useEffect
+
 
   const toggleFilter = (filter) => {
     setActiveFilters({
@@ -325,15 +429,16 @@ export default function Opportunities() {
     setAiRecommendations([]);
     setShowRefinedQuery(false); // Hide the refined query
     setRefinedQuery(""); // Clear the refined query
+    sessionStorage.removeItem('lastOpportunitiesSearchState');
     requestInProgressRef.current = false;
     lastSearchIdRef.current = "";
     
     // Reset filter values to defaults
     setFilterValues({
-      dueDate: "next_30_days",
-      postedDate: "past_week",
-      naicsCode: "",
-      opportunityType: ""
+      dueDate: "none", // Set "none" as the default value
+      postedDate: "all", // Default value
+      naicsCode: "", // Default value
+      opportunityType: "All" // Default value
     });
   };
 
@@ -346,161 +451,405 @@ export default function Opportunities() {
     handleSearch(null, query);
   };
 
-  const handleSearch = async (e, suggestedQuery = null) => {
-    if (e) e.preventDefault();
-    
-    const query = suggestedQuery || searchQuery;
-    if (!query.trim()) return;
-    
-    setIsSearching(true);
-    setAiRecommendations([]);
-    requestInProgressRef.current = false;
-    lastSearchIdRef.current = "";
+  // ── add this right above handleSearch ────────────────────────────
 
-    // Reset filters when doing a new search
-    setFilterValues({
-        dueDate: "next_30_days",
-        postedDate: "past_week",
-        naicsCode: "",
-        opportunityType: ""
+/**
+ * Try to load a previous search from Redis cache.
+ * Returns true if cached results were found & applied.
+ */
+const checkForCachedSearch = async (query: string) => {
+  const user_id = tokenService.getUserIdFromToken();
+  console.log("Checking for cached search with query:", query);
+  
+  try {
+    const resp = await fetch(`${API_BASE_URL}/search-opportunities`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query,
+        page: 1,
+        page_size: resultsPerPage,
+        is_new_search: false,
+        sort_by: sortBy,
+        user_id,
+      }),
     });
-
-    try {
-        const searchParams = {
-            query: query,
-            contract_type: null,
-            platform: null,
-            page: 1,
-            page_size: resultsPerPage,
-            due_date_filter: filterValues.dueDate,
-            posted_date_filter: filterValues.postedDate,
-            naics_code: filterValues.naicsCode,
-            is_new_search: true,  // Flag this as a new search to trigger query refinement
-            sort_by: sortBy  // Use the current sort type
-        };
-
-        const response = await fetch(`${API_BASE_URL}/search-opportunities`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(searchParams),
-        });
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        console.log("Search results:", data);
-        
-        // Check if the API returned a refined query
-        if (data.refined_query) {
-            setRefinedQuery(data.refined_query);
-            setShowRefinedQuery(true); // Show the refined query - no auto-hide
-        }
-        
-        if (data.results && Array.isArray(data.results)) {
-            setHasSearched(true);
-            
-            const formattedResults = data.results.map((job) => {
-                // Normalize platform name for display
-                let platformForDisplay = job.platform === "sam_gov" ? "sam.gov" : job.platform;
-
-                return {
-                    id: job.id || `job-${Math.random()}-${Date.now()}`,
-                    title: job.title || "Untitled Opportunity",
-                    agency: job.agency || job.department || "Unknown Agency",
-                    jurisdiction: "Federal",
-                    type: "RFP",
-                    posted: job.published_date || job.posted || "Recent",
-                    dueDate: job.response_date || job.dueDate || "TBD",
-                    value: job.value || Math.floor(Math.random() * 5000000) + 1000000,
-                    status: job.active !== undefined ? (job.active ? "Active" : "Inactive") : "Active",
-                    naicsCode: job.naics_code?.toString() || job.naicsCode || "000000",
-                    platform: platformForDisplay,
-                    description: job.description?.substring(0, 150) + "..." || 
-                      "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
-                    external_url: job.external_url || job.url || null,
-                    url: job.url || null,
-                    solicitation_number: job.solicitation_number || null,
-                    notice_id: job.notice_id || null,
-                    published_date: job.published_date || null,
-                    response_date: job.response_date || null
-                };
-            });
-            
-            setOpportunities(formattedResults);
-            setTotalResults(data.total || formattedResults.length);
-            setCurrentPage(data.page || 1);
-            setTotalPages(
-                data.total_pages || Math.ceil(data.total / resultsPerPage)
-            );
-        }
-    } catch (error) {
-        console.error("Error searching opportunities:", error);
-    } finally {
-        setIsSearching(false);
+    
+    if (!resp.ok) {
+      console.error("Cache check request failed:", await resp.text());
+      return false;
     }
+    
+    const data = await resp.json();
+    console.log("Cache check response:", data.results ? `Found ${data.results.length} results` : "No results found");
+    
+    if (resp.ok && data.results?.length) {
+      setOpportunities(data.results);
+      setTotalResults(data.total);
+      setTotalPages(data.total_pages);
+      if (data.refined_query) setRefinedQuery(data.refined_query);
+      setHasSearched(true);
+    
+      // fetch any cached AI recs
+      await fetchCachedRecommendations(data.results.map((r) => r.id));
+    
+      // Persist this cached search into sessionStorage so we can restore it later
+      saveSearchStateToSession(
+        query,
+        data.results,
+        data.total,
+        data.total_pages,
+        data.refined_query || ""
+      );
+    
+      return true;
+    }
+    
+    return false;
+  } catch (error) {
+    console.error("Error checking for cached search:", error);
+    return false;
+  }
 };
 
-  const paginate = async (pageNumber) => {
-    if (pageNumber === currentPage) return;
 
-    setIsSearching(true);
-
-    try {
-        // Prepare parameters with current filters and the existing refined query
-        const params = {
-            query: searchQuery,
-            contract_type: null,
-            platform: null,
-            page: pageNumber,
-            page_size: resultsPerPage,
-            is_new_search: false,              // Add this flag
-            existing_refined_query: refinedQuery, // Pass the existing refined query
-            sort_by: sortBy  // Include current sort type
-        };
+// Add this function to check for cached recommendations
+// Add this function to check for cached recommendations
+const checkForCachedRecommendations = async (ids: string[]) => {
+  if (!ids.length) return false;
+  
+  const userId = tokenService.getUserIdFromToken();
+  
+  try {
+    // Check if recommendations exist in session storage first (fastest)
+    const sessionRecs = sessionStorage.getItem('aiRecommendations');
+    if (sessionRecs) {
+      try {
+        const parsed = JSON.parse(sessionRecs);
+        const recommendations = parsed.recommendations || [];
+        const searchQuery = parsed.searchQuery || "";
+        const timestamp = parsed.timestamp || "";
         
-        // Add active filters
-        if (filterValues.dueDate && filterValues.dueDate !== "active_only") {
-            params["due_date_filter"] = filterValues.dueDate;
-        }
+        const hoursOld = (Date.now() - new Date(timestamp).getTime()) / 36e5;
         
-        if (filterValues.postedDate && filterValues.postedDate !== "all") {
-            params["posted_date_filter"] = filterValues.postedDate;
-        }
+        // Get current search query
+        const searchState = sessionStorage.getItem('lastOpportunitiesSearchState');
+        const currentQuery = searchState ? JSON.parse(searchState).query : "";
         
-        if (filterValues.naicsCode && filterValues.naicsCode.trim() !== "") {
-            params["naics_code"] = filterValues.naicsCode.trim();
+        // If fresh and matching query, use these
+        if (hoursOld < 1 && searchQuery === currentQuery && recommendations.length > 0) {
+          console.log("Found cached recommendations in session storage");
+          return true;
         }
-
-        const response = await fetch(`${API_BASE_URL}/search-opportunities`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(params),
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        console.log(`Page ${pageNumber} data:`, data);
-
-        if (data.results && Array.isArray(data.results)) {
-            setOpportunities(data.results);
-            setCurrentPage(data.page || pageNumber);
-            setTotalResults(data.total || 0);
-            setTotalPages(data.total_pages || 1);
-        }
-    } catch (error) {
-        console.error(`Error fetching page ${pageNumber}:`, error);
-    } finally {
-        setIsSearching(false);
+      } catch (e) {
+        console.error("Error parsing cached recommendations:", e);
+      }
     }
+    
+    // Otherwise, check Redis cache via backend
+    const response = await fetch(`${API_BASE_URL}/check-recommendations`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ 
+        opportunity_ids: ids,
+        user_id: userId,
+        checkOnly: true  // Just check existence, don't return full data
+      })
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      return data.exists; // Just return if they exist, don't load yet
+    }
+    
+    return false;
+  } catch (error) {
+    console.error("Error checking for cached recommendations:", error);
+    return false;
+  }
+};
+
+/**
+ * Fetch any cached AI recommendations for a given list of IDs.
+ */
+const fetchCachedRecommendations = async (ids: string[]) => {
+  const user_id = tokenService.getUserIdFromToken();
+  const resp = await fetch(`${API_BASE_URL}/get-cached-recommendations`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ user_id, opportunity_ids: ids }),
+  });
+  const payload = await resp.json();
+  if (payload.cached && payload.recommendations) {
+    setAiRecommendations(payload.recommendations);
+  }
+};
+
+// Add this function to check for cached recommendations
+
+
+// Modify handleSearch to check for cached recommendations
+const handleSearch = async (e: React.FormEvent | null, suggestedQuery: string | null = null) => {
+  if (e) e.preventDefault();
+  
+  const query = suggestedQuery || searchQuery;
+  console.log("▶️ [handleSearch] fired with query:", query);
+  if (!query.trim()) return;
+
+  setIsSearching(true);
+  setHasSearched(false);
+
+  try {
+    // NEW CODE: Check if this query already exists in session storage
+    let isNewSearch = true;
+    const storedStateRaw = sessionStorage.getItem('lastOpportunitiesSearchState');
+    
+    if (storedStateRaw) {
+      try {
+        const storedState = JSON.parse(storedStateRaw);
+        // If the stored query matches the current query and it's less than 24 hours old
+        if (storedState.query === query) {
+          const lastUpdated = new Date(storedState.lastUpdated).getTime();
+          const now = Date.now();
+          const hoursElapsed = (now - lastUpdated) / (1000 * 60 * 60);
+          
+          // If the stored results are less than 24 hours old
+          if (hoursElapsed < 24) {
+            isNewSearch = false;
+            console.log("REPEAT SEARCH: Using cached results for:", query);
+          }
+        }
+      } catch (e) {
+        console.error("Error parsing stored search state:", e);
+      }
+    }
+    
+    // If it's a new search, log it
+    if (isNewSearch) {
+      console.log("NEW SEARCH: Starting fresh search for:", query);
+    }
+
+    // Prepare search parameters
+    const searchParams = {
+      query: query,
+      contract_type: null,
+      platform: null,
+      page: 1,
+      page_size: resultsPerPage,
+      is_new_search: isNewSearch,
+      user_id: tokenService.getUserIdFromToken(),
+      sort_by: sortBy,
+      timestamp: Date.now()
+    };
+
+    console.log("Search params:", JSON.stringify(searchParams));
+
+    // Call backend search API
+    const response = await fetch(`${API_BASE_URL}/search-opportunities`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(searchParams),
+    });
+    
+    const rawText = await response.text(); // Get raw response for debugging
+    console.log('Raw API Response:', rawText);
+
+    let data;
+    try {
+      data = JSON.parse(rawText); // Parse the response
+    } catch (error) {
+      console.error('Error parsing JSON response:', error);
+      setIsSearching(false);
+      return;
+    }
+
+    console.log('Parsed Response:', data);
+
+    if (data.success) {
+      // Check for refined query in the response and display it
+      if (data.refined_query) {
+        setRefinedQuery(data.refined_query);
+        setShowRefinedQuery(true);  // Make sure this is set to true
+      } else {
+        setShowRefinedQuery(false);
+      }
+
+      // Process and update opportunities state
+      const processedResults = processSearchResults(data.results);
+      console.log("Processed Results:", processedResults); // Debugging log
+      setOpportunities(processedResults);
+      setTotalResults(data.total);
+      setTotalPages(data.total_pages);
+      setCurrentPage(data.page);
+      
+      // Add this line to set hasSearched to true when search is successful
+      setHasSearched(true);
+      
+      // Save search state to session storage
+      saveSearchStateToSession(
+        query,
+        processedResults,
+        data.total,
+        data.total_pages,
+        data.refined_query || ""
+      );
+    } else {
+      // Handle error
+      console.error(data.message);
+      setOpportunities([]);
+    }
+  } catch (error) {
+    console.error("Error fetching opportunities:", error);
+  } finally {
+    setIsSearching(false);
+  }
+};
+
+
+const forcePageNavigation = (pageNumber) => {
+  if (pageNumber === currentPage) return;
+  
+  console.log(`Direct pagination: Going to page ${pageNumber}`);
+  setIsSearching(true);
+  
+  // Create a direct API request with minimal parameters
+  const requestBody = {
+    query: searchQuery,
+    user_id: tokenService.getUserIdFromToken(),
+    page: pageNumber,
+    page_size: resultsPerPage,
+    due_date_filter: filterValues.dueDate,
+    posted_date_filter: filterValues.postedDate,
+    naics_code: filterValues.naicsCode,
+    opportunity_type: jobType,
+    sort_by: sortBy
+  };
+  
+  console.log("Direct pagination request:", requestBody);
+  
+  // Use the filter endpoint for pagination too
+  fetch(`${API_BASE_URL}/filter-cached-results`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(requestBody)
+  })
+  .then(response => {
+    console.log(`Direct pagination response status: ${response.status}`);
+    
+    if (!response.ok) {
+      // If cache miss, fallback to regular search
+      if (response.status === 404) {
+        console.log("No cached results found, falling back to regular search");
+        return handleSearch(null, searchQuery);
+      }
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    return response.json();
+  })
+  .then(data => {
+    console.log(`Direct pagination got ${data.results?.length || 0} results`);
+    
+    if (data.success && data.results && Array.isArray(data.results)) {
+      // Update state
+      setOpportunities(data.results);
+      setTotalResults(data.total);
+      setCurrentPage(pageNumber);
+      setTotalPages(data.total_pages);
+      
+      // Save state to session
+      saveSearchStateToSession(
+        searchQuery, 
+        data.results,
+        data.total,
+        data.total_pages,
+        refinedQuery
+      );
+    }
+  })
+  .catch(error => {
+    console.error("Direct pagination error:", error);
+  })
+  .finally(() => {
+    setIsSearching(false);
+  });
+};
+
+
+const paginate = async (pageNumber: number) => {
+  if (pageNumber === currentPage) return;
+  
+  console.log(`PAGINATION: Attempting to navigate to page ${pageNumber}`);
+  setIsSearching(true);
+  
+  try {
+    // Prepare parameters with current filters and the existing refined query
+    const params = {
+      query: searchQuery,
+      contract_type: null,
+      platform: null,
+      page: pageNumber,
+      page_size: resultsPerPage,
+      is_new_search: false,
+      existing_refined_query: refinedQuery,
+      sort_by: sortBy,
+      user_id: tokenService.getUserIdFromToken(),
+      // Current filters
+      due_date_filter: filterValues.dueDate,
+      posted_date_filter: filterValues.postedDate,
+      naics_code: filterValues.naicsCode,
+      opportunity_type: jobType
+    };
+    
+    console.log(`PAGINATION: Request parameters:`, JSON.stringify(params));
+    
+    const response = await fetch(`${API_BASE_URL}/search-opportunities`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(params),
+    });
+
+    console.log(`PAGINATION: Received response with status: ${response.status}`);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log(`PAGINATION: Received data with ${data.results?.length || 0} results`);
+
+    if (data.results && Array.isArray(data.results)) {
+      // Update the UI with paginated results
+      setOpportunities(data.results);
+      setCurrentPage(data.page || pageNumber);
+      setTotalResults(data.total || 0);
+      setTotalPages(data.total_pages || 1);
+      
+      // Also update session storage with the new page
+      const currentSearchState = sessionStorage.getItem('lastOpportunitiesSearchState');
+      if (currentSearchState) {
+        try {
+          const state = JSON.parse(currentSearchState);
+          // Only update the current page, not the results
+          state.currentPage = pageNumber;
+          sessionStorage.setItem('lastOpportunitiesSearchState', JSON.stringify(state));
+        } catch (e) {
+          console.error("Error updating session storage:", e);
+        }
+      }
+    } else {
+      console.error("PAGINATION: No results array in response data:", data);
+    }
+  } catch (error) {
+    console.error(`PAGINATION ERROR:`, error);
+    alert(`Failed to load page ${pageNumber}. Please try again.`);
+  } finally {
+    setIsSearching(false);
+  }
 };
 
   // Pagination component
@@ -512,7 +861,7 @@ export default function Opportunities() {
         <div className="flex justify-center items-center my-6">
           <div className="bg-white rounded-full shadow-sm border border-gray-200 flex items-center gap-1 p-1">
             <button
-              onClick={() => paginate(currentPage - 1)}
+              onClick={() => forcePageNavigation(currentPage - 1)} // Use the direct function
               disabled={currentPage === 1}
               className={`p-2 rounded-full ${
                 currentPage === 1
@@ -522,13 +871,13 @@ export default function Opportunities() {
             >
               <ChevronLeft size={16} />
             </button>
-
+  
             <div className="text-sm font-medium text-gray-700 px-3">
               Page {currentPage} of {totalPages}
             </div>
-
+  
             <button
-              onClick={() => paginate(currentPage + 1)}
+              onClick={() => forcePageNavigation(currentPage + 1)} // Use the direct function
               disabled={currentPage === totalPages}
               className={`p-2 rounded-full ${
                 currentPage === totalPages
@@ -595,6 +944,38 @@ export default function Opportunities() {
     return () => {
       window.removeEventListener("scroll", handleScroll);
     };
+  }, []);
+
+  useEffect(() => {
+    // Improved session detection logic
+    const wasSessionClosed = () => {
+      // Session marker only exists during a single browser session
+      const sessionMarker = sessionStorage.getItem("userActiveSession");
+      
+      // If we have a token but no session marker, browser was likely closed
+      const isLoggedIn = tokenService.getUserIdFromToken() !== null;
+      
+      if (isLoggedIn && !sessionMarker) {
+        // First visit in a new browser session
+        console.log("New browser session detected - refreshing cache");
+        sessionStorage.setItem("userActiveSession", "true");
+        return true;
+      }
+      
+      // Already visited in this session
+      sessionStorage.setItem("userActiveSession", "true");
+      return false;
+    };
+    
+    // Check if this is a new browser session
+    const newSession = wasSessionClosed();
+    
+    // If this is a new session and user is logged in, refresh the search
+    if (newSession && searchQuery && hasSearched) {
+      console.log("Browser was closed - refreshing search data");
+      // Set is_new_search to true to bypass cache
+      handleSearch(null, searchQuery);
+    }
   }, []);
 
   const toggleDetailedReason = (index) => {
@@ -699,11 +1080,10 @@ export default function Opportunities() {
 
   // Add new state for filter values
   const [filterValues, setFilterValues] = useState({
-    dueDate: "next_30_days",
-    postedDate: "past_week",
-    naicsCode: "", // Changed from nigpCode
-    opportunityType: ""
-    // Removed jurisdiction and unspscCode
+    dueDate: "none", // Set "none" as the default value
+    postedDate: "all", // Default value
+    naicsCode: "", // Default value
+    opportunityType: "All" // Default value
   });
 
   // New state for job type
@@ -713,28 +1093,23 @@ export default function Opportunities() {
   const applyFilters = async () => {
     setIsSearching(true);
     
-    // Prepare filter parameters
     const filterParams = {
       query: searchQuery,
-      contract_type: null,
-      platform: null,
-      page: 1,  // Reset to page 1 when applying filters
-      page_size: resultsPerPage,
-      is_new_search: false,
-      existing_refined_query: refinedQuery,
-      sort_by: sortBy,
-      
-      // All filter values
+      user_id: tokenService.getUserIdFromToken(),
       due_date_filter: filterValues.dueDate,
       posted_date_filter: filterValues.postedDate,
       naics_code: filterValues.naicsCode,
-      opportunity_type: jobType  // Map jobType to opportunity_type
+      opportunity_type: jobType,
+      sort_by: sortBy,
+      page: 1,
+      page_size: resultsPerPage
     };
     
     try {
       console.log("Applying filters:", filterParams);
       
-      const response = await fetch(`${API_BASE_URL}/search-opportunities`, {
+      // Use the new filter endpoint
+      const response = await fetch(`${API_BASE_URL}/filter-cached-results`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -743,46 +1118,33 @@ export default function Opportunities() {
       });
       
       if (!response.ok) {
+        // If cache miss, fallback to regular search
+        if (response.status === 404) {
+          console.log("No cached results found, falling back to regular search");
+          return handleSearch(null, searchQuery);
+        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
       const data = await response.json();
       console.log("Filtered search results:", data);
       
-      if (data.results && Array.isArray(data.results)) {
+      if (data.success && data.results && Array.isArray(data.results)) {
         setHasSearched(true);
         
-        // Process and set the results
-        const formattedResults = data.results.map((job) => {
-          // Your existing result formatting logic
-          return {
-            id: job.id || `job-${Math.random()}-${Date.now()}`,
-            title: job.title || "Untitled Opportunity",
-            agency: job.agency || job.department || "Unknown Agency",
-            jurisdiction: "Federal",
-            type: "RFP",
-            posted: job.published_date || job.posted || "Recent",
-            dueDate: job.response_date || job.dueDate || "TBD",
-            value: job.value || Math.floor(Math.random() * 5000000) + 1000000,
-            status: job.active !== undefined ? (job.active ? "Active" : "Inactive") : "Active",
-            naicsCode: job.naics_code?.toString() || job.naicsCode || "000000",
-            platform: job.platform === "sam_gov" ? "sam.gov" : job.platform,
-            description: job.description?.substring(0, 150) + "..." || 
-              "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
-            external_url: job.external_url || job.url || null,
-            url: job.url || null,
-            solicitation_number: job.solicitation_number || null,
-            notice_id: job.notice_id || null,
-            published_date: job.published_date || null,
-            response_date: job.response_date || null
-          };
-        });
-        
-        setOpportunities(formattedResults);
-        setTotalResults(data.total || formattedResults.length);
+        // Update state with the full data from the response
+        setOpportunities(data.results);
+        setTotalResults(data.total || data.results.length);
         setCurrentPage(data.page || 1);
-        setTotalPages(
-          data.total_pages || Math.ceil(data.total / resultsPerPage)
+        setTotalPages(data.total_pages || Math.ceil(data.total / resultsPerPage));
+        
+        // Save to session storage
+        saveSearchStateToSession(
+          searchQuery,
+          data.results,
+          data.total,
+          data.total_pages,
+          data.refined_query || refinedQuery
         );
       }
     } catch (error) {
@@ -794,43 +1156,51 @@ export default function Opportunities() {
 
   // Update the opportunity type filter to use the applyFilters function
   const toggleJobType = (type) => {
+    console.log(`Setting job type filter to: ${type}`);
+    // Update job type state
     setJobType(type);
     
-    // If we have search results, immediately apply the new filter
+    // Apply filter immediately if we have search results
     if (hasSearched) {
-      setTimeout(() => {
-        applyFilters();
-      }, 10);
+      console.log(`Applying job type filter: ${type}`);
+      fetchFilteredResults({
+        ...filterValues,
+        opportunityType: type
+      });
     }
   };
 
   // Similarly, update the other filter handlers to trigger applyFilters
   const handleDueDateFilterChange = (value) => {
-    setFilterValues({...filterValues, dueDate: value});
-    
-    // If we have search results, immediately apply the new filter
-    if (hasSearched) {
-      setTimeout(() => {
-        applyFilters();
-      }, 10);
+    console.log(`Setting due date filter to: ${value}`);
+    setFilterValues((prev) => ({ ...prev, dueDate: value }));
+
+    if (value === "none") {
+        // If "None" is selected, trigger a new search with the original query
+        console.log("No due date filter applied, fetching original results.");
+        handleSearch(null, originalQuery); // Call handleSearch with the original query
+    } else if (hasSearched) {
+        fetchFilteredResults({ ...filterValues, dueDate: value });
     }
   };
 
   // Add similar handlers for other filters
   const handlePostedDateFilterChange = (value) => {
-    setFilterValues({...filterValues, postedDate: value});
+    console.log(`Setting posted date filter to: ${value}`);
+    setFilterValues((prev) => ({ ...prev, postedDate: value }));
     
-    // If we have search results, immediately apply the new filter
     if (hasSearched) {
-      setTimeout(() => {
-        applyFilters();
-      }, 10);
+      fetchFilteredResults({ ...filterValues, postedDate: value });
     }
   };
 
-  const handleNaicsCodeChange = (e) => {
-    setFilterValues({...filterValues, naicsCode: e.target.value});
-    // Don't immediately apply for text input - use the "Apply Filters" button
+  const handleNaicsCodeChange = (value) => {
+    console.log(`Setting NAICS code filter to: ${value}`);
+    setFilterValues((prev) => ({ ...prev, naicsCode: value }));
+    
+    if (hasSearched) {
+      fetchFilteredResults({ ...filterValues, naicsCode: value });
+    }
   };
 
   // Add this function to handle viewing details
@@ -910,6 +1280,29 @@ export default function Opportunities() {
     }
   }, []);
 
+
+  // Add browser session detection for cache refresh
+// Add browser session detection for cache refresh
+useEffect(() => {
+  // Create or update session marker
+  const sessionMarker = "opportunitiesPageVisited";
+  const previouslyVisited = sessionStorage.getItem(sessionMarker);
+  
+  // Set the marker for this session
+  sessionStorage.setItem(sessionMarker, "true");
+  
+  // If user is authenticated but no previous session marker exists,
+  // this might be a browser that was closed and reopened
+  if (!previouslyVisited && tokenService.getUserIdFromToken()) {
+    console.log("New browser session detected - refreshing search data");
+    
+    // If we have an active search, rerun it with is_new_search=true
+    if (searchQuery && hasSearched) {
+      handleSearch(null, searchQuery);
+    }
+  }
+}, []);
+
   const applySearchWithSort = async (newSortType) => {
     setIsSearching(true);
     
@@ -967,10 +1360,14 @@ export default function Opportunities() {
     }
   };
 
-  const [sortBy, setSortBy] = useState("relevance");  // Default to "relevance"
+  // console.log("Opportunities "+opportun);
 
   // Filtered opportunities based on job type
   const filteredOpportunities = opportunities.filter((opportunity) => {
+
+ 
+
+
     if (jobType === "Federal") {
       return opportunity.platform === "sam.gov"; // Show only sam.gov opportunities
     } else if (jobType === "Freelancer") {
@@ -978,6 +1375,142 @@ export default function Opportunities() {
     }
     return true; // Show all opportunities if "All" is selected
   });
+
+  // Functions to handle panel expansion/minimization
+  const handleExpandPanel = () => {
+    setExpandRecommendations(true);
+  };
+
+  const handleMinimizePanel = () => {
+    setExpandRecommendations(false);
+  };
+
+  // Function to toggle panel visibility
+  const toggleRecommendationsPanel = () => {
+    setShowRecommendationsPanel(prev => !prev);
+  };
+
+  // Add this function
+  const toggleDescription = (id) => {
+    setExpandedDescriptions(prev => ({
+      ...prev,
+      [id]: !prev[id]
+    }));
+  };
+
+  console.log("RENDER STATE:", {
+    hasSearched,
+    isSearching,
+    opportunitiesCount: opportunities.length,
+    filteredCount: filteredOpportunities?.length || 0
+  });
+
+  // Add state for recommendation availability
+  const [hasExistingRecommendations, setHasExistingRecommendations] = useState(false);
+
+  const [originalResults, setOriginalResults] = useState([]); // State to store original results
+  const [originalQuery, setOriginalQuery] = useState(""); // State to store the original query
+
+  const fetchFilteredResults = async (filters) => {
+    console.log("Fetching filtered results with filters:", filters);
+    setIsSearching(true);
+    
+    const params = {
+      query: searchQuery,
+      user_id: tokenService.getUserIdFromToken(),
+      due_date_filter: filters.dueDate,
+      posted_date_filter: filters.postedDate,
+      naics_code: filters.naicsCode,
+      opportunity_type: filters.opportunityType,
+      sort_by: sortBy,
+      page: 1,
+      page_size: resultsPerPage
+    };
+
+    try {
+      // Use the new endpoint for filtering cached results
+      const response = await fetch(`${API_BASE_URL}/filter-cached-results`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(params),
+      });
+
+      if (!response.ok) {
+        // If cache miss, fallback to regular search
+        if (response.status === 404) {
+          console.log("No cached results found, falling back to regular search");
+          return handleSearch(null, searchQuery);
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log("Filtered results received:", data);
+
+      if (data.success && data.results && Array.isArray(data.results)) {
+        // Update state with filtered results
+        setOpportunities(data.results);
+        setTotalResults(data.total);
+        setTotalPages(data.total_pages);
+        setCurrentPage(1);
+        
+        // Save filtered results to session storage
+        saveSearchStateToSession(
+          searchQuery,
+          data.results,
+          data.total,
+          data.total_pages,
+          data.refined_query || refinedQuery
+        );
+      } else {
+        console.error("No results array in response data:", data);
+        setOpportunities([]);
+        setTotalResults(0);
+        setTotalPages(0);
+      }
+    } catch (error) {
+      console.error("Error fetching filtered results:", error);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Add this in the same file as your search function
+  const processSearchResults = (results) => {
+    if (!results || !Array.isArray(results)) {
+      console.error('Results is not an array:', results);
+      return [];
+    }
+    
+    // Log the first result for debugging
+    if (results.length > 0) {
+      console.log('First result sample:', results[0]);
+    } else {
+      console.log('No results returned from API');
+    }
+    
+    // Ensure all results have the required fields with valid data
+    return results.map(result => {
+      // Create a normalized result with default values for all required fields
+      const normalizedResult = {
+        id: result.id || `temp-${Math.random().toString(36).substring(2, 9)}`,
+        title: result.title || 'Untitled Opportunity',
+        agency: result.agency || result.department || 'Unknown Agency',
+        description: result.description || result.additional_description || 'No description available',
+        platform: result.platform || 'unknown',
+        external_url: result.external_url || result.url || '#',
+        naics_code: result.naics_code || result.naicsCode || 'N/A',
+        published_date: result.published_date || result.posted || new Date().toISOString(),
+        response_date: result.response_date || result.dueDate || null,
+        // Add any other fields your UI requires
+        ...result
+      };
+      
+      return normalizedResult;
+    });
+  };
 
   return (
     <div className="h-screen flex flex-col bg-gray-50 text-gray-800">
@@ -1097,7 +1630,9 @@ export default function Opportunities() {
                       <div className="px-5 pb-4">
                         <ul className="space-y-2 ml-7">
                           {[
+                            { id: "none", value: "none", label: "None" },
                             { id: "active-only", value: "active_only", label: "Active only" },
+                            { id: "due-in-7", value: "due_in_7_days", label: "Next 7 days" },
                             { id: "next-30", value: "next_30_days", label: "Next 30 days" },
                             { id: "next-3", value: "next_3_months", label: "Next 3 months" },
                             { id: "next-12", value: "next_12_months", label: "Next 12 months" },
@@ -1400,262 +1935,202 @@ export default function Opportunities() {
                 {!isSearching && (
                   <>
                     {/* BizradarAI Assistant Card - Only shown after a search */}
+                    {hasSearched && showRecommendationsPanel && (
+                      <RecommendationsPanel
+                        opportunities={opportunities}
+                        userProfile={{
+                          companyUrl: getUserProfile().companyUrl,
+                          companyDescription: getUserProfile().companyDescription
+                        }}
+                        isExpanded={expandRecommendations}
+                        onExpand={handleExpandPanel}
+                        onMinimize={handleMinimizePanel}
+                        hasExistingRecommendations={hasExistingRecommendations} // New prop
+                      />
+                    )}
+
+                    {/* Optionally, add a button to show/hide the recommendations panel */}
                     {hasSearched && (
-                      <div
-                        className={`mb-5 bg-gradient-to-r from-blue-50 to-white backdrop-blur-lg border border-blue-200 rounded-xl 
-                                      shadow-lg transition-all duration-300 overflow-hidden
-                                      ${
-                                        expandRecommendations
-                                          ? "fixed inset-8 z-50 overflow-auto"
-                                          : ""
-                                      }`}
+                      <button 
+                        onClick={toggleRecommendationsPanel}
+                        className="mb-4 px-4 py-2 bg-blue-50 text-blue-600 rounded-md font-medium flex items-center gap-2 hover:bg-blue-100 transition-colors"
                       >
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-blue-100">
-                          <div className="flex items-center gap-3">
-                            <div className="flex items-center justify-center p-2 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-md">
-                              <Sparkles className="h-5 w-5 text-white" />
-                            </div>
-                            <div>
-                              <h2 className="font-semibold text-lg text-gray-800">
-                                BizradarAI Assistant
-                              </h2>
-                              <p className="text-xs text-gray-500">Personalized recommendations based on your profile</p>
-                            </div>
-                            {aiRecommendations.length > 0 && (
-                              <span className="ml-2 text-xs font-medium bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full">
-                                {aiRecommendations.length} recommendations
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <button 
-                              onClick={() => setAiComponentCollapsed((prev) => !prev)}
-                              className="text-gray-500 hover:text-blue-600 hover:bg-blue-50 p-2 rounded-lg transition-colors"
+                        {showRecommendationsPanel ? (
+                          <>
+                            <X size={16} />
+                            <span>Hide Recommendations</span>
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles size={16} />
+                            <span>Show Recommendations</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+
+                    {hasSearched && !isSearching ? (
+                      opportunities.length > 0 ? (
+                        <div className="space-y-5 max-w-8xl mx-auto">
+                          {filteredOpportunities.map((opportunity) => (
+                            <div
+                              key={opportunity.id}
+                              className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-all hover:border-blue-200"
                             >
-                              {aiComponentCollapsed ? (
-                                <ChevronDown size={20} />
-                              ) : (
-                                <ChevronUp size={20} />
-                              )}
-                            </button>
-                            <button 
-                              onClick={toggleRecommendationsExpand}
-                              className="text-gray-500 hover:text-blue-600 hover:bg-blue-50 p-2 rounded-lg transition-colors"
-                            >
-                              {expandRecommendations ? (
-                                <Minimize size={20} />
-                              ) : (
-                                <Maximize size={20} />
-                              )}
-                            </button>
-                          </div>
-                        </div>
-                        
-                        {/* Container for content with white background for contrast */}
-                        {!aiComponentCollapsed && (
-                          <div className="transition-all duration-300">
-                            {isLoadingRecommendations && aiRecommendations.length === 0 ? (
-                              <div className="flex flex-col items-center justify-center py-12 bg-gradient-to-r from-blue-50/30 to-white">
-                                <div className="animate-pulse flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
-                                  <TrendingUp className="h-8 w-8 text-blue-500" />
-                                </div>
-                                <p className="text-blue-700 font-medium mb-2">
-                                  Analyzing opportunities...
-                                </p>
-                                <p className="text-sm text-gray-500">
-                                  Finding matches for your company profile
-                                </p>
-                              </div>
-                            ) : (
-                              <div className={`${expandRecommendations ? "max-h-none" : "max-h-96"} overflow-y-auto`}>
-                                {aiRecommendations.length === 0 ? (
-                                  <div className="py-12 text-center bg-gradient-to-r from-blue-50/30 to-white">
-                                    <div className="mx-auto flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
-                                      <Info className="h-8 w-8 text-blue-500" />
-                                    </div>
-                                    <p className="text-gray-800 font-medium mb-2">
-                                      Analyzing your search results
-                                    </p>
-                                    <p className="text-sm text-gray-500 max-w-md mx-auto">
-                                      We'll provide personalized recommendations based on your profile and search.
-                                    </p>
+                              {/* Header with icon and title */}
+                              <div className="p-5 pb-3">
+                                <div className="flex items-start gap-3">
+                                  <div className="text-blue-500">
+                                    <BarChart2 size={22} />
                                   </div>
-                                ) : (
-                                  <div className="divide-y divide-gray-100">
-                                    {aiRecommendations.map((rec, index) => {
-                                      const opportunity = rec.opportunity || currentOpportunities[0];
-                                      
-                                      return (
-                                        <div key={rec.id || `rec-${index}`} className="p-4 hover:bg-gray-50 transition-colors">
-                                          <div className="flex items-start">
-                                            <div className="flex-1">
-                                              <div className="font-medium text-gray-800 mb-1">
-                                                {opportunity ? opportunity.title : "Unknown Opportunity"}
-                                              </div>
-                                              <div className="text-sm text-gray-600 mb-2">
-                                                {rec.title || "Match found based on your profile"}
-                                              </div>
-                                              
-                                              <div className="flex flex-wrap items-center gap-2 text-xs mb-3">
-                                                <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full">
-                                                  {opportunity?.agency || "Unknown Agency"}
-                                                </span>
-                                                <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full">
-                                                  {opportunity?.platform || "sam.gov"}
-                                                </span>
-                                                <span className="flex items-center gap-1 text-gray-500">
-                                                  <Calendar className="h-3 w-3" />
-                                                  Published: {opportunity?.posted || "TBD"}
-                                                </span>
-                                              </div>
-
-                                              {/* Match Analysis Box - Always visible */}
-                                              <div className="mt-3 bg-blue-50 p-4 rounded-lg border border-blue-100">
-                                                <div className="flex items-start">
-                                                  <div className="bg-white p-1.5 rounded-full mr-3 mt-0.5 border border-blue-200 shadow-sm">
-                                                    <Info size={14} className="text-blue-600" />
-                                                  </div>
-                                                  <div className="flex-1">
-                                                    <h4 className="font-medium text-blue-700 text-sm mb-1">Match Analysis</h4>
-                                                    <p className="text-sm leading-relaxed text-gray-700 line-clamp-2">
-                                                      {rec.description || "No detailed explanation available."}
-                                                    </p>
-                                                    
-                                                    <button
-                                                      onClick={() => toggleDetailedReason(index)}
-                                                      className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-1 mt-2"
-                                                    >
-                                                      Check for detailed analysis
-                                                      {rec.showDetailedReason ? (
-                                                        <ChevronUp size={16} className="ml-1" />
-                                                      ) : (
-                                                        <ChevronDown size={16} className="ml-1" />
-                                                      )}
-                                                    </button>
-                                                  </div>
-                                                </div>
-
-                                                {/* Show ONLY Key Insights and match criteria table when expanded */}
-                                                {rec.showDetailedReason && (
-                                                  <div className="mt-4">
-                                                    {/* Key Insights box */}
-                                                    <div className="bg-white rounded-md p-4 border border-gray-200 mb-4">
-                                                      <h5 className="font-medium text-gray-800 mb-2">Key Insights</h5>
-                                                      <ul className="space-y-2">
-                                                        {rec.keyInsights?.map((insight, idx) => (
-                                                          <li key={idx} className="flex items-start">
-                                                            <div className="h-2 w-2 bg-blue-500 rounded-full mt-1.5 mr-2"></div>
-                                                            <span className="text-sm text-gray-700">{insight}</span>
-                                                          </li>
-                                                        ))}
-                                                      </ul>
-                                                    </div>
-
-                                                    {/* Match Criteria Table */}
-                                                    <div className="overflow-hidden rounded-md border border-gray-200">
-                                                      <table className="min-w-full divide-y divide-gray-200">
-                                                        <thead className="bg-gray-50">
-                                                          <tr>
-                                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                                                              Match Criterion
-                                                            </th>
-                                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                                                              Relevance
-                                                            </th>
-                                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                                                              Notes
-                                                            </th>
-                                                          </tr>
-                                                        </thead>
-                                                        <tbody className="bg-white divide-y divide-gray-200">
-                                                          {rec.matchCriteria?.map((crit, i) => (
-                                                            <tr key={i}>
-                                                              <td className="px-4 py-3 text-sm text-gray-900 font-medium">{crit.criterion}</td>
-                                                              <td className="px-4 py-3">
-                                                                <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                                                                  crit.relevance === 'Strong match'
-                                                                    ? 'bg-green-100 text-green-800'
-                                                                    : crit.relevance === 'Partial match'
-                                                                    ? 'bg-yellow-100 text-yellow-800'
-                                                                    : 'bg-gray-100 text-gray-600'
-                                                                }`}>
-                                                                  {crit.relevance}
-                                                                </span>
-                                                              </td>
-                                                              <td className="px-4 py-3 text-sm text-gray-500">{crit.notes}</td>
-                                                            </tr>
-                                                          ))}
-                                                        </tbody>
-                                                      </table>
-                                                    </div>
-
-                                                    {/* Verdict Section */}
-                                                    <div className="mt-4 bg-white rounded-md p-4 border border-gray-200">
-                                                      <h5 className="font-semibold text-gray-800 mb-1">✅ Verdict:</h5>
-                                                      <p className="text-sm text-gray-700">{rec.matchReason}</p>
-                                                    </div>
-                                                  </div>
-                                                )}
-                                              </div>
-                                            </div>
-                                            
-                                            <div className="ml-4 flex flex-col items-end">
-                                              {rec.matchScore ? (
-                                                <div className="flex flex-col items-center">
-                                                  <div className="relative w-16 h-16 flex items-center justify-center mb-2">
-                                                    <svg className="w-full h-full" viewBox="0 0 36 36">
-                                                      <path
-                                                        d="M18 2.0845
-                                                          a 15.9155 15.9155 0 0 1 0 31.831
-                                                          a 15.9155 15.9155 0 0 1 0 -31.831"
-                                                        fill="none"
-                                                        stroke="#E5E7EB"
-                                                        strokeWidth="3"
-                                                      />
-                                                      <path
-                                                        d="M18 2.0845
-                                                          a 15.9155 15.9155 0 0 1 0 31.831
-                                                          a 15.9155 15.9155 0 0 1 0 -31.831"
-                                                        fill="none"
-                                                        stroke={rec.matchScore > 80 ? "#10B981" : rec.matchScore > 60 ? "#3B82F6" : "#9CA3AF"}
-                                                        strokeWidth="3"
-                                                        strokeDasharray={`${rec.matchScore}, 100`}
-                                                        strokeLinecap="round"
-                                                      />
-                                                    </svg>
-                                                    <div className="absolute inset-0 flex items-center justify-center text-sm font-semibold">
-                                                      {rec.matchScore}%
-                                                    </div>
-                                                  </div>
-                                                  <button
-                                                    onClick={() => handleAddToPursuit(opportunity)}
-                                                    className="px-3 py-1.5 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5"
-                                                  >
-                                                    <Plus size={14} />
-                                                    <span>Add to Pursuits</span>
-                                                  </button>
-                                                </div>
-                                              ) : (
-                                                <button className="text-blue-600 px-3 py-1.5 bg-blue-50 rounded-lg text-sm font-medium hover:bg-blue-100 transition-colors">
-                                                  View Details
-                                                </button>
-                                              )}
-                                            </div>
-                                          </div>
-                                        </div>
-                                      );
-                                    })}
+                                  <div className="flex-1">
+                                    <h2 className="text-lg font-semibold text-gray-800 hover:text-blue-600 transition-colors">
+                                      {opportunity.title}
+                                    </h2>
+                                    <div className="flex items-center text-sm text-gray-500 mt-1">
+                                      <span>{opportunity.agency}</span>
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Due Date Blip - Positioned on the right side to capture focus */}
+                                  {opportunity.response_date && (
+                                    <div className="flex-shrink-0">
+                                      <div className={`px-3 py-1.5 rounded-lg text-center ${
+                                        new Date(opportunity.response_date) < new Date() 
+                                          ? 'bg-red-50 text-red-600 border border-red-100' 
+                                          : 'bg-blue-50 text-blue-600 border border-blue-100'
+                                      }`}>
+                                        <div className="text-xs font-medium">DUE</div>
+                                        <div className="text-sm font-bold">{opportunity.response_date || "TBD"}</div>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                                
+                                {/* Info grid - 3 columns layout */}
+                                <div className="grid grid-cols-3 gap-4 mt-4">
+                                  <div>
+                                    <div className="text-sm text-gray-500">Published</div>
+                                    <div className="font-medium">{opportunity.published_date || "Recent"}</div>
+                                  </div>
+                                  
+                                  <div>
+                                    <div className="text-sm text-gray-500">NAICS Code</div>
+                                    <div className="font-medium">{opportunity.naics_code || opportunity.naicsCode || "000000"}</div>
+                                  </div>
+                                  
+                                  <div>
+                                    <div className="text-sm text-gray-500">Solicitation #</div>
+                                    <div className="font-medium truncate">
+                                      {opportunity.solicitation_number || "N/A"}
+                                    </div>
+                                  </div>
+                                </div>
+                                
+                                {/* Enhanced Details Section */}
+                                <div className="mt-3 bg-blue-50 shadow-md rounded-md border border-blue-200 transition-all duration-300 ease-in-out">
+                                  <h3 className="font-medium text-gray-800 mb-2 p-4 border-b border-blue-200">Details</h3>
+                                  <div className="text-sm text-gray-700 p-4">
+                                    <p className={`transition-all duration-300 ${expandedDescriptions[opportunity.id] ? '' : 'line-clamp-3'}`}>
+                                      {opportunity.additional_description || "No additional details available."}
+                                    </p>
+                                    <button 
+                                      onClick={() => toggleDescription(opportunity.id)}
+                                      className="mt-2 text-blue-600 hover:text-blue-800 inline-flex items-center text-sm font-medium transition-colors duration-200"
+                                      aria-expanded={expandedDescriptions[opportunity.id]} // Accessibility improvement
+                                    >
+                                      {expandedDescriptions[opportunity.id] ? (
+                                        <>
+                                          <ChevronUp size={16} className="ml-1" />
+                                          Show less
+                                        </>
+                                      ) : (
+                                        <>
+                                          <ChevronDown size={16} className="ml-1" />
+                                          Read more
+                                        </>
+                                      )}
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              {/* Tags */}
+                              <div className="px-5 py-1.5 flex flex-wrap items-center gap-2">
+                                <div className="px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-sm">
+                                  {opportunity.platform === 'sam_gov' ? 'sam.gov' : opportunity.platform}
+                                </div>
+                                <div className={`px-3 py-1 rounded-full text-sm ${opportunity.active === false ? 'bg-gray-100 text-gray-600' : 'bg-green-50 text-green-600'}`}>
+                                  {opportunity.active === false ? "Inactive" : "Active"}
+                                </div>
+                                <div className="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-sm">
+                                  {opportunity.type || "RFP"}
+                                </div>
+                                <div className="px-3 py-1 bg-purple-50 text-purple-600 rounded-full text-sm">
+                                  Federal
+                                </div>
+                                
+                                {/* If there's a defined due date and it's soon (less than 7 days away), show this tag */}
+                                {opportunity.response_date && new Date(opportunity.response_date) > new Date() && 
+                                 (new Date(opportunity.response_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24) < 7 && (
+                                  <div className="px-3 py-1 bg-amber-50 text-amber-600 rounded-full text-sm flex items-center">
+                                    <Clock size={12} className="mr-1" />
+                                    Ending Soon
                                   </div>
                                 )}
                               </div>
-                            )}
+                              
+                              {/* Action Buttons */}
+                              <div className="p-3 flex items-center gap-2">
+                                <button 
+                                  onClick={() => handleAddToPursuit(opportunity)}
+                                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center gap-2"
+                                >
+                                  <Plus size={16} />
+                                  <span>Add to Pursuits</span>
+                                </button>
+                                <button 
+                                  onClick={() => handleBeginResponse(opportunity.id, opportunity)}
+                                  className="px-4 py-2 bg-green-50 text-green-600 hover:bg-green-100 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 border border-green-200"
+                                >
+                                  <FileText size={16} />
+                                  <span>Generate Response</span>
+                                </button>
+                                <button
+                                  onClick={() => handleViewDetails(opportunity)}
+                                  className="px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 border border-gray-200"
+                                >
+                                  <ExternalLink size={16} className="text-gray-500" />
+                                  <span>View on SAM.gov</span>
+                                </button>
+                                <button className="ml-auto p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors">
+                                  <Share size={18} />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="p-8 bg-white border border-gray-200 rounded-xl shadow-sm text-center max-w-md mx-auto">
+                          <div className="flex justify-center mb-4">
+                            <div className="p-3 bg-blue-50 rounded-full">
+                              <Search size={24} className="text-blue-500" />
+                            </div>
                           </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Show suggested searches when no search has been performed */}
-                    {!hasSearched && (
+                          <h3 className="text-lg font-semibold text-gray-800 mb-2">No results found</h3>
+                          <p className="text-gray-600 mb-4">
+                            Try adjusting your search terms or filters to find more opportunities.
+                          </p>
+                          <button 
+                            onClick={clearSearch}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                          >
+                            Clear Search
+                          </button>
+                        </div>
+                      )
+                    ) : !hasSearched ? (
+                      /* Show suggested searches when no search has been performed */
                       <div className="p-6 bg-white rounded-xl border border-gray-200 shadow-md mb-6 max-w-8xl mx-auto">
                         <h2 className="text-xl font-bold text-gray-800 mb-2">
                           Popular Searches
@@ -1695,292 +2170,7 @@ export default function Opportunities() {
                           </div>
                         </div>
                       </div>
-                    )}
-
-                    {/* AI-Matched Opportunities */}
-                    {!hasSearched && (
-                      <div className="mb-6 bg-white rounded-xl border border-gray-200 shadow-md max-w-8xl mx-auto overflow-hidden">
-                        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="p-2 bg-emerald-50 rounded-lg">
-                              <Sparkles className="h-5 w-5  text-emerald-500" />
-                            </div>
-                            <h2 className="text-lg font-semibold text-gray-800">
-                              New AI-Matched Opportunities
-                            </h2>
-                          </div>
-                          <button className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 flex items-center gap-1.5 transition-colors">
-                            <Settings className="h-4 w-4" />
-                            <span>Edit settings</span>
-                          </button>
-                        </div>
-
-                        {/* Alert */}
-                        <div className="m-6 bg-amber-50 border border-amber-200 rounded-lg p-4 text-amber-800 flex items-start">
-                          <AlertCircle className="h-5 w-5 mr-3 flex-shrink-0 mt-0.5" />
-                          <div>
-                            <p className="font-medium mb-1">No highly relevant matches found</p>
-                            <p className="text-sm">
-                              We couldn't find any highly relevant new opportunities for your
-                              organization. Please check back tomorrow!
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Opportunity cards */}
-                        <div className="m-6 space-y-4">
-                          {/* Card 1 */}
-                          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden transition-all hover:shadow-md hover:border-blue-200 group">
-                            <div className="p-5">
-                              <h3 className="text-lg font-medium text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
-                                Joint Service General Protective Masks M50, M51, and M53A1
-                              </h3>
-                              <p className="text-sm text-gray-600 mb-3">
-                                Sources Sought • The Department of Defense, specifically
-                                the Army, is seeking industry capabilities to produce
-                                and...
-                              </p>
-                              <div className="flex items-center flex-wrap gap-2 text-xs mb-3">
-                                <div className="px-2 py-1 bg-blue-50 text-blue-600 rounded-full flex items-center">
-                                  <span className="inline-block w-1.5 h-1.5 bg-blue-500 rounded-full mr-1.5"></span>
-                                  DEPT OF DEFENSE
-                                </div>
-                                <div className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full flex items-center">
-                                  <Clock className="h-3 w-3 mr-1" />
-                                  Published: Mar 5, 2025
-                                </div>
-                                <div className="px-2 py-1  bg-emerald-50 text-emerald-500 rounded-full flex items-center">
-                                  <DollarSign className="h-3 w-3 mr-1" />
-                                  Price Budget: {formatCurrency(750000)}
-                                </div>
-                              </div>
-                            </div>
-                            <div className="border-t border-gray-100 px-5 py-3 bg-gray-50 flex justify-between items-center">
-                              <div className="text-xs text-gray-500">
-                                Est. Value: <span className="font-medium">$750K-$1.5M</span>
-                              </div>
-                              <button 
-                                onClick={() => handleAddToPursuit(opportunities[0])}
-                                className="px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 hover:text-blue-600 transition-colors flex items-center gap-1"
-                              >
-                                <Plus size={12} />
-                                Add to Pursuits
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Card 2 */}
-                          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden transition-all hover:shadow-md hover:border-blue-200 group">
-                            <div className="p-5">
-                              <h3 className="text-lg font-medium text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
-                                Context-Aware Decision Support
-                              </h3>
-                              <p className="text-sm text-gray-600 mb-3">
-                                SBIR/STTR • Description &lt;p&gt;In today&rsquo;s training
-                                and operational environments, commanders are confronted
-                                with...
-                              </p>
-                              <div className="flex items-center flex-wrap gap-2 text-xs mb-3">
-                                <div className="px-2 py-1 bg-blue-50 text-blue-600 rounded-full flex items-center">
-                                  <span className="inline-block w-1.5 h-1.5 bg-blue-500 rounded-full mr-1.5"></span>
-                                  DOD
-                                </div>
-                                <div className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full flex items-center">
-                                  <Clock className="h-3 w-3 mr-1" />
-                                  Published: Mar 5, 2025
-                                </div>
-                                <div className="px-2 py-1 bg-green-50 text-green-600 rounded-full flex items-center">
-                                  <DollarSign className="h-3 w-3 mr-1" />
-                                  Price Budget: {formatCurrency(100000)}
-                                </div>
-                              </div>
-                            </div>
-                            <div className="border-t border-gray-100 px-5 py-3 bg-gray-50 flex justify-between items-center">
-                              <div className="text-xs text-gray-500">
-                                Est. Value: <span className="font-medium">$100K-$250K</span>
-                              </div>
-                              <button 
-                                onClick={() => handleAddToPursuit(opportunities[1])}
-                                className="px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 hover:text-blue-600 transition-colors flex items-center gap-1"
-                              >
-                                <Plus size={12} />
-                                Add to Pursuits
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* Dynamic Opportunity Cards - Only shown after a search */}
-                    {hasSearched && !isSearching && opportunities.length > 0 ? (
-                      <div className="space-y-5 max-w-8xl mx-auto">
-                        {filteredOpportunities.map((opportunity) => (
-                          <div
-                            key={opportunity.id}
-                            className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-all hover:border-blue-200"
-                          >
-                            {/* Header with icon and title */}
-                            <div className="p-5 pb-3">
-                              <div className="flex items-start gap-3">
-                                <div className="text-blue-500">
-                                  <BarChart2 size={22} />
-                                </div>
-                                <div className="flex-1">
-                                  <h2 className="text-lg font-semibold text-gray-800 hover:text-blue-600 transition-colors">
-                                    {opportunity.title}
-                                  </h2>
-                                  <div className="flex items-center text-sm text-gray-500 mt-1">
-                                    <span>{opportunity.agency}</span>
-                                  </div>
-                                </div>
-                                
-                                {/* Due Date Blip - Positioned on the right side to capture focus */}
-                                {opportunity.response_date && (
-                                  <div className="flex-shrink-0">
-                                    <div className={`px-3 py-1.5 rounded-lg text-center ${
-                                      new Date(opportunity.response_date) < new Date() 
-                                        ? 'bg-red-50 text-red-600 border border-red-100' 
-                                        : 'bg-blue-50 text-blue-600 border border-blue-100'
-                                    }`}>
-                                      <div className="text-xs font-medium">DUE</div>
-                                      <div className="text-sm font-bold">{opportunity.response_date || "TBD"}</div>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                              
-                              {/* Info grid - 3 columns layout */}
-                              <div className="grid grid-cols-3 gap-4 mt-4">
-                                <div>
-                                  <div className="text-sm text-gray-500">Published</div>
-                                  <div className="font-medium">{opportunity.published_date || "Recent"}</div>
-                                </div>
-                                
-                                <div>
-                                  <div className="text-sm text-gray-500">NAICS Code</div>
-                                  <div className="font-medium">{opportunity.naics_code || opportunity.naicsCode || "000000"}</div>
-                                </div>
-                                
-                                <div>
-                                  <div className="text-sm text-gray-500">Solicitation #</div>
-                                  <div className="font-medium truncate">
-                                    {opportunity.solicitation_number || "N/A"}
-                                  </div>
-                                </div>
-                              </div>
-                              
-                              {/* URL/Link with Read more */}
-                              <div className="mt-3 text-sm truncate">
-                                {opportunity.url ? (
-                                  <>
-                                    <span className="text-gray-500">
-                                      {opportunity.url.includes("sam.gov/opp") 
-                                        ? opportunity.url.replace("https://api.sam.gov/prod/opportunities/v1/noticedesc?noticeid=", "https://sam.gov/opp/") + "/view"
-                                        : opportunity.url}
-                                    </span>
-                                    <a 
-                                      href={opportunity.url} 
-                                      target="_blank" 
-                                      rel="noopener noreferrer"
-                                      className="text-blue-600 font-medium ml-2 hover:underline text-sm"
-                                    >
-                                      Read more
-                                    </a>
-                                    <span className="text-gray-400 text-xs ml-1">(API key required)</span>
-                                  </>
-                                ) : opportunity.external_url ? (
-                                  <>
-                                    <span className="text-gray-500">{opportunity.external_url}</span>
-                                    <a 
-                                      href={opportunity.external_url} 
-                                      target="_blank" 
-                                      rel="noopener noreferrer"
-                                      className="text-blue-600 font-medium ml-2 hover:underline text-sm"
-                                    >
-                                      Read more
-                                    </a>
-                                  </>
-                                ) : null}
-                              </div>
-                            </div>
-                            
-                            {/* Tags */}
-                            <div className="px-5 py-1.5 flex flex-wrap items-center gap-2">
-                              <div className="px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-sm">
-                                {opportunity.platform === 'sam_gov' ? 'sam.gov' : opportunity.platform}
-                              </div>
-                              <div className={`px-3 py-1 rounded-full text-sm ${opportunity.active === false ? 'bg-gray-100 text-gray-600' : 'bg-green-50 text-green-600'}`}>
-                                {opportunity.active === false ? "Inactive" : "Active"}
-                              </div>
-                              <div className="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-sm">
-                                {opportunity.type || "RFP"}
-                              </div>
-                              <div className="px-3 py-1 bg-purple-50 text-purple-600 rounded-full text-sm">
-                                Federal
-                              </div>
-                              
-                              {/* If there's a defined due date and it's soon (less than 7 days away), show this tag */}
-                              {opportunity.response_date && new Date(opportunity.response_date) > new Date() && 
-                               (new Date(opportunity.response_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24) < 7 && (
-                                <div className="px-3 py-1 bg-amber-50 text-amber-600 rounded-full text-sm flex items-center">
-                                  <Clock size={12} className="mr-1" />
-                                  Ending Soon
-                                </div>
-                              )}
-                            </div>
-                            
-                            {/* Action Buttons */}
-                            <div className="p-3 flex items-center gap-2">
-                              <button 
-                                onClick={() => handleAddToPursuit(opportunity)}
-                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center gap-2"
-                              >
-                                <Plus size={16} />
-                                <span>Add to Pursuits</span>
-                              </button>
-                              <button 
-                                onClick={() => handleBeginResponse(opportunity.id, opportunity)}
-                                className="px-4 py-2 bg-green-50 text-green-600 hover:bg-green-100 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 border border-green-200"
-                              >
-                                <FileText size={16} />
-                                <span>Generate Response</span>
-                              </button>
-                              <button
-                                onClick={() => handleViewDetails(opportunity)}
-                                className="px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 border border-gray-200"
-                              >
-                                <ExternalLink size={16} className="text-gray-500" />
-                                <span>View on SAM.gov</span>
-                              </button>
-                              <button className="ml-auto p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors">
-                                <Share size={18} />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      hasSearched && !isSearching && (
-                        <div className="p-8 bg-white border border-gray-200 rounded-xl shadow-sm text-center max-w-md mx-auto">
-                          <div className="flex justify-center mb-4">
-                            <div className="p-3 bg-blue-50 rounded-full">
-                              <Search size={24} className="text-blue-500" />
-                            </div>
-                          </div>
-                          <h3 className="text-lg font-semibold text-gray-800 mb-2">No results found</h3>
-                          <p className="text-gray-600 mb-4">
-                            Try adjusting your search terms or filters to find more opportunities.
-                          </p>
-                          <button 
-                            onClick={clearSearch}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
-                          >
-                            Clear Search
-                          </button>
-                        </div>
-                      )
-                    )}
+                    ) : null}
 
                     {/* Add pagination component */}
                     <Pagination />
@@ -2015,4 +2205,3 @@ export default function Opportunities() {
     </div>
   );
 }
-

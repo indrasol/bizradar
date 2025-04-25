@@ -6,8 +6,7 @@ from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
-openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY", "dummy"))
-
+openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))  # CORRECT
 
 def build_prompt(company_url: str, company_description: str, full_markdown: str, opportunity: Dict[str, Any], include_reason: bool = True) -> List[Dict[str, str]]:
     system_prompt = """
@@ -130,7 +129,22 @@ async def generate_recommendations(company_url: str, company_description: str, o
         logger.warning(f"Markdown loading failed: {e}")
 
     for i, opportunity in enumerate(opportunities):
-        messages = build_prompt(company_url, company_description, full_markdown, opportunity, include_match_reason)
+        # If opportunity is just an ID or missing key fields, create a minimal object
+        if not isinstance(opportunity, dict) or not opportunity.get('title'):
+            opp_to_use = {
+                "id": opportunity if not isinstance(opportunity, dict) else opportunity.get('id', f'unknown-{i}'),
+                "title": f"Opportunity {i+1}",
+                "description": "No detailed description available",
+                "skills_required": "N/A",
+                "price_budget": "N/A",
+                "bids_so_far": "N/A",
+                "additional_details": "",
+                "published_date": "Unknown"
+            }
+        else:
+            opp_to_use = opportunity
+            
+        messages = build_prompt(company_url, company_description, full_markdown, opp_to_use, include_match_reason)
         try:
             res = openai_client.chat.completions.create(
                 model="gpt-4",
