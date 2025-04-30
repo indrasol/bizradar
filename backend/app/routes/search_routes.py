@@ -5,7 +5,7 @@ import logging
 import math
 
 from datetime import datetime, date
-from fastapi import APIRouter, Request, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Request, HTTPException, BackgroundTasks, Query
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from openai import OpenAI
@@ -16,11 +16,13 @@ from services.recommendations import generate_recommendations
 from services.company_scraper import generate_company_markdown
 from services.helper import json_serializable
 from services.askBizradar import process_bizradar_request
+from services.summary_service import process_opportunity_descriptions
 from utils.redis_connection import RedisClient
 from utils.database import get_connection
 from collections import deque
 from services.filter_service import apply_filters_to_results, sort_results
 import asyncio
+from typing import List
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -507,27 +509,13 @@ async def clear_cache(request: Request):
     """Clear Redis cache for a user or all users"""
     try:
         data = await request.json()
-        user_id = data.get("user_id")
-
+        
         if not redis_client.get_client():
             raise HTTPException(503, "Redis unavailable")
 
-        if not user_id:
-            redis_client.get_client().flushall()
-            return {"cleared_all": True}
-
-        pattern = f"user:{user_id}:*"
-        cursor, keys = 0, []
-        while True:
-            cursor, ks = redis_client.get_client().scan(cursor, match=pattern, count=100)
-            keys.extend(ks)
-            if cursor == 0:
-                break
-
-        if keys:
-            redis_client.get_client().delete(*keys)
-
-        return {"cleared_keys": len(keys)}
+        # Just flush all Redis keys
+        redis_client.get_client().flushall()
+        return {"cleared_all": True}
 
     except Exception as e:
         logger.error(f"Error processing request: {str(e)}")
@@ -1085,3 +1073,71 @@ async def ask_bizradar_ai(request: Request):
                 "ai_response": "I'm sorry, but an unexpected error occurred. Please try again later."
             }
         )
+
+from services.summary_service import process_opportunity_descriptions
+
+@search_router.post("/summarize-descriptions")
+async def summarize_descriptions(request: Request):
+    """
+    Endpoint that takes a list of opportunities and generates summaries for their descriptions.
+    Also caches summaries in Redis for future use.
+    """
+    try:
+        data = await request.json()
+        opportunities = data.get("opportunities", [])
+        
+        if not opportunities:
+            return {
+                "success": False,
+                "message": "No opportunities provided",
+                "opportunities": []
+            }
+            
+        # First, check Redis for already cached summaries
+        if redis_client.get_client():
+            for opp in opportunities:
+                if "id" in opp:
+                    summary_key = f"summary:{opp['id']}"
+                    cached_summary = redis_client.get_json(summary_key)
+                    
+                    if cached_summary:
+                        logger.info(f"Using cached summary for opportunity {opp['id']}")
+                        opp["summary"] = cached_summary
+        
+        # Process only opportunities without cached summaries
+        opportunities_to_process = [opp for opp in opportunities if "summary" not in opp]
+        
+        if opportunities_to_process:
+            logger.info(f"Generating summaries for {len(opportunities_to_process)} opportunities")
+            processed_opps = await process_opportunity_descriptions(opportunities_to_process)
+            
+            # Cache the new summaries
+            if redis_client.get_client():
+                for opp in processed_opps:
+                    if "id" in opp and "summary" in opp:
+                        summary_key = f"summary:{opp['id']}"
+                        redis_client.set_json(summary_key, opp["summary"], expiry=86400) # 24 hours
+        
+        # Return the complete list of opportunities with summaries
+        return {
+            "success": True,
+            "opportunities": opportunities
+        }
+        
+    except Exception as e:
+        logger.error(f"Error summarizing descriptions: {str(e)}")
+        return {"success": False, "error": str(e), "opportunities": opportunities}
+
+@search_router.get("/opportunities")
+async def get_opportunities(page: int = Query(1), limit: int = Query(10)):
+    # Fetch opportunities from the database or service
+    opportunities = await fetch_opportunities_from_db()
+    
+    # Implement pagination logic
+    start = (page - 1) * limit
+    end = start + limit
+    return {
+        "results": opportunities[start:end],
+        "total": len(opportunities),
+        "total_pages": (len(opportunities) + limit - 1) // limit,  # Calculate total pages
+    }
