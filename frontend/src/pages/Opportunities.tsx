@@ -42,7 +42,8 @@ import {
   FileText,
   Loader,
   Play,
-  Eye
+  Eye,
+  Bot
 } from "lucide-react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import SideBar from "../components/layout/SideBar";
@@ -600,103 +601,53 @@ const handleSearch = async (e: React.FormEvent | null, suggestedQuery: string | 
   setHasSearched(false);
 
   try {
-    // NEW CODE: Check if this query already exists in session storage
-    let isNewSearch = true;
-    const storedStateRaw = sessionStorage.getItem('lastOpportunitiesSearchState');
-    
-    if (storedStateRaw) {
-      try {
-        const storedState = JSON.parse(storedStateRaw);
-        // If the stored query matches the current query and it's less than 24 hours old
-        if (storedState.query === query) {
-          const lastUpdated = new Date(storedState.lastUpdated).getTime();
-          const now = Date.now();
-          const hoursElapsed = (now - lastUpdated) / (1000 * 60 * 60);
-          
-          // If the stored results are less than 24 hours old
-          if (hoursElapsed < 24) {
-            isNewSearch = false;
-            console.log("REPEAT SEARCH: Using cached results for:", query);
-          }
-        }
-      } catch (e) {
-        console.error("Error parsing stored search state:", e);
-      }
-    }
-    
-    // If it's a new search, log it
-    if (isNewSearch) {
-      console.log("NEW SEARCH: Starting fresh search for:", query);
-    }
-
-    // Prepare search parameters
-    const searchParams = {
-      query: query,
-      contract_type: null,
-      platform: null,
-      page: 1,
-      page_size: resultsPerPage,
-      is_new_search: isNewSearch,
-      user_id: tokenService.getUserIdFromToken(),
-      sort_by: sortBy,
-      timestamp: Date.now()
-    };
-
-    console.log("Search params:", JSON.stringify(searchParams));
-
-    // Call backend search API
     const response = await fetch(`${API_BASE_URL}/search-opportunities`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(searchParams),
+      body: JSON.stringify({ query }),
     });
-    
-    const rawText = await response.text(); // Get raw response for debugging
-    console.log('Raw API Response:', rawText);
 
-    let data;
-    try {
-      data = JSON.parse(rawText); // Parse the response
-    } catch (error) {
-      console.error('Error parsing JSON response:', error);
-      setIsSearching(false);
-      return;
-    }
-
-    console.log('Parsed Response:', data);
+    const data = await response.json();
 
     if (data.success) {
       // Check for refined query in the response and display it
       if (data.refined_query) {
         setRefinedQuery(data.refined_query);
-        setShowRefinedQuery(true);  // Make sure this is set to true
+        setShowRefinedQuery(true);
       } else {
         setShowRefinedQuery(false);
       }
 
       // Process and update opportunities state
       const processedResults = processSearchResults(data.results);
-      console.log("Processed Results:", processedResults); // Debugging log
-      setOpportunities(processedResults);
+      console.log("Processed Results:", processedResults);
+      
+      // Add this block to get summaries before setting state
+      try {
+        console.log("Fetching summaries for search results");
+        const resultsWithSummaries = await getSummariesForOpportunities(processedResults);
+        setOpportunities(resultsWithSummaries);
+      } catch (error) {
+        console.error("Error getting summaries:", error);
+        setOpportunities(processedResults); // Fallback to original results
+      }
+      
       setTotalResults(data.total);
       setTotalPages(data.total_pages);
       setCurrentPage(data.page);
-      
-      // Add this line to set hasSearched to true when search is successful
       setHasSearched(true);
       
-      // Save search state to session storage
+      // Save search state to session storage with either original or summarized results
       saveSearchStateToSession(
         query,
-        processedResults,
+        opportunities, // Use the state which will have summaries if available
         data.total,
         data.total_pages,
         data.refined_query || ""
       );
     } else {
-      // Handle error
       console.error(data.message);
       setOpportunities([]);
     }
@@ -708,17 +659,17 @@ const handleSearch = async (e: React.FormEvent | null, suggestedQuery: string | 
 };
 
 
-const forcePageNavigation = (pageNumber) => {
-  if (pageNumber === currentPage) return;
+const forcePageNavigation = async (pageNumber) => {
+  if (pageNumber === currentPage) return; // Prevent unnecessary API calls
   
   console.log(`Direct pagination: Going to page ${pageNumber}`);
-  setIsSearching(true);
-  
+  setIsSearching(true); // Set loading state
+
   // Create a direct API request with minimal parameters
   const requestBody = {
     query: searchQuery,
     user_id: tokenService.getUserIdFromToken(),
-    page: pageNumber,
+    page: pageNumber,  // Ensure this is being properly sent
     page_size: resultsPerPage,
     due_date_filter: filterValues.dueDate,
     posted_date_filter: filterValues.postedDate,
@@ -726,129 +677,133 @@ const forcePageNavigation = (pageNumber) => {
     opportunity_type: jobType,
     sort_by: sortBy
   };
-  
+
   console.log("Direct pagination request:", requestBody);
-  
-  // Use the filter endpoint for pagination too
-  fetch(`${API_BASE_URL}/filter-cached-results`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(requestBody)
-  })
-  .then(response => {
+
+  try {
+    // Use the filter endpoint for pagination too
+    const response = await fetch(`${API_BASE_URL}/filter-cached-results`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(requestBody)
+    });
+
     console.log(`Direct pagination response status: ${response.status}`);
-    
+
     if (!response.ok) {
       // If cache miss, fallback to regular search
       if (response.status === 404) {
         console.log("No cached results found, falling back to regular search");
-        return handleSearch(null, searchQuery);
+        return handleSearch(null, searchQuery); // Fallback to regular search
       }
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    
-    return response.json();
-  })
-  .then(data => {
+
+    const data = await response.json();
     console.log(`Direct pagination got ${data.results?.length || 0} results`);
-    
+
     if (data.success && data.results && Array.isArray(data.results)) {
-      // Update state
-      setOpportunities(data.results);
+      // Process results
+      const processedResults = processSearchResults(data.results);
+
+      // Get summaries for the results
+      console.log("Fetching summaries for direct pagination results");
+      const resultsWithSummaries = await getSummariesForOpportunities(processedResults);
+
+      // Update state with new page data AFTER everything is ready
+      setOpportunities(resultsWithSummaries);
       setTotalResults(data.total);
-      setCurrentPage(pageNumber);
-      setTotalPages(data.total_pages);
-      
+      setCurrentPage(pageNumber);  // Update current page
+      setTotalPages(data.total_pages); // Update total pages
+
       // Save state to session
       saveSearchStateToSession(
         searchQuery, 
-        data.results,
+        resultsWithSummaries,
         data.total,
         data.total_pages,
         refinedQuery
       );
     }
-  })
-  .catch(error => {
+  } catch (error) {
     console.error("Direct pagination error:", error);
-  })
-  .finally(() => {
-    setIsSearching(false);
-  });
+  } finally {
+    setIsSearching(false); // Reset loading state
+  }
 };
 
 
-const paginate = async (pageNumber: number) => {
-  if (pageNumber === currentPage) return;
+const paginate = async (pageNumber) => {
+  console.group('Pagination Debug');
+  console.log('Current Page:', currentPage);
+  console.log('Target Page:', pageNumber);
+  console.log('Search Query:', searchQuery);
+
+  if (pageNumber === currentPage) {
+    console.log('Skipping pagination - same page');
+    console.groupEnd();
+    return;
+  }
   
-  console.log(`PAGINATION: Attempting to navigate to page ${pageNumber}`);
   setIsSearching(true);
   
   try {
-    // Prepare parameters with current filters and the existing refined query
-    const params = {
-      query: searchQuery,
-      contract_type: null,
-      platform: null,
-      page: pageNumber,
-      page_size: resultsPerPage,
-      is_new_search: false,
-      existing_refined_query: refinedQuery,
-      sort_by: sortBy,
-      user_id: tokenService.getUserIdFromToken(),
-      // Current filters
-      due_date_filter: filterValues.dueDate,
-      posted_date_filter: filterValues.postedDate,
-      naics_code: filterValues.naicsCode,
-      opportunity_type: jobType
-    };
-    
-    console.log(`PAGINATION: Request parameters:`, JSON.stringify(params));
-    
     const response = await fetch(`${API_BASE_URL}/search-opportunities`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(params),
+      body: JSON.stringify({ 
+        query: searchQuery, 
+        page: pageNumber,
+        page_size: resultsPerPage  // Add page_size for consistent pagination
+      }),
     });
 
-    console.log(`PAGINATION: Received response with status: ${response.status}`);
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
+    console.log('Response Status:', response.status);
 
     const data = await response.json();
-    console.log(`PAGINATION: Received data with ${data.results?.length || 0} results`);
+    console.log('Response Data:', data);
 
-    if (data.results && Array.isArray(data.results)) {
-      // Update the UI with paginated results
-      setOpportunities(data.results);
-      setCurrentPage(data.page || pageNumber);
-      setTotalResults(data.total || 0);
-      setTotalPages(data.total_pages || 1);
+    if (data.success && data.results && Array.isArray(data.results)) {
+      // Process results and get summaries
+      const processedResults = processSearchResults(data.results);
+      console.log('Processed Results:', processedResults);
       
-      // Also update session storage with the new page
-      const currentSearchState = sessionStorage.getItem('lastOpportunitiesSearchState');
-      if (currentSearchState) {
-        try {
-          const state = JSON.parse(currentSearchState);
-          // Only update the current page, not the results
-          state.currentPage = pageNumber;
-          sessionStorage.setItem('lastOpportunitiesSearchState', JSON.stringify(state));
-        } catch (e) {
-          console.error("Error updating session storage:", e);
-        }
+      try {
+        console.log("Fetching summaries for paginated results");
+        const resultsWithSummaries = await getSummariesForOpportunities(processedResults);
+        console.log('Results with Summaries:', resultsWithSummaries);
+        
+        // Update state with the results that include summaries
+        setOpportunities(resultsWithSummaries);
+        setTotalResults(data.total);
+        setCurrentPage(pageNumber);
+        setTotalPages(data.total_pages);
+        
+        // Save state to session using resultsWithSummaries
+        saveSearchStateToSession(
+          searchQuery,
+          resultsWithSummaries,
+          data.total,
+          data.total_pages,
+          refinedQuery
+        );
+
+        console.log('Pagination Successful');
+      } catch (error) {
+        console.error("Error getting summaries for paginated results:", error);
+        setOpportunities(processedResults); // Fallback to original results
+        setCurrentPage(pageNumber);
       }
     } else {
-      console.error("PAGINATION: No results array in response data:", data);
+      console.warn('No valid results in response');
     }
   } catch (error) {
-    console.error(`PAGINATION ERROR:`, error);
-    alert(`Failed to load page ${pageNumber}. Please try again.`);
+    console.error("Error during pagination:", error);
   } finally {
     setIsSearching(false);
+    console.groupEnd();
   }
 };
 
@@ -861,29 +816,21 @@ const paginate = async (pageNumber: number) => {
         <div className="flex justify-center items-center my-6">
           <div className="bg-white rounded-full shadow-sm border border-gray-200 flex items-center gap-1 p-1">
             <button
-              onClick={() => forcePageNavigation(currentPage - 1)} // Use the direct function
+              onClick={() => paginate(Math.max(currentPage - 1, 1))}
               disabled={currentPage === 1}
-              className={`p-2 rounded-full ${
-                currentPage === 1
-                  ? "text-gray-400 cursor-not-allowed"
-                  : "text-blue-600 hover:bg-blue-50"
-              }`}
+              className={`p-2 rounded-full ${currentPage === 1 ? "text-gray-400 cursor-not-allowed" : "text-blue-600 hover:bg-blue-50"}`}
             >
               <ChevronLeft size={16} />
             </button>
-  
+
             <div className="text-sm font-medium text-gray-700 px-3">
               Page {currentPage} of {totalPages}
             </div>
-  
+
             <button
-              onClick={() => forcePageNavigation(currentPage + 1)} // Use the direct function
+              onClick={() => paginate(Math.min(currentPage + 1, totalPages))}
               disabled={currentPage === totalPages}
-              className={`p-2 rounded-full ${
-                currentPage === totalPages
-                  ? "text-gray-400 cursor-not-allowed"
-                  : "text-blue-600 hover:bg-blue-50"
-              }`}
+              className={`p-2 rounded-full ${currentPage === totalPages ? "text-gray-400 cursor-not-allowed" : "text-blue-600 hover:bg-blue-50"}`}
             >
               <ChevronRight size={16} />
             </button>
@@ -1108,7 +1055,6 @@ const paginate = async (pageNumber: number) => {
     try {
       console.log("Applying filters:", filterParams);
       
-      // Use the new filter endpoint
       const response = await fetch(`${API_BASE_URL}/filter-cached-results`, {
         method: "POST",
         headers: {
@@ -1132,8 +1078,18 @@ const paginate = async (pageNumber: number) => {
       if (data.success && data.results && Array.isArray(data.results)) {
         setHasSearched(true);
         
-        // Update state with the full data from the response
-        setOpportunities(data.results);
+        // Process results and get summaries
+        const processedResults = processSearchResults(data.results);
+        
+        try {
+          console.log("Fetching summaries for filtered results");
+          const resultsWithSummaries = await getSummariesForOpportunities(processedResults);
+          setOpportunities(resultsWithSummaries);
+        } catch (error) {
+          console.error("Error getting summaries for filtered results:", error);
+          setOpportunities(processedResults); // Fallback to original results
+        }
+        
         setTotalResults(data.total || data.results.length);
         setCurrentPage(data.page || 1);
         setTotalPages(data.total_pages || Math.ceil(data.total / resultsPerPage));
@@ -1141,10 +1097,10 @@ const paginate = async (pageNumber: number) => {
         // Save to session storage
         saveSearchStateToSession(
           searchQuery,
-          data.results,
+          opportunities, // Use state which will have summaries
           data.total,
           data.total_pages,
-          data.refined_query || refinedQuery
+          refinedQuery
         );
       }
     } catch (error) {
@@ -1510,6 +1466,45 @@ useEffect(() => {
       
       return normalizedResult;
     });
+  };
+
+  // Add this function to get summaries for opportunities
+  const getSummariesForOpportunities = async (opps) => {
+    if (!opps || opps.length === 0) return opps;
+    
+    try {
+      console.log("Getting summaries for opportunities");
+      
+      const response = await fetch(`${API_BASE_URL}/summarize-descriptions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ opportunities: opps }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.success && data.opportunities) {
+        // For each opportunity, add the summary if available
+        return data.opportunities.map(opp => {
+          if (opp.summary) {
+            // Create a new object with the summary as additional_description
+            return { ...opp, additional_description: opp.summary };
+          }
+          return opp;
+        });
+      }
+      
+      return opps;
+    } catch (error) {
+      console.error("Error getting summaries:", error);
+      return opps; // Return original opportunities if there's an error
+    }
   };
 
   return (
@@ -2028,29 +2023,80 @@ useEffect(() => {
                                 </div>
                                 
                                 {/* Enhanced Details Section */}
-                                <div className="mt-3 bg-blue-50 shadow-md rounded-md border border-blue-200 transition-all duration-300 ease-in-out">
-                                  <h3 className="font-medium text-gray-800 mb-2 p-4 border-b border-blue-200">Details</h3>
-                                  <div className="text-sm text-gray-700 p-4">
-                                    <p className={`transition-all duration-300 ${expandedDescriptions[opportunity.id] ? '' : 'line-clamp-3'}`}>
-                                      {opportunity.additional_description || "No additional details available."}
-                                    </p>
-                                    <button 
-                                      onClick={() => toggleDescription(opportunity.id)}
-                                      className="mt-2 text-blue-600 hover:text-blue-800 inline-flex items-center text-sm font-medium transition-colors duration-200"
-                                      aria-expanded={expandedDescriptions[opportunity.id]} // Accessibility improvement
-                                    >
-                                      {expandedDescriptions[opportunity.id] ? (
-                                        <>
-                                          <ChevronUp size={16} className="ml-1" />
-                                          Show less
-                                        </>
-                                      ) : (
-                                        <>
-                                          <ChevronDown size={16} className="ml-1" />
-                                          Read more
-                                        </>
-                                      )}
-                                    </button>
+                                <div className="mt-3 bg-gradient-to-br from-blue-50 to-blue-100 shadow-xl rounded-xl border border-blue-100 transition-all duration-300 ease-in-out overflow-hidden">
+                                  <div className="p-4 border-b border-blue-200 bg-gradient-to-r from-blue-100 via-blue-200 to-blue-300 flex items-center">
+                                    <div className="p-2 rounded-full bg-gradient-to-br from-emerald-600 to-emerald-700 shadow-md mr-3">
+                                      <Bot size={20} className="text-white" />
+                                    </div>
+                                    <h3 className="font-semibold text-gray-800 text-base flex-grow">Bizradar AI Generated Summary</h3>
+                                    <div className="flex items-center space-x-2">
+                                      <Sparkles size={16} className="text-blue-600" />
+                                      <span className="text-xs text-gray-600 font-medium">AI Generated</span>
+                                    </div>
+                                  </div>
+                                  
+                                  <div 
+                                    className="text-base p-4 bg-white/80 backdrop-blur-sm" 
+                                    style={{ fontFamily: "Geneva, sans-serif" }} 
+                                  >
+                                    {opportunity.additional_description && (
+                                      <div className="relative">
+                                        <div className="absolute top-0 left-0 w-1 bg-gradient-to-b from-blue-600 to-blue-700 h-full rounded-full mr-3"></div>
+                                        
+                                        {/* Split description into paragraphs */}
+                                        {(() => {
+                                          const paragraphs = opportunity.additional_description.split('\n\n');
+                                          const firstHalf = paragraphs.slice(0, Math.ceil(paragraphs.length / 2)).join('\n\n');
+                                          const secondHalf = paragraphs.slice(Math.ceil(paragraphs.length / 2)).join('\n\n');
+
+                                          // Regular expression to match dates in various formats
+                                          const dateRegex = /\b(\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4})/gi;
+
+                                          // Function to bold dates
+                                          const boldDates = (text: string) => {
+                                            return text.replace(dateRegex, (match) => `<strong class="font-bold text-blue-700">${match}</strong>`);
+                                          };
+
+                                          return (
+                                            <div>
+                                              <p
+                                                className={`text-gray-700 pl-4 overflow-hidden transition-all duration-300 ${
+                                                  expandedDescriptions[opportunity.id] ? "" : "line-clamp-4"
+                                                }`}
+                                                dangerouslySetInnerHTML={{ __html: boldDates(firstHalf) }}
+                                              />
+
+                                              {expandedDescriptions[opportunity.id] && (
+                                                <p 
+                                                  className="text-gray-700 pl-4 mt-2"
+                                                  dangerouslySetInnerHTML={{ __html: boldDates(secondHalf) }}
+                                                />
+                                              )}
+                                            </div>
+                                          );
+                                        })()}
+                                        
+                                        {opportunity.additional_description && (
+                                          <button
+                                            onClick={() => toggleDescription(opportunity.id)}
+                                            className="mt-2 ml-4 text-blue-600 hover:text-blue-800 inline-flex items-center text-sm font-medium transition-colors duration-200"
+                                            aria-expanded={expandedDescriptions[opportunity.id]}
+                                          >
+                                            {expandedDescriptions[opportunity.id] ? (
+                                              <>
+                                                <ChevronUp size={16} className="mr-1" />
+                                                Show less
+                                              </>
+                                            ) : (
+                                              <>
+                                                <ChevronDown size={16} className="mr-1" />
+                                                Read more
+                                              </>
+                                            )}
+                                          </button>
+                                        )}
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                               </div>
