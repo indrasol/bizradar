@@ -11,7 +11,8 @@ import {
   Download,
   ChevronRight,
   Users,
-  AlertCircle
+  AlertCircle,
+  DollarSign
 } from 'lucide-react';
 
 export function RfpOverview({
@@ -23,6 +24,7 @@ export function RfpOverview({
   description = "No description available",
   solicitation_number = "Not specified",
   published_date = "Not specified",
+  budget="Not specified",
   onViewDescription,
   onGenerateResponse,
   onGenerateRfp 
@@ -37,7 +39,8 @@ export function RfpOverview({
       naicsCode,
       description: description ? (description.length > 50 ? description.substring(0, 50) + "..." : description) : "None",
       solicitation_number,
-      published_date
+      published_date,
+      budget
     });
   }, [title, department, dueDate, status, naicsCode, description, solicitation_number, published_date]);
 
@@ -213,7 +216,17 @@ export function RfpOverview({
                   </div>
                 </div>
               </div>
-              
+              <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-100 transition-all hover:border-blue-200 hover:shadow-md">
+                <div className="flex items-start gap-3">
+                  <div className="p-3 bg-indigo-100 rounded-lg shadow-sm mt-1">
+                    <DollarSign className="w-5 h-5 text-indigo-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500 mb-1">Funding</p>
+                    <p className="text-lg font-medium text-gray-800">{budget|| "Not specified"}</p>
+                  </div>
+                </div>
+              </div>
               {/* Solicitation Number */}
               <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-100 transition-all hover:border-blue-200 hover:shadow-md">
                 <div className="flex items-start gap-3">

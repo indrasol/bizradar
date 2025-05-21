@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { 
+import {
   Search,
   Settings,
   ChevronDown,
@@ -43,7 +43,8 @@ import {
   Loader,
   Play,
   Eye,
-  Bot
+  Bot,
+  Power
 } from "lucide-react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import SideBar from "../components/layout/SideBar";
@@ -52,6 +53,8 @@ import RefinedQueryDisplay from "../components/admin/RefinedQueryDisplay"
 import tokenService from "../utils/tokenService";
 import RecommendationsPanel from "../components/dashboard/RecommendationsPanel"; // Import the component
 import { J } from "node_modules/framer-motion/dist/types.d-6pKw1mTI";
+import { toast } from "sonner";
+import { useAuth } from "@/components/Auth/useAuth";
 // import '../../src/App.css'
 
 
@@ -77,10 +80,11 @@ interface SearchParams {
 }
 
 export default function Opportunities() {
+  const { logout } = useAuth();
   const navigate = useNavigate(); // Initialize the navigate function
-  const location = useLocation();                
+  const location = useLocation();
 
-  
+
   const [activeFilters, setActiveFilters] = useState({
     dueDate: true,
     postedDate: true,
@@ -88,7 +92,7 @@ export default function Opportunities() {
     opportunityType: true
     // Removed jurisdiction and unspscCode
   });
-  
+
   const [expandedCard, setExpandedCard] = useState("state-executive");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -114,35 +118,35 @@ export default function Opportunities() {
   // Add this with your other state variables
   const [expandedDescriptions, setExpandedDescriptions] = useState({});
 
-  
+
   // Use a ref to track if recommendations request is in progress to prevent duplicate requests
   const requestInProgressRef = useRef(false);
   const lastSearchIdRef = useRef("");
-  
+
   // Suggested search queries
   const suggestedQueries = [
-    { 
+    {
       id: "cybersecurity",
       title: "Cybersecurity Contracts",
       icon: <Shield size={20} className="text-blue-500" />,
       description:
         "Find government contracts related to cybersecurity services, threat monitoring, and security operations.",
     },
-    { 
+    {
       id: "ai-ml",
       title: "AI & Machine Learning",
       icon: <Zap size={20} className="text-purple-500" />,
       description:
         "Explore opportunities involving artificial intelligence, machine learning, and data science.",
     },
-    { 
+    {
       id: "data-management",
       title: "Data Management",
       icon: <Database size={20} className="text-green-500" />,
       description:
         "Discover contracts focused on data management, analytics, and information systems.",
     },
-    { 
+    {
       id: "software-dev",
       title: "Software Development",
       icon: <Code size={20} className="text-amber-500" />,
@@ -150,19 +154,19 @@ export default function Opportunities() {
         "Find contracts for custom software development, maintenance, and IT services.",
     },
   ];
-  
+
   // Initial dummy data - will be replaced with search results
   const initialOpportunities = [];
-  
+
   // State to hold the opportunities data
   const [opportunities, setOpportunities] = useState(initialOpportunities);
-  
+
   // State for pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [totalResults, setTotalResults] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const resultsPerPage = 7; // Using 7 results per page
-  
+
   // Calculate displayed opportunities based on pagination
   const indexOfLastResult = currentPage * resultsPerPage;
   const indexOfFirstResult = indexOfLastResult - resultsPerPage;
@@ -170,6 +174,18 @@ export default function Opportunities() {
     indexOfFirstResult,
     indexOfLastResult
   );
+
+  // Handle logout
+  const handleLogout = async () => {
+    try {
+      await logout();
+      toast.success("Logging out...");
+      navigate("/logout");
+    } catch (error) {
+      console.error("Logout error:", error);
+      toast.error("There was a problem logging out");
+    }
+  };
 
   useEffect(() => {
     if (location.pathname === "/opportunities") {
@@ -196,7 +212,7 @@ export default function Opportunities() {
       }
     }
   }, [location.pathname]);  // ← run this effect whenever the URL changes
-  
+
   // Add debugging useEffect to monitor state changes
   useEffect(() => {
     console.log("AI Recommendations state changed:", {
@@ -205,25 +221,25 @@ export default function Opportunities() {
       hasData: aiRecommendations.length > 0 && !isLoadingRecommendations,
     });
   }, [aiRecommendations, isLoadingRecommendations]);
-  
+
   // Add this useEffect to restore the search state on component mount
   useEffect(() => {
     const raw = sessionStorage.getItem('lastOpportunitiesSearchState');
     if (!raw) return;
-  
+
     try {
       const state = JSON.parse(raw);
       const lastUpdated = new Date(state.lastUpdated).getTime();
-      const ageMs       = Date.now() - lastUpdated;
-      const maxAgeMs    = 4 * 60 * 60 * 1000; // 4 hours
-  
+      const ageMs = Date.now() - lastUpdated;
+      const maxAgeMs = 4 * 60 * 60 * 1000; // 4 hours
+
       // if older than 4 hrs, drop it
       if (ageMs > maxAgeMs) {
         sessionStorage.removeItem('lastOpportunitiesSearchState');
         console.log('Discarded stale search state (>4h old)');
         return;
       }
-  
+
       // otherwise restore
       setSearchQuery(state.query);
       setOpportunities(state.results);
@@ -234,7 +250,7 @@ export default function Opportunities() {
       setFilterValues(state.filters);
       setSortBy(state.sortBy);
       setHasSearched(true);
-  
+
       // re‑hydrate any cached AI recs
       if (state.results?.length) {
         fetchCachedRecommendations(state.results.map((r) => r.id));
@@ -253,13 +269,13 @@ export default function Opportunities() {
       console.log("Fetching user profile from session storage");
       const profileData = sessionStorage.getItem("userProfile");
       console.log("Raw profile data:", profileData);
-      
+
       if (profileData) {
         const parsedData = JSON.parse(profileData);
         console.log("Parsed profile data:", parsedData);
         return parsedData;
       }
-      
+
       console.warn("No profile data found in session storage");
       // Return empty or undefined values for graceful handling downstream
       return {
@@ -274,55 +290,55 @@ export default function Opportunities() {
       };
     }
   };
-  
-// When search results are loaded successfully:
-const saveSearchStateToSession = (query, results, totalResults, totalPages, refinedQuery) => {
-  console.log("🏷️ [saveSearchStateToSession] called with:", {
-    query,
-    resultsLength: Array.isArray(results) ? results.length : results,
-    totalResults,
-    totalPages,
-    refinedQuery,
-    filters: filterValues,
-    sortBy
-  });
-  const searchState = {
-    query,
-    results,
-    totalResults,
-    totalPages,
-    refinedQuery,
-    filters: filterValues,
-    sortBy,
-    lastUpdated: new Date().toISOString()
-  };
 
-  sessionStorage.setItem('lastOpportunitiesSearchState', JSON.stringify(searchState));
-  console.log("✅ [saveSearchStateToSession] wrote key:", sessionStorage.getItem('lastOpportunitiesSearchState'));
-};
+  // When search results are loaded successfully:
+  const saveSearchStateToSession = (query, results, totalResults, totalPages, refinedQuery) => {
+    console.log("🏷️ [saveSearchStateToSession] called with:", {
+      query,
+      resultsLength: Array.isArray(results) ? results.length : results,
+      totalResults,
+      totalPages,
+      refinedQuery,
+      filters: filterValues,
+      sortBy
+    });
+    const searchState = {
+      query,
+      results,
+      totalResults,
+      totalPages,
+      refinedQuery,
+      filters: filterValues,
+      sortBy,
+      lastUpdated: new Date().toISOString()
+    };
+
+    sessionStorage.setItem('lastOpportunitiesSearchState', JSON.stringify(searchState));
+    console.log("✅ [saveSearchStateToSession] wrote key:", sessionStorage.getItem('lastOpportunitiesSearchState'));
+  };
 
 
   // Fetch AI recommendations
   const fetchAiRecommendations = async () => {
     if (requestInProgressRef.current || opportunities.length === 0) return;
-    
+
     const searchId = `${searchQuery}-${currentPage}`;
-    
+
     if (searchId === lastSearchIdRef.current) {
       console.log("Skipping duplicate recommendations request for:", searchId);
       return;
     }
-    
+
     requestInProgressRef.current = true;
     lastSearchIdRef.current = searchId;
     setIsLoadingRecommendations(true);
-    
+
     console.log("Starting to fetch AI recommendations for page", currentPage);
-    
+
     try {
       const userProfile = getUserProfile();
       console.log("User profile for AI recommendations:", userProfile);
-      
+
       const requestBody = {
         companyUrl: userProfile.companyUrl,
         companyDescription: userProfile.companyDescription || "", // Ensure this is set
@@ -331,7 +347,7 @@ const saveSearchStateToSession = (query, results, totalResults, totalPages, refi
         includeMatchReason: true,
       };
       console.log("AI recommendations request body:", requestBody);
-      
+
       const response = await fetch(`${API_BASE_URL}/ai-recommendations`, {
         method: "POST",
         headers: {
@@ -339,14 +355,14 @@ const saveSearchStateToSession = (query, results, totalResults, totalPages, refi
         },
         body: JSON.stringify(requestBody),
       });
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const data = await response.json();
       console.log("AI Recommendations raw response:", data);
-      
+
       if (data.recommendations && Array.isArray(data.recommendations)) {
         console.log(
           `Received ${data.recommendations.length} AI recommendations`
@@ -358,14 +374,14 @@ const saveSearchStateToSession = (query, results, totalResults, totalPages, refi
               ? Math.min(rec.opportunityIndex, opportunities.length - 1)
               : 0;
           const opportunity = opportunities[oppIndex];
-          
+
           return {
             ...rec,
             opportunity,
             showDetailedReason: false, // Add this to track the expanded state
           };
         });
-        
+
         setAiRecommendations(enhancedRecommendations);
       } else {
         console.warn("Received invalid recommendations format:", data);
@@ -375,12 +391,12 @@ const saveSearchStateToSession = (query, results, totalResults, totalPages, refi
       console.error("Error fetching AI recommendations:", error);
       setAiRecommendations([
         {
-        id: "fallback-rec-1",
-        title: "AI Recommendation Service Temporarily Unavailable",
+          id: "fallback-rec-1",
+          title: "AI Recommendation Service Temporarily Unavailable",
           description:
             "We couldn't retrieve personalized recommendations at this time. Please try again later.",
-        matchScore: 75,
-        opportunityIndex: 0,
+          matchScore: 75,
+          opportunityIndex: 0,
           matchReason:
             "This is a fallback recommendation while the service is temporarily unavailable.",
         },
@@ -392,7 +408,7 @@ const saveSearchStateToSession = (query, results, totalResults, totalPages, refi
       }, 500);
     }
   };
-  
+
   // useEffect to prevent infinite loop of requests
   useEffect(() => {
     // No automatic recommendation fetching on page change
@@ -408,11 +424,11 @@ const saveSearchStateToSession = (query, results, totalResults, totalPages, refi
       [filter]: !activeFilters[filter],
     });
   };
-  
+
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
   };
-  
+
   const toggleFiltersBar = () => {
     setFiltersOpen(!filtersOpen);
   };
@@ -433,7 +449,7 @@ const saveSearchStateToSession = (query, results, totalResults, totalPages, refi
     sessionStorage.removeItem('lastOpportunitiesSearchState');
     requestInProgressRef.current = false;
     lastSearchIdRef.current = "";
-    
+
     // Reset filter values to defaults
     setFilterValues({
       dueDate: "none", // Set "none" as the default value
@@ -454,334 +470,269 @@ const saveSearchStateToSession = (query, results, totalResults, totalPages, refi
 
   // ── add this right above handleSearch ────────────────────────────
 
-/**
- * Try to load a previous search from Redis cache.
- * Returns true if cached results were found & applied.
- */
-const checkForCachedSearch = async (query: string) => {
-  const user_id = tokenService.getUserIdFromToken();
-  console.log("Checking for cached search with query:", query);
-  
-  try {
-    const resp = await fetch(`${API_BASE_URL}/search-opportunities`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        query,
-        page: 1,
-        page_size: resultsPerPage,
-        is_new_search: false,
-        sort_by: sortBy,
-        user_id,
-      }),
-    });
-    
-    if (!resp.ok) {
-      console.error("Cache check request failed:", await resp.text());
+  /**
+   * Try to load a previous search from Redis cache.
+   * Returns true if cached results were found & applied.
+   */
+  const checkForCachedSearch = async (query: string) => {
+    const user_id = tokenService.getUserIdFromToken();
+    console.log("Checking for cached search with query:", query);
+
+    try {
+      const resp = await fetch(`${API_BASE_URL}/search-opportunities`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query,
+          page: 1,
+          page_size: resultsPerPage,
+          is_new_search: false,
+          sort_by: sortBy,
+          user_id,
+        }),
+      });
+
+      if (!resp.ok) {
+        console.error("Cache check request failed:", await resp.text());
+        return false;
+      }
+
+      const data = await resp.json();
+      console.log("Cache check response:", data.results ? `Found ${data.results.length} results` : "No results found");
+
+      if (resp.ok && data.results?.length) {
+        setOpportunities(data.results);
+        setTotalResults(data.total);
+        setTotalPages(data.total_pages);
+        if (data.refined_query) setRefinedQuery(data.refined_query);
+        setHasSearched(true);
+
+        // fetch any cached AI recs
+        await fetchCachedRecommendations(data.results.map((r) => r.id));
+
+        // Persist this cached search into sessionStorage so we can restore it later
+        saveSearchStateToSession(
+          query,
+          data.results,
+          data.total,
+          data.total_pages,
+          data.refined_query || ""
+        );
+
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error("Error checking for cached search:", error);
       return false;
     }
-    
-    const data = await resp.json();
-    console.log("Cache check response:", data.results ? `Found ${data.results.length} results` : "No results found");
-    
-    if (resp.ok && data.results?.length) {
-      setOpportunities(data.results);
-      setTotalResults(data.total);
-      setTotalPages(data.total_pages);
-      if (data.refined_query) setRefinedQuery(data.refined_query);
-      setHasSearched(true);
-    
-      // fetch any cached AI recs
-      await fetchCachedRecommendations(data.results.map((r) => r.id));
-    
-      // Persist this cached search into sessionStorage so we can restore it later
-      saveSearchStateToSession(
-        query,
-        data.results,
-        data.total,
-        data.total_pages,
-        data.refined_query || ""
-      );
-    
-      return true;
-    }
-    
-    return false;
-  } catch (error) {
-    console.error("Error checking for cached search:", error);
-    return false;
-  }
-};
-
-
-// Add this function to check for cached recommendations
-// Add this function to check for cached recommendations
-const checkForCachedRecommendations = async (ids: string[]) => {
-  if (!ids.length) return false;
-  
-  const userId = tokenService.getUserIdFromToken();
-  
-  try {
-    // Check if recommendations exist in session storage first (fastest)
-    const sessionRecs = sessionStorage.getItem('aiRecommendations');
-    if (sessionRecs) {
-      try {
-        const parsed = JSON.parse(sessionRecs);
-        const recommendations = parsed.recommendations || [];
-        const searchQuery = parsed.searchQuery || "";
-        const timestamp = parsed.timestamp || "";
-        
-        const hoursOld = (Date.now() - new Date(timestamp).getTime()) / 36e5;
-        
-        // Get current search query
-        const searchState = sessionStorage.getItem('lastOpportunitiesSearchState');
-        const currentQuery = searchState ? JSON.parse(searchState).query : "";
-        
-        // If fresh and matching query, use these
-        if (hoursOld < 1 && searchQuery === currentQuery && recommendations.length > 0) {
-          console.log("Found cached recommendations in session storage");
-          return true;
-        }
-      } catch (e) {
-        console.error("Error parsing cached recommendations:", e);
-      }
-    }
-    
-    // Otherwise, check Redis cache via backend
-    const response = await fetch(`${API_BASE_URL}/check-recommendations`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ 
-        opportunity_ids: ids,
-        user_id: userId,
-        checkOnly: true  // Just check existence, don't return full data
-      })
-    });
-    
-    if (response.ok) {
-      const data = await response.json();
-      return data.exists; // Just return if they exist, don't load yet
-    }
-    
-    return false;
-  } catch (error) {
-    console.error("Error checking for cached recommendations:", error);
-    return false;
-  }
-};
-
-/**
- * Fetch any cached AI recommendations for a given list of IDs.
- */
-const fetchCachedRecommendations = async (ids: string[]) => {
-  const user_id = tokenService.getUserIdFromToken();
-  const resp = await fetch(`${API_BASE_URL}/get-cached-recommendations`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ user_id, opportunity_ids: ids }),
-  });
-  const payload = await resp.json();
-  if (payload.cached && payload.recommendations) {
-    setAiRecommendations(payload.recommendations);
-  }
-};
-
-// Add this function to check for cached recommendations
-
-
-// Modify handleSearch to check for cached recommendations
-const handleSearch = async (e: React.FormEvent | null, suggestedQuery: string | null = null) => {
-  if (e) e.preventDefault();
-  
-  const query = suggestedQuery || searchQuery;
-  console.log("▶️ [handleSearch] fired with query:", query);
-  if (!query.trim()) return;
-
-  setIsSearching(true);
-  setHasSearched(false);
-
-  try {
-    const response = await fetch(`${API_BASE_URL}/search-opportunities`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ query }),
-    });
-
-    const data = await response.json();
-
-    if (data.success) {
-      // Check for refined query in the response and display it
-      if (data.refined_query) {
-        setRefinedQuery(data.refined_query);
-        setShowRefinedQuery(true);
-      } else {
-        setShowRefinedQuery(false);
-      }
-
-      // Process and update opportunities state
-      const processedResults = processSearchResults(data.results);
-      console.log("Processed Results:", processedResults);
-      
-      // Add this block to get summaries before setting state
-      try {
-        console.log("Fetching summaries for search results");
-        const resultsWithSummaries = await getSummariesForOpportunities(processedResults);
-        setOpportunities(resultsWithSummaries);
-      } catch (error) {
-        console.error("Error getting summaries:", error);
-        setOpportunities(processedResults); // Fallback to original results
-      }
-      
-      setTotalResults(data.total);
-      setTotalPages(data.total_pages);
-      setCurrentPage(data.page);
-      setHasSearched(true);
-      
-      // Save search state to session storage with either original or summarized results
-      saveSearchStateToSession(
-        query,
-        opportunities, // Use the state which will have summaries if available
-        data.total,
-        data.total_pages,
-        data.refined_query || ""
-      );
-    } else {
-      console.error(data.message);
-      setOpportunities([]);
-    }
-  } catch (error) {
-    console.error("Error fetching opportunities:", error);
-  } finally {
-    setIsSearching(false);
-  }
-};
-
-
-const forcePageNavigation = async (pageNumber) => {
-  if (pageNumber === currentPage) return; // Prevent unnecessary API calls
-  
-  console.log(`Direct pagination: Going to page ${pageNumber}`);
-  setIsSearching(true); // Set loading state
-
-  // Create a direct API request with minimal parameters
-  const requestBody = {
-    query: searchQuery,
-    user_id: tokenService.getUserIdFromToken(),
-    page: pageNumber,  // Ensure this is being properly sent
-    page_size: resultsPerPage,
-    due_date_filter: filterValues.dueDate,
-    posted_date_filter: filterValues.postedDate,
-    naics_code: filterValues.naicsCode,
-    opportunity_type: jobType,
-    sort_by: sortBy
   };
 
-  console.log("Direct pagination request:", requestBody);
 
-  try {
-    // Use the filter endpoint for pagination too
-    const response = await fetch(`${API_BASE_URL}/filter-cached-results`, {
+  // Add this function to check for cached recommendations
+  // Add this function to check for cached recommendations
+  const checkForCachedRecommendations = async (ids: string[]) => {
+    if (!ids.length) return false;
+
+    const userId = tokenService.getUserIdFromToken();
+
+    try {
+      // Check if recommendations exist in session storage first (fastest)
+      const sessionRecs = sessionStorage.getItem('aiRecommendations');
+      if (sessionRecs) {
+        try {
+          const parsed = JSON.parse(sessionRecs);
+          const recommendations = parsed.recommendations || [];
+          const searchQuery = parsed.searchQuery || "";
+          const timestamp = parsed.timestamp || "";
+
+          const hoursOld = (Date.now() - new Date(timestamp).getTime()) / 36e5;
+
+          // Get current search query
+          const searchState = sessionStorage.getItem('lastOpportunitiesSearchState');
+          const currentQuery = searchState ? JSON.parse(searchState).query : "";
+
+          // If fresh and matching query, use these
+          if (hoursOld < 1 && searchQuery === currentQuery && recommendations.length > 0) {
+            console.log("Found cached recommendations in session storage");
+            return true;
+          }
+        } catch (e) {
+          console.error("Error parsing cached recommendations:", e);
+        }
+      }
+
+      // Otherwise, check Redis cache via backend
+      const response = await fetch(`${API_BASE_URL}/check-recommendations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          opportunity_ids: ids,
+          user_id: userId,
+          checkOnly: true  // Just check existence, don't return full data
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        return data.exists; // Just return if they exist, don't load yet
+      }
+
+      return false;
+    } catch (error) {
+      console.error("Error checking for cached recommendations:", error);
+      return false;
+    }
+  };
+
+  /**
+   * Fetch any cached AI recommendations for a given list of IDs.
+   */
+  const fetchCachedRecommendations = async (ids: string[]) => {
+    const user_id = tokenService.getUserIdFromToken();
+    const resp = await fetch(`${API_BASE_URL}/get-cached-recommendations`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(requestBody)
+      body: JSON.stringify({ user_id, opportunity_ids: ids }),
     });
+    const payload = await resp.json();
+    if (payload.cached && payload.recommendations) {
+      setAiRecommendations(payload.recommendations);
+    }
+  };
 
-    console.log(`Direct pagination response status: ${response.status}`);
+  // Add this function to check for cached recommendations
 
-    if (!response.ok) {
-      // If cache miss, fallback to regular search
-      if (response.status === 404) {
-        console.log("No cached results found, falling back to regular search");
-        return handleSearch(null, searchQuery); // Fallback to regular search
+
+  // Modify handleSearch to check for cached recommendations
+  const handleSearch = async (e: React.FormEvent | null, suggestedQuery: string | null = null) => {
+    if (e) e.preventDefault();
+
+    const query = suggestedQuery || searchQuery;
+    console.log("▶️ [handleSearch] fired with query:", query);
+    if (!query.trim()) return;
+
+    setIsSearching(true);
+    setHasSearched(false);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/search-opportunities`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ query }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Check for refined query in the response and display it
+        if (data.refined_query) {
+          setRefinedQuery(data.refined_query);
+          setShowRefinedQuery(true);
+        } else {
+          setShowRefinedQuery(false);
+        }
+
+        // Process and update opportunities state
+        const processedResults = processSearchResults(data.results);
+        console.log("Processed Results:", processedResults);
+
+        // Add this block to get summaries before setting state
+        try {
+          console.log("Fetching summaries for search results");
+          const resultsWithSummaries = await getSummariesForOpportunities(processedResults);
+          setOpportunities(resultsWithSummaries);
+        } catch (error) {
+          console.error("Error getting summaries:", error);
+          setOpportunities(processedResults); // Fallback to original results
+        }
+
+        setTotalResults(data.total);
+        setTotalPages(data.total_pages);
+        setCurrentPage(data.page);
+        setHasSearched(true);
+
+        // Save search state to session storage with either original or summarized results
+        saveSearchStateToSession(
+          query,
+          opportunities, // Use the state which will have summaries if available
+          data.total,
+          data.total_pages,
+          data.refined_query || ""
+        );
+      } else {
+        console.error(data.message);
+        setOpportunities([]);
       }
-      throw new Error(`HTTP error! status: ${response.status}`);
+    } catch (error) {
+      console.error("Error fetching opportunities:", error);
+    } finally {
+      setIsSearching(false);
     }
-
-    const data = await response.json();
-    console.log(`Direct pagination got ${data.results?.length || 0} results`);
-
-    if (data.success && data.results && Array.isArray(data.results)) {
-      // Process results
-      const processedResults = processSearchResults(data.results);
-
-      // Get summaries for the results
-      console.log("Fetching summaries for direct pagination results");
-      const resultsWithSummaries = await getSummariesForOpportunities(processedResults);
-
-      // Update state with new page data AFTER everything is ready
-      setOpportunities(resultsWithSummaries);
-      setTotalResults(data.total);
-      setCurrentPage(pageNumber);  // Update current page
-      setTotalPages(data.total_pages); // Update total pages
-
-      // Save state to session
-      saveSearchStateToSession(
-        searchQuery, 
-        resultsWithSummaries,
-        data.total,
-        data.total_pages,
-        refinedQuery
-      );
-    }
-  } catch (error) {
-    console.error("Direct pagination error:", error);
-  } finally {
-    setIsSearching(false); // Reset loading state
-  }
-};
+  };
 
 
-const paginate = async (pageNumber) => {
-  console.group('Pagination Debug');
-  console.log('Current Page:', currentPage);
-  console.log('Target Page:', pageNumber);
-  console.log('Search Query:', searchQuery);
+  const forcePageNavigation = async (pageNumber) => {
+    if (pageNumber === currentPage) return; // Prevent unnecessary API calls
 
-  if (pageNumber === currentPage) {
-    console.log('Skipping pagination - same page');
-    console.groupEnd();
-    return;
-  }
-  
-  setIsSearching(true);
-  
-  try {
-    const response = await fetch(`${API_BASE_URL}/search-opportunities`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ 
-        query: searchQuery, 
-        page: pageNumber,
-        page_size: resultsPerPage  // Add page_size for consistent pagination
-      }),
-    });
+    console.log(`Direct pagination: Going to page ${pageNumber}`);
+    setIsSearching(true); // Set loading state
 
-    console.log('Response Status:', response.status);
+    // Create a direct API request with minimal parameters
+    const requestBody = {
+      query: searchQuery,
+      user_id: tokenService.getUserIdFromToken(),
+      page: pageNumber,  // Ensure this is being properly sent
+      page_size: resultsPerPage,
+      due_date_filter: filterValues.dueDate,
+      posted_date_filter: filterValues.postedDate,
+      naics_code: filterValues.naicsCode,
+      opportunity_type: jobType,
+      sort_by: sortBy
+    };
 
-    const data = await response.json();
-    console.log('Response Data:', data);
+    console.log("Direct pagination request:", requestBody);
 
-    if (data.success && data.results && Array.isArray(data.results)) {
-      // Process results and get summaries
-      const processedResults = processSearchResults(data.results);
-      console.log('Processed Results:', processedResults);
-      
-      try {
-        console.log("Fetching summaries for paginated results");
+    try {
+      // Use the filter endpoint for pagination too
+      const response = await fetch(`${API_BASE_URL}/filter-cached-results`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody)
+      });
+
+      console.log(`Direct pagination response status: ${response.status}`);
+
+      if (!response.ok) {
+        // If cache miss, fallback to regular search
+        if (response.status === 404) {
+          console.log("No cached results found, falling back to regular search");
+          return handleSearch(null, searchQuery); // Fallback to regular search
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log(`Direct pagination got ${data.results?.length || 0} results`);
+
+      if (data.success && data.results && Array.isArray(data.results)) {
+        // Process results
+        const processedResults = processSearchResults(data.results);
+
+        // Get summaries for the results
+        console.log("Fetching summaries for direct pagination results");
         const resultsWithSummaries = await getSummariesForOpportunities(processedResults);
-        console.log('Results with Summaries:', resultsWithSummaries);
-        
-        // Update state with the results that include summaries
+
+        // Update state with new page data AFTER everything is ready
         setOpportunities(resultsWithSummaries);
         setTotalResults(data.total);
-        setCurrentPage(pageNumber);
-        setTotalPages(data.total_pages);
-        
-        // Save state to session using resultsWithSummaries
+        setCurrentPage(pageNumber);  // Update current page
+        setTotalPages(data.total_pages); // Update total pages
+
+        // Save state to session
         saveSearchStateToSession(
           searchQuery,
           resultsWithSummaries,
@@ -789,23 +740,88 @@ const paginate = async (pageNumber) => {
           data.total_pages,
           refinedQuery
         );
-
-        console.log('Pagination Successful');
-      } catch (error) {
-        console.error("Error getting summaries for paginated results:", error);
-        setOpportunities(processedResults); // Fallback to original results
-        setCurrentPage(pageNumber);
       }
-    } else {
-      console.warn('No valid results in response');
+    } catch (error) {
+      console.error("Direct pagination error:", error);
+    } finally {
+      setIsSearching(false); // Reset loading state
     }
-  } catch (error) {
-    console.error("Error during pagination:", error);
-  } finally {
-    setIsSearching(false);
-    console.groupEnd();
-  }
-};
+  };
+
+
+  const paginate = async (pageNumber) => {
+    console.group('Pagination Debug');
+    console.log('Current Page:', currentPage);
+    console.log('Target Page:', pageNumber);
+    console.log('Search Query:', searchQuery);
+
+    if (pageNumber === currentPage) {
+      console.log('Skipping pagination - same page');
+      console.groupEnd();
+      return;
+    }
+
+    setIsSearching(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/search-opportunities`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          query: searchQuery,
+          page: pageNumber,
+          page_size: resultsPerPage  // Add page_size for consistent pagination
+        }),
+      });
+
+      console.log('Response Status:', response.status);
+
+      const data = await response.json();
+      console.log('Response Data:', data);
+
+      if (data.success && data.results && Array.isArray(data.results)) {
+        // Process results and get summaries
+        const processedResults = processSearchResults(data.results);
+        console.log('Processed Results:', processedResults);
+
+        try {
+          console.log("Fetching summaries for paginated results");
+          const resultsWithSummaries = await getSummariesForOpportunities(processedResults);
+          console.log('Results with Summaries:', resultsWithSummaries);
+
+          // Update state with the results that include summaries
+          setOpportunities(resultsWithSummaries);
+          setTotalResults(data.total);
+          setCurrentPage(pageNumber);
+          setTotalPages(data.total_pages);
+
+          // Save state to session using resultsWithSummaries
+          saveSearchStateToSession(
+            searchQuery,
+            resultsWithSummaries,
+            data.total,
+            data.total_pages,
+            refinedQuery
+          );
+
+          console.log('Pagination Successful');
+        } catch (error) {
+          console.error("Error getting summaries for paginated results:", error);
+          setOpportunities(processedResults); // Fallback to original results
+          setCurrentPage(pageNumber);
+        }
+      } else {
+        console.warn('No valid results in response');
+      }
+    } catch (error) {
+      console.error("Error during pagination:", error);
+    } finally {
+      setIsSearching(false);
+      console.groupEnd();
+    }
+  };
 
   // Pagination component
   const Pagination = () => {
@@ -848,7 +864,7 @@ const paginate = async (pageNumber) => {
       id: contractId,
       title: contractData.title || "Default Title",
       department: contractData.agency || contractData.department || "Default Agency", // Added department field
-      noticeId:contractData.notice_id,
+      noticeId: contractData.notice_id,
       dueDate: contractData.response_date || contractData.dueDate || "2025-01-01",
       response_date: contractData.response_date || contractData.dueDate || "2025-01-01",
       published_date: contractData.published_date || "",
@@ -857,7 +873,8 @@ const paginate = async (pageNumber) => {
       naicsCode: contractData.naics_code?.toString() || contractData.naicsCode || "000000",
       solicitation_number: contractData.solicitation_number || "",
       description: contractData.description || "",
-      external_url: contractData.external_url || contractData.url || ""
+      external_url: contractData.external_url || contractData.url || "",
+      budget: contractData.budget || ""
     };
 
     // Log to verify data is being set correctly
@@ -898,25 +915,25 @@ const paginate = async (pageNumber) => {
     const wasSessionClosed = () => {
       // Session marker only exists during a single browser session
       const sessionMarker = sessionStorage.getItem("userActiveSession");
-      
+
       // If we have a token but no session marker, browser was likely closed
       const isLoggedIn = tokenService.getUserIdFromToken() !== null;
-      
+
       if (isLoggedIn && !sessionMarker) {
         // First visit in a new browser session
         console.log("New browser session detected - refreshing cache");
         sessionStorage.setItem("userActiveSession", "true");
         return true;
       }
-      
+
       // Already visited in this session
       sessionStorage.setItem("userActiveSession", "true");
       return false;
     };
-    
+
     // Check if this is a new browser session
     const newSession = wasSessionClosed();
-    
+
     // If this is a new session and user is logged in, refresh the search
     if (newSession && searchQuery && hasSearched) {
       console.log("Browser was closed - refreshing search data");
@@ -940,26 +957,26 @@ const paginate = async (pageNumber) => {
       try {
         // Get the current user
         const { data: { user } } = await supabase.auth.getUser();
-        
+
         if (!user) {
           console.log("No user logged in");
           return;
         }
-        
+
         // Count the user's pursuits
         const { count, error } = await supabase
           .from('pursuits')
           .select('id', { count: 'exact' })
           .eq('user_id', user.id);
-          
+
         if (error) throw error;
-        
+
         setPursuitCount(count || 0);
       } catch (error) {
         console.error("Error fetching pursuit count:", error);
       }
     };
-    
+
     fetchPursuitCount();
   }, []);
 
@@ -968,26 +985,26 @@ const paginate = async (pageNumber) => {
     try {
       // Get the current user
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       if (!user) {
         console.log("No user logged in");
         // Could show a login prompt here
         return;
       }
-      
+
       // Check if this opportunity is already in pursuits
       const { data: existingPursuits } = await supabase
         .from('pursuits')
         .select('id')
         .eq('user_id', user.id)
         .eq('title', opportunity.title);
-        
+
       if (existingPursuits && existingPursuits.length > 0) {
         // Already exists, maybe show a notification
         console.log("Opportunity already in pursuits");
         return;
       }
-      
+
       // Create the new pursuit in Supabase
       const { data, error } = await supabase
         .from('pursuits')
@@ -1001,14 +1018,14 @@ const paginate = async (pageNumber) => {
           }
         ])
         .select();
-        
+
       if (error) throw error;
-      
+
       if (data && data.length > 0) {
         // Show notification
         setShowNotification(true);
         setTimeout(() => setShowNotification(false), 3000);
-        
+
         // Update pursuit count
         setPursuitCount(prevCount => prevCount + 1);
       }
@@ -1039,7 +1056,7 @@ const paginate = async (pageNumber) => {
   // Apply all filters function
   const applyFilters = async () => {
     setIsSearching(true);
-    
+
     const filterParams = {
       query: searchQuery,
       user_id: tokenService.getUserIdFromToken(),
@@ -1051,10 +1068,10 @@ const paginate = async (pageNumber) => {
       page: 1,
       page_size: resultsPerPage
     };
-    
+
     try {
       console.log("Applying filters:", filterParams);
-      
+
       const response = await fetch(`${API_BASE_URL}/filter-cached-results`, {
         method: "POST",
         headers: {
@@ -1062,7 +1079,7 @@ const paginate = async (pageNumber) => {
         },
         body: JSON.stringify(filterParams),
       });
-      
+
       if (!response.ok) {
         // If cache miss, fallback to regular search
         if (response.status === 404) {
@@ -1071,16 +1088,16 @@ const paginate = async (pageNumber) => {
         }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const data = await response.json();
       console.log("Filtered search results:", data);
-      
+
       if (data.success && data.results && Array.isArray(data.results)) {
         setHasSearched(true);
-        
+
         // Process results and get summaries
         const processedResults = processSearchResults(data.results);
-        
+
         try {
           console.log("Fetching summaries for filtered results");
           const resultsWithSummaries = await getSummariesForOpportunities(processedResults);
@@ -1089,11 +1106,11 @@ const paginate = async (pageNumber) => {
           console.error("Error getting summaries for filtered results:", error);
           setOpportunities(processedResults); // Fallback to original results
         }
-        
+
         setTotalResults(data.total || data.results.length);
         setCurrentPage(data.page || 1);
         setTotalPages(data.total_pages || Math.ceil(data.total / resultsPerPage));
-        
+
         // Save to session storage
         saveSearchStateToSession(
           searchQuery,
@@ -1115,7 +1132,7 @@ const paginate = async (pageNumber) => {
     console.log(`Setting job type filter to: ${type}`);
     // Update job type state
     setJobType(type);
-    
+
     // Apply filter immediately if we have search results
     if (hasSearched) {
       console.log(`Applying job type filter: ${type}`);
@@ -1132,11 +1149,11 @@ const paginate = async (pageNumber) => {
     setFilterValues((prev) => ({ ...prev, dueDate: value }));
 
     if (value === "none") {
-        // If "None" is selected, trigger a new search with the original query
-        console.log("No due date filter applied, fetching original results.");
-        handleSearch(null, originalQuery); // Call handleSearch with the original query
+      // If "None" is selected, trigger a new search with the original query
+      console.log("No due date filter applied, fetching original results.");
+      handleSearch(null, originalQuery); // Call handleSearch with the original query
     } else if (hasSearched) {
-        fetchFilteredResults({ ...filterValues, dueDate: value });
+      fetchFilteredResults({ ...filterValues, dueDate: value });
     }
   };
 
@@ -1144,7 +1161,7 @@ const paginate = async (pageNumber) => {
   const handlePostedDateFilterChange = (value) => {
     console.log(`Setting posted date filter to: ${value}`);
     setFilterValues((prev) => ({ ...prev, postedDate: value }));
-    
+
     if (hasSearched) {
       fetchFilteredResults({ ...filterValues, postedDate: value });
     }
@@ -1153,7 +1170,7 @@ const paginate = async (pageNumber) => {
   const handleNaicsCodeChange = (value) => {
     console.log(`Setting NAICS code filter to: ${value}`);
     setFilterValues((prev) => ({ ...prev, naicsCode: value }));
-    
+
     if (hasSearched) {
       fetchFilteredResults({ ...filterValues, naicsCode: value });
     }
@@ -1162,7 +1179,7 @@ const paginate = async (pageNumber) => {
   // Add this function to handle viewing details
   const handleViewDetails = (opportunity) => {
     console.log("View Details clicked for opportunity:", opportunity);
-    
+
     if (opportunity.external_url) {
       console.log("Opening external URL:", opportunity.external_url);
       window.open(opportunity.external_url, '_blank');
@@ -1175,7 +1192,7 @@ const paginate = async (pageNumber) => {
         // Use the opportunity's notice_id if available
         const noticeId = opportunity.notice_id || "778288d2aea24e14a253786bc0ec0369";
         const fallbackUrl = `https://sam.gov/opp/${noticeId}/view`;
-        
+
         console.log("Using notice_id for SAM.gov opportunity:", fallbackUrl);
         window.open(fallbackUrl, '_blank');
       } else if (opportunity.platform === "freelancer") {
@@ -1187,7 +1204,7 @@ const paginate = async (pageNumber) => {
           // If not, create a search URL with the title
           const searchQuery = encodeURIComponent(opportunity.title.split(' ').slice(0, 3).join(' '));
           const fallbackUrl = `https://www.freelancer.com/search/projects?q=${searchQuery}`;
-          
+
           console.log("No direct URL for Freelancer opportunity. Using search fallback:", fallbackUrl);
           window.open(fallbackUrl, '_blank');
         }
@@ -1203,11 +1220,11 @@ const paginate = async (pageNumber) => {
     // Check if we have a direct opportunity ID in the URL
     const path = window.location.pathname;
     const match = path.match(/\/opportunities\/(\d+)/);
-    
+
     if (match && match[1]) {
       const oppId = match[1];
       console.log(`Direct navigation to opportunity ID: ${oppId}`);
-      
+
       // Fetch this specific opportunity
       const fetchOpportunity = async () => {
         try {
@@ -1231,37 +1248,37 @@ const paginate = async (pageNumber) => {
           console.error("Error fetching opportunity:", error);
         }
       };
-      
+
       fetchOpportunity();
     }
   }, []);
 
 
   // Add browser session detection for cache refresh
-// Add browser session detection for cache refresh
-useEffect(() => {
-  // Create or update session marker
-  const sessionMarker = "opportunitiesPageVisited";
-  const previouslyVisited = sessionStorage.getItem(sessionMarker);
-  
-  // Set the marker for this session
-  sessionStorage.setItem(sessionMarker, "true");
-  
-  // If user is authenticated but no previous session marker exists,
-  // this might be a browser that was closed and reopened
-  if (!previouslyVisited && tokenService.getUserIdFromToken()) {
-    console.log("New browser session detected - refreshing search data");
-    
-    // If we have an active search, rerun it with is_new_search=true
-    if (searchQuery && hasSearched) {
-      handleSearch(null, searchQuery);
+  // Add browser session detection for cache refresh
+  useEffect(() => {
+    // Create or update session marker
+    const sessionMarker = "opportunitiesPageVisited";
+    const previouslyVisited = sessionStorage.getItem(sessionMarker);
+
+    // Set the marker for this session
+    sessionStorage.setItem(sessionMarker, "true");
+
+    // If user is authenticated but no previous session marker exists,
+    // this might be a browser that was closed and reopened
+    if (!previouslyVisited && tokenService.getUserIdFromToken()) {
+      console.log("New browser session detected - refreshing search data");
+
+      // If we have an active search, rerun it with is_new_search=true
+      if (searchQuery && hasSearched) {
+        handleSearch(null, searchQuery);
+      }
     }
-  }
-}, []);
+  }, []);
 
   const applySearchWithSort = async (newSortType) => {
     setIsSearching(true);
-    
+
     try {
       const searchParams = {
         query: searchQuery,
@@ -1284,13 +1301,13 @@ useEffect(() => {
         },
         body: JSON.stringify(searchParams),
       });
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const data = await response.json();
-      
+
       // Update state with new sorted results
       if (data.results && Array.isArray(data.results)) {
         setOpportunities(data.results);
@@ -1307,9 +1324,9 @@ useEffect(() => {
 
   const handleSortByChange = (newSortBy) => {
     if (newSortBy === sortBy) return;  // No change
-    
+
     setSortBy(newSortBy);
-    
+
     // If we have search results already, reapply the search with the new sort
     if (hasSearched) {
       applySearchWithSort(newSortBy);
@@ -1321,7 +1338,7 @@ useEffect(() => {
   // Filtered opportunities based on job type
   const filteredOpportunities = opportunities.filter((opportunity) => {
 
- 
+
 
 
     if (jobType === "Federal") {
@@ -1370,7 +1387,7 @@ useEffect(() => {
   const fetchFilteredResults = async (filters) => {
     console.log("Fetching filtered results with filters:", filters);
     setIsSearching(true);
-    
+
     const params = {
       query: searchQuery,
       user_id: tokenService.getUserIdFromToken(),
@@ -1411,7 +1428,7 @@ useEffect(() => {
         setTotalResults(data.total);
         setTotalPages(data.total_pages);
         setCurrentPage(1);
-        
+
         // Save filtered results to session storage
         saveSearchStateToSession(
           searchQuery,
@@ -1439,14 +1456,14 @@ useEffect(() => {
       console.error('Results is not an array:', results);
       return [];
     }
-    
+
     // Log the first result for debugging
     if (results.length > 0) {
       console.log('First result sample:', results[0]);
     } else {
       console.log('No results returned from API');
     }
-    
+
     // Ensure all results have the required fields with valid data
     return results.map(result => {
       // Create a normalized result with default values for all required fields
@@ -1463,7 +1480,7 @@ useEffect(() => {
         // Add any other fields your UI requires
         ...result
       };
-      
+
       return normalizedResult;
     });
   };
@@ -1471,10 +1488,10 @@ useEffect(() => {
   // Add this function to get summaries for opportunities
   const getSummariesForOpportunities = async (opps) => {
     if (!opps || opps.length === 0) return opps;
-    
+
     try {
       console.log("Getting summaries for opportunities");
-      
+
       const response = await fetch(`${API_BASE_URL}/summarize-descriptions`, {
         method: "POST",
         headers: {
@@ -1482,13 +1499,13 @@ useEffect(() => {
         },
         body: JSON.stringify({ opportunities: opps }),
       });
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const data = await response.json();
-      
+
       if (data.success && data.opportunities) {
         // For each opportunity, add the summary if available
         return data.opportunities.map(opp => {
@@ -1499,7 +1516,7 @@ useEffect(() => {
           return opp;
         });
       }
-      
+
       return opps;
     } catch (error) {
       console.error("Error getting summaries:", error);
@@ -1546,6 +1563,13 @@ useEffect(() => {
                   <MessageCircle size={16} />
                   <span className="font-medium">Live Support</span>
                 </button>
+                <button
+                  onClick={handleLogout}
+                  className="bg-blue-50 text-blue-600 hover:bg-blue-100 px-4 py-2 rounded-lg text-sm flex items-center gap-2 border border-blue-100 transition-colors"
+                >
+                  <Power size={16} />
+                  {/* <span className="font-medium">Logout</span> */}
+                </button>
               </div>
             </div>
           </div>
@@ -1553,21 +1577,19 @@ useEffect(() => {
           {/* Body - Two Column Layout */}
           <div className="flex-1 flex overflow-hidden">
             {/* Filters Column */}
-            <div 
-              className={`border-r border-gray-200 overflow-y-auto relative bg-white shadow-sm transition-all duration-300 ease-in-out ${
-                filtersOpen ? "w-72" : "w-16"
-              }`}
+            <div
+              className={`border-r border-gray-200 overflow-y-auto relative bg-white shadow-sm transition-all duration-300 ease-in-out ${filtersOpen ? "w-72" : "w-16"
+                }`}
             >
               <div className="sticky top-0 z-10 p-4 border-b border-gray-200 bg-white flex items-center justify-between">
                 {filtersOpen && (
                   <h2 className="font-semibold text-lg text-gray-800">Filters</h2>
                 )}
                 <button
-                  className={`rounded-full flex items-center justify-center transition-all duration-300 ${
-                    filtersOpen
+                  className={`rounded-full flex items-center justify-center transition-all duration-300 ${filtersOpen
                       ? "ml-auto bg-gray-100 hover:bg-gray-200 w-8 h-8"
                       : "bg-blue-50 hover:bg-blue-100 text-blue-600 w-10 h-10 border border-blue-200"
-                  }`}
+                    }`}
                   onClick={toggleFiltersBar}
                 >
                   {filtersOpen ? (
@@ -1650,7 +1672,7 @@ useEffect(() => {
                       </div>
                     )}
                   </div>
-                  
+
                   {/* Posted Date Filter */}
                   <div className="border-b border-gray-100">
                     <div
@@ -1837,8 +1859,8 @@ useEffect(() => {
                     />
                     {searchQuery && (
                       <div className="absolute inset-y-0 right-12 pr-3 flex items-center">
-                        <button 
-                          type="button" 
+                        <button
+                          type="button"
                           onClick={clearSearch}
                           className="text-gray-400 hover:text-gray-600 p-1.5 rounded-full hover:bg-gray-100"
                         >
@@ -1847,7 +1869,7 @@ useEffect(() => {
                       </div>
                     )}
                     <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
-                      <button 
+                      <button
                         type="submit"
                         className="p-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg flex items-center justify-center shadow-sm transition-all"
                       >
@@ -1855,8 +1877,8 @@ useEffect(() => {
                       </button>
                     </div>
                   </div>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={() => navigate("/settings")}
                     className="p-3 rounded-xl border border-gray-200 text-gray-600 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-colors shadow-sm"
                   >
@@ -1878,24 +1900,22 @@ useEffect(() => {
               {/* Results tabs and counters */}
               <div className="border-b border-gray-200 px-5 py-2 bg-white flex items-center justify-between">
                 <div className="flex items-center gap-6">
-                  <div 
-                    className={`py-3 px-1 border-b-2 ${
-                      sortBy === 'relevance' ? 'border-blue-500 text-blue-600 font-medium' : 'border-transparent text-gray-500 hover:text-gray-700'
-                    } cursor-pointer`} 
+                  <div
+                    className={`py-3 px-1 border-b-2 ${sortBy === 'relevance' ? 'border-blue-500 text-blue-600 font-medium' : 'border-transparent text-gray-500 hover:text-gray-700'
+                      } cursor-pointer`}
                     onClick={() => handleSortByChange('relevance')}
                   >
                     Most Relevant
                   </div>
-                  <div 
-                    className={`py-3 px-1 border-b-2 ${
-                      sortBy === 'ending_soon' ? 'border-blue-500 text-blue-600 font-medium' : 'border-transparent text-gray-500 hover:text-gray-700'
-                    } cursor-pointer`} 
+                  <div
+                    className={`py-3 px-1 border-b-2 ${sortBy === 'ending_soon' ? 'border-blue-500 text-blue-600 font-medium' : 'border-transparent text-gray-500 hover:text-gray-700'
+                      } cursor-pointer`}
                     onClick={() => handleSortByChange('ending_soon')}
                   >
                     Ending Soon
                   </div>
                 </div>
-                
+
                 {hasSearched && (
                   <div className="flex items-center gap-3">
                     <div className="py-1 px-3 bg-blue-100 text-blue-700 text-sm font-medium rounded-full">
@@ -1946,7 +1966,7 @@ useEffect(() => {
 
                     {/* Optionally, add a button to show/hide the recommendations panel */}
                     {hasSearched && (
-                      <button 
+                      <button
                         onClick={toggleRecommendationsPanel}
                         className="mb-4 px-4 py-2 bg-blue-50 text-blue-600 rounded-md font-medium flex items-center gap-2 hover:bg-blue-100 transition-colors"
                       >
@@ -1980,40 +2000,64 @@ useEffect(() => {
                                   </div>
                                   <div className="flex-1">
                                     <h2 className="text-lg font-semibold text-gray-800 hover:text-blue-600 transition-colors">
-                                      {opportunity.title}
+
+                                      {(() => {
+                                        // Function to bold dates
+                                        const highlightSearchTerms = (text: string) => {
+                                          const searchTerms = refinedQuery.replace('site:sam.gov', '').replace('government contract', '').split(' OR').map(term => term.replace('AND', '').replace('OR', '').replace('"', '').trim()).filter(term => term.length > 0);
+                                          if (searchTerms.length) {
+                                            const regex = new RegExp(`(${searchTerms.join('|')})`, 'gi');
+                                            text = text.replace(regex, (match) => {
+                                              return `<span style="background-color: #B6D6FD; font-weight: bold;">${match}</span>`;
+                                            });
+                                          }
+                                          return text;
+                                        };
+
+                                        return (
+                                          <strong
+                                            dangerouslySetInnerHTML={{ __html: highlightSearchTerms(opportunity.title) }}
+                                          />
+                                        );
+                                      })()}
+
                                     </h2>
                                     <div className="flex items-center text-sm text-gray-500 mt-1">
                                       <span>{opportunity.agency}</span>
                                     </div>
                                   </div>
-                                  
+
                                   {/* Due Date Blip - Positioned on the right side to capture focus */}
                                   {opportunity.response_date && (
                                     <div className="flex-shrink-0">
-                                      <div className={`px-3 py-1.5 rounded-lg text-center ${
-                                        new Date(opportunity.response_date) < new Date() 
-                                          ? 'bg-red-50 text-red-600 border border-red-100' 
+                                      <div className={`px-3 py-1.5 rounded-lg text-center ${new Date(opportunity.response_date) < new Date()
+                                          ? 'bg-red-50 text-red-600 border border-red-100'
                                           : 'bg-blue-50 text-blue-600 border border-blue-100'
-                                      }`}>
+                                        }`}>
                                         <div className="text-xs font-medium">DUE</div>
                                         <div className="text-sm font-bold">{opportunity.response_date || "TBD"}</div>
                                       </div>
                                     </div>
                                   )}
                                 </div>
-                                
+
                                 {/* Info grid - 3 columns layout */}
-                                <div className="grid grid-cols-3 gap-4 mt-4">
+                                <div className="grid grid-cols-4 gap-4 mt-4">
                                   <div>
                                     <div className="text-sm text-gray-500">Published</div>
                                     <div className="font-medium">{opportunity.published_date || "Recent"}</div>
                                   </div>
-                                  
+
+                                  <div>
+                                    <div className="text-sm text-gray-500">Funding</div>
+                                    <div className="font-medium">{opportunity.budget || "Not specified"}</div>
+                                  </div>
+
                                   <div>
                                     <div className="text-sm text-gray-500">NAICS Code</div>
                                     <div className="font-medium">{opportunity.naics_code || opportunity.naicsCode || "000000"}</div>
                                   </div>
-                                  
+
                                   <div>
                                     <div className="text-sm text-gray-500">Solicitation #</div>
                                     <div className="font-medium truncate">
@@ -2021,7 +2065,7 @@ useEffect(() => {
                                     </div>
                                   </div>
                                 </div>
-                                
+
                                 {/* Enhanced Details Section */}
                                 <div className="mt-3 bg-gradient-to-br from-blue-50 to-blue-100 shadow-xl rounded-xl border border-blue-100 transition-all duration-300 ease-in-out overflow-hidden">
                                   <div className="p-4 border-b border-blue-200 bg-gradient-to-r from-blue-100 via-blue-200 to-blue-300 flex items-center">
@@ -2034,15 +2078,15 @@ useEffect(() => {
                                       <span className="text-xs text-gray-600 font-medium">AI Generated</span>
                                     </div>
                                   </div>
-                                  
-                                  <div 
-                                    className="text-base p-4 bg-white/80 backdrop-blur-sm" 
-                                    style={{ fontFamily: "Geneva, sans-serif" }} 
+
+                                  <div
+                                    className="text-base p-4 bg-white/80 backdrop-blur-sm"
+                                    style={{ fontFamily: "Geneva, sans-serif" }}
                                   >
                                     {opportunity.additional_description && (
                                       <div className="relative">
                                         <div className="absolute top-0 left-0 w-1 bg-gradient-to-b from-blue-600 to-blue-700 h-full rounded-full mr-3"></div>
-                                        
+
                                         {/* Split description into paragraphs */}
                                         {(() => {
                                           const paragraphs = opportunity.additional_description.split('\n\n');
@@ -2054,20 +2098,26 @@ useEffect(() => {
 
                                           // Function to bold dates
                                           const boldDates = (text: string) => {
+                                            const searchTerms = refinedQuery.replace('site:sam.gov', '').replace('government contract', '').split(' OR').map(term => term.replace('AND', '').replace('OR', '').replace('"', '').trim()).filter(term => term.length > 0);
+                                            if (searchTerms.length) {
+                                              const regex = new RegExp(`(${searchTerms.join('|')})`, 'gi');
+                                              text = text.replace(regex, (match) => {
+                                                return `<span style="background-color:#B6D6FD; font-weight: bold;">${match}</span>`;
+                                              });
+                                            }
                                             return text.replace(dateRegex, (match) => `<strong class="font-bold text-blue-700">${match}</strong>`);
                                           };
 
                                           return (
                                             <div>
                                               <p
-                                                className={`text-gray-700 pl-4 overflow-hidden transition-all duration-300 ${
-                                                  expandedDescriptions[opportunity.id] ? "" : "line-clamp-4"
-                                                }`}
+                                                className={`text-gray-700 pl-4 overflow-hidden transition-all duration-300 ${expandedDescriptions[opportunity.id] ? "" : "line-clamp-4"
+                                                  }`}
                                                 dangerouslySetInnerHTML={{ __html: boldDates(firstHalf) }}
                                               />
 
                                               {expandedDescriptions[opportunity.id] && (
-                                                <p 
+                                                <p
                                                   className="text-gray-700 pl-4 mt-2"
                                                   dangerouslySetInnerHTML={{ __html: boldDates(secondHalf) }}
                                                 />
@@ -2075,7 +2125,7 @@ useEffect(() => {
                                             </div>
                                           );
                                         })()}
-                                        
+
                                         {opportunity.additional_description && (
                                           <button
                                             onClick={() => toggleDescription(opportunity.id)}
@@ -2100,7 +2150,7 @@ useEffect(() => {
                                   </div>
                                 </div>
                               </div>
-                              
+
                               {/* Tags */}
                               <div className="px-5 py-1.5 flex flex-wrap items-center gap-2">
                                 <div className="px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-sm">
@@ -2115,27 +2165,27 @@ useEffect(() => {
                                 <div className="px-3 py-1 bg-purple-50 text-purple-600 rounded-full text-sm">
                                   Federal
                                 </div>
-                                
+
                                 {/* If there's a defined due date and it's soon (less than 7 days away), show this tag */}
-                                {opportunity.response_date && new Date(opportunity.response_date) > new Date() && 
-                                 (new Date(opportunity.response_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24) < 7 && (
-                                  <div className="px-3 py-1 bg-amber-50 text-amber-600 rounded-full text-sm flex items-center">
-                                    <Clock size={12} className="mr-1" />
-                                    Ending Soon
-                                  </div>
-                                )}
+                                {opportunity.response_date && new Date(opportunity.response_date) > new Date() &&
+                                  (new Date(opportunity.response_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24) < 7 && (
+                                    <div className="px-3 py-1 bg-amber-50 text-amber-600 rounded-full text-sm flex items-center">
+                                      <Clock size={12} className="mr-1" />
+                                      Ending Soon
+                                    </div>
+                                  )}
                               </div>
-                              
+
                               {/* Action Buttons */}
                               <div className="p-3 flex items-center gap-2">
-                                <button 
+                                <button
                                   onClick={() => handleAddToPursuit(opportunity)}
                                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center gap-2"
                                 >
                                   <Plus size={16} />
                                   <span>Add to Pursuits</span>
                                 </button>
-                                <button 
+                                <button
                                   onClick={() => handleBeginResponse(opportunity.id, opportunity)}
                                   className="px-4 py-2 bg-green-50 text-green-600 hover:bg-green-100 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 border border-green-200"
                                 >
@@ -2167,7 +2217,7 @@ useEffect(() => {
                           <p className="text-gray-600 mb-4">
                             Try adjusting your search terms or filters to find more opportunities.
                           </p>
-                          <button 
+                          <button
                             onClick={clearSearch}
                             className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
                           >
@@ -2186,7 +2236,7 @@ useEffect(() => {
                         </p>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           {suggestedQueries.map((query) => (
-                            <div 
+                            <div
                               key={query.id}
                               onClick={() => handleSuggestedQueryClick(query.id)}
                               className="bg-white rounded-xl border border-gray-200 p-5 cursor-pointer hover:border-blue-300 hover:shadow-lg transition-all group"
