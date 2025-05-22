@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { RfpOverview } from './RfpOverview';
 import RfpResponse from './rfpResponse';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Loader2, Eye, Download, AlertCircle, Info } from 'lucide-react';
+import { Loader2, Eye, Download, AlertCircle, Info, X } from 'lucide-react';
 import { supabase } from '../../utils/supabase';
 import { toast } from 'sonner';
 
@@ -51,6 +51,7 @@ export function RfpContainer({ initialContent = '', contract }) {
   const [showEditor, setShowEditor] = useState(false);
   const [generatingRfp, setGeneratingRfp] = useState(false);
   const [viewDescription, setViewDescription] = useState(false);
+  const [viewHtml, setViewHtml] = useState(false); // New state for HTML modal
   const [descriptionContent, setDescriptionContent] = useState('');
   const [existingRfpData, setExistingRfpData] = useState<RfpResponseData | null>(null);
   const [isCheckingExisting, setIsCheckingExisting] = useState<boolean>(true);
@@ -309,12 +310,21 @@ export function RfpContainer({ initialContent = '', contract }) {
   // Handle downloading the current RFP state
   const handleDownloadRfp = () => {
     if (!existingRfpData) {
-      toast?.info("Generate an RFP response first.");
-      return;
+      // toast?.info("Generate an RFP response first.");
+      // return;
+      setViewHtml(true);
     }
     
     // This would be implemented to generate and download the RFP document
     toast?.info("Download functionality will be implemented in a future update.");
+  };
+
+  const handleDownloadHtml = () => {
+    const htmlFile = "/proposal-template.html"; // Replace with your HTML file's URL or path
+    const link = document.createElement("a");
+    link.href = htmlFile;
+    link.download = "proposal-template.html"; // Set the downloaded file name
+    link.click();
   };
 
   return (
@@ -336,6 +346,40 @@ export function RfpContainer({ initialContent = '', contract }) {
               <div className="prose max-w-none">
                 {descriptionContent || 'No detailed description available.'}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* HTML View Modal */}
+      {viewHtml && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-start overflow-y-auto overflow-x-hidden p-2">
+          <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full mx-1 my-4 relative box-border">
+            <div className="sticky top-0 bg-white z-10 p-3 border-b flex justify-between items-center">
+              <h2 className="text-xl font-bold">Sample RFP Response</h2>
+              <button
+                onClick={() => setViewHtml(false)}
+                className="text-gray-500 hover:text-gray-700 p-2 rounded-full hover:bg-gray-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-3 overflow-y-auto overflow-x-hidden max-h-[85vh]">
+              <iframe
+                src="/proposal-template.html"
+                className="w-full h-[75vh] border-none box-border"
+                style={{ maxWidth: "100%", overflowX: "hidden" }}
+                title="Sample RFP Response"
+                onError={() => {
+                  toast?.error("Failed to load HTML file.");
+                }}
+              />
+              {/* <button
+                onClick={handleDownloadHtml}
+                className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Download HTML
+              </button> */}
             </div>
           </div>
         </div>
@@ -373,6 +417,7 @@ export function RfpContainer({ initialContent = '', contract }) {
                   description={contract?.description}
                   solicitation_number={contract?.solicitation_number}
                   published_date={contract?.published_date}
+                  budget={contract?.budget}
                   onViewDescription={handleViewDescription}
                   onGenerateResponse={handleDownloadRfp}
                   onGenerateRfp={handleGenerateRfp}

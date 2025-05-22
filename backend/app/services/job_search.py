@@ -1,4 +1,5 @@
 import logging
+import re
 from sentence_transformers import SentenceTransformer
 from pinecone import Pinecone
 import os
@@ -52,6 +53,108 @@ def is_valid_additional_description(text):
     )
     return placeholder not in text
 
+def build_filters(
+    contract_type: Optional[str] = None,
+    platform: Optional[str] = None,
+    due_date_filter: Optional[str] = None,
+    posted_date_filter: Optional[str] = None,
+    naics_code: Optional[str] = None,
+    opportunity_type: Optional[str] = None,
+    user_id: Optional[str] = None
+) -> dict:
+    filters = {}
+
+    # Filter by platform ("sam_gov" or "freelancer")
+    if platform:
+        filters["source"] = platform  # "source" stores the platform ('sam_gov', 'freelancer')
+
+    # Filter by contract_type (could be stored in "department" for SAM.gov)
+    if contract_type:
+        filters["department"] = contract_type  # "department" is the assumed field for contract type in SAM.gov
+
+    # Filter by NAICS code (only available in SAM.gov)
+    if naics_code:
+        filters["naics_code"] = naics_code  # "naics_code" is available in SAM.gov metadata
+
+    # Filter by opportunity_type (maps to platform type 'sam_gov' or 'freelancer')
+    if opportunity_type:
+        filters["platform"] = opportunity_type  # "platform" field indicates opportunity type (e.g., 'Federal', 'Freelancer')
+
+    # Filter by user_id (assuming user_id is part of the metadata for user-specific filtering)
+    if user_id:
+        filters["user_id"] = user_id  # Assuming "user_id" exists in the metadata
+
+    # Filter by due date (response_date) 
+    if due_date_filter:
+        filters["response_date"] = {"$lte": due_date_filter}  # Filters based on "response_date" metadata
+
+    # Filter by posted date (published_date)
+    if posted_date_filter:
+        filters["published_date"] = {"$gte": posted_date_filter}  # Filters based on "published_date" metadata
+
+    return {}
+
+
+def extract_budget_mentions(text: str) -> Optional[str]:
+    """
+    Extract budget mentions from text using regex patterns.
+    Looks for patterns like:
+    - $X,XXX,XXX
+    - $X.X million
+    - Budget: $X,XXX
+    - Estimated value: $X,XXX
+    """
+    if not text:
+        return None
+        
+    # First try to match patterns with units (M, Million, etc.)
+    unit_patterns = [
+        (r'\$[\d,]+(?:\.\d+)?\s*[MBK]', 'short'),  # $99M, $99.9B, $99K
+        (r'\$[\d,]+(?:\.\d+)?\s*(?:Million|Billion|Thousand)', 'full'),  # $99 Million, $99.9 Billion
+        (r'\$[\d,]+(?:\.\d+)?(?:\s*(?:million|billion|thousand))', 'full'),  # $1.2 million
+    ]
+    
+    for pattern, unit_type in unit_patterns:
+        matches = re.findall(pattern, text, re.IGNORECASE)
+        if matches:
+            match = matches[0]
+            # Extract the number and unit
+            if unit_type == 'short':
+                # For short form (M, B, K)
+                num = re.sub(r'[^\d.]', '', match)
+                unit = re.search(r'[MBK]', match, re.IGNORECASE).group().upper()
+                if unit == 'M':
+                    return f"${float(num):,.1f}M"
+                elif unit == 'B':
+                    return f"${float(num):,.1f}B"
+                elif unit == 'K':
+                    return f"${float(num):,.1f}K"
+            else:
+                # For full form (Million, Billion, Thousand)
+                num = re.sub(r'[^\d.]', '', match)
+                if 'million' in match.lower():
+                    return f"${float(num):,.1f}M"
+                elif 'billion' in match.lower():
+                    return f"${float(num):,.1f}B"
+                elif 'thousand' in match.lower():
+                    return f"${float(num):,.1f}K"
+    
+    # If no unit patterns match, try regular dollar amounts
+    regular_patterns = [
+        r'\$[\d,]+(?:\.\d+)?',  # $1,234,567
+        r'(?:budget|estimated value|estimated cost|total value):\s*\$[\d,]+(?:\.\d+)?',  # Budget: $1,234,567
+        r'(?:not to exceed|NTE|not exceeding):\s*\$[\d,]+(?:\.\d+)?',  # NTE: $1,234,567
+    ]
+    
+    for pattern in regular_patterns:
+        matches = re.findall(pattern, text, re.IGNORECASE)
+        if matches:
+            match = matches[0]
+            num = float(re.sub(r'[^\d.]', '', match))
+            return f"${num:,.2f}"
+            
+    return None
+
 
 def search_jobs(
     query: str,
@@ -68,13 +171,12 @@ def search_jobs(
     Enhanced search with re-ranking for relevance, ending soon, or newest sorting.
     """
     try:
+        # query = query.replaceAll('OR', ' ').replaceAll('AND', ' ').replaceAll('site:sam.gov', '').split()
+        query = re.sub(r'OR|AND|site:sam.gov|government contract|"', ' ', query)
         # Prepare query terms
         query_terms = set(
             term.lower()
-            for term in query.replace('OR', ' ')
-                             .replace('AND', ' ')
-                             .replace('site:sam.gov', '')
-                             .split()
+            for term in query
         )
 
         # Generate and normalize embedding
@@ -85,11 +187,21 @@ def search_jobs(
 
         # Pinecone query
         try:
+            filters = build_filters(
+                contract_type,        # Example: contract type filter
+                platform,               # Example: platform filter
+                due_date_filter,     # Example: due date filter
+                posted_date_filter,  # Example: posted date filter
+                naics_code,              # Example: NAICS code filter
+                opportunity_type       # Example: opportunity type filter
+            )
+
             results = index.query(
                 vector=embedding,
-                top_k=100,
+                top_k=50,
                 include_metadata=True,
-                namespace=""
+                namespace="",
+                filter=filters
             )
             if not results.matches:
                 return []
@@ -161,6 +273,10 @@ def search_jobs(
                     if due_date_filter:
                         # add due_date_filter logic
                         pass
+                    
+                    # Add condition to filter out past due opportunities
+                    sql += " AND (response_date IS NULL OR response_date >= CURRENT_DATE)"
+                    sql += " AND active = true"
 
                     cur.execute(sql, params)
                     rows = cur.fetchall()
@@ -175,6 +291,14 @@ def search_jobs(
                         rec['external_url'] = f"https://sam.gov/opp/{nid}/view" if nid else None
                         rec['platform'] = 'sam.gov'
                         rec['agency'] = rec.get('department')
+                        
+                        # Extract budget mentions from description and additional_description
+                        description = rec.get('description', '')
+                        additional_description = rec.get('additional_description', '')
+                        budget = extract_budget_mentions(description) or extract_budget_mentions(additional_description)
+                        if budget:
+                            rec['budget'] = budget
+                            
                         all_results.append(rec)
 
                 # Freelancer records
@@ -190,7 +314,12 @@ def search_jobs(
                     cur.execute(fq, freelancer_ids)
                     fcols = ["id", "title", "description", "agency", "platform", "value", "external_url"]
                     for r in cur.fetchall():
-                        all_results.append(dict(zip(fcols, r)))
+                        rec = dict(zip(fcols, r))
+                        # Extract budget mentions from description
+                        budget = extract_budget_mentions(rec.get('description', ''))
+                        if budget:
+                            rec['budget'] = budget
+                        all_results.append(rec)
 
                 # Ranking & sorting
                 for res in all_results:
@@ -205,7 +334,7 @@ def search_jobs(
                         adm = sum(1 for t in query_terms if t in ad.lower())
 
                     tmr = tm / len(query_terms) if query_terms else 0
-                    words = [w for w in query.lower().replace('OR',' ').replace('AND',' ').replace('site:sam.gov','').split() if w]
+                    words = [w for w in query.lower().split() if w]
                     bigrams = [f"{words[i]} {words[i+1]}" for i in range(len(words)-1)]
                     bgm = sum(1 for bg in bigrams if bg in title)
 

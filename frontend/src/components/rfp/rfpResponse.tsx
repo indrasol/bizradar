@@ -1,20 +1,20 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { 
-  Download, 
-  Sparkles, 
-  PenLine, 
-  Image, 
-  Plus, 
-  Trash2, 
-  ChevronDown, 
-  ChevronUp, 
-  FileText, 
-  Eye, 
-  Settings, 
-  CheckCircle, 
-  Circle, 
-  X, 
-  Move, 
+import {
+  Download,
+  Sparkles,
+  PenLine,
+  Image,
+  Plus,
+  Trash2,
+  ChevronDown,
+  ChevronUp,
+  FileText,
+  Eye,
+  Settings,
+  CheckCircle,
+  Circle,
+  X,
+  Move,
   Save,
   ArrowRight,
   CheckCircle2,
@@ -25,8 +25,17 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../utils/supabase';
 import { toast } from "sonner";
+import html2pdf from 'html2pdf.js';
+import html2canvas from 'html2canvas';
+import { saveAs } from 'file-saver';
+import { Document, Packer, Paragraph, TextRun, ImageRun, AlignmentType } from 'docx';
+import RfpPreview from './rfpPreview';
+import RfpPreviewContent from './rfpPreviewContent';
+import jsPDF from 'jspdf';
 
 const RfpResponse = ({ contract, pursuitId }) => {
+  const contentRef = useRef<HTMLDivElement>(null);
+
   const exampleJob = contract || {
     title: 'DA10--Retail Merchandising System (RMS) and the Oracle Retail Store Inventory Management (SIM)',
     dueDate: '2025-04-11',
@@ -116,34 +125,50 @@ const RfpResponse = ({ contract, pursuitId }) => {
 
   const [sections, setSections] = useState(defaultTemplate(exampleJob));
 
+  const [proposalData, setProposalData] = useState({
+    logo: null,
+    companyName: 'BizRadar Solutions',
+    companyWebsite: 'https://www.bizradar.com',
+    letterhead: '123 Innovation Drive, Suite 100, TechCity, TX 75001',
+    phone: '(510) 754-2001',
+    rfpTitle: contract?.title ||  'Proposal for Cybersecurity Audit & Penetration Testing Services',
+    naicsCode: contract?.naicsCode || '000000',
+    solicitationNumber: contract?.solicitation_number || '',
+    issuedDate: contract?.published_date || new Date().toLocaleDateString(),
+    submittedBy: 'Jane Smith, BizRadar (CEO)',
+    theme: 'professional',
+    sections: defaultTemplate(exampleJob)
+  });
+
   // Load saved RFP data when component mounts
   useEffect(() => {
     const loadRfpData = async () => {
       if (!pursuitId) return;
-      
+
       try {
         console.log("Loading RFP data for pursuit ID:", pursuitId);
-        
+
         // Fetch RFP response data for this pursuit
         const { data: responses, error } = await supabase
           .from('rfp_responses')
           .select('*')
           .eq('pursuit_id', pursuitId);
-        
+
         if (error) {
           console.error("Error loading RFP data:", error);
           toast?.error("Failed to load saved RFP data.");
           return;
         }
-        
+
         if (responses && responses.length > 0) {
           const data = responses[0];
-          
+
           if (data.content) {
             const content = data.content;
-            
+
             // Set all state values from saved data
             setLogo(content.logo || null);
+            console.log("Logo:", logo);
             setCompanyName(content.companyName || 'BizRadar Solutions');
             setCompanyWebsite(content.companyWebsite || 'https://www.bizradar.com');
             setLetterhead(content.letterhead || '123 Innovation Drive, Suite 100, TechCity, TX 75001');
@@ -156,16 +181,31 @@ const RfpResponse = ({ contract, pursuitId }) => {
             if (Array.isArray(content.sections)) {
               setSections(content.sections);
             }
+
+            setProposalData({
+              logo: content.logo || logo,
+              companyName: content.companyName || 'BizRadar Solutions',
+              companyWebsite: content.companyWebsite || 'https://www.bizradar.com',
+              letterhead: content.letterhead || '123 Innovation Drive, Suite 100, TechCity, TX 75001',
+              phone: content.phone || '(510) 754-2001',
+              rfpTitle: content.rfpTitle || 'Proposal for Cybersecurity Audit & Penetration Testing Services',
+              naicsCode: content.naicsCode || '000000',
+              solicitationNumber: content.solicitationNumber || exampleJob.solicitationNumber,
+              issuedDate: content.issuedDate || 'December 26th, 2024',
+              submittedBy: content.submittedBy || 'Jane Smith, BizRadar (CEO)',
+              theme: content.theme || 'professional',
+              sections: Array.isArray(content.sections) ? content.sections : defaultTemplate(exampleJob),
+            });
           }
-          
+
           // Set submission status
           setIsSubmitted(data.is_submitted || false);
-          
+
           // Set last saved timestamp
           if (data.updated_at) {
             setLastSaved(new Date(data.updated_at).toLocaleTimeString());
           }
-          
+
           console.log("Successfully loaded saved RFP data");
         } else {
           console.log("No existing RFP response found, using default template");
@@ -181,34 +221,34 @@ const RfpResponse = ({ contract, pursuitId }) => {
         toast?.error("An unexpected error occurred while loading RFP data.");
       }
     };
-    
+
     loadRfpData();
   }, [pursuitId]);
-  
+
   // Auto-save feature
   useEffect(() => {
     if (!autoSaveEnabled || !pursuitId) return;
-    
+
     const autoSaveTimer = setTimeout(() => {
       saveRfpData(false); // Don't show notification for auto-save
     }, 60000); // Auto-save every minute
-    
+
     return () => clearTimeout(autoSaveTimer);
   }, [
-    logo, companyName, companyWebsite, letterhead, phone, 
+    logo, companyName, companyWebsite, letterhead, phone,
     rfpTitle, rfpNumber, issuedDate, submittedBy, theme, sections,
     autoSaveEnabled, pursuitId
   ]);
-  
+
   // Function to save RFP data to the database
   const saveRfpData = async (showNotification = true) => {
     try {
       setIsSaving(true);
-      
+
       // Determine the appropriate stage based on completion percentage
       const completedSections = sections.filter(section => section.completed).length;
       const totalSections = sections.length;
-      
+
       let stageToSet;
       if (completedSections === totalSections && totalSections > 0) {
         stageToSet = "RFP Response Completed";
@@ -217,9 +257,9 @@ const RfpResponse = ({ contract, pursuitId }) => {
       } else {
         stageToSet = "Assessment";
       }
-      
+
       console.log("Saving RFP with stage:", stageToSet);
-      
+
       // Prepare the content object to save
       const contentToSave = {
         logo,
@@ -237,30 +277,30 @@ const RfpResponse = ({ contract, pursuitId }) => {
         isSubmitted,
         stage: stageToSet
       };
-      
+
       // Store content in localStorage
       localStorage.setItem(`rfp_response_${pursuitId || 'draft'}`, JSON.stringify(contentToSave));
-      
+
       // Update last saved timestamp
       setLastSaved(new Date().toLocaleTimeString());
-      
+
       // Dispatch a custom event that the Pursuits component can listen for
       console.log("Dispatching rfp_saved event with details:", { pursuitId, stage: stageToSet });
-      
-      const customEvent = new CustomEvent('rfp_saved', { 
-        detail: { 
-          pursuitId, 
+
+      const customEvent = new CustomEvent('rfp_saved', {
+        detail: {
+          pursuitId,
           stage: stageToSet
-        } 
+        }
       });
-      
+
       window.dispatchEvent(customEvent);
-      
+
       // Show success notification
       if (showNotification) {
         toast?.success(`Saved with stage: ${stageToSet}`);
       }
-      
+
     } catch (error) {
       console.error("Error saving RFP data:", error);
       if (showNotification) {
@@ -280,9 +320,48 @@ const RfpResponse = ({ contract, pursuitId }) => {
     }
   };
 
+  // Update proposalData when logo changes
+  useEffect(() => {
+    setProposalData((prev) => ({
+      ...prev,
+      logo: logo, // Update logo in proposalData
+    }));
+  }, [logo]);
+
+  useEffect(() => {
+    setProposalData({
+      logo,
+      companyName,
+      companyWebsite,
+      letterhead,
+      phone,
+      rfpTitle,
+      naicsCode,
+      solicitationNumber,
+      issuedDate,
+      submittedBy,
+      theme,
+      sections, // Ensure sections is included and updated
+    });
+  }, [
+    logo,
+    companyName,
+    companyWebsite,
+    letterhead,
+    phone,
+    rfpTitle,
+    naicsCode,
+    solicitationNumber,
+    issuedDate,
+    submittedBy,
+    theme,
+    sections, // Add sections to the dependency array
+  ]);
+
   const updateField = (index, field, value) => {
     const copy = [...sections];
     copy[index][field] = value;
+    console.log("Updated field:", copy[index][field]);
     setSections(copy);
   };
 
@@ -312,17 +391,17 @@ const RfpResponse = ({ contract, pursuitId }) => {
 
   const moveSection = (id, direction) => {
     const index = sections.findIndex(s => s.id === id);
-    if ((direction === 'up' && index === 0) || 
-        (direction === 'down' && index === sections.length - 1)) {
+    if ((direction === 'up' && index === 0) ||
+      (direction === 'down' && index === sections.length - 1)) {
       return;
     }
-    
+
     const newIndex = direction === 'up' ? index - 1 : index + 1;
     const copy = [...sections];
     const temp = copy[index];
     copy[index] = copy[newIndex];
     copy[newIndex] = temp;
-    
+
     setSections(copy.map((s, i) => ({ ...s, id: i + 1 })));
   };
 
@@ -426,21 +505,394 @@ const RfpResponse = ({ contract, pursuitId }) => {
 
   const colors = getThemeColors();
 
-  const downloadPDF = () => {
-    alert("PDF download feature will be implemented here");
+  const downloadPDF = async () => {
+    try {
+      const contentElement = contentRef.current;
+      if (!contentElement) throw new Error('Content element not found');
+
+      // Store original styles
+      const originalStyles = {
+        position: contentElement.style.position,
+        left: contentElement.style.left,
+        top: contentElement.style.top,
+        zIndex: contentElement.style.zIndex,
+        width: contentElement.style.width,
+        minHeight: contentElement.style.minHeight,
+        backgroundColor: contentElement.style.backgroundColor,
+        color: contentElement.style.color,
+      };
+
+      // Temporarily adjust contentElement to ensure rendering
+      contentElement.style.position = 'fixed';
+      contentElement.style.left = '-9999px';
+      contentElement.style.top = '0';
+      contentElement.style.width = '8.5in';
+      contentElement.style.minHeight = '11in';
+      contentElement.style.backgroundColor = '#ffffff';
+      contentElement.style.color = '#000000';
+      contentElement.style.zIndex = '-1000';
+
+      // Force a repaint to ensure content is rendered
+      window.getComputedStyle(contentElement).height;
+
+      // Create a PDF
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'in',
+        format: 'letter',
+      });
+
+      const pageWidth = 8.5;
+      const pageHeight = 11;
+      const scale = 1.5;
+      const maxPageHeightPx = pageHeight * 96 * scale;
+
+      // Get all section elements
+      const sectionElements = Array.from(contentElement.querySelectorAll('div.section')) as HTMLElement[];
+      if (sectionElements.length === 0) {
+        throw new Error('No sections found in content');
+      }
+
+      let currentHeight = 0;
+      let currentPageElements: HTMLElement[] = [];
+      let pageIndex = 0;
+
+      // Create a temporary container for rendering each page
+      const tempContainer = document.createElement('div');
+      tempContainer.style.position = 'fixed';
+      tempContainer.style.top = '0';
+      tempContainer.style.left = '-9999px';
+      tempContainer.style.width = '8.5in';
+      tempContainer.style.backgroundColor = '#ffffff';
+      tempContainer.style.color = '#000000';
+      tempContainer.style.zIndex = '-1000';
+      document.body.appendChild(tempContainer);
+
+      for (let i = 0; i < sectionElements.length; i++) {
+        const section = sectionElements[i];
+        const clonedSection = section.cloneNode(true) as HTMLElement;
+        clonedSection.style.display = 'block';
+
+        // Append to measure height
+        tempContainer.appendChild(clonedSection);
+
+        // Force a repaint
+        const computedStyle = window.getComputedStyle(clonedSection);
+        console.log(`Section ${i + 1} computed styles:`, {
+          display: computedStyle.display,
+          visibility: computedStyle.visibility,
+          height: computedStyle.height,
+        });
+
+        const sectionHeightPx = clonedSection.offsetHeight * scale;
+        if (sectionHeightPx === 0) {
+          console.warn(`Section ${i + 1} has zero height, skipping.`);
+          tempContainer.removeChild(clonedSection);
+          continue;
+        }
+
+        console.log(`Section ${i + 1} height (px, scaled): ${sectionHeightPx}`);
+        console.log(`Section ${i + 1} content:`, clonedSection.outerHTML);
+
+        tempContainer.removeChild(clonedSection);
+
+        if (currentHeight + sectionHeightPx > maxPageHeightPx && currentPageElements.length > 0) {
+          tempContainer.innerHTML = '';
+          currentPageElements.forEach(element => {
+            tempContainer.appendChild(element);
+          });
+
+          // Force a repaint
+          const firstElement = tempContainer.firstChild as HTMLElement;
+          if (firstElement) {
+            window.getComputedStyle(firstElement).height;
+          }
+
+          // Minimal delay to ensure rendering
+          await new Promise((resolve) => setTimeout(resolve, 100));
+
+          const canvas = await html2canvas(tempContainer, {
+            scale: scale,
+            useCORS: true,
+            logging: true,
+            windowWidth: 816,
+            windowHeight: 1056,
+            backgroundColor: '#ffffff',
+            foreignObjectRendering: false,
+          });
+
+          console.log('Canvas dimensions for page', pageIndex + 1, ':', { width: canvas.width, height: canvas.height });
+
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.98);
+          console.log('Data URL length for page', pageIndex + 1, ':', dataUrl.length);
+
+          let imgHeight = (canvas.height * pageWidth) / canvas.width;
+          imgHeight = Math.min(imgHeight, pageHeight);
+
+          console.log('Calculated imgHeight for page', pageIndex + 1, ':', imgHeight);
+
+          if (!canvas.width || !canvas.height || !isFinite(imgHeight) || imgHeight <= 0) {
+            console.error('Invalid canvas dimensions or imgHeight for page', pageIndex + 1, ':', {
+              width: canvas.width,
+              height: canvas.height,
+              imgHeight,
+            });
+            tempContainer.innerHTML = '';
+            currentPageElements = [];
+            currentHeight = 0;
+            pageIndex++;
+            continue;
+          }
+
+          if (pageIndex > 0) {
+            pdf.addPage();
+          }
+          pdf.addImage(dataUrl, 'JPEG', 0, 0, pageWidth, imgHeight, undefined, 'FAST');
+
+          tempContainer.innerHTML = '';
+          currentPageElements = [];
+          currentHeight = 0;
+          pageIndex++;
+        }
+
+        currentPageElements.push(clonedSection);
+        currentHeight += sectionHeightPx;
+      }
+
+      if (currentPageElements.length > 0) {
+        tempContainer.innerHTML = '';
+        currentPageElements.forEach(element => {
+          tempContainer.appendChild(element);
+        });
+
+        // Force a repaint
+        const firstElement = tempContainer.firstChild as HTMLElement;
+        if (firstElement) {
+          window.getComputedStyle(firstElement).height;
+        }
+
+        // Minimal delay to ensure rendering
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        console.log('Last page elements:', currentPageElements.map(el => el.outerHTML));
+        console.log('Rendering last page with elements:', tempContainer.innerHTML);
+
+        const canvas = await html2canvas(tempContainer, {
+          scale: scale,
+          useCORS: true,
+          logging: true,
+          windowWidth: 816,
+          windowHeight: 1056,
+          backgroundColor: '#ffffff',
+          foreignObjectRendering: false,
+        });
+
+        console.log('Last page canvas dimensions:', { width: canvas.width, height: canvas.height });
+
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.98);
+        console.log('Last page data URL length:', dataUrl.length);
+
+        let imgHeight = (canvas.height * pageWidth) / canvas.width;
+        imgHeight = Math.min(imgHeight, pageHeight);
+
+        console.log('Last page imgHeight:', imgHeight);
+
+        if (!canvas.width || !canvas.height || !isFinite(imgHeight) || imgHeight <= 0) {
+          console.error('Invalid canvas dimensions or imgHeight for last page:', {
+            width: canvas.width,
+            height: canvas.height,
+            imgHeight,
+          });
+        } else {
+          if (pageIndex > 0) {
+            pdf.addPage();
+          }
+          pdf.addImage(dataUrl, 'JPEG', 0, 0, pageWidth, imgHeight, undefined, 'FAST');
+        }
+      }
+
+      document.body.removeChild(tempContainer);
+      Object.assign(contentElement.style, originalStyles);
+
+      pdf.save(`${proposalData.rfpTitle || 'Proposal'}.pdf`);
+    } catch (error) {
+      console.error('PDF generation failed:', error);
+      alert('Failed to generate PDF. Please try again.');
+    }
     setShowDownloadOptions(false);
   };
 
-  const downloadWord = () => {
-    alert("Word download feature will be implemented here");
+  const downloadWord = async () => {
+    let contentElement: HTMLDivElement | null = null;
+    let originalStyles: { [key: string]: string } | null = null;
+
+    try {
+      contentElement = contentRef.current;
+      if (!contentElement) throw new Error('Content element not found');
+
+      originalStyles = {
+        position: contentElement.style.position,
+        left: contentElement.style.left,
+        display: contentElement.style.display,
+      };
+      contentElement.style.position = 'fixed';
+      contentElement.style.left = '0';
+      contentElement.style.display = 'block';
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      window.getComputedStyle(contentElement).height;
+
+      const sectionElements = Array.from(contentElement.querySelectorAll('div.section')) as HTMLElement[];
+      if (sectionElements.length === 0) {
+        throw new Error('No sections found in content');
+      }
+      console.log('Section elements:', sectionElements.map(s => s.outerHTML));
+
+      const alignmentMap: { [key: string]: typeof AlignmentType[keyof typeof AlignmentType] } = {
+        center: AlignmentType.CENTER,
+        left: AlignmentType.LEFT,
+        right: AlignmentType.RIGHT,
+        justify: AlignmentType.JUSTIFIED,
+      };
+
+      const underlineMap: { [key: string]: string } = {
+        underline: 'single',
+        none: 'none',
+      };
+
+      const paragraphs = sectionElements.flatMap((section, sectionIndex) => {
+        // Include div.whitespace-pre-line in the selector
+        const textElements = Array.from(section.querySelectorAll('h1, h2, h3, p, div.whitespace-pre-line')) as HTMLElement[];
+        if (textElements.length === 0) return [];
+
+        const sectionParagraphs: Paragraph[] = [];
+        textElements.forEach((element) => {
+          const computedStyle = window.getComputedStyle(element);
+          const textAlign = computedStyle.textAlign || 'left';
+          const fontWeight = computedStyle.fontWeight;
+          const fontSize = parseFloat(computedStyle.fontSize) * 2;
+
+          let color: string | undefined;
+          const rawColor = computedStyle.color;
+          const hexMatch = rawColor.match(/#([0-9a-f]{3,6})/i);
+          if (hexMatch) {
+            let hex = hexMatch[1];
+            if (hex.length === 3) {
+              hex = hex.split('').map(char => char + char).join('');
+            }
+            color = hex.toUpperCase();
+          } else if (rawColor.startsWith('rgb')) {
+            const hex = rgbToHex(rawColor);
+            color = hex || undefined;
+          }
+
+          const textDecoration = computedStyle.textDecorationLine || 'none';
+          const marginBottom = parseFloat(computedStyle.marginBottom) || 0;
+          const spacingAfter = marginBottom * 20;
+
+          let defaultFontSize = 20;
+          let defaultBold = false;
+          if (element.tagName === 'H1') {
+            defaultFontSize = 24;
+            defaultBold = true;
+          } else if (element.tagName === 'H2') {
+            defaultFontSize = 22;
+            defaultBold = true;
+          } else if (element.tagName === 'H3') {
+            defaultFontSize = 20;
+            defaultBold = true;
+          }
+
+          // If the element is div.whitespace-pre-line, split its content on newlines
+          if (element.classList.contains('whitespace-pre-line')) {
+            const lines = (element.textContent || '').split('\n').map(line => line.trim()).filter(line => line);
+            lines.forEach((line) => {
+              sectionParagraphs.push(
+                new Paragraph({
+                  alignment: alignmentMap[textAlign] || AlignmentType.LEFT,
+                  children: [
+                    new TextRun({
+                      text: line,
+                      bold: fontWeight === 'bold' || parseInt(fontWeight) >= 700 || defaultBold,
+                      size: isNaN(fontSize) ? defaultFontSize : fontSize,
+                      font: 'Arial',
+                      color: color && /^[0-9a-f]{6}$/i.test(color) ? color : undefined,
+                      underline: underlineMap[textDecoration] ? { type: underlineMap[textDecoration] as any } : undefined,
+                    }),
+                  ],
+                  spacing: { after: spacingAfter },
+                })
+              );
+            });
+          } else {
+            // Handle h1, h2, h3, p as before
+            sectionParagraphs.push(
+              new Paragraph({
+                alignment: alignmentMap[textAlign] || AlignmentType.LEFT,
+                children: [
+                  new TextRun({
+                    text: element.textContent || '',
+                    bold: fontWeight === 'bold' || parseInt(fontWeight) >= 700 || defaultBold,
+                    size: isNaN(fontSize) ? defaultFontSize : fontSize,
+                    font: 'Arial',
+                    color: color && /^[0-9a-f]{6}$/i.test(color) ? color : undefined,
+                    underline: underlineMap[textDecoration] ? { type: underlineMap[textDecoration] as any } : undefined,
+                  }),
+                ],
+                spacing: { after: spacingAfter },
+              })
+            );
+          }
+        });
+
+        return sectionParagraphs;
+      });
+
+      Object.assign(contentElement.style, originalStyles);
+
+      const doc = new Document({
+        sections: [
+          {
+            children: paragraphs,
+          },
+        ],
+      });
+
+      const blob = await Packer.toBlob(doc);
+      saveAs(blob, `${proposalData.rfpTitle || 'Proposal'}.docx`);
+    } catch (error) {
+      console.error('Word generation failed:', error);
+      if (contentElement && originalStyles) {
+        Object.assign(contentElement.style, originalStyles);
+      }
+      alert('Failed to generate Word document. Please try again.');
+    }
     setShowDownloadOptions(false);
   };
+
+  // Utility function to convert RGB to 6-digit hex
+const rgbToHex = (rgb: string): string | null => {
+  const rgbMatch = rgb.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/i);
+  if (!rgbMatch) return null;
+
+  const r = parseInt(rgbMatch[1], 10);
+  const g = parseInt(rgbMatch[2], 10);
+  const b = parseInt(rgbMatch[3], 10);
+
+  // Convert to hex and ensure 2 digits per channel
+  const toHex = (value: number) => {
+    const hex = value.toString(16);
+    return hex.length === 1 ? '0' + hex : hex;
+  };
+
+  return `${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
+};
 
   const enhanceWithAI = () => {
     // AI enhancement logic would go here
     alert("AI enhancement feature would be implemented here");
   };
-  
+
   // Show preview screen
   const handlePreview = () => {
     setShowPreview(true);
@@ -461,8 +913,8 @@ const RfpResponse = ({ contract, pursuitId }) => {
           const parsedData = JSON.parse(savedData);
           if (parsedData.stage) {
             // Update the pursuit stage in the local state
-            setSections(prevSections => 
-              prevSections.map(section => 
+            setSections(prevSections =>
+              prevSections.map(section =>
                 section.id === pursuitId
                   ? { ...section, stage: parsedData.stage }
                   : section
@@ -474,7 +926,7 @@ const RfpResponse = ({ contract, pursuitId }) => {
         }
       }
     }
-    
+
     // Close the RFP builder and reset the current pursuit ID
     setShowPreview(false);
     setExpandedSection(null);
@@ -483,113 +935,38 @@ const RfpResponse = ({ contract, pursuitId }) => {
   // Calculate due date proximity for display
   const getDueDateProximity = () => {
     if (!contract?.dueDate || contract.dueDate === "Not specified") return null;
-    
+
     try {
       const dueDateObj = new Date(contract.dueDate);
       const today = new Date();
       const diffTime = dueDateObj.getTime() - today.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      
+
       if (diffDays < 0) return { label: "Past Due", color: "text-red-600 bg-red-50 border-red-200" };
       if (diffDays === 0) return { label: "Due Today", color: "text-red-600 bg-red-50 border-red-200" };
       if (diffDays <= 7) return { label: `Due in ${diffDays} days`, color: "text-amber-600 bg-amber-50 border-amber-200" };
       if (diffDays <= 30) return { label: `Due in ${diffDays} days`, color: "text-blue-600 bg-blue-50 border-blue-200" };
-      
+
       return { label: `Due in ${diffDays} days`, color: "text-green-600 bg-green-50 border-green-200" };
     } catch (e) {
       return null;
     }
   };
-  
+
   const dueDateInfo = getDueDateProximity();
 
   return (
     <div className="p-2 md:p-6 max-w-6xl mx-auto">
+      {/* Hidden ProposalContent for External Downloads */}
+      <div style={{ position: 'absolute', left: '-9999px' }} ref={contentRef}>
+        <RfpPreviewContent {...proposalData} />
+      </div>
       {/* Preview Modal */}
       {showPreview && (
-        <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-start overflow-y-auto pt-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full mx-4 relative">
-            <div className="sticky top-0 bg-white z-10 p-4 border-b border-gray-100 flex justify-between items-center rounded-t-xl">
-              <h2 className="text-xl font-bold text-gray-800">Proposal Preview</h2>
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <button
-                    onClick={() => setShowDownloadOptions(!showDownloadOptions)}
-                    className={`inline-flex items-center gap-2 ${colors.primary} ${colors.text} px-4 py-2 rounded-lg shadow-sm hover:shadow transition-all ${colors.primaryHover}`}
-                  >
-                    <Download className="w-4 h-4" /> Download
-                  </button>
-                  {showDownloadOptions && (
-                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl z-20 border border-gray-100 overflow-hidden">
-                      <button 
-                        onClick={downloadPDF}
-                        className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-100 flex items-center gap-2"
-                      >
-                        <FileText className="w-4 h-4 text-red-500" /> Download as PDF
-                      </button>
-                      <button 
-                        onClick={downloadWord}
-                        className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-2"
-                      >
-                        <FileText className="w-4 h-4 text-blue-500" /> Download as Word
-                      </button>
-                    </div>
-                  )}
-                </div>
-                <button
-                  onClick={enhanceWithAI}
-                  className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white px-4 py-2 rounded-lg shadow-sm hover:shadow transition-all hover:from-purple-700 hover:to-purple-800"
-                >
-                  <Sparkles className="w-4 h-4" /> Enhance with AI
-                </button>
-                <button
-                  onClick={closeRfpBuilder}
-                  className="text-gray-500 hover:text-gray-700 p-2 hover:bg-gray-100 rounded-full transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-            <div className="p-8 min-h-screen bg-gray-50">
-              {/* Cover Page Preview */}
-              <div className="bg-white p-12 shadow-md mb-8 rounded-xl">
-                <div className="flex flex-col items-center text-center mb-16">
-                  {logo && (
-                    <img src={logo} alt="Company Logo" className="max-h-24 object-contain mb-4" />
-                  )}
-                  <h1 className="text-3xl font-bold text-gray-800 mb-2">{companyName}</h1>
-                  <a href={companyWebsite} className="text-blue-600 hover:underline mb-4">{companyWebsite}</a>
-                  <p className="text-gray-600">{letterhead}</p>
-                  <p className="text-gray-600">Phone: {phone}</p>
-                </div>
-                
-                <div className="mt-24 mb-24">
-                  <h1 className="text-4xl font-bold text-center mb-8">{rfpTitle}</h1>
-                  <div className="border-t border-b border-gray-200 py-6 text-center">
-                    <p className="font-semibold mb-2">NAICS CODE: {naicsCode}</p>
-                    <p className="font-semibold mb-2">SOLICITATION NUMBER: {solicitationNumber}</p>
-                    <p>Issued: {issuedDate}</p>
-                  </div>
-                </div>
-                
-                <div className="mt-32">
-                  <p className="font-semibold">Submitted By:</p>
-                  <p>{submittedBy}</p>
-                  <p>{letterhead}</p>
-                  <p>Phone: {phone}</p>
-                </div>
-              </div>
-              
-              {/* Other Sections Preview */}
-              {sections.slice(1).map((section) => (
-                <div key={section.id} className="bg-white p-8 shadow-md mb-8 rounded-xl">
-                  <h2 className="text-2xl font-bold mb-4 text-gray-800">{section.title}</h2>
-                  <div className="whitespace-pre-line">{section.content}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+        <RfpPreview
+          {...proposalData}
+          closeRfpBuilder={() => setShowPreview(false)}
+        />
       )}
 
       {/* Page Header with Contract Info */}
@@ -605,21 +982,21 @@ const RfpResponse = ({ contract, pursuitId }) => {
                   <span>{contract.department}</span>
                 </div>
               )}
-              
+
               {dueDateInfo && (
                 <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full border ${dueDateInfo.color}`}>
                   <Calendar className="w-3.5 h-3.5" />
                   <span className="font-medium">{dueDateInfo.label}</span>
                 </div>
               )}
-              
+
               {contract?.naicsCode && (
                 <div className="flex items-center gap-1.5">
                   <span className="text-gray-400">#</span>
                   <span>NAICS: {contract.naicsCode}</span>
                 </div>
               )}
-              
+
               {contract?.solicitation_number && (
                 <div className="flex items-center gap-1.5">
                   <span className="text-gray-400">#</span>
@@ -628,12 +1005,12 @@ const RfpResponse = ({ contract, pursuitId }) => {
               )}
             </div>
           </div>
-          
+
           {/* Completion Status */}
           <div className="flex flex-col items-end">
             <div className="flex items-center gap-3 mb-2">
               <div className="text-sm font-medium">
-                <span className="text-gray-600">Completion:</span> 
+                <span className="text-gray-600">Completion:</span>
                 <span className={`ml-1 ${completionPercentage === 100 ? 'text-green-600' : completionPercentage > 50 ? 'text-blue-600' : 'text-amber-600'}`}>
                   {completionPercentage}%
                 </span>
@@ -672,7 +1049,7 @@ const RfpResponse = ({ contract, pursuitId }) => {
             >
               <Save className="w-4 h-4" /> {isSaving ? 'Saving...' : 'Save'}
             </button>
-            
+
             {lastSaved && (
               <div className="text-xs text-gray-500 flex items-center gap-1">
                 <Clock className="w-3 h-3" />
@@ -720,12 +1097,12 @@ const RfpResponse = ({ contract, pursuitId }) => {
               </div>
               Company Information
             </h2>
-            
+
             <div className="space-y-4">
               {logo ? (
                 <div className="flex flex-col items-center text-center mb-4">
                   <img src={logo} alt="Company Logo" className="max-h-20 object-contain mb-3 p-2 border border-gray-100 rounded-lg bg-white shadow-sm" />
-                  <button 
+                  <button
                     onClick={() => setLogo(null)}
                     className="text-sm text-gray-500 hover:text-red-500 flex items-center gap-1 mt-1 px-2 py-1 rounded-lg hover:bg-red-50 transition-colors"
                   >
@@ -742,7 +1119,7 @@ const RfpResponse = ({ contract, pursuitId }) => {
                   </label>
                 </div>
               )}
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1.5">Company Name</label>
                 <input
@@ -753,7 +1130,7 @@ const RfpResponse = ({ contract, pursuitId }) => {
                   className="w-full border border-gray-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-200 focus:border-blue-400 focus:outline-none shadow-sm"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1.5">Website</label>
                 <input
@@ -764,7 +1141,7 @@ const RfpResponse = ({ contract, pursuitId }) => {
                   className="w-full border border-gray-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-200 focus:border-blue-400 focus:outline-none shadow-sm"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1.5">Address</label>
                 <input
@@ -775,7 +1152,7 @@ const RfpResponse = ({ contract, pursuitId }) => {
                   className="w-full border border-gray-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-200 focus:border-blue-400 focus:outline-none shadow-sm"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1.5">Phone Number</label>
                 <input
@@ -796,7 +1173,7 @@ const RfpResponse = ({ contract, pursuitId }) => {
               </div>
               Proposal Details
             </h2>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1.5">RFP Title</label>
@@ -808,7 +1185,7 @@ const RfpResponse = ({ contract, pursuitId }) => {
                   className="w-full border border-gray-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-200 focus:border-blue-400 focus:outline-none shadow-sm"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1.5">NAICS Code</label>
                 <input
@@ -819,7 +1196,7 @@ const RfpResponse = ({ contract, pursuitId }) => {
                   className="w-full border border-gray-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-200 focus:border-blue-400 focus:outline-none shadow-sm"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1.5">Solicitation Number</label>
                 <input
@@ -830,7 +1207,7 @@ const RfpResponse = ({ contract, pursuitId }) => {
                   className="w-full border border-gray-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-200 focus:border-blue-400 focus:outline-none shadow-sm"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1.5">Issue Date</label>
                 <input
@@ -841,7 +1218,7 @@ const RfpResponse = ({ contract, pursuitId }) => {
                   className="w-full border border-gray-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-200 focus:border-blue-400 focus:outline-none shadow-sm"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1.5">Submitted By</label>
                 <input
@@ -872,26 +1249,26 @@ const RfpResponse = ({ contract, pursuitId }) => {
               <Plus className="w-4 h-4" /> Add Section
             </button>
           </div>
-          
+
           <div className="space-y-4">
             {sections.map((section, index) => (
-              <div 
-                key={section.id} 
+              <div
+                key={section.id}
                 className={`rounded-xl shadow-sm border transition-all duration-300 
                   ${section.completed ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-white'} 
                   ${expandedSection === section.id ? 'shadow-md border-blue-200' : 'hover:border-blue-200 hover:shadow-sm'}`}
               >
-                <div 
+                <div
                   className={`flex justify-between items-center p-4 cursor-pointer rounded-t-xl
                     ${expandedSection === section.id ? 'bg-blue-50' : section.completed ? 'bg-green-50' : 'bg-white'}`}
                   onClick={() => toggleSection(section.id)}
                 >
                   <div className="flex items-center gap-3 flex-1">
-                    <button 
+                    <button
                       onClick={(e) => {
                         e.stopPropagation();
                         toggleCompleted(index);
-                      }} 
+                      }}
                       className="focus:outline-none transition-transform hover:scale-110"
                     >
                       {section.completed ? (
@@ -913,7 +1290,7 @@ const RfpResponse = ({ contract, pursuitId }) => {
                       />
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center gap-2">
                     <div className="flex -space-x-1">
                       <button
@@ -961,7 +1338,7 @@ const RfpResponse = ({ contract, pursuitId }) => {
                     </button>
                   </div>
                 </div>
-                
+
                 {expandedSection === section.id && (
                   <div className="p-5 border-t border-gray-200 bg-white">
                     <textarea
@@ -973,7 +1350,7 @@ const RfpResponse = ({ contract, pursuitId }) => {
                     />
                     <div className="flex justify-between mt-4">
                       <div className="flex items-center gap-2">
-                        <button 
+                        <button
                           onClick={() => toggleCompleted(index)}
                           className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors
                             ${section.completed ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
@@ -1007,7 +1384,7 @@ const RfpResponse = ({ contract, pursuitId }) => {
               </div>
             ))}
           </div>
-          
+
           {/* Buttons at bottom */}
           <div className="mt-8 flex justify-center gap-4">
             <button
@@ -1027,16 +1404,16 @@ const RfpResponse = ({ contract, pursuitId }) => {
                 <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
                   <div className="flex justify-between items-center mb-6">
                     <h3 className="text-xl font-bold text-gray-800">Download Options</h3>
-                    <button 
+                    <button
                       onClick={() => setShowDownloadOptions(false)}
                       className="text-gray-500 hover:text-gray-700 hover:bg-gray-100 p-1 rounded-full transition-colors"
                     >
                       <X className="w-5 h-5" />
                     </button>
                   </div>
-                  
+
                   <div className="space-y-4">
-                    <button 
+                    <button
                       onClick={downloadPDF}
                       className="w-full flex items-center gap-4 p-4 border border-gray-200 rounded-xl hover:bg-red-50 hover:border-red-200 transition-colors group"
                     >
@@ -1048,8 +1425,8 @@ const RfpResponse = ({ contract, pursuitId }) => {
                         <div className="text-sm text-gray-500">Best for printing and sharing</div>
                       </div>
                     </button>
-                    
-                    <button 
+
+                    <button
                       onClick={downloadWord}
                       className="w-full flex items-center gap-4 p-4 border border-gray-200 rounded-xl hover:bg-blue-50 hover:border-blue-200 transition-colors group"
                     >
