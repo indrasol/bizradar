@@ -44,7 +44,7 @@ const RecommendationsPanel = ({
   const [aiComponentCollapsed, setAiComponentCollapsed] = useState(false);
   const [cancelRequested, setCancelRequested] = useState(false);
   const [showDetailedReason, setShowDetailedReason] = useState({});
-  const API_BASE_URL = window.location.hostname === "localhost" ? "http://localhost:5000" : "https://bizradar-backend.onrender.com";
+  const API_BASE_URL = window.location.hostname === "localhost" ? "http://localhost:5000" : import.meta.env.VITE_API_BASE_URL;
   const abortCtrlRef = useRef<AbortController | null>(null);
 
   // Generate recommendations function

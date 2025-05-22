@@ -64,7 +64,7 @@ const isDevelopment =
   window.location.hostname === "127.0.0.1";
 const API_BASE_URL = isDevelopment
   ? "http://localhost:5000"
-  : "https://bizradar-backend.onrender.com";
+  : import.meta.env.VITE_API_BASE_URL;
 
 // Define a type for the request parameters
 interface SearchParams {
