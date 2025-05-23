@@ -170,7 +170,10 @@ async def fetch_opportunities() -> Dict[str, Any]:
                     # Try to import the indexing function
                     try:
                         # Import here to avoid circular imports - file is in utils folder
-                        from utils.index_to_pinecone import index_sam_gov_to_pinecone
+                        try:
+                            from utils.index_to_pinecone import index_sam_gov_to_pinecone
+                        except ModuleNotFoundError:
+                            from app.utils.index_to_pinecone import index_sam_gov_to_pinecone
                         
                         # Run indexing for SAM.gov only (incremental)
                         index_result = index_sam_gov_to_pinecone(incremental=True)

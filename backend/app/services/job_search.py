@@ -259,7 +259,7 @@ def search_jobs(
                                naics_code, published_date, response_date, description,
                                additional_description, url, active
                           FROM sam_gov
-                         WHERE notice_id IN ({placeholders})
+                         WHERE id IN ({placeholders})
                     """
                     params = sam_gov_ids.copy()
 
@@ -275,8 +275,8 @@ def search_jobs(
                         pass
                     
                     # Add condition to filter out past due opportunities
-                    sql += " AND (response_date IS NULL OR response_date >= CURRENT_DATE)"
-                    sql += " AND active = true"
+                    # sql += " AND (response_date IS NULL OR response_date >= CURRENT_DATE)"
+                    # sql += " AND active = true"
 
                     cur.execute(sql, params)
                     rows = cur.fetchall()
