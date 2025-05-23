@@ -17,6 +17,11 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from dotenv import load_dotenv
 
+app_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"))
+if app_dir not in sys.path:
+    sys.path.insert(0, app_dir)
+
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -284,15 +289,16 @@ async def fetch_opportunities() -> Dict[str, Any]:
                 # Try to import the indexing function
                 try:
                     # Add app directory to python path if not already there
-                    app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                    if app_dir not in sys.path:
-                        sys.path.insert(0, app_dir)
+                    # app_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+                    # if app_dir not in sys.path:
+                    #     sys.path.insert(0, app_dir)
+                    # sys.path.append(os.path.join(parent_dir, "utils"))
                         
                     # Import here to avoid circular imports - file is in utils folder
                     try:
                         from utils.index_to_pinecone import index_sam_gov_to_pinecone
                     except ModuleNotFoundError:
-                        from app.services.utils.index_to_pinecone import index_sam_gov_to_pinecone
+                        from app.utils.index_to_pinecone import index_sam_gov_to_pinecone
                     
                     # Run indexing for ALL SAM.gov records, rely on Pinecone's upsert to handle duplicates
                     index_result = index_sam_gov_to_pinecone(incremental=False)

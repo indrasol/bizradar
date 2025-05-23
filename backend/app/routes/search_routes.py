@@ -18,7 +18,7 @@ from services.helper import json_serializable
 from services.askBizradar import process_bizradar_request
 from services.summary_service import process_opportunity_descriptions
 from utils.redis_connection import RedisClient
-from utils.database import get_connection
+from utils.database import get_connection, fetch_opportunities_from_db
 from collections import deque
 from services.filter_service import apply_filters_to_results, sort_results
 import asyncio
