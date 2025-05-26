@@ -37,6 +37,8 @@ import {
   FileCheck,
   History,
   Plus,
+  Star,
+  Power,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "../utils/supabase";
@@ -480,8 +482,8 @@ export const Settings = () => {
               </div>
               <div className="flex items-center gap-4">
                 <button className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm hover:shadow transition-all flex items-center gap-2">
-                  <Shield size={16} />
-                  <span>Upgrade</span>
+                <span>Upgrade</span>
+                <Star size={14} className="ml-1" />
                 </button>
                 <div className="relative">
                   <Bell
@@ -494,8 +496,8 @@ export const Settings = () => {
                   onClick={handleLogout}
                   className="bg-blue-50 text-blue-600 hover:bg-blue-100 px-4 py-2 rounded-lg text-sm flex items-center gap-2 border border-blue-100 transition-colors"
                 >
-                  <LogOut size={16} />
-                  <span className="font-medium">Logout</span>
+                  <Power size={16} />
+                  {/* <span className="font-medium">Logout</span> */}
                 </button>
               </div>
             </div>

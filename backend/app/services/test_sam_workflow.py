@@ -63,10 +63,9 @@ async def test_workflow():
             
             # Try importing using the direct path first
             try:
-                from index_to_pinecone import index_sam_gov_to_pinecone
-            except ImportError:
-                # If that fails, try importing as if we're in the app directory
                 from utils.index_to_pinecone import index_sam_gov_to_pinecone
+            except ModuleNotFoundError:
+                from app.utils.index_to_pinecone import index_sam_gov_to_pinecone
             
             # Run indexing for SAM.gov only (incremental)
             index_result = index_sam_gov_to_pinecone(incremental=True)

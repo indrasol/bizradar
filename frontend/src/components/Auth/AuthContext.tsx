@@ -7,7 +7,7 @@ import tokenService from "../../utils/tokenService";
 const isDevelopment = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
 const API_BASE_URL = isDevelopment
   ? "http://localhost:5000"
-  : "https://bizradar-backend.onrender.com";
+  : import.meta.env.VITE_API_BASE_URL;
 
 interface AuthContextType {
   user: User | null;

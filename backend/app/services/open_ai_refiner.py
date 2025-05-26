@@ -35,55 +35,102 @@ def refine_query(query: str, contract_type: Optional[str] = None, platform: Opti
         filters_str = ", ".join(filters) if filters else "No filters provided"
         logger.info(f"Refining query: '{query}' with filters: {filters_str}")
 
-        prompt = f"""
-        You are an expert in technical domain mapping for government contracting searches. Transform this user query: '{query}'
-
-        YOUR TASK:
-        1. First, identify the core technical domain from the user's query, accounting for:
-           - Casual language (e.g., "get me", "find", "show")
-           - Abbreviations (e.g., "cyber sec", "AI", "ML", "IT")
-           - Typos and misspellings (e.g., "opportunitites", "securityt")
-           - Informal expressions (e.g., "stuff", "things", "jobs")
-
-        2. Once you identify the core domain (e.g., "cybersecurity", "machine learning", "software development"):
-           - Generate a comprehensive set of synonyms and related technical terms
-           - Include ALL relevant subdisciplines within that domain
-           - Include industry-standard terminology and certifications
-           - Include relevant technologies and frameworks
-           - Consider both technical and functional terms professionals would use
-
-        3. Structure the query using appropriate boolean operators:
-           - Use OR between related terms within the same domain
-           - Use AND for required constraints (e.g., "government contract")
-           - Add domain-specific qualifiers where appropriate
-           - Include "site:sam.gov" if searching government opportunities
-
-        4. Exclude terms that lead to irrelevant results:
-           - For cybersecurity: exclude physical security guard positions
-           - For AI/ML: exclude non-technical marketing roles
-           - For development: exclude construction/real estate development
-
-        EXAMPLES:
-        "get me cyber sec opp" → "cybersecurity OR network security OR penetration testing OR vulnerability assessment OR information security OR cloud security OR zero trust architecture OR CISSP OR security operations OR SOC OR incident response AND government contract site:sam.gov"
+        # prompt = f"""
+        # You are a technical domain expert specializing in government contracting. Transform this user query: '{query}' by:
         
-        "ML jobs" → "machine learning OR artificial intelligence OR deep learning OR neural networks OR NLP OR computer vision OR data science OR predictive analytics OR MLOps AND government contract site:sam.gov"
+        # 1. Identifying the core technical domain (e.g., cybersecurity, machine learning, software development).
+        # 2. Expanding the domain by including related terms, synonyms, subdomains, and industry-standard terminology. For example, if 'ML' is used, treat it as 'Machine Learning' and avoid irrelevant academic or research interpretations.
+        # 3. Ensuring the query is specific to government contracting opportunities (include 'AND government contract' or 'site:sam.gov' as needed).
+        # 4. Applying appropriate boolean operators to combine related terms and excluding irrelevant results.
+        # 5. Incorporating any additional user filters such as 'Contract Type' or 'Platform'.
         
-        "software dev" → "software development OR software engineering OR application development OR full stack OR back end OR front end OR DevOps OR CI/CD OR API development OR microservices AND government contract site:sam.gov"
+        # Example refinement scenarios:
+        # - "cyber sec" → "cybersecurity OR network security OR penetration testing OR vulnerability assessment OR information security AND government contract site:sam.gov"
+        # - "ML jobs" → "machine learning OR artificial intelligence OR deep learning OR data science OR predictive analytics AND government contract site:sam.gov"
+        # - "software dev" → "software development OR application development OR full stack OR DevOps AND government contract site:sam.gov"
+        
+        # Additional filters: {filters_str}
+        
+        # Return ONLY the refined query string without extra explanations.
+        # """
 
-        Additional filters: {filters_str}
+        # prompt = f"""
+        # You are an expert in government contracting, specializing in precise and direct technical domain searches. Transform the following user query: '{query}' by:
 
-        Return ONLY the expanded search query string. No explanations, bullets, or commentary.
+        # 1. **Identifying the exact technical domain** (e.g., machine learning, software development, artificial intelligence, cybersecurity).
+        # 2. **Generating a straightforward and unambiguous query** that matches the user's request exactly without introducing unrelated terms or variations:
+        #    - Focus directly on terms that are **widely recognized** and commonly used in government contracting opportunities (e.g., "machine learning," "software development," "cybersecurity").
+        #    - **Avoid using synonyms or broad terms** that could lead to ambiguity.
+        #    - **Do not include intelligence-related terms** like "counterintelligence," "intelligence," or references to intelligence agencies (e.g., DCSA, CIA, NSA).
+        # 3. **Ensure the query is specific and aligned with government contracting** by including "AND government contract" or "site:sam.gov" where applicable.
+
+        # Example refined queries:
+        # - "cyber sec" → "cybersecurity AND government contract site:sam.gov"
+        # - "ML jobs" → "machine learning AND government contract site:sam.gov"
+        # - "software dev" → "software development AND government contract site:sam.gov"
+        
+        # Additional filters: {filters_str}
+        
+        # Return ONLY the **exact** refined query string without extra explanations or modifications.
+        # """
+
+        # prompt = f"""
+        # You are a technical domain expert specializing in government contracting, with deep knowledge of industry-standard terminology across multiple technical fields. Transform the following user query: '{query}' by:
+
+        # 1. **Identifying the core technical domain** (e.g., machine learning, software development, cybersecurity, cloud computing, artificial intelligence).
+        # 2. **Expanding the domain** by including industry-standard related terms, synonyms, subdomains, and commonly used terminology:
+        #    - Include formal and informal terms professionals in the field would recognize (e.g., AI, ML, DevOps, Cloud, neural networks).
+        #    - Use recognized certifications (e.g., AWS Certified Solutions Architect, CISSP) and frameworks (e.g., Agile, ITIL).
+        # 3. **Explicitly exclude any intelligence-related terms** or references to **intelligence agencies**:
+        #    - Do **not** include terms like "counterintelligence," "intelligence," or references to specific intelligence agencies (e.g., DCSA, CIA, NSA).
+        # 4. **Focusing on government contracting**: Add terms like "AND government contract" or "site:sam.gov" to ensure the query aligns with government procurement opportunities.
+        # 5. **Minimizing highly specialized terms**: Avoid terms that are too specific or unrelated to the core technical domain (e.g., "Learning Management Ecosystem") if they do not align with government IT contracting.
+        # 6. **Generating a straightforward and unambiguous query** that matches the user's request exactly without introducing unrelated terms or variations:
+                        
+        # Example refined queries:
+        # - "cyber sec" → "cybersecurity OR network security OR penetration testing OR vulnerability assessment OR information security OR cloud security OR zero trust architecture OR CISSP OR security operations OR SOC OR incident response AND government contract site:sam.gov"
+        # - "ML jobs" → "machine learning OR artificial intelligence OR deep learning OR neural networks OR NLP OR computer vision OR data science OR predictive analytics OR MLOps AND government contract site:sam.gov"
+        # - "software dev" → "software development OR application development OR full stack OR DevOps OR CI/CD OR microservices OR API development OR back end OR front end OR cloud development AND government contract site:sam.gov"
+        
+        # Additional filters: {filters_str}
+        
+        # Return ONLY the refined query string without extra explanations.
+        # """
+
+        prompt =f"""
+        You are a government contracting expert. Refine the following user query: '{query}' by:
+
+1. **Identifying the Core Technical Domain**: Determine the main technical field (e.g., cybersecurity, software development).
+
+2. **Expanding the Domain**: Include relevant terms, certifications (e.g., AWS, CISSP), job titles (e.g., software engineer, cybersecurity analyst), and descriptions commonly found in SAM.gov job postings. Add “AND government contract” or “site:sam.gov” to focus on government opportunities.
+
+3. **Excluding Intelligence Terms**: Avoid terms like "intelligence" or references to intelligence agencies.
+
+4. **Avoiding Overly Specialized Terms**: Exclude niche terms unless they are directly related to government IT contracting.
+
+5. **Generating a Clear Query**: Create a precise query that matches the user’s intent.
+
+6. **Apply Filters** (if provided): Include filters: {filters_str}.
+
+Example Refined Queries:
+- "cyber sec" → "cybersecurity OR network security OR penetration testing OR vulnerability assessment OR CISSP"
+- "ML jobs" → "machine learning OR AI OR data science OR MLOps"
+- "software dev" → "software development OR DevOps OR full stack OR cloud development"
+
+Return ONLY the refined query string, with no extra explanations.
+
         """
-
+        
+        # Request from OpenAI API
         response = openai_client.chat.completions.create(
             model="gpt-4-turbo",
-            messages=[
-                {
-                    "role": "system", 
-                    "content": "You are a technical domain expert specializing in government IT contracts with deep knowledge of terminology across cybersecurity, software development, data science, cloud computing, telecommunications, and other technical fields."
-                },
-                {"role": "user", "content": prompt}
-            ],
+            messages=[{
+                "role": "system", 
+                "content": "You are a technical domain expert specializing in government IT contracts with deep knowledge of terminology across multiple technical fields."
+            }, {
+                "role": "user", 
+                "content": prompt
+            }],
             max_tokens=200,
             temperature=0.2
         )

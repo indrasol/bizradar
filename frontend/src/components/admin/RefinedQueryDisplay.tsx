@@ -24,7 +24,7 @@ const RefinedQueryDisplay = ({ originalQuery, refinedQuery, isVisible, onClose }
         currentString += char;
       } else if (!inQuotes && nextThree === ' OR ' && currentString.trim()) {
         parts.push({ type: 'term', content: currentString.trim() });
-        parts.push({ type: 'operator', content: ' OR ' });
+        parts.push({ type: 'operator', content: ', ' });
         currentString = '';
         i += 3;
       } else if (!inQuotes && nextFour === ' AND ' && currentString.trim()) {
@@ -101,7 +101,7 @@ const RefinedQueryDisplay = ({ originalQuery, refinedQuery, isVisible, onClose }
           </div>
           <div className="flex-1 overflow-hidden">
             <div className="font-medium text-gray-700 mb-1">{originalQuery}</div>
-            <div className="text-sm font-mono text-gray-600 truncate">{refinedQuery}</div>
+            <div className="text-sm font-mono text-gray-600 truncate">{refinedQuery.replaceAll(' OR ',', ')}</div>
           </div>
         </div>
       ) : (
@@ -124,7 +124,7 @@ const RefinedQueryDisplay = ({ originalQuery, refinedQuery, isVisible, onClose }
                         : 'bg-indigo-50 text-indigo-800 px-2 py-1 rounded-md m-0.5'
                     }
                   >
-                    {term.content}
+                    {term.content.replaceAll(' OR ',', ')}
                   </span>
                 ))}
               </div>

@@ -112,3 +112,13 @@ def insert_data(rows):
         return {"error": str(e), "inserted": inserted, "skipped": skipped}
     finally:
         connection.close()
+
+async def fetch_opportunities_from_db():
+    """Fetch all opportunities from the database"""
+    conn = await get_connection()
+    try:
+        query = "SELECT * FROM sam_gov ORDER BY created_at DESC"
+        result = await conn.fetch(query)
+        return [dict(row) for row in result]
+    finally:
+        await conn.close()

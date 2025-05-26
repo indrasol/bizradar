@@ -23,21 +23,26 @@ import {
   Sparkle,
   Sparkles,
   ChevronLeft,
+  Star,
+  LogOut,
+  Power,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import SideBar from "../components/layout/SideBar";
 import { useAuth } from "../components/Auth/useAuth";
 import { supabase } from "../utils/supabase";
 import { toast } from "sonner";
 
 const BizRadarDashboard = () => {
-  const { user } = useAuth();
+  const { user,logout } = useAuth();
+  const navigate = useNavigate();
   const firstName = user?.user_metadata?.first_name || "";
   const currentDate = new Date().toLocaleDateString("en-US", {
     weekday: "long",
     month: "long",
     day: "numeric",
   });
+  const [isDisabled, setIsDisabled] = useState(false);
 
   // State for monthly pursuit data
   const [monthlyPursuits, setMonthlyPursuits] = useState({
@@ -57,6 +62,19 @@ const BizRadarDashboard = () => {
     due_date: null,
     tags: [],
   });
+
+  // Handle logout
+  const handleLogout = async () => {
+    try {
+      setIsDisabled(true);
+      await logout();
+      toast.success("Logging out...");
+      navigate("/logout");
+    } catch (error) {
+      console.error("Logout error:", error);
+      toast.error("There was a problem logging out");
+    }
+  };
 
   // File input ref
   const fileInputRef = useRef(null);
@@ -632,7 +650,8 @@ const handleFollowUp = (pursuitId) => {
             </div>
             <div className="flex items-center space-x-3">
               <button className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 transition-all">
-                Upgrade
+              <span>Upgrade</span>
+              <Star size={14} className="ml-1" />
               </button>
               <div className="relative">
                 <button className="p-2 text-gray-500 hover:text-gray-600 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors">
@@ -646,6 +665,14 @@ const handleFollowUp = (pursuitId) => {
                 </button>
                 <div className="absolute top-0 right-0 w-2 h-2 bg-blue-500 rounded-full"></div>
               </div>
+              <button
+                  onClick={handleLogout}
+                  className="bg-blue-50 text-blue-600 hover:bg-blue-100 px-4 py-2 rounded-lg text-sm flex items-center gap-2 border border-blue-100 transition-colors"
+                  disabled={isDisabled}
+                >
+                  <Power  size={16} />
+                  {/* <span className="font-medium">Logout</span> */}
+                </button>
             </div>
           </div>
 
@@ -896,10 +923,10 @@ const handleFollowUp = (pursuitId) => {
                           New AI-Matched Opportunities
                         </h2>
                       </div>
-                      <button className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors shadow-sm">
+                      <Link to="/settings" className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors shadow-sm">
                         <Settings className="mr-2 h-4 w-4" />
                         Edit settings
-                      </button>
+                      </Link>
                     </div>
 
                     {/* Alert */}
@@ -1138,13 +1165,13 @@ const handleFollowUp = (pursuitId) => {
                           Recently Viewed
                         </h2>
                       </div>
-                      <a
-                        href="#"
+                      <Link
+                        to="/pursuits" 
                         className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center"
                       >
                         View All
                         <ChevronRight className="h-4 w-4 ml-1" />
-                      </a>
+                      </Link>
                     </div>
 
                     <div>

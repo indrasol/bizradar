@@ -21,6 +21,7 @@ import { Settings } from "./pages/Settings";
 import Pursuits from "./pages/Pursuits";
 import CompanySetup from "./pages/CompanySetup";
 import BizradarAI from './components/Sidebar/BizradarAI';
+import ComingSoon from "./pages/ComingSoon";
 
 // Create a query client for React Query
 const queryClient = new QueryClient();
@@ -87,7 +88,7 @@ const App = () => (
             } />
             
             {/* 404 route */}
-            <Route path="*" element={<NotFound />} />
+            <Route path="*" element={<ComingSoon />} />
           </Routes>
         </AuthProvider>
       </BrowserRouter>

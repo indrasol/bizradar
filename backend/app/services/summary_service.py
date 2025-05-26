@@ -1,5 +1,6 @@
 import os
 import logging
+import aiohttp
 from openai import OpenAI
 
 # Configure logging
@@ -8,6 +9,39 @@ logger = logging.getLogger(__name__)
 
 # Initialize OpenAI client
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+async def fetch_description_from_sam(description_url):
+    """
+    Fetches the description from SAM.gov API.
+    
+    Args:
+        description_url (str): The URL to fetch the description from
+        
+    Returns:
+        str: The description text or None if failed
+    """
+    try:
+        # Get SAM.gov API key from environment variable
+        api_key = os.getenv("SAM_API_KEY")
+        if not api_key:
+            logger.error("SAM.gov API key not found in environment variables")
+            return None
+
+        # Add API key to URL
+        separator = "&" if "?" in description_url else "?"
+        url_with_key = f"{description_url}{separator}api_key={api_key}"
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url_with_key) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    return data.get('description', '')
+                else:
+                    logger.error(f"Failed to fetch description from SAM.gov: {response.status}")
+                    return None
+    except Exception as e:
+        logger.error(f"Error fetching description from SAM.gov: {str(e)}")
+        return None
 
 async def generate_description_summary(description_text, max_length=300):
     """
@@ -87,16 +121,28 @@ async def process_opportunity_descriptions(opportunities):
         logger.info(f"Processing {len(opportunities)} opportunities for summary generation")
         
         for opp in opportunities:
-            # Check if the opportunity has a description to summarize
+            # First try to get description from additional_description
+            description = None
             if "additional_description" in opp and opp["additional_description"]:
+                description = opp["additional_description"]
+            # If no additional_description, try to fetch from SAM.gov API if description is a URL
+            elif "description" in opp and opp["description"] and opp["description"].startswith("https://api.sam.gov/prod/opportunities/v1/noticedesc"):
+                description = await fetch_description_from_sam(opp["description"])
+            
+            if description:
                 # Generate summary
-                summary = await generate_description_summary(opp["additional_description"])
+                summary = await generate_description_summary(description)
                 
                 # Add the summary to the opportunity object
                 opp["summary"] = summary
             else:
-                opp["summary"] = "No description available."
-                
+                # If no description available from any source
+                opp["summary"] = ("This opportunity currently lacks a detailed description, so specific information "
+                    "about its objectives, eligibility criteria, and potential benefits is not yet available. "
+                    "To learn more about what this opportunity entails, including its purpose, requirements, "
+                    "and how it can impact you or your organization, please contact the opportunity provider "
+                    "directly. Alternatively, check back on this page for updates as more details become available.")
+
         return opportunities
         
     except Exception as e:

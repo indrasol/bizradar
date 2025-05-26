@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Link, useNavigate } from "react-router-dom"; // Added useNavigate
+import { Link, useNavigate, useLocation } from "react-router-dom"; // Added useLocation
 import { 
   Search, 
   FileText, 
@@ -12,12 +12,14 @@ import {
   Plus,
   Calendar,
   ChevronRight,
-  Bot // Added Bot icon for AI button
+  Bot, // Added Bot icon for AI button
+  Power
 } from "lucide-react";
 import SideBar from "../components/layout/SideBar";
 import { supabase } from "../utils/supabase";
 import { toast } from "sonner";
 import RfpResponse from "../components/rfp/rfpResponse";
+import { useAuth } from "@/components/Auth/useAuth";
 
 interface Pursuit {
   id: string;
@@ -45,7 +47,9 @@ interface RfpSaveEventDetail {
 }
 
 export default function Pursuits(): JSX.Element {
-  const navigate = useNavigate(); // Initialize useNavigate for redirection
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation(); // Add useLocation hook
   // Initialize with empty array and add loading/error states
   const [pursuits, setPursuits] = useState<Pursuit[]>([]);
   const [selectedPursuit, setSelectedPursuit] = useState<Pursuit | null>(null);
@@ -213,6 +217,18 @@ export default function Pursuits(): JSX.Element {
     // Refresh the pursuits list to get the updated stage
     fetchPursuits();
   };
+
+  // Handle logout
+  const handleLogout = async () => {
+    try {
+      await logout();
+      toast.success("Logging out...");
+      navigate("/logout");
+    } catch (error) {
+      console.error("Logout error:", error);
+      toast.error("There was a problem logging out");
+    }
+  };
   
   // Add handleAddToPursuit function
   const handleAddToPursuit = async (opportunity: Opportunity): Promise<void> => {
@@ -360,12 +376,25 @@ export default function Pursuits(): JSX.Element {
         return;
       }
       
-      // Simple query to just get the basic data
-      const { data, error } = await supabase
+      // Get query parameters
+      const searchParams = new URLSearchParams(location.search);
+      const filter = searchParams.get('filter');
+      
+      // Build the query
+      let query = supabase
         .from('pursuits')
         .select('id, title, description, stage, created_at, user_id, due_date, is_submitted, naicscode')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+        .eq('user_id', user.id);
+      
+      // Add filter for submitted pursuits if specified
+      if (filter === 'submitted') {
+        query = query.eq('is_submitted', true);
+      }
+      
+      // Add ordering
+      query = query.order('created_at', { ascending: false });
+      
+      const { data, error } = await query;
         
       if (error) {
         console.error("Fetch error:", error);
@@ -423,7 +452,7 @@ export default function Pursuits(): JSX.Element {
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [location.search]); // Add location.search as a dependency to refetch when query params change
   
   // Modify the handlePursuitSelect function
   const handlePursuitSelect = async (pursuit: Pursuit): Promise<void> => {
@@ -841,6 +870,13 @@ export default function Pursuits(): JSX.Element {
               <div className="flex items-center gap-4">
                 <button className="bg-blue-50 text-blue-600 hover:bg-blue-100 px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-blue-100">
                   <span>View Analytics</span>
+                </button>
+              <button
+                  onClick={handleLogout}
+                  className="bg-blue-50 text-blue-600 hover:bg-blue-100 px-4 py-2 rounded-lg text-sm flex items-center gap-2 border border-blue-100 transition-colors"
+                >
+                  <Power  size={16} />
+                  {/* <span className="font-medium">Logout</span> */}
                 </button>
               </div>
             </div>
