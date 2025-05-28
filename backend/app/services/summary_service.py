@@ -1,14 +1,29 @@
 import os
 import logging
 import aiohttp
-from openai import OpenAI
+# from openai import OpenAI
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Initialize OpenAI client
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+def get_openai_client():
+    try:
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            logger.warning("OPENAI_API_KEY environment variable not set")
+        else:
+            logger.info("OPENAI_API_KEY environment variable found")
+            from openai import OpenAI
+            client = OpenAI(api_key=api_key)
+            logger.info("OpenAI client initialized successfully")
+            return client
+    except Exception as e:
+        logger.error(f"Failed to initialize OpenAI client: {str(e)}")
+    return None
 
 async def fetch_description_from_sam(description_url):
     """
@@ -61,7 +76,8 @@ async def generate_description_summary(description_text, max_length=300):
         # Truncate very long descriptions
         if len(description_text) > 6000:
             description_text = description_text[:6000] + "..."
-            
+
+        client = get_openai_client()   
         response = client.chat.completions.create(
             model="gpt-4.1-mini",
             messages=[

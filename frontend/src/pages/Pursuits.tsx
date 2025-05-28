@@ -986,7 +986,7 @@ export default function Pursuits(): JSX.Element {
                           className={`group ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition-colors cursor-pointer`}
                           onClick={() => handlePursuitSelect(pursuit)}
                         >
-                          <td className="px-4 py-4 whitespace-nowrap">
+                          <td className="px-4 py-4">
                             <div className="text-sm font-medium text-gray-900 group-hover:text-blue-600 transition-colors">{pursuit.title}</div>
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap">

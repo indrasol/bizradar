@@ -2004,13 +2004,20 @@ export default function Opportunities() {
                                       {(() => {
                                         // Function to bold dates
                                         const highlightSearchTerms = (text: string) => {
-                                          const searchTerms = refinedQuery.replace('site:sam.gov', '').replace('government contract', '').split(' OR').map(term => term.replace('AND', '').replace('OR', '').replace('"', '').trim()).filter(term => term.length > 0);
+                                          const searchTerms = refinedQuery
+                                            .replace('site:sam.gov', '')
+                                            .replace('government contract', '')
+                                            .split(' OR')
+                                            .map(term => term.replace(/AND|OR|"/g, '').trim())
+                                            .filter(term => term.length > 0);
+                                        
                                           if (searchTerms.length) {
-                                            const regex = new RegExp(`(${searchTerms.join('|')})`, 'gi');
+                                            const regex = new RegExp(`\\b(${searchTerms.join('|')})\\b`, 'gi');
                                             text = text.replace(regex, (match) => {
                                               return `<span style="background-color: #B6D6FD; font-weight: bold;">${match}</span>`;
                                             });
                                           }
+                                        
                                           return text;
                                         };
 
@@ -2098,15 +2105,25 @@ export default function Opportunities() {
 
                                           // Function to bold dates
                                           const boldDates = (text: string) => {
-                                            const searchTerms = refinedQuery.replace('site:sam.gov', '').replace('government contract', '').split(' OR').map(term => term.replace('AND', '').replace('OR', '').replace('"', '').trim()).filter(term => term.length > 0);
+                                            const searchTerms = refinedQuery
+                                              .replace('site:sam.gov', '')
+                                              .replace('government contract', '')
+                                              .split(' OR')
+                                              .map(term => term.replace(/AND|OR|"/g, '').trim())
+                                              .filter(term => term.length > 0);
+                                          
                                             if (searchTerms.length) {
-                                              const regex = new RegExp(`(${searchTerms.join('|')})`, 'gi');
+                                              const regex = new RegExp(`\\b(${searchTerms.join('|')})\\b`, 'gi');
                                               text = text.replace(regex, (match) => {
                                                 return `<span style="background-color:#B6D6FD; font-weight: bold;">${match}</span>`;
                                               });
                                             }
-                                            return text.replace(dateRegex, (match) => `<strong class="font-bold text-blue-700">${match}</strong>`);
+                                          
+                                            return text.replace(dateRegex, (match) => 
+                                              `<strong class="font-bold text-blue-700">${match}</strong>`
+                                            );
                                           };
+                                          
 
                                           return (
                                             <div>

@@ -8,7 +8,7 @@ from datetime import datetime, date
 from fastapi import APIRouter, Request, HTTPException, BackgroundTasks, Query
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
-from openai import OpenAI
+
 from services.open_ai_refiner import refine_query
 from services.job_search import search_jobs
 from services.pdf_service import generate_rfp_pdf
@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 # Initialize router, OpenAI client, and Redis
 search_router = APIRouter()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 redis_client = RedisClient()
 CACHE_TTL = 60 * 60 * 24  # 24 hours cache time (1 day)
 MAX_RECOMMENDATIONS = 2  # Limit to 2 recommendations per query
@@ -38,6 +38,21 @@ MAX_RECOMMENDATIONS = 2  # Limit to 2 recommendations per query
 # Recommendation queue for prioritization
 recommendation_queue = deque()
 recommendation_lock = asyncio.Lock()
+
+def get_openai_client():
+    try:
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            logger.warning("OPENAI_API_KEY environment variable not set")
+        else:
+            logger.info("OPENAI_API_KEY environment variable found")
+            from openai import OpenAI
+            client = OpenAI(api_key=api_key)
+            logger.info("OpenAI client initialized successfully")
+            return client
+    except Exception as e:
+        logger.error(f"Failed to initialize OpenAI client: {str(e)}")
+    return None
 
 def sanitize(obj):
     """
@@ -784,6 +799,7 @@ async def ask_ai(request: Request):
 
 Please provide clear, concise, and professional responses focused on helping users understand and work with RFP documents."""
 
+        client = get_openai_client()
         response = client.chat.completions.create(
             model="gpt-4-turbo-preview",
             messages=[
@@ -816,6 +832,7 @@ async def process_document(request: Request):
             raise HTTPException(status_code=400, detail="Document content is required")
         
         # Use OpenAI to process document with enhanced validation
+        client = get_openai_client()
         response = client.chat.completions.create(
             model="gpt-4-turbo-preview",
             messages=[
