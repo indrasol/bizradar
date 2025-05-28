@@ -3,13 +3,13 @@ import time
 import logging
 import json
 from datetime import datetime, timedelta
-from sentence_transformers import SentenceTransformer
-from pinecone import Pinecone, ServerlessSpec
+# from sentence_transformers import SentenceTransformer
+# from pinecone import Pinecone, ServerlessSpec
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from dotenv import load_dotenv
 from typing import List, Dict, Optional
-from database import get_connection
+from utils.database import get_connection
 import numpy as np
 from tqdm import tqdm
 
@@ -27,10 +27,40 @@ logger = logging.getLogger("indexer")
 # Load environment variables from .env
 load_dotenv()
 
-# Initialize models and clients
-model = SentenceTransformer('all-MiniLM-L6-v2')  # 384-dimensional embeddings
-pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
-index = pc.Index("job-indexx")  # Ensure this index exists in Pinecone with dimension 384 and metric 'cosine'
+# # Initialize models and clients
+# model = SentenceTransformer('all-MiniLM-L6-v2')  # 384-dimensional embeddings
+# pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
+# index = pc.Index("job-indexx")  # Ensure this index exists in Pinecone with dimension 384 and metric 'cosine'
+
+# Lazy-load globals
+_model = None
+_index = None
+ 
+def get_model():
+    global _model
+    if _model is None:
+        from sentence_transformers import SentenceTransformer
+        logger.info("Loading SentenceTransformer...")
+        _model = SentenceTransformer('all-MiniLM-L6-v2')
+    return _model
+ 
+def get_index():
+    global _index
+    if _index is None:
+        from pinecone import Pinecone
+        logger.info("Initializing Pinecone index...")
+        pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
+        _index = pc.Index("job-indexx")
+    return _index
+ 
+# Optional: helper to check index stats (if used elsewhere)
+def describe_index_stats():
+    try:
+        index = get_index()
+        return index.describe_index_stats()
+    except Exception as e:
+        logger.error(f"Error getting index stats: {e}")
+        return None
 
 # File to track last indexing timestamp
 INDEX_STATE_FILE = "index_state.json"
@@ -65,6 +95,7 @@ def check_index_stats():
     Check the current state of the Pinecone index
     """
     try:
+        index = get_index()
         stats = index.describe_index_stats()
         logger.info(f"Index dimension: {stats.dimension}")
         logger.info(f"Total vectors: {stats.total_vector_count}")
@@ -79,6 +110,7 @@ def check_vector_exists(record_id):
     Check if a vector with the given ID already exists in Pinecone
     """
     try:
+        index = get_index()
         result = index.fetch(ids=[record_id])
         return bool(result.vectors)
     except Exception as e:
@@ -236,6 +268,7 @@ def index_sam_gov_to_pinecone(incremental=True):
                 
             # Combine fields for embedding
             text = f"{title} {description}"
+            model = get_model()
             embedding = model.encode(text).tolist()
             
             # Normalize the embedding
@@ -275,6 +308,7 @@ def index_sam_gov_to_pinecone(incremental=True):
     for i in range(0, len(vectors), batch_size):
         batch = vectors[i:i + batch_size]
         try:
+            index = get_index()
             index.upsert(vectors=batch)
             logger.info(f"Upserted sam_gov batch {i//batch_size + 1} of {total_batches}")
         except Exception as e:
@@ -335,6 +369,7 @@ def index_freelancer_data_table_to_pinecone(incremental=True):
                 
             # Combine fields for embedding
             text = f"{title} {skills} {additional_details}"
+            model = get_model()
             embedding = model.encode(text).tolist()
             
             # Normalize the embedding
@@ -372,6 +407,7 @@ def index_freelancer_data_table_to_pinecone(incremental=True):
     for i in range(0, len(vectors), batch_size):
         batch = vectors[i:i + batch_size]
         try:
+            index = get_index()
             index.upsert(vectors=batch)
             logger.info(f"Upserted freelancer batch {i//batch_size + 1} of {total_batches}")
         except Exception as e:
@@ -395,10 +431,12 @@ def check_search(query="cybersecurity"):
     
     try:
         # Generate query embedding
+        model = get_model()
         query_embedding = model.encode(query).tolist()
         embedding = normalize_embedding(query_embedding)
         
         # Search without filter first
+        index = get_index()
         results = index.query(
             vector=embedding,
             top_k=5,

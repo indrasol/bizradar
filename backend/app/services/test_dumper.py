@@ -10,7 +10,7 @@ import ssl
 import certifi
 from datetime import datetime, timedelta
 import asyncio
-import pandas as pd
+# import pandas as pd
 from utils.database import insert_data
 
 # Configure logging

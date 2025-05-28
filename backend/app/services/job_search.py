@@ -1,7 +1,7 @@
 import logging
 import re
-from sentence_transformers import SentenceTransformer
-from pinecone import Pinecone
+# from sentence_transformers import SentenceTransformer
+# from pinecone import Pinecone
 import os
 import numpy as np
 from typing import List, Dict, Optional
@@ -12,17 +12,46 @@ from datetime import datetime
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize models and clients with environment variables
-model = SentenceTransformer('all-MiniLM-L6-v2')
-pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
-index = pc.Index("job-indexx")
+# # Initialize models and clients with environment variables
+# model = SentenceTransformer('all-MiniLM-L6-v2')
+# pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
+# index = pc.Index("job-indexx")
 
-# Check index stats
-try:
-    index_stats = index.describe_index_stats()
-except Exception as e:
-    logger.error(f"Error getting index stats: {e}")
+# # Check index stats
+# try:
+#     index_stats = index.describe_index_stats()
+# except Exception as e:
+#     logger.error(f"Error getting index stats: {e}")
 
+# Lazy-load globals
+_model = None
+_index = None
+ 
+def get_model():
+    global _model
+    if _model is None:
+        from sentence_transformers import SentenceTransformer
+        logger.info("Loading SentenceTransformer...")
+        _model = SentenceTransformer('all-MiniLM-L6-v2')
+    return _model
+ 
+def get_index():
+    global _index
+    if _index is None:
+        from pinecone import Pinecone
+        logger.info("Initializing Pinecone index...")
+        pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
+        _index = pc.Index("job-indexx")
+    return _index
+ 
+# Optional: helper to check index stats (if used elsewhere)
+def describe_index_stats():
+    try:
+        index = get_index()
+        return index.describe_index_stats()
+    except Exception as e:
+        logger.error(f"Error getting index stats: {e}")
+        return None
 
 def extract_id_from_pinecone(pinecone_id):
     """
@@ -180,6 +209,7 @@ def search_jobs(
         )
 
         # Generate and normalize embedding
+        model = get_model()
         embedding = model.encode(query).tolist()
         norm = np.linalg.norm(embedding)
         if norm > 0:
@@ -195,7 +225,7 @@ def search_jobs(
                 naics_code,              # Example: NAICS code filter
                 opportunity_type       # Example: opportunity type filter
             )
-
+            index = get_index()
             results = index.query(
                 vector=embedding,
                 top_k=50,
