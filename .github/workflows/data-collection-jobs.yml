@@ -125,7 +125,7 @@ jobs:
         working-directory: ./backend
         run: |
           # python scripts/import_csv_to_db.py
-          python -m app.utils..import_csv_to_db
+          python -m app.utils..import_csv_request
         env:
           DB_HOST: ${{ secrets.DB_HOST }}
           DB_PORT: ${{ secrets.DB_PORT }}
@@ -192,8 +192,8 @@ jobs:
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ETL_RECORD_ID: ${{ needs.setup-etl-history.outputs.record_id }}
-          PINECONE_API_KEY:${{ secrets.PINECONE_API_KEY }}
-          PINECONE_ENV:${{ secrets.PINECONE_ENV }}
+          PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY }}
+          PINECONE_ENV: ${{ secrets.PINECONE_ENV }}
   
   sam-gov-api:
     name: SAM.gov API Data Collection

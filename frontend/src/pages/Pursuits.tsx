@@ -21,6 +21,10 @@ import { toast } from "sonner";
 import RfpResponse from "../components/rfp/rfpResponse";
 import { useAuth } from "@/components/Auth/useAuth";
 
+const isDevelopment = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+const API_BASE_URL = isDevelopment
+? "http://localhost:5000"
+: import.meta.env.VITE_API_BASE_URL;
 interface Pursuit {
   id: string;
   title: string;
@@ -83,11 +87,17 @@ export default function Pursuits(): JSX.Element {
     
     try {
       // Fetch the noticeId from the sam_gov table using the title
+      // const { data, error } = await supabase
+      //   .from('sam_gov')
+      //   .select('notice_id')
+      //   .eq('title', pursuit.title)
+      //   .single();
       const { data, error } = await supabase
         .from('sam_gov')
         .select('notice_id')
         .eq('title', pursuit.title)
-        .single();
+        .limit(1)
+        .maybeSingle();
 
       if (error) {
         console.error("Error fetching noticeId:", error);
@@ -104,7 +114,8 @@ export default function Pursuits(): JSX.Element {
       
       // Call the backend endpoint directly with the correct port
       try {
-        const backendResponse = await fetch('http://localhost:5000/ask-bizradar-ai', {
+        
+        const backendResponse = await fetch(`${API_BASE_URL}/ask-bizradar-ai`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
