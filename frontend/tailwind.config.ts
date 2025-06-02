@@ -1,7 +1,7 @@
 import type { Config } from "tailwindcss";
 import defaultTheme from "tailwindcss/defaultTheme";
 import tailwindForms from "@tailwindcss/forms";
-import tailwindLineClamp from "@tailwindcss/line-clamp";
+// import tailwindLineClamp from "@tailwindcss/line-clamp";
 import tailwindAnimate from "tailwindcss-animate";
 
 export default {
@@ -110,6 +110,6 @@ export default {
   plugins: [
     tailwindAnimate,
     tailwindForms,
-    tailwindLineClamp,
+    // tailwindLineClamp,
   ],
 } satisfies Config;

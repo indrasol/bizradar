@@ -33,6 +33,7 @@ def get_model():
         from sentence_transformers import SentenceTransformer
         logger.info("Loading SentenceTransformer...")
         _model = SentenceTransformer('all-MiniLM-L6-v2')
+        # _model=SentenceTransformer('paraphrase-MiniLM-L3-v2')
     return _model
  
 def get_index():
@@ -82,6 +83,104 @@ def is_valid_additional_description(text):
     )
     return placeholder not in text
 
+# def build_filters(
+#     contract_type: Optional[str] = None,
+#     platform: Optional[str] = None,
+#     due_date_filter: Optional[str] = None,
+#     posted_date_filter: Optional[str] = None,
+#     naics_code: Optional[str] = None,
+#     opportunity_type: Optional[str] = None,
+#     user_id: Optional[str] = None
+# ) -> dict:
+#     filters = {}
+
+#     # Filter by platform ("sam_gov" or "freelancer")
+#     if platform:
+#         filters["source"] = platform  # "source" stores the platform ('sam_gov', 'freelancer')
+
+#     # Filter by contract_type (could be stored in "department" for SAM.gov)
+#     if contract_type:
+#         filters["department"] = contract_type  # "department" is the assumed field for contract type in SAM.gov
+
+#     # Filter by NAICS code (only available in SAM.gov)
+#     if naics_code:
+#         filters["naics_code"] = naics_code  # "naics_code" is available in SAM.gov metadata
+
+#     # Filter by opportunity_type (maps to platform type 'sam_gov' or 'freelancer')
+#     if opportunity_type:
+#         filters["platform"] = opportunity_type  # "platform" field indicates opportunity type (e.g., 'Federal', 'Freelancer')
+
+#     # Filter by user_id (assuming user_id is part of the metadata for user-specific filtering)
+#     if user_id:
+#         filters["user_id"] = user_id  # Assuming "user_id" exists in the metadata
+
+#     # Filter by due date (response_date) 
+#     if due_date_filter:
+#         filters["response_date"] = {"$lte": due_date_filter}  # Filters based on "response_date" metadata
+
+#     # Filter by posted date (published_date)
+#     if posted_date_filter:
+#         filters["published_date"] = {"$gte": posted_date_filter}  # Filters based on "published_date" metadata
+
+#     return {}
+
+from typing import Optional, Dict, Union, Literal
+from datetime import datetime, timedelta
+import time
+ 
+try:
+    from dateutil.parser import parse as parse_date
+except ImportError:
+    parse_date = datetime.fromisoformat  # fallback
+ 
+# Config: timestamp unit for Pinecone (True=milliseconds, False=seconds)
+TIMESTAMP_IN_MILLISECONDS = True
+ 
+# Define allowed date filter options
+DueDateFilter = Literal[
+    'all', 'active_only', 'next_7_days', 'next_30_days', 'next_3_months', 'next_12_months'
+]
+PostedDateFilter = Literal[
+    'all', 'past_day', 'past_week', 'past_month', 'past_year'
+]
+ 
+def to_unix_timestamp(dt: datetime) -> int:
+    ts = int(time.mktime(dt.timetuple()))
+    return ts * 1000 if TIMESTAMP_IN_MILLISECONDS else ts
+ 
+def validate_nonempty_str(value: Optional[str]) -> Optional[str]:
+    if not isinstance(value, str):
+        return None
+    val = value.strip().lower()
+    if val in ('', 'all', 'none'):
+        return None
+    return value.strip()
+ 
+def get_due_date_limit(filter_value: str, now: datetime) -> Optional[int]:
+    mapping = {
+        'active_only': now,
+        'next_7_days': now + timedelta(days=7),
+        'next_30_days': now + timedelta(days=30),
+        'next_3_months': now + timedelta(days=90),
+        'next_12_months': now + timedelta(days=365),
+    }
+    target_date = mapping.get(filter_value.lower())
+    if target_date:
+        return to_unix_timestamp(target_date)
+    return None
+ 
+def get_posted_date_limit(filter_value: str, now: datetime) -> Optional[int]:
+    mapping = {
+        'past_day': now - timedelta(days=1),
+        'past_week': now - timedelta(days=7),
+        'past_month': now - timedelta(days=30),
+        'past_year': now - timedelta(days=365),
+    }
+    target_date = mapping.get(filter_value.lower())
+    if target_date:
+        return to_unix_timestamp(target_date)
+    return None
+ 
 def build_filters(
     contract_type: Optional[str] = None,
     platform: Optional[str] = None,
@@ -90,38 +189,70 @@ def build_filters(
     naics_code: Optional[str] = None,
     opportunity_type: Optional[str] = None,
     user_id: Optional[str] = None
-) -> dict:
-    filters = {}
-
-    # Filter by platform ("sam_gov" or "freelancer")
-    if platform:
-        filters["source"] = platform  # "source" stores the platform ('sam_gov', 'freelancer')
-
-    # Filter by contract_type (could be stored in "department" for SAM.gov)
-    if contract_type:
-        filters["department"] = contract_type  # "department" is the assumed field for contract type in SAM.gov
-
-    # Filter by NAICS code (only available in SAM.gov)
-    if naics_code:
-        filters["naics_code"] = naics_code  # "naics_code" is available in SAM.gov metadata
-
-    # Filter by opportunity_type (maps to platform type 'sam_gov' or 'freelancer')
-    if opportunity_type:
-        filters["platform"] = opportunity_type  # "platform" field indicates opportunity type (e.g., 'Federal', 'Freelancer')
-
-    # Filter by user_id (assuming user_id is part of the metadata for user-specific filtering)
-    if user_id:
-        filters["user_id"] = user_id  # Assuming "user_id" exists in the metadata
-
-    # Filter by due date (response_date) 
+) -> Dict[str, Union[str, Dict[str, int]]]:
+    """
+    Build validated Pinecone filters dictionary, converting friendly date filters
+    to numeric timestamps and validating string filters.
+ 
+    Raises ValueError on invalid filter values.
+    """
+    filters: Dict[str, Union[str, Dict[str, int]]] = {}
+    now = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+ 
+    # Validate and add platform
+    plat = validate_nonempty_str(platform)
+    if plat:
+        filters["source"] = plat
+    # elif platform is not None:
+    #     raise ValueError(f"Invalid platform filter: {platform}")
+ 
+    # Validate and add contract_type (department)
+    ct = validate_nonempty_str(contract_type)
+    if ct:
+        filters["department"] = ct
+    # elif contract_type is not None:
+    #     raise ValueError(f"Invalid contract_type filter: {contract_type}")
+ 
+    # Validate and add naics_code
+    nc = validate_nonempty_str(naics_code)
+    if nc:
+        filters["naics_code"] = nc
+    # elif naics_code is not None:
+    #     raise ValueError(f"Invalid naics_code filter: {naics_code}")
+ 
+    # Validate and add opportunity_type (platform)
+    ot = validate_nonempty_str(opportunity_type)
+    if ot:
+        filters["platform"] = ot
+    # elif opportunity_type is not None:
+    #     raise ValueError(f"Invalid opportunity_type filter: {opportunity_type}")
+ 
+    # Validate and add user_id
+    # uid = validate_nonempty_str(user_id)
+    # if uid:
+    #     filters["user_id"] = uid
+    # elif user_id is not None:
+    #     raise ValueError(f"Invalid user_id filter: {user_id}")
+ 
+    # Process due_date_filter to response_date <= timestamp
     if due_date_filter:
-        filters["response_date"] = {"$lte": due_date_filter}  # Filters based on "response_date" metadata
-
-    # Filter by posted date (published_date)
+        due_date_filter_lower = validate_nonempty_str(due_date_filter)
+        if due_date_filter_lower:
+            due_date_limit = get_due_date_limit(due_date_filter_lower, now)
+            if due_date_limit:
+            #     raise ValueError(f"Invalid due_date_filter value: {due_date_filter}")
+                filters["response_date"] = {"$lte": due_date_limit}
+ 
+    # Process posted_date_filter to published_date >= timestamp
     if posted_date_filter:
-        filters["published_date"] = {"$gte": posted_date_filter}  # Filters based on "published_date" metadata
-
-    return {}
+        posted_date_filter_lower = validate_nonempty_str(posted_date_filter_lower)
+        if posted_date_filter_lower:
+            posted_date_limit = get_posted_date_limit(posted_date_filter_lower, now)
+            if posted_date_limit:
+            #     raise ValueError(f"Invalid posted_date_filter value: {posted_date_filter}")
+                filters["published_date"] = {"$gte": posted_date_limit}
+ 
+    return filters
 
 
 def extract_budget_mentions(text: str) -> Optional[str]:

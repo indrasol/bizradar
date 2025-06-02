@@ -9,13 +9,14 @@ on:
   workflow_dispatch:
     inputs:
       job:
-        description: 'Job to run (freelancer, sam_gov, or leave empty for all)'
+        description: 'Job to run (freelancer, sam_gov, import_csv, or leave empty for all)'
         required: false
         type: choice
         options:
           - ''
           - freelancer
           - sam_gov
+          - import_csv
         default: ''
 
 jobs:
@@ -99,6 +100,39 @@ jobs:
           DB_USER: ${{ secrets.DB_USER }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
 
+  import-csv-to-db:
+    name: Import SAM.gov CSV to Database
+    needs: setup-etl-history
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'import_csv' || github.event.inputs.job == 'sam_gov' || github.event.inputs.job == ''))
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas psycopg2-binary python-dotenv
+      
+      - name: Import CSV to Database
+        working-directory: ./backend
+        run: |
+          # python scripts/import_csv_to_db.py
+          python -m app.utils..import_csv_request
+        env:
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}        
+
   freelancer-scraper:
     name: Freelancer.com Data Collection
     needs: setup-etl-history
@@ -158,6 +192,8 @@ jobs:
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ETL_RECORD_ID: ${{ needs.setup-etl-history.outputs.record_id }}
+          PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY }}
+          PINECONE_ENV: ${{ secrets.PINECONE_ENV }}
   
   sam-gov-api:
     name: SAM.gov API Data Collection
@@ -218,6 +254,9 @@ jobs:
           SAM_API_KEY: ${{ secrets.SAM_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ETL_RECORD_ID: ${{ needs.setup-etl-history.outputs.record_id }}
+          PINECONE_API_KEY:${{ secrets.PINECONE_API_KEY }}
+          PINECONE_ENV:${{ secrets.PINECONE_ENV }}
+
 
   update-etl-history:
     name: Update ETL History
