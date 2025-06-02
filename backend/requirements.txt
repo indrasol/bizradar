@@ -16,3 +16,23 @@ reportlab>=3.6.0
 aiohttp          # Added for asynchronous HTTP requests
 redis
 celery[redis]>=5.5.0
+PyPDF2
+docx
+
+# fastapi==0.115.0
+# uvicorn==0.30.6
+# supabase==2.9.0
+# openai==1.51.0
+# sentence-transformers==3.1.1
+# numpy==1.26.4  # Only if required by sentence-transformers
+# beautifulsoup4==4.12.3
+# requests==2.32.3
+# python-multipart==0.0.9  # Only if handling uploads
+# psycopg2-binary==2.9.9
+# pinecone==5.3.1
+# python-dotenv==1.0.1
+# reportlab==4.2.2
+# aiohttp==3.10.5
+# redis==5.0.8
+# # Removed: pandas, celery[redis] (replace with polars or rq if needed)
+# # Optional: polars==1.7.1 or rq==1.16.2
