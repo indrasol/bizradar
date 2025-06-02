@@ -5,7 +5,7 @@ import traceback
 from typing import Dict, Any, List, Optional
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from openai import OpenAI, APIError
+# from openai import OpenAI, APIError
 from services.doc_processing import format_document_context
 
 # Configure logging with more detailed format
@@ -15,20 +15,35 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Check for OpenAI API key
-api_key = os.getenv("OPENAI_API_KEY")
-if not api_key:
-    logger.error("OPENAI_API_KEY environment variable not found")
-else:
-    logger.info("OPENAI_API_KEY environment variable found")
+# # Check for OpenAI API key
+# api_key = os.getenv("OPENAI_API_KEY")
+# if not api_key:
+#     logger.error("OPENAI_API_KEY environment variable not found")
+# else:
+#     logger.info("OPENAI_API_KEY environment variable found")
 
-# Initialize OpenAI client with error handling
-try:
-    openai_client = OpenAI(api_key=api_key)
-    logger.info("OpenAI client initialized successfully")
-except Exception as e:
-    logger.error(f"Failed to initialize OpenAI client: {str(e)}")
-    openai_client = None
+# # Initialize OpenAI client with error handling
+# try:
+#     openai_client = OpenAI(api_key=api_key)
+#     logger.info("OpenAI client initialized successfully")
+# except Exception as e:
+#     logger.error(f"Failed to initialize OpenAI client: {str(e)}")
+#     openai_client = None
+
+def get_openai_client():
+    try:
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            logger.warning("OPENAI_API_KEY environment variable not set")
+        else:
+            logger.info("OPENAI_API_KEY environment variable found")
+            from openai import OpenAI
+            client = OpenAI(api_key=api_key)
+            logger.info("OpenAI client initialized successfully")
+            return client
+    except Exception as e:
+        logger.error(f"Failed to initialize OpenAI client: {str(e)}")
+    return None
 
 def get_db_connection():
     """Create a connection to the Supabase PostgreSQL database with detailed error handling"""
@@ -296,6 +311,7 @@ async def process_bizradar_request(
         logger.info(full_context[:500] + "..." if len(full_context) > 500 else full_context)
         
         # Check if OpenAI client is available
+        openai_client = get_openai_client()
         if not openai_client:
             logger.error("OpenAI client not available. Using default response.")
             return {

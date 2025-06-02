@@ -4,16 +4,16 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.utils import ImageReader
 from dotenv import load_dotenv
-import openai
+# import openai
 
 # Load environment variables from .env file
 load_dotenv()
 
 # Retrieve OpenAI API key from .env
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-if not OPENAI_API_KEY:
-    raise ValueError("OPENAI_API_KEY not found in .env file")
-openai.api_key = OPENAI_API_KEY
+# OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+# if not OPENAI_API_KEY:
+#     raise ValueError("OPENAI_API_KEY not found in .env file")
+# openai.api_key = OPENAI_API_KEY
 
 # Business context
 BUSINESS_CONTEXT = """

@@ -2,14 +2,36 @@ import os
 import logging
 import psycopg2
 from psycopg2.extras import RealDictCursor
-import pinecone
-from datetime import datetime, timedelta
+# import pinecone
+# from datetime import datetime, timedelta
 from dotenv import load_dotenv
-import numpy as np
-from pinecone.core.client.model.vector import Vector
+# import numpy as np
+# from pinecone.core.client.model.vector import Vector
 from typing import List, Dict, Any, Optional, Union, Tuple
-from sentence_transformers import SentenceTransformer
+
 import time
+
+
+# if 'procurlytics' not in pinecone.list_indexes().names():
+#     pinecone.create_index(
+#         name='procurlytics',
+#         dimension=1536,
+#         metric='euclidean',
+#         spec=ServerlessSpec(
+#             cloud='aws',
+#             region='us-east1-gcp'
+#         )
+# )
+# if 'procurlytics' not in pinecone.list_indexes().names():
+#     pinecone.create_index(
+#         name='procurlytics',
+#         dimension=1536,
+#         metric='euclidean',
+#         spec=ServerlessSpec(
+#             cloud='aws',
+#             region='us-east1-gcp'
+#         )
+# )
 
 # Configure logging
 logging.basicConfig(
@@ -27,6 +49,7 @@ def get_embedding_model():
     try:
         # You can change the model to any sentence-transformer model from Hugging Face
         model_name = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
+        from sentence_transformers import SentenceTransformer
         model = SentenceTransformer(model_name)
         return model
     except Exception as e:
@@ -48,29 +71,42 @@ def get_connection():
         return conn
     except psycopg2.Error as e:
         logger.error(f"Error connecting to the database: {e}")
-        return None
+        return None    
 
 # Pinecone connection function
 def initialize_pinecone():
     """Initialize and return the Pinecone client."""
     try:
-        api_key = os.getenv("PINECONE_API_KEY")
-        environment = os.getenv("PINECONE_ENVIRONMENT")
-        
+        api_key = os.getenv("PINECONE_API_KEY") or 'pcsk_6RoTWM_9rPmar9wBeUWBiMGsCJQM9tvcrRskb6CnewfpQWsP84AnioqxHiZqDGZVvRZCx7'
+        environment = os.getenv("PINECONE_ENV") or 'us-east-1'
+        logger.warning(api_key)
+        logger.warning(environment)
         if not api_key or not environment:
             logger.error("Pinecone API key or environment not found in environment variables.")
             return None
             
-        pinecone.init(api_key=api_key, environment=environment)
+        # pinecone.init(api_key=api_key, environment=environment)
+
+        from pinecone import Pinecone, ServerlessSpec
+        
+        pinecone = Pinecone(
+            api_key=api_key,
+            environment=environment
+        )
         
         # Get the index name from environment variable
         index_name = os.getenv("PINECONE_INDEX_NAME", "procurlytics")
         
         # Check if index exists, create it if it doesn't
-        if index_name not in pinecone.list_indexes():
+        if index_name not in pinecone.list_indexes().names():
             logger.info(f"Creating new Pinecone index: {index_name}")
             dimension = 384  # This is for all-MiniLM-L6-v2, adjust for your model
-            pinecone.create_index(name=index_name, dimension=dimension, metric="cosine")
+            pinecone.create_index(name=index_name, dimension=dimension, metric="cosine",
+                spec=ServerlessSpec(
+                    cloud='aws',
+                    region='us-east-1'
+                )
+            )
             logger.info(f"Created index {index_name}")
         
         # Connect to the index
