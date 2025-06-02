@@ -1,6 +1,12 @@
+import asyncio
 import os
 import logging
+from pathlib import Path
 import aiohttp
+from typing import List
+import psycopg2
+from psycopg2.extras import execute_values
+import pandas as pd
 # from openai import OpenAI
 
 # Configure logging
@@ -123,44 +129,141 @@ Tone: Direct, informative, and slightly compelling"""
         logger.error(f"Summary generation error: {str(e)}")
         return "Unable to generate a summary. Direct review of the description is recommended."
 
+# CSV_URL = "https://s3.amazonaws.com/falextracts/Contract%20Opportunities/datagov/ContractOpportunitiesFullCSV.csv"
+NOTICE_ID_COL = "NoticeId"
+DESCRIPTION_COL = "Description"
+
+def find_descriptions_by_notice_ids(notice_ids: List[str], chunksize: int = 5000) -> List[dict]:
+    # if not notice_ids:
+    #     return []
+
+    # notice_id_set = set(notice_ids)
+    # found_map = {}
+
+    # try:
+    #     csv_path = Path(__file__).resolve().parents[2] / "public" / "ContractOpportunitiesFullCSV.csv"
+
+    #     # for chunk in pd.read_csv(CSV_URL, chunksize=chunksize, usecols=[NOTICE_ID_COL, DESCRIPTION_COL], dtype=str, encoding="cp1252"):
+    #     for chunk in pd.read_csv(csv_path, chunksize=chunksize, usecols=[NOTICE_ID_COL, DESCRIPTION_COL], dtype=str, encoding="cp1252"):
+
+    #         chunk_filtered = chunk[chunk[NOTICE_ID_COL].isin(notice_id_set)]
+    #         for _, row in chunk_filtered.iterrows():
+    #             nid = row[NOTICE_ID_COL]
+    #             if nid not in found_map:
+    #                 found_map[nid] = row[DESCRIPTION_COL]
+    #             if len(found_map) == len(notice_id_set):
+    #                 break
+    #     return [{NOTICE_ID_COL: nid, DESCRIPTION_COL: desc} for nid, desc in found_map.items()]
+    # except Exception as e:
+    #     logger.error(f"Error processing CSV: {str(e)}")
+    #     return []
+
+    """
+    Retrieve descriptions for given notice IDs from the sam_gov_csv table.
+
+    Args:
+        notice_ids: List of notice IDs to search for.
+
+    Returns:
+        List of dictionaries containing notice IDs and their descriptions.
+        Format: [{"NoticeId": str, "Description": str}, ...]
+    """
+    if not notice_ids:
+        logger.info("No notice IDs provided, returning empty list")
+        return []
+
+    try:
+        # Connect to database
+        conn = psycopg2.connect(
+            host=os.getenv("DB_HOST"),
+            port=os.getenv("DB_PORT"),
+            database=os.getenv("DB_NAME"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD")
+        )
+        cursor = conn.cursor()
+
+        # Query the sam_gov_csv table for notice_ids
+        query = "SELECT notice_id, description FROM sam_gov_csv WHERE notice_id IN %s"
+        execute_values(cursor, query, [(nid,) for nid in notice_ids], fetch=True)
+        results = cursor.fetchall()
+
+        # Map results to the required format
+        found_map = {row[0]: row[1] for row in results}
+        result = [
+            {NOTICE_ID_COL: nid, DESCRIPTION_COL: found_map.get(nid, "")}
+            for nid in notice_ids
+        ]
+
+        cursor.close()
+        conn.close()
+
+        logger.info(f"Retrieved {len(found_map)} descriptions for {len(notice_ids)} notice IDs")
+        return result
+
+    except psycopg2.Error as e:
+        logger.error(f"Database error while fetching descriptions: {str(e)}")
+        return [{NOTICE_ID_COL: nid, DESCRIPTION_COL: ""} for nid in notice_ids]
+    except Exception as e:
+        logger.error(f"Unexpected error while fetching descriptions: {str(e)}")
+        return [{NOTICE_ID_COL: nid, DESCRIPTION_COL: ""} for nid in notice_ids]
+
 async def process_opportunity_descriptions(opportunities):
     """
     Processes a list of opportunities to generate summaries for their descriptions.
-    
-    Args:
-        opportunities (list): List of opportunity objects
-        
-    Returns:
-        list: The same list with summaries added to each opportunity
     """
     try:
         logger.info(f"Processing {len(opportunities)} opportunities for summary generation")
-        
-        for opp in opportunities:
-            # First try to get description from additional_description
-            description = None
-            if "additional_description" in opp and opp["additional_description"]:
-                description = opp["additional_description"]
-            # If no additional_description, try to fetch from SAM.gov API if description is a URL
-            elif "description" in opp and opp["description"] and opp["description"].startswith("https://api.sam.gov/prod/opportunities/v1/noticedesc"):
-                description = await fetch_description_from_sam(opp["description"])
-            
-            if description:
-                # Generate summary
-                summary = await generate_description_summary(description)
-                
-                # Add the summary to the opportunity object
-                opp["summary"] = summary
-            else:
-                # If no description available from any source
-                opp["summary"] = ("This opportunity currently lacks a detailed description, so specific information "
-                    "about its objectives, eligibility criteria, and potential benefits is not yet available. "
-                    "To learn more about what this opportunity entails, including its purpose, requirements, "
-                    "and how it can impact you or your organization, please contact the opportunity provider "
-                    "directly. Alternatively, check back on this page for updates as more details become available.")
 
-        return opportunities
-        
+        # Get missing notice IDs that need additional descriptions
+        missing_notice_ids = [opp["notice_id"] for opp in opportunities
+                              if opp.get("notice_id") and not opp.get("additional_description")]
+
+        # Fetch missing descriptions
+        found_descriptions = find_descriptions_by_notice_ids(missing_notice_ids)
+        desc_map = {item[NOTICE_ID_COL]: item[DESCRIPTION_COL] for item in found_descriptions}
+
+        # Attach additional descriptions
+        for opp in opportunities:
+            nid = opp.get("notice_id")
+            if nid and not opp.get("additional_description"):
+                opp["additional_description"] = desc_map.get(nid, "")
+
+        return await process_opportunity_summaries(opportunities)
+
     except Exception as e:
         logger.error(f"Error processing opportunity descriptions: {str(e)}")
-        return opportunities  # Return original opportunities if there's an error
+        return opportunities
+    
+DEFAULT_SUMMARY = (
+    "This opportunity currently lacks a detailed description, so specific information "
+    "about its objectives, eligibility criteria, and potential benefits is not yet available. "
+    "To learn more about what this opportunity entails, including its purpose, requirements, "
+    "and how it can impact you or your organization, please contact the opportunity provider "
+    "directly. Alternatively, check back on this page for updates as more details become available."
+)
+
+async def process_opportunity_summaries(opportunities):
+    """
+    Processes a list of opportunities to generate summaries for their descriptions.
+    """
+    try:
+        logger.info(f"Processing {len(opportunities)} opportunities for summary generation")
+
+        async def summarize_opportunity(opp):
+            description = opp.get("additional_description")
+            if description:
+                try:
+                    opp["summary"] = await generate_description_summary(description)
+                except Exception as e:
+                    logger.warning(f"Failed to summarize description for Notice ID {opp.get('noticeid')}: {e}")
+                    opp["summary"] = DEFAULT_SUMMARY
+            else:
+                opp["summary"] = DEFAULT_SUMMARY
+
+        await asyncio.gather(*(summarize_opportunity(opp) for opp in opportunities))
+        return opportunities
+
+    except Exception as e:
+        logger.error(f"Error processing opportunity summaries: {str(e)}")
+        return opportunities # Return original opportunities if there's an error

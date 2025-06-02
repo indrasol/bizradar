@@ -65,3 +65,6 @@ htmlcov/
 *.bak
 *.swp
 *.tmp
+
+git rm --cached indexing.log
+git rm --cached index_state.json
