@@ -2,7 +2,6 @@ fastapi
 uvicorn
 supabase
 openai
-sentence-transformers
 numpy
 beautifulsoup4  # Added for BeautifulSoup support
 pandas          # Required for DataFrame operations
