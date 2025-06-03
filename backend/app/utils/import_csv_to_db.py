@@ -1,28 +1,15 @@
-import os
 import pandas as pd
-import psycopg2
 from psycopg2.extras import execute_values
-import logging
+from utils.db_utils import get_db_connection
+from utils.logger import get_logger
 import time
 from dotenv import load_dotenv
 
-# ----------------------------
-# Configure Logging
-# ----------------------------
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler("indexing_csv.log"),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger("indexer_csv")
-
-# ----------------------------
-# Load Environment Variables
-# ----------------------------
+# Load environment variables
 load_dotenv()
+
+# Set up logging
+logger = get_logger("indexer_csv",True,True,"indexing_csv.log")
 
 # ----------------------------
 # Constants
@@ -53,13 +40,7 @@ def import_csv_to_db(chunksize=50000):
     try:
         # Connect to database
         logger.info("Connecting to database...")
-        conn = psycopg2.connect(
-            host=os.getenv("DB_HOST"),
-            port=os.getenv("DB_PORT"),
-            database=os.getenv("DB_NAME"),
-            user=os.getenv("DB_USER"),
-            password=os.getenv("DB_PASSWORD")
-        )
+        conn = get_db_connection()
         cursor = conn.cursor()
         logger.info("Connected to database.")
 

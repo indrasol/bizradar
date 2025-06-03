@@ -1,27 +1,10 @@
 import os
-import logging
+from utils.logger import get_logger
 import json
 from typing import List, Dict, Any
-# from openai import OpenAI
+from utils.openai_client import get_openai_client
 
-logger = logging.getLogger(__name__)
-
-# openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))  # CORRECT
-
-def get_openai_client():
-    try:
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            logger.warning("OPENAI_API_KEY environment variable not set")
-        else:
-            logger.info("OPENAI_API_KEY environment variable found")
-            from openai import OpenAI
-            client = OpenAI(api_key=api_key)
-            logger.info("OpenAI client initialized successfully")
-            return client
-    except Exception as e:
-        logger.error(f"Failed to initialize OpenAI client: {str(e)}")
-    return None
+logger = get_logger(__name__)
 
 def build_prompt(company_url: str, company_description: str, full_markdown: str, opportunity: Dict[str, Any], include_reason: bool = True) -> List[Dict[str, str]]:
     system_prompt = """

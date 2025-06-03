@@ -1,12 +1,12 @@
 # backend/app/routes/admin_routes.py
 from fastapi import APIRouter, HTTPException, Request, Body
 from typing import Optional, Dict, Any
-import logging
+from utils.logger import get_logger
 from services.etl_service import ETLService  # Fix the typo "ETLServic" -> "ETLService"
 from utils.db_utils import initialize_tables  # Use absolute import
 
 router = APIRouter()
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Initialize database tables when the application starts
 initialize_tables()

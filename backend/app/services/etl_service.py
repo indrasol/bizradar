@@ -1,13 +1,13 @@
 # backend/app/services/etl_service.py
 import os
 import httpx
-import logging
+from utils.logger import get_logger
 import psycopg2
 import psycopg2.extras
 from typing import Dict, Any, List, Optional
 from utils.db_utils import get_db_connection
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class ETLService:
     """

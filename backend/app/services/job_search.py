@@ -1,58 +1,14 @@
-import logging
+from utils.pinecone_client import get_index
+from utils.sentence_transformer import get_model
+from utils.db_utils import get_db_connection
+from utils.logger import get_logger
 import re
-# from sentence_transformers import SentenceTransformer
-# from pinecone import Pinecone
-import os
 import numpy as np
 from typing import List, Dict, Optional
-from utils.database import get_connection
 from datetime import datetime
 
 # Initialize logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# # Initialize models and clients with environment variables
-# model = SentenceTransformer('all-MiniLM-L6-v2')
-# pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
-# index = pc.Index("job-indexx")
-
-# # Check index stats
-# try:
-#     index_stats = index.describe_index_stats()
-# except Exception as e:
-#     logger.error(f"Error getting index stats: {e}")
-
-# Lazy-load globals
-_model = None
-_index = None
- 
-def get_model():
-    global _model
-    if _model is None:
-        from sentence_transformers import SentenceTransformer
-        logger.info("Loading SentenceTransformer...")
-        _model = SentenceTransformer('all-MiniLM-L6-v2')
-        # _model=SentenceTransformer('paraphrase-MiniLM-L3-v2')
-    return _model
- 
-def get_index():
-    global _index
-    if _index is None:
-        from pinecone import Pinecone
-        logger.info("Initializing Pinecone index...")
-        pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
-        _index = pc.Index("job-indexx")
-    return _index
- 
-# Optional: helper to check index stats (if used elsewhere)
-def describe_index_stats():
-    try:
-        index = get_index()
-        return index.describe_index_stats()
-    except Exception as e:
-        logger.error(f"Error getting index stats: {e}")
-        return None
+logger = get_logger(__name__)
 
 def extract_id_from_pinecone(pinecone_id):
     """
@@ -403,7 +359,7 @@ def search_jobs(
             return []
 
         # Fetch from Postgres
-        conn = get_connection()
+        conn = get_db_connection()
         if not conn:
             logger.error("DB connection failed")
             return []

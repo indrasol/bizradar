@@ -1841,7 +1841,7 @@ export default function Opportunities() {
             {/* Results Column */}
             <div className="flex-1 flex flex-col overflow-hidden">
               {/* Search Bar */}
-              <div className="p-5 border-b border-gray-200 bg-white sticky top-0 z-20">
+              <div className="p-2 border-b border-gray-200 bg-white sticky top-0 z-20">
                 <form
                   onSubmit={handleSearch}
                   className="flex items-center gap-3"
@@ -1936,13 +1936,13 @@ export default function Opportunities() {
               </div>
 
               {/* Results List */}
-              <div className="flex-1 overflow-y-auto p-5 results-container">
+              <div className="flex-1 overflow-y-auto p-2 results-container">
                 {/* Show loading state while searching */}
                 {isSearching && (
-                  <div className="p-6 mx-auto my-4 bg-white border border-gray-200 rounded-xl shadow-sm max-w-8xl">
-                    <div className="flex flex-col items-center justify-center py-6">
+                  <div className="p-2 mx-auto my-2 bg-white border border-gray-200 rounded-xl shadow-sm max-w-8xl">
+                    <div className="flex flex-col items-center justify-center py-1">
                       <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500"></div>
-                      <p className="mt-4 text-gray-600 font-medium">Searching opportunities...</p>
+                      <p className="mb-8 text-gray-600 font-medium">Searching opportunities...</p>
                     </div>
                   </div>
                 )}
@@ -1968,7 +1968,7 @@ export default function Opportunities() {
                     {hasSearched && (
                       <button
                         onClick={toggleRecommendationsPanel}
-                        className="mb-4 px-4 py-2 bg-blue-50 text-blue-600 rounded-md font-medium flex items-center gap-2 hover:bg-blue-100 transition-colors"
+                        className="mb-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-md font-medium flex items-center gap-2 hover:bg-blue-100 transition-colors"
                       >
                         {showRecommendationsPanel ? (
                           <>

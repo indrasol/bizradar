@@ -1,4 +1,5 @@
-import logging
+from utils.db_utils import get_db_connection
+from utils.logger import get_logger
 import json
 import os
 import traceback
@@ -7,64 +8,10 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 # from openai import OpenAI, APIError
 from services.doc_processing import format_document_context
+from utils.openai_client import get_openai_client
 
 # Configure logging with more detailed format
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
-
-# # Check for OpenAI API key
-# api_key = os.getenv("OPENAI_API_KEY")
-# if not api_key:
-#     logger.error("OPENAI_API_KEY environment variable not found")
-# else:
-#     logger.info("OPENAI_API_KEY environment variable found")
-
-# # Initialize OpenAI client with error handling
-# try:
-#     openai_client = OpenAI(api_key=api_key)
-#     logger.info("OpenAI client initialized successfully")
-# except Exception as e:
-#     logger.error(f"Failed to initialize OpenAI client: {str(e)}")
-#     openai_client = None
-
-def get_openai_client():
-    try:
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            logger.warning("OPENAI_API_KEY environment variable not set")
-        else:
-            logger.info("OPENAI_API_KEY environment variable found")
-            from openai import OpenAI
-            client = OpenAI(api_key=api_key)
-            logger.info("OpenAI client initialized successfully")
-            return client
-    except Exception as e:
-        logger.error(f"Failed to initialize OpenAI client: {str(e)}")
-    return None
-
-def get_db_connection():
-    """Create a connection to the Supabase PostgreSQL database with detailed error handling"""
-    try:
-        # Log DB connection parameters (without password)
-        logger.info(f"Connecting to DB - Host: {os.getenv('DB_HOST')}, Port: {os.getenv('DB_PORT')}, DB: {os.getenv('DB_NAME')}, User: {os.getenv('DB_USER')}")
-        
-        conn = psycopg2.connect(
-            host=os.getenv("DB_HOST"),
-            port=os.getenv("DB_PORT"),
-            dbname=os.getenv("DB_NAME"),
-            user=os.getenv("DB_USER"),
-            password=os.getenv("DB_PASSWORD")
-        )
-        conn.autocommit = True
-        logger.info("Database connection established successfully")
-        return conn
-    except Exception as e:
-        logger.error(f"Database connection error: {e}")
-        logger.error(traceback.format_exc())
-        return None
+logger = get_logger(__name__)
 
 async def get_opportunity_details(notice_id: str) -> Optional[Dict[str, Any]]:
     """Fetch opportunity details from the sam_gov table using notice_id"""

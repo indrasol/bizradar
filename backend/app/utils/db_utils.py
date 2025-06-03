@@ -1,15 +1,14 @@
 # backend/app/utils/db_utils.py
 import os
 import psycopg2
-import psycopg2.extras
-import logging
+from utils.logger import get_logger
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
 
 # Configure logging
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 def get_db_connection():
     """

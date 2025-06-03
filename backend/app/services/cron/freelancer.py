@@ -8,7 +8,7 @@ from bs4 import BeautifulSoup
 import pandas as pd
 import numpy as np
 import re
-import psycopg2
+from utils.db_utils import get_db_connection
 
 # Retry strategy for network resilience
 retry_strategy = Retry(
@@ -129,20 +129,8 @@ df_cleaned['Hours Left'] = df_cleaned['Published Date'].apply(convert_to_hours)
 df_cleaned.drop_duplicates(subset=['Job URL'], keep='first', inplace=True)
 
 # Step 4: Upload to Supabase PostgreSQL
-DB_HOST = "aws-0-us-east-2.pooler.supabase.com"
-DB_PORT = 5432
-DB_NAME = "postgres"
-DB_USER = "postgres.foeywbatdlljlkawixlr"
-DB_PASSWORD = "Indradar0304"
-
 try:
-    conn = psycopg2.connect(
-        host=DB_HOST,
-        port=DB_PORT,
-        database=DB_NAME,
-        user=DB_USER,
-        password=DB_PASSWORD
-    )
+    conn = get_db_connection()
     cursor = conn.cursor()
     print("✅ Connected to PostgreSQL successfully!")
 except Exception as e:

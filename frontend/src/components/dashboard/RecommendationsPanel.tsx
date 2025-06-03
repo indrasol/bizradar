@@ -242,11 +242,11 @@ const RecommendationsPanel = ({
 
   return (
     <div
-      className={`mb-5 bg-gradient-to-r from-blue-50 to-white backdrop-blur-lg border border-blue-200 rounded-xl 
+      className={`mb-2 bg-gradient-to-r from-blue-50 to-white backdrop-blur-lg border border-blue-200 rounded-xl 
                   shadow-lg transition-all duration-300 overflow-hidden
                   ${isExpanded ? "fixed inset-8 z-50 overflow-auto" : ""}`}
     >
-      <div className="flex items-center justify-between px-6 py-4 border-b border-blue-100">
+      <div className="flex items-center justify-between px-6 py-2 border-b border-blue-100">
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center p-2 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-md">
             <Sparkles className="h-5 w-5 text-white" />
@@ -290,14 +290,14 @@ const RecommendationsPanel = ({
       {!aiComponentCollapsed && (
         <div className="transition-all duration-300">
           {isLoadingRecommendations ? (
-            <div className="flex flex-col items-center justify-center py-12 bg-gradient-to-r from-blue-50/30 to-white">
+            <div className="flex flex-col items-center justify-center py-6 bg-gradient-to-r from-blue-50/30 to-white">
               <div className="animate-pulse flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
                 <TrendingUp className="h-8 w-8 text-blue-500" />
               </div>
               <p className="text-blue-700 font-medium mb-2">
                 Analyzing opportunities...
               </p>
-              <p className="text-sm text-gray-500 mb-4">
+              <p className="text-sm text-gray-500 mb-3">
                 Finding matches for your company profile
               </p>
               <button
@@ -321,11 +321,11 @@ const RecommendationsPanel = ({
                           <div className="font-medium text-gray-800 mb-1">
                             {opportunity ? opportunity.title : "Unknown Opportunity"}
                           </div>
-                          <div className="text-sm text-gray-600 mb-2">
+                          <div className="text-sm text-gray-600 mb-3">
                             {rec.title || "Match found based on your profile"}
                           </div>
                           
-                          <div className="flex flex-wrap items-center gap-2 text-xs mb-3">
+                          <div className="flex flex-wrap items-center gap-2 text-xs mb-2">
                             <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full">
                               {opportunity?.agency || "Unknown Agency"}
                             </span>
@@ -338,96 +338,13 @@ const RecommendationsPanel = ({
                             </span>
                           </div>
 
-                          {/* Match Analysis Box */}
-                          <div className="mt-3 bg-blue-50 p-4 rounded-lg border border-blue-100">
-                            <div className="flex items-start">
-                              <div className="bg-white p-1.5 rounded-full mr-3 mt-0.5 border border-blue-200 shadow-sm">
-                                <Info size={14} className="text-blue-600" />
-                              </div>
-                              <div className="flex-1">
-                                <h4 className="font-medium text-blue-700 text-sm mb-1">Match Analysis</h4>
-                                <p className="text-sm leading-relaxed text-gray-700 line-clamp-2">
-                                  {rec.description || "No detailed explanation available."}
-                                </p>
-                                
-                                <button
-                                  onClick={() => toggleDetailedReason(rec.id)}
-                                  className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-1 mt-2"
-                                >
-                                  Check for detailed analysis
-                                  {showDetailedReason[rec.id] ? (
-                                    <ChevronUp size={16} className="ml-1" />
-                                  ) : (
-                                    <ChevronDown size={16} className="ml-1" />
-                                  )}
-                                </button>
-                              </div>
-                            </div>
-
-                            {showDetailedReason[rec.id] && (
-                              <div className="mt-4">
-                                <div className="bg-white rounded-md p-4 border border-gray-200 mb-4">
-                                  <h5 className="font-medium text-gray-800 mb-2">Key Insights</h5>
-                                  <ul className="space-y-2">
-                                    {rec.keyInsights?.map((insight, idx) => (
-                                      <li key={idx} className="flex items-start">
-                                        <div className="h-2 w-2 bg-blue-500 rounded-full mt-1.5 mr-2"></div>
-                                        <span className="text-sm text-gray-700">{insight}</span>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
-
-                                <div className="overflow-hidden rounded-md border border-gray-200">
-                                  <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-gray-50">
-                                      <tr>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                                          Match Criterion
-                                        </th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                                          Relevance
-                                        </th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                                          Notes
-                                        </th>
-                                      </tr>
-                                    </thead>
-                                    <tbody className="bg-white divide-y divide-gray-200">
-                                      {rec.matchCriteria?.map((crit, i) => (
-                                        <tr key={i}>
-                                          <td className="px-4 py-3 text-sm text-gray-900 font-medium">{crit.criterion}</td>
-                                          <td className="px-4 py-3">
-                                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                                              crit.relevance === 'Strong match'
-                                                ? 'bg-green-100 text-green-800'
-                                                : crit.relevance === 'Partial match'
-                                                ? 'bg-yellow-100 text-yellow-800'
-                                                : 'bg-gray-100 text-gray-600'
-                                            }`}>
-                                              {crit.relevance}
-                                            </span>
-                                          </td>
-                                          <td className="px-4 py-3 text-sm text-gray-500">{crit.notes}</td>
-                                        </tr>
-                                      ))}
-                                    </tbody>
-                                  </table>
-                                </div>
-
-                                <div className="mt-4 bg-white rounded-md p-4 border border-gray-200">
-                                  <h5 className="font-semibold text-gray-800 mb-1">✅ Verdict:</h5>
-                                  <p className="text-sm text-gray-700">{rec.matchReason}</p>
-                                </div>
-                              </div>
-                            )}
-                          </div>
+                          
                         </div>
                         
                         <div className="ml-4 flex flex-col items-end">
                           {rec.matchScore ? (
                             <div className="flex flex-col items-center">
-                              <div className="relative w-16 h-16 flex items-center justify-center mb-2">
+                              <div className="relative w-16 h-12 flex items-center justify-center mb-2">
                                 <svg className="w-full h-full" viewBox="0 0 36 36">
                                   <path
                                     d="M18 2.0845
@@ -466,14 +383,100 @@ const RecommendationsPanel = ({
                           )}
                         </div>
                       </div>
+                      <div className="flex items-start">
+{/* Match Analysis Box */}
+                          <div className="mt-3 bg-blue-50 p-4 rounded-lg border border-blue-100">
+                            <div className="flex items-start">
+                              <div className="bg-white p-1.5 rounded-full mr-3 mt-0.5 border border-blue-200 shadow-sm">
+                                <Info size={14} className="text-blue-600" />
+                              </div>
+                              <div className="flex-1">
+                                <h4 className="font-medium text-blue-700 text-sm mb-1">Match Analysis</h4>
+                                <p className="text-sm leading-relaxed text-gray-700 line-clamp-2">
+                                  {rec.description || "No detailed explanation available."}
+                                </p>
+                                
+                                <button
+                                  onClick={() => toggleDetailedReason(rec.id)}
+                                  className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-1 mt-2"
+                                >
+                                  Check for detailed analysis
+                                  {showDetailedReason[rec.id] ? (
+                                    <ChevronUp size={16} className="ml-1" />
+                                  ) : (
+                                    <ChevronDown size={16} className="ml-1" />
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+
+                            {showDetailedReason[rec.id] && (
+                              <div className="mt-2">
+                                <div className="bg-white rounded-md p-4 border border-gray-200 mb-2">
+                                  <h5 className="font-medium text-gray-800 mb-2">Key Insights</h5>
+                                  <ul className="space-y-2">
+                                    {rec.keyInsights?.map((insight, idx) => (
+                                      <li key={idx} className="flex items-start">
+                                        <div className="h-2 w-2 bg-blue-500 rounded-full mt-1.5 mr-2"></div>
+                                        <span className="text-sm text-gray-700">{insight}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+
+                                <div className="overflow-hidden rounded-md border border-gray-200">
+                                  <table className="min-w-full divide-y divide-gray-200">
+                                    <thead className="bg-gray-50">
+                                      <tr>
+                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                                          Match Criterion
+                                        </th>
+                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                                          Relevance
+                                        </th>
+                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                                          Notes
+                                        </th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-gray-200">
+                                      {rec.matchCriteria?.map((crit, i) => (
+                                        <tr key={i}>
+                                          <td className="px-4 py-2 text-sm text-gray-900 font-medium">{crit.criterion}</td>
+                                          <td className="px-4 py-2 whitespace-nowrap">
+                                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                              crit.relevance.includes('Strong')
+                                                ? 'bg-green-100 text-green-800'
+                                                : crit.relevance.includes('Partial')
+                                                ? 'bg-yellow-100 text-yellow-800'
+                                                : 'bg-gray-100 text-gray-600'
+                                            }`}>
+                                              {crit.relevance}
+                                            </span>
+                                          </td>
+                                          <td className="px-4 py-2 text-sm text-gray-500">{crit.notes}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+
+                                <div className="mt-2 bg-white rounded-md p-3 border border-gray-200">
+                                  <h5 className="font-semibold text-gray-800 mb-1">✅ Verdict:</h5>
+                                  <p className="text-sm text-gray-700">{rec.matchReason}</p>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                      </div>
                     </div>
                   );
                 })}
                 
                 {/* Pro Upgrade Banner */}
-                <div className="p-4 relative">
+                <div className="p-2 relative">
                   <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-10">
-                    <div className="text-center p-6 max-w-md">
+                    <div className="text-center p-4 max-w-md">
                       <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
                         <Lock className="h-8 w-8 text-blue-600" />
                       </div>
@@ -558,7 +561,7 @@ const RecommendationsPanel = ({
               </div>
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-12 bg-gradient-to-r from-blue-50/30 to-white">
+            <div className="flex flex-col items-center justify-center py-4 bg-gradient-to-r from-blue-50/30 to-white">
               <div className="mx-auto flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
                 <Sparkles className="h-8 w-8 text-blue-500" />
               </div>
@@ -568,7 +571,7 @@ const RecommendationsPanel = ({
                   : "Get Personalized Recommendations"
                 }
               </p>
-              <p className="text-sm text-gray-500 max-w-md mx-auto text-center mb-6">
+              <p className="text-sm text-gray-500 max-w-md mx-auto text-center mb-4">
                 {hasExistingRecommendations
                   ? "We have recommendations based on your previous searches. Click below to view them."
                   : "Let our AI assistant analyze your search results and provide tailored recommendations based on your company profile."

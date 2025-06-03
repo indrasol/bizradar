@@ -3,7 +3,7 @@ import sys
 import uuid
 from datetime import datetime, timedelta
 import asyncio
-import logging
+from utils.logger import get_logger
 
 # Add the parent directory to the Python path so we can import utils
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -14,11 +14,7 @@ sys.path.append(parent_dir)
 from utils.database import insert_data, get_connection
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 async def test_workflow():
     """

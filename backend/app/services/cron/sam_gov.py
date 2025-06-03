@@ -1,5 +1,6 @@
 import os
 import sys
+from utils.db_utils import get_db_connection
 
 # Add the backend directory to Python path
 backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -8,7 +9,7 @@ sys.path.insert(0, backend_dir)
 import urllib.parse
 from typing import Dict, Any, List
 import aiohttp
-import logging
+from utils.logger import get_logger
 import ssl
 import certifi
 from datetime import datetime, timedelta
@@ -23,32 +24,12 @@ if app_dir not in sys.path:
 
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Load environment variables
 load_dotenv()
 
 # === Database Functions (from database.py) ===
-
-def get_connection():
-    """Establish and return a connection to our PostgreSQL database."""
-    try:
-        conn = psycopg2.connect(
-            host=os.getenv("DB_HOST"),
-            port=os.getenv("DB_PORT"),
-            database=os.getenv("DB_NAME"),
-            user=os.getenv("DB_USER"),
-            password=os.getenv("DB_PASSWORD"),
-            sslmode="require"  # Add this line for Supabase
-        )
-        return conn
-    except psycopg2.Error as e:
-        logger.error(f"Error connecting to the database: {e}")
-        return None
 
 def check_duplicate(cursor, notice_id):
     """
@@ -75,7 +56,7 @@ def insert_data(rows):
     Returns:
         dict: Summary with counts of inserted and skipped records
     """
-    connection = get_connection()
+    connection = get_db_connection()
     if not connection:
         return {"error": "Could not connect to database", "inserted": 0, "skipped": 0}
     
