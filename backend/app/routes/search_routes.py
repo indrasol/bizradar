@@ -1,7 +1,7 @@
 import os
 import json
 import hashlib
-import logging
+from utils.logger import get_logger
 import math
 
 from datetime import datetime, date
@@ -15,22 +15,20 @@ from services.pdf_service import generate_rfp_pdf
 from services.recommendations import generate_recommendations
 from services.company_scraper import generate_company_markdown
 from services.helper import json_serializable
-from services.askBizradar import process_bizradar_request
+from utils.openai_client import get_openai_client
 from services.summary_service import process_opportunity_descriptions
 from utils.redis_connection import RedisClient
-from utils.database import get_connection, fetch_opportunities_from_db
+from utils.database import fetch_opportunities_from_db
 from collections import deque
 from services.filter_service import apply_filters_to_results, sort_results
 import asyncio
 from typing import List
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Initialize router, OpenAI client, and Redis
 search_router = APIRouter()
-# client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 redis_client = RedisClient()
 CACHE_TTL = 60 * 60 * 24  # 24 hours cache time (1 day)
 MAX_RECOMMENDATIONS = 2  # Limit to 2 recommendations per query
@@ -38,21 +36,6 @@ MAX_RECOMMENDATIONS = 2  # Limit to 2 recommendations per query
 # Recommendation queue for prioritization
 recommendation_queue = deque()
 recommendation_lock = asyncio.Lock()
-
-def get_openai_client():
-    try:
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            logger.warning("OPENAI_API_KEY environment variable not set")
-        else:
-            logger.info("OPENAI_API_KEY environment variable found")
-            from openai import OpenAI
-            client = OpenAI(api_key=api_key)
-            logger.info("OpenAI client initialized successfully")
-            return client
-    except Exception as e:
-        logger.error(f"Failed to initialize OpenAI client: {str(e)}")
-    return None
 
 def sanitize(obj):
     """

@@ -5,7 +5,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import urllib.parse
 from typing import Dict, Any, List
 import aiohttp
-import logging
+from utils.logger import get_logger
 import ssl
 import certifi
 from datetime import datetime, timedelta
@@ -14,11 +14,7 @@ import asyncio
 from utils.database import insert_data
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 def parse_date(date_str: str):
     """Parse a date string (ISO 8601 format with timezone) into a date object."""

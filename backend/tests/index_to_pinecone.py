@@ -1,5 +1,4 @@
-import os
-import logging
+from app.utils.logger import get_logger
 import psycopg2
 from psycopg2.extras import RealDictCursor
 # import pinecone
@@ -7,9 +6,13 @@ from psycopg2.extras import RealDictCursor
 from dotenv import load_dotenv
 # import numpy as np
 # from pinecone.core.client.model.vector import Vector
-from typing import List, Dict, Any, Optional, Union, Tuple
+from typing import List, Dict, Any, Tuple
 
 import time
+
+from app.utils.db_utils import get_db_connection
+from app.utils.sentence_transformer import get_model
+from app.utils.pinecone_client import get_index
 
 
 # if 'procurlytics' not in pinecone.list_indexes().names():
@@ -34,87 +37,10 @@ import time
 # )
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Load environment variables
 load_dotenv()
-
-# Initialize the embedding model
-def get_embedding_model():
-    """Initialize and return the sentence transformer model."""
-    try:
-        # You can change the model to any sentence-transformer model from Hugging Face
-        model_name = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
-        from sentence_transformers import SentenceTransformer
-        model = SentenceTransformer(model_name)
-        return model
-    except Exception as e:
-        logger.error(f"Error loading embedding model: {e}")
-        raise
-
-# Database connection function
-def get_connection():
-    """Establish and return a connection to our PostgreSQL database."""
-    try:
-        conn = psycopg2.connect(
-            host=os.getenv("DB_HOST"),
-            port=os.getenv("DB_PORT"),
-            database=os.getenv("DB_NAME"),
-            user=os.getenv("DB_USER"),
-            password=os.getenv("DB_PASSWORD"),
-            sslmode="require"  # For Supabase
-        )
-        return conn
-    except psycopg2.Error as e:
-        logger.error(f"Error connecting to the database: {e}")
-        return None    
-
-# Pinecone connection function
-def initialize_pinecone():
-    """Initialize and return the Pinecone client."""
-    try:
-        api_key = os.getenv("PINECONE_API_KEY") or 'pcsk_6RoTWM_9rPmar9wBeUWBiMGsCJQM9tvcrRskb6CnewfpQWsP84AnioqxHiZqDGZVvRZCx7'
-        environment = os.getenv("PINECONE_ENV") or 'us-east-1'
-        logger.warning(api_key)
-        logger.warning(environment)
-        if not api_key or not environment:
-            logger.error("Pinecone API key or environment not found in environment variables.")
-            return None
-            
-        # pinecone.init(api_key=api_key, environment=environment)
-
-        from pinecone import Pinecone, ServerlessSpec
-        
-        pinecone = Pinecone(
-            api_key=api_key,
-            environment=environment
-        )
-        
-        # Get the index name from environment variable
-        index_name = os.getenv("PINECONE_INDEX_NAME", "procurlytics")
-        
-        # Check if index exists, create it if it doesn't
-        if index_name not in pinecone.list_indexes().names():
-            logger.info(f"Creating new Pinecone index: {index_name}")
-            dimension = 384  # This is for all-MiniLM-L6-v2, adjust for your model
-            pinecone.create_index(name=index_name, dimension=dimension, metric="cosine",
-                spec=ServerlessSpec(
-                    cloud='aws',
-                    region='us-east-1'
-                )
-            )
-            logger.info(f"Created index {index_name}")
-        
-        # Connect to the index
-        index = pinecone.Index(index_name)
-        return index
-    except Exception as e:
-        logger.error(f"Error initializing Pinecone: {e}")
-        return None
 
 def fetch_records_from_db(chunk_size=1000):
     """
@@ -126,7 +52,7 @@ def fetch_records_from_db(chunk_size=1000):
     Returns:
         List of records from the database
     """
-    connection = get_connection()
+    connection = get_db_connection()
     if not connection:
         logger.error("Could not connect to database to fetch records")
         return []
@@ -246,14 +172,14 @@ def index_sam_gov_to_pinecone(batch_size=100, max_records=None):
     logger.info("Starting SAM.gov indexing process")
     
     # Initialize Pinecone client
-    index = initialize_pinecone()
+    index = get_index()
     if not index:
         logger.error("Failed to initialize Pinecone")
         return 0
         
     # Load embedding model
     try:
-        model = get_embedding_model()
+        model = get_model()
     except Exception as e:
         logger.error(f"Failed to load embedding model: {e}")
         return 0

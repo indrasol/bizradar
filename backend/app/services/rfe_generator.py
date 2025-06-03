@@ -9,12 +9,6 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-# Retrieve OpenAI API key from .env
-# OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-# if not OPENAI_API_KEY:
-#     raise ValueError("OPENAI_API_KEY not found in .env file")
-# openai.api_key = OPENAI_API_KEY
-
 # Business context
 BUSINESS_CONTEXT = """
 Bizradar is a leading technology solutions provider specializing in customer relationship management (CRM) systems, cloud computing, and API integrations. We serve enterprise clients globally, focusing on innovative, scalable solutions to enhance business efficiency and customer engagement. Our mission is to deliver cutting-edge CRM implementations that drive growth for our clients.

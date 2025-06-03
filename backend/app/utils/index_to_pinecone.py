@@ -1,66 +1,23 @@
 import os
 import time
-import logging
+from utils.pinecone_client import check_vector_exists, describe_index_stats, get_index
+from utils.sentence_transformer import get_model
+from utils.db_utils import get_db_connection
+from utils.logger import get_logger
 import json
-from datetime import datetime, timedelta
-# from sentence_transformers import SentenceTransformer
-# from pinecone import Pinecone, ServerlessSpec
+from datetime import datetime
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from dotenv import load_dotenv
 from typing import List, Dict, Optional
-from utils.database import get_connection
 import numpy as np
 from tqdm import tqdm
 
 # Set up logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler("indexing.log"),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger("indexer")
+logger = get_logger("indexer",True, True, "indexing.log")
 
 # Load environment variables from .env
 load_dotenv()
-
-# # Initialize models and clients
-# model = SentenceTransformer('all-MiniLM-L6-v2')  # 384-dimensional embeddings
-# pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
-# index = pc.Index("job-indexx")  # Ensure this index exists in Pinecone with dimension 384 and metric 'cosine'
-
-# Lazy-load globals
-_model = None
-_index = None
- 
-def get_model():
-    global _model
-    if _model is None:
-        from sentence_transformers import SentenceTransformer
-        logger.info("Loading SentenceTransformer...")
-        _model = SentenceTransformer('all-MiniLM-L6-v2')
-    return _model
- 
-def get_index():
-    global _index
-    if _index is None:
-        from pinecone import Pinecone
-        logger.info("Initializing Pinecone index...")
-        pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
-        _index = pc.Index("job-indexx")
-    return _index
- 
-# Optional: helper to check index stats (if used elsewhere)
-def describe_index_stats():
-    try:
-        index = get_index()
-        return index.describe_index_stats()
-    except Exception as e:
-        logger.error(f"Error getting index stats: {e}")
-        return None
 
 # File to track last indexing timestamp
 INDEX_STATE_FILE = "index_state.json"
@@ -90,39 +47,14 @@ def save_index_state(state):
     except Exception as e:
         logger.error(f"Error saving index state: {str(e)}")
 
-def check_index_stats():
-    """
-    Check the current state of the Pinecone index
-    """
-    try:
-        index = get_index()
-        stats = index.describe_index_stats()
-        logger.info(f"Index dimension: {stats.dimension}")
-        logger.info(f"Total vectors: {stats.total_vector_count}")
-        logger.info(f"Namespaces: {stats.namespaces}")
-        return stats
-    except Exception as e:
-        logger.error(f"Error checking index stats: {str(e)}")
-        return None
 
-def check_vector_exists(record_id):
-    """
-    Check if a vector with the given ID already exists in Pinecone
-    """
-    try:
-        index = get_index()
-        result = index.fetch(ids=[record_id])
-        return bool(result.vectors)
-    except Exception as e:
-        logger.error(f"Error checking if vector exists: {str(e)}")
-        return False
 
 def fetch_sam_gov_records(last_indexed: Optional[str] = None) -> List[Dict]:
     """
     Fetch records from the sam_gov table in Postgres.
     If last_indexed is provided, only fetch records updated since that time.
     """
-    connection = get_connection()
+    connection = get_db_connection()
     if connection is None:
         raise Exception("Failed to connect to PostgreSQL")
 
@@ -170,7 +102,7 @@ def fetch_freelancer_data_table(last_indexed: Optional[str] = None) -> List[Dict
     Fetch records from the freelancer_data_table table in Postgres.
     If last_indexed is provided, only fetch records updated since that time.
     """
-    connection = get_connection()
+    connection = get_db_connection()
     if connection is None:
         raise Exception("Failed to connect to PostgreSQL")
 
@@ -476,7 +408,7 @@ def index_all_to_pinecone(incremental=True, sources=None):
     
     # Check the index first
     logger.info("Checking Pinecone index before indexing...")
-    before_stats = check_index_stats()
+    before_stats = describe_index_stats()
     
     total_indexed = 0
     
@@ -494,7 +426,7 @@ def index_all_to_pinecone(incremental=True, sources=None):
     
     # Check the index after indexing
     logger.info("Checking Pinecone index after indexing...")
-    after_stats = check_index_stats()
+    after_stats = describe_index_stats()
     
     # Log the difference
     if before_stats and after_stats:

@@ -2,28 +2,13 @@ import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from dotenv import load_dotenv
-import logging
+from utils.db_utils import get_db_connection
+from utils.logger import get_logger
 
 # Configure logging
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 load_dotenv()
-
-def get_connection():
-    """Establish and return a connection to our PostgreSQL database."""
-    try:
-        conn = psycopg2.connect(
-            host=os.getenv("DB_HOST"),
-            port=os.getenv("DB_PORT"),
-            database=os.getenv("DB_NAME"),
-            user=os.getenv("DB_USER"),
-            password=os.getenv("DB_PASSWORD"),
-            sslmode="require"  # Add this line for Supabase
-        )
-        return conn
-    except psycopg2.Error as e:
-        logger.error(f"Error connecting to the database: {e}")
-        return None
 
 def check_duplicate(cursor, notice_id):
     """
@@ -50,7 +35,7 @@ def insert_data(rows):
     Returns:
         dict: Summary with counts of inserted and skipped records
     """
-    connection = get_connection()
+    connection = get_db_connection()
     if not connection:
         return {"error": "Could not connect to database", "inserted": 0, "skipped": 0}
     

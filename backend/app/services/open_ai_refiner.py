@@ -1,33 +1,13 @@
-from sentence_transformers import SentenceTransformer
-import psycopg2
-# from openai import OpenAI
-import os
-from typing import List, Dict, Optional
+from typing import Optional
 from dotenv import load_dotenv
-import logging
+from utils.logger import get_logger
+from utils.openai_client import get_openai_client
 
 # Load environment variables from .env
 load_dotenv()
 
 # Initialize logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# Instead of initializing at module level, create a function to get the client
-def get_openai_client():
-    try:
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            logger.warning("OPENAI_API_KEY environment variable not set")
-        else:
-            logger.info("OPENAI_API_KEY environment variable found")
-            from openai import OpenAI
-            client = OpenAI(api_key=api_key)
-            logger.info("OpenAI client initialized successfully")
-            return client
-    except Exception as e:
-        logger.error(f"Failed to initialize OpenAI client: {str(e)}")
-    return None
+logger = get_logger(__name__)
 
 def refine_query(query: str, contract_type: Optional[str] = None, platform: Optional[str] = None) -> str:
     """Refine the user query using OpenAI with improved domain understanding"""

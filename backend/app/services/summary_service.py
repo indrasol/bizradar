@@ -1,35 +1,14 @@
 import asyncio
 import os
-import logging
-from pathlib import Path
+from utils.db_utils import get_db_connection
+from utils.logger import get_logger
 import aiohttp
 from typing import List
 import psycopg2
-from psycopg2.extras import execute_values
-import pandas as pd
-# from openai import OpenAI
+from utils.openai_client import get_openai_client
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# Initialize OpenAI client
-# client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
-def get_openai_client():
-    try:
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            logger.warning("OPENAI_API_KEY environment variable not set")
-        else:
-            logger.info("OPENAI_API_KEY environment variable found")
-            from openai import OpenAI
-            client = OpenAI(api_key=api_key)
-            logger.info("OpenAI client initialized successfully")
-            return client
-    except Exception as e:
-        logger.error(f"Failed to initialize OpenAI client: {str(e)}")
-    return None
+logger = get_logger(__name__)
 
 async def fetch_description_from_sam(description_url):
     """
@@ -173,19 +152,15 @@ def find_descriptions_by_notice_ids(notice_ids: List[str], chunksize: int = 5000
         return []
 
     try:
-        # Connect to database
-        conn = psycopg2.connect(
-            host=os.getenv("DB_HOST"),
-            port=os.getenv("DB_PORT"),
-            database=os.getenv("DB_NAME"),
-            user=os.getenv("DB_USER"),
-            password=os.getenv("DB_PASSWORD")
-        )
+        # Connect to database        
+        conn = get_db_connection()
         cursor = conn.cursor()
 
         # Query the sam_gov_csv table for notice_ids
         query = "SELECT notice_id, description FROM sam_gov_csv WHERE notice_id IN %s"
-        execute_values(cursor, query, [(nid,) for nid in notice_ids], fetch=True)
+        # execute_values(cursor, query, [(nid,) for nid in notice_ids], fetch=True)
+        # results = cursor.fetchall()
+        cursor.execute(query, (tuple(notice_ids),))  # pass a single tuple as parameter
         results = cursor.fetchall()
 
         # Map results to the required format

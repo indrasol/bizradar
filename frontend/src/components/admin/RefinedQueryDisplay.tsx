@@ -55,8 +55,8 @@ const RefinedQueryDisplay = ({ originalQuery, refinedQuery, isVisible, onClose }
   if (!isVisible) return null;
 
   return (
-    <div className="mb-5 bg-gradient-to-r from-purple-50 to-indigo-50 backdrop-blur-lg border border-indigo-200 rounded-xl shadow-lg transition-all duration-300 overflow-hidden">
-      <div className="flex items-center justify-between px-6 py-4 border-b border-indigo-100">
+    <div className="mb-3 bg-gradient-to-r from-purple-50 to-indigo-50 backdrop-blur-lg border border-indigo-200 rounded-xl shadow-lg transition-all duration-300 overflow-hidden">
+      <div className="flex items-center justify-between px-6 py-2 border-b border-indigo-100">
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center p-2 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg shadow-md">
             <Brain className="h-5 w-5 text-white" />
@@ -94,9 +94,9 @@ const RefinedQueryDisplay = ({ originalQuery, refinedQuery, isVisible, onClose }
       </div>
       
       {!isExpanded ? (
-        <div className="py-4 px-6 flex items-center">
+        <div className="py-2 px-6 flex items-center">
           <div className="mr-3">
-            <div className="text-sm font-medium text-gray-500">Original:</div>
+            <div className="text-sm font-medium text-gray-500 mb-1">Original:</div>
             <div className="text-sm font-medium text-gray-500">Enhanced:</div>
           </div>
           <div className="flex-1 overflow-hidden">
@@ -105,14 +105,14 @@ const RefinedQueryDisplay = ({ originalQuery, refinedQuery, isVisible, onClose }
           </div>
         </div>
       ) : (
-        <div className="py-4 px-6">
-          <div className="flex items-center mb-3">
-            <div className="text-sm font-medium text-gray-500 w-20">Original:</div>
+        <div className="py-2 px-6">
+          <div className="flex items-center mb-1">
+            <div className="text-sm font-medium text-gray-500 mr-6">Original:</div>
             <div className="font-medium text-gray-700">{originalQuery}</div>
           </div>
           
-          <div className="flex flex-col mb-4">
-            <div className="text-sm font-medium text-gray-500 mb-2">Enhanced:</div>
+          <div className="flex flex-col mb-2">
+            <div className="text-sm font-medium text-gray-500 mb-1">Enhanced:</div>
             <div className="bg-white p-3 rounded-lg border border-indigo-100 shadow-inner">
               <div className="flex flex-wrap">
                 {terms.map((term, index) => (
@@ -131,7 +131,7 @@ const RefinedQueryDisplay = ({ originalQuery, refinedQuery, isVisible, onClose }
             </div>
           </div>
           
-          <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-100">
+          <div className="bg-indigo-50 p-3 rounded-lg border border-indigo-100">
             <div className="flex items-center mb-2">
               <Sparkles size={18} className="text-purple-500 mr-2" />
               <h4 className="font-medium text-gray-800">How AI Enhanced Your Search</h4>

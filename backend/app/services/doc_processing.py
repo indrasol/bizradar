@@ -1,23 +1,24 @@
 import os
 import base64
 import tempfile
-import logging
+from utils.logger import get_logger
 from typing import List, Dict, Any, Optional
 import traceback
+
+# Configure logging
+logger = get_logger(__name__)
 
 # Try to import document processing libraries
 try:
     import PyPDF2
 except ImportError:
-    logging.warning("PyPDF2 not installed. PDF processing will be unavailable.")
+    logger.warning("PyPDF2 not installed. PDF processing will be unavailable.")
 
 try:
     import docx
 except ImportError:
-    logging.warning("python-docx not installed. DOCX processing will be unavailable.")
+    logger.warning("python-docx not installed. DOCX processing will be unavailable.")
 
-# Configure logging
-logger = logging.getLogger(__name__)
 
 def extract_text_from_file(file_content: bytes, file_type: str, file_name: str) -> Optional[str]:
     """

@@ -4,8 +4,8 @@ ETL History update module for tracking workflow status and results
 import os
 import sys
 import argparse
-import logging
-import psycopg2
+from utils.db_utils import get_db_connection
+from utils.logger import get_logger
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -13,14 +13,7 @@ dotenv_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.pa
 load_dotenv(dotenv_path)
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout)
-    ]
-)
-logger = logging.getLogger('etl_history_updater')
+logger = get_logger('etl_history_updater',True)
 
 def update_etl_history(
     record_id=None,
@@ -51,14 +44,8 @@ def update_etl_history(
         return False
     
     try:
-        # Connect to the database
-        conn = psycopg2.connect(
-            host=os.getenv("DB_HOST"),
-            port=os.getenv("DB_PORT"),
-            database=os.getenv("DB_NAME"),
-            user=os.getenv("DB_USER"),
-            password=os.getenv("DB_PASSWORD")
-        )
+        # Connect to the database        
+        conn = get_db_connection()
         cursor = conn.cursor()
         logger.info(f"Connected to database. Updating ETL history record {record_id}")
         

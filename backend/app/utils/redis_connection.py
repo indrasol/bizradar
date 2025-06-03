@@ -1,7 +1,7 @@
 import os
 import redis
 import json
-import logging
+from utils.logger import get_logger
 from dotenv import load_dotenv
 from typing import Optional, Any
 from datetime import date, datetime
@@ -10,7 +10,7 @@ from datetime import date, datetime
 load_dotenv()
 
 # Configure module-level logger
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class RedisClient:
     """
