@@ -3,14 +3,26 @@ ETL History update module for tracking workflow status and results
 """
 import os
 import sys
-import argparse
-from utils.db_utils import get_db_connection
-from utils.logger import get_logger
+
+# Add the backend directory to Python path
+backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if backend_dir not in sys.path:
+    sys.path.insert(0, backend_dir)
+
+app_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"))
+if app_dir not in sys.path:
+    sys.path.insert(0, app_dir)
+
+
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), '.env')
 load_dotenv(dotenv_path)
+    
+import argparse
+from utils.db_utils import get_db_connection
+from utils.logger import get_logger
 
 # Configure logging
 logger = get_logger('etl_history_updater',True)

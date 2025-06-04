@@ -1,23 +1,28 @@
 import os
 import time
-from utils.pinecone_client import check_vector_exists, describe_index_stats, get_index
-from utils.sentence_transformer import get_model
-from utils.db_utils import get_db_connection
-from utils.logger import get_logger
+
 import json
 from datetime import datetime
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from dotenv import load_dotenv
+
 from typing import List, Dict, Optional
 import numpy as np
 from tqdm import tqdm
 
-# Set up logging
-logger = get_logger("indexer",True, True, "indexing.log")
+from dotenv import load_dotenv
 
 # Load environment variables from .env
 load_dotenv()
+
+from utils.logger import get_logger
+
+# Set up logging
+logger = get_logger("indexer",True, True, "indexing.log")
+
+from utils.pinecone_client import check_vector_exists, describe_index_stats, get_index
+from utils.sentence_transformer import get_model
+from utils.db_utils import get_db_connection
 
 # File to track last indexing timestamp
 INDEX_STATE_FILE = "index_state.json"

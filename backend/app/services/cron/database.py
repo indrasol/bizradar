@@ -1,6 +1,16 @@
 import os
+import sys
+
+# Add the backend directory to Python path
+backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if backend_dir not in sys.path:
+    sys.path.insert(0, backend_dir)
+
+app_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"))
+if app_dir not in sys.path:
+    sys.path.insert(0, app_dir)
+
 import psycopg2
-from psycopg2.extras import RealDictCursor
 from dotenv import load_dotenv
 from utils.db_utils import get_db_connection
 from utils.logger import get_logger

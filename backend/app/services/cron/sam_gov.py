@@ -1,33 +1,33 @@
 import os
 import sys
-from utils.db_utils import get_db_connection
 
 # Add the backend directory to Python path
 backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, backend_dir)
-
-import urllib.parse
-from typing import Dict, Any, List
-import aiohttp
-from utils.logger import get_logger
-import ssl
-import certifi
-from datetime import datetime, timedelta
-import asyncio
-import psycopg2
-from psycopg2.extras import RealDictCursor
-from dotenv import load_dotenv
+if backend_dir not in sys.path:
+    sys.path.insert(0, backend_dir)
 
 app_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"))
 if app_dir not in sys.path:
     sys.path.insert(0, app_dir)
 
-
-# Configure logging
-logger = get_logger(__name__)
+import urllib.parse
+from typing import Dict, Any
+import aiohttp
+import ssl
+import certifi
+from datetime import datetime, timedelta
+import asyncio
+import psycopg2
+from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
+
+from utils.logger import get_logger
+from utils.db_utils import get_db_connection
+
+# Configure logging
+logger = get_logger(__name__)
 
 # === Database Functions (from database.py) ===
 
