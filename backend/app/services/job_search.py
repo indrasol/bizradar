@@ -39,55 +39,9 @@ def is_valid_additional_description(text):
     )
     return placeholder not in text
 
-# def build_filters(
-#     contract_type: Optional[str] = None,
-#     platform: Optional[str] = None,
-#     due_date_filter: Optional[str] = None,
-#     posted_date_filter: Optional[str] = None,
-#     naics_code: Optional[str] = None,
-#     opportunity_type: Optional[str] = None,
-#     user_id: Optional[str] = None
-# ) -> dict:
-#     filters = {}
-
-#     # Filter by platform ("sam_gov" or "freelancer")
-#     if platform:
-#         filters["source"] = platform  # "source" stores the platform ('sam_gov', 'freelancer')
-
-#     # Filter by contract_type (could be stored in "department" for SAM.gov)
-#     if contract_type:
-#         filters["department"] = contract_type  # "department" is the assumed field for contract type in SAM.gov
-
-#     # Filter by NAICS code (only available in SAM.gov)
-#     if naics_code:
-#         filters["naics_code"] = naics_code  # "naics_code" is available in SAM.gov metadata
-
-#     # Filter by opportunity_type (maps to platform type 'sam_gov' or 'freelancer')
-#     if opportunity_type:
-#         filters["platform"] = opportunity_type  # "platform" field indicates opportunity type (e.g., 'Federal', 'Freelancer')
-
-#     # Filter by user_id (assuming user_id is part of the metadata for user-specific filtering)
-#     if user_id:
-#         filters["user_id"] = user_id  # Assuming "user_id" exists in the metadata
-
-#     # Filter by due date (response_date) 
-#     if due_date_filter:
-#         filters["response_date"] = {"$lte": due_date_filter}  # Filters based on "response_date" metadata
-
-#     # Filter by posted date (published_date)
-#     if posted_date_filter:
-#         filters["published_date"] = {"$gte": posted_date_filter}  # Filters based on "published_date" metadata
-
-#     return {}
-
 from typing import Optional, Dict, Union, Literal
 from datetime import datetime, timedelta
-import time
- 
-try:
-    from dateutil.parser import parse as parse_date
-except ImportError:
-    parse_date = datetime.fromisoformat  # fallback
+import time 
  
 # Config: timestamp unit for Pinecone (True=milliseconds, False=seconds)
 TIMESTAMP_IN_MILLISECONDS = True
@@ -147,67 +101,95 @@ def build_filters(
     user_id: Optional[str] = None
 ) -> Dict[str, Union[str, Dict[str, int]]]:
     """
-    Build validated Pinecone filters dictionary, converting friendly date filters
-    to numeric timestamps and validating string filters.
- 
-    Raises ValueError on invalid filter values.
+    Build validated Pinecone filters dictionary based on the actual metadata structure.
+    Converts dates to Unix timestamps for Pinecone filtering.
     """
-    filters: Dict[str, Union[str, Dict[str, int]]] = {}
+    filters = {}
     now = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
- 
-    # Validate and add platform
-    plat = validate_nonempty_str(platform)
-    if plat:
-        filters["source"] = plat
-    # elif platform is not None:
-    #     raise ValueError(f"Invalid platform filter: {platform}")
- 
-    # Validate and add contract_type (department)
-    ct = validate_nonempty_str(contract_type)
-    if ct:
-        filters["department"] = ct
-    # elif contract_type is not None:
-    #     raise ValueError(f"Invalid contract_type filter: {contract_type}")
- 
-    # Validate and add naics_code
-    nc = validate_nonempty_str(naics_code)
-    if nc:
-        filters["naics_code"] = nc
-    # elif naics_code is not None:
-    #     raise ValueError(f"Invalid naics_code filter: {naics_code}")
- 
-    # Validate and add opportunity_type (platform)
-    ot = validate_nonempty_str(opportunity_type)
-    if ot:
-        filters["platform"] = ot
-    # elif opportunity_type is not None:
-    #     raise ValueError(f"Invalid opportunity_type filter: {opportunity_type}")
- 
-    # Validate and add user_id
-    # uid = validate_nonempty_str(user_id)
-    # if uid:
-    #     filters["user_id"] = uid
-    # elif user_id is not None:
-    #     raise ValueError(f"Invalid user_id filter: {user_id}")
- 
-    # Process due_date_filter to response_date <= timestamp
-    if due_date_filter:
-        due_date_filter_lower = validate_nonempty_str(due_date_filter)
-        if due_date_filter_lower:
-            due_date_limit = get_due_date_limit(due_date_filter_lower, now)
-            if due_date_limit:
-            #     raise ValueError(f"Invalid due_date_filter value: {due_date_filter}")
-                filters["response_date"] = {"$lte": due_date_limit}
- 
-    # Process posted_date_filter to published_date >= timestamp
-    if posted_date_filter:
-        posted_date_filter_lower = validate_nonempty_str(posted_date_filter_lower)
-        if posted_date_filter_lower:
-            posted_date_limit = get_posted_date_limit(posted_date_filter_lower, now)
-            if posted_date_limit:
-            #     raise ValueError(f"Invalid posted_date_filter value: {posted_date_filter}")
-                filters["published_date"] = {"$gte": posted_date_limit}
- 
+    now_ts = int(now.timestamp())
+
+    # Validate inputs
+    platform = validate_nonempty_str(platform)
+    opportunity_type = validate_nonempty_str(opportunity_type)
+    naics_code = validate_nonempty_str(naics_code)
+    due_date_filter = validate_nonempty_str(due_date_filter)
+    posted_date_filter = validate_nonempty_str(posted_date_filter)
+
+    # Source/Platform filter
+    if opportunity_type and opportunity_type != "All":
+        if opportunity_type.lower() == "federal":
+            filters["source"] = "sam_gov"
+        elif opportunity_type.lower() == "freelancer":
+            filters["source"] = "freelancer"
+    elif platform:
+        filters["source"] = platform.lower()
+
+    # NAICS code filter
+    if naics_code:
+        codes = [code.strip() for code in naics_code.split(',')]
+        if len(codes) == 1:
+            filters["naics_code"] = codes[0]  # Simple exact match
+        else:
+            filters["naics_code"] = {"$in": codes}  # Simple in list
+
+    # Due date filter (response_date in metadata)
+    if due_date_filter and due_date_filter != "none":
+        if due_date_filter == "active_only":
+            filters["response_date"] = {"$gt": 0}  # Just ensure it's not zero
+        elif due_date_filter == "due_in_7_days":
+            seven_days = now + timedelta(days=7)
+            filters["response_date"] = {
+                "$gt": 0,
+                "$lte": int(seven_days.timestamp())
+            }
+        elif due_date_filter == "next_30_days":
+            thirty_days = now + timedelta(days=30)
+            filters["response_date"] = {
+                "$gt": 0,
+                "$lte": int(thirty_days.timestamp())
+            }
+        elif due_date_filter == "next_3_months":
+            three_months = now + timedelta(days=90)
+            filters["response_date"] = {
+                "$gt": 0,
+                "$lte": int(three_months.timestamp())
+            }
+        elif due_date_filter == "next_12_months":
+            twelve_months = now + timedelta(days=365)
+            filters["response_date"] = {
+                "$gt": 0,
+                "$lte": int(twelve_months.timestamp())
+            }
+
+    # Posted date filter (published_date in metadata)
+    if posted_date_filter and posted_date_filter != "all":
+        if posted_date_filter == "past_day":
+            one_day_ago = now - timedelta(days=1)
+            filters["published_date"] = {
+                "$gt": 0,
+                "$gte": int(one_day_ago.timestamp())
+            }
+        elif posted_date_filter == "past_week":
+            one_week_ago = now - timedelta(days=7)
+            filters["published_date"] = {
+                "$gt": 0,
+                "$gte": int(one_week_ago.timestamp())
+            }
+        elif posted_date_filter == "past_month":
+            one_month_ago = now - timedelta(days=30)
+            filters["published_date"] = {
+                "$gt": 0,
+                "$gte": int(one_month_ago.timestamp())
+            }
+        elif posted_date_filter == "past_year":
+            one_year_ago = now - timedelta(days=365)
+            filters["published_date"] = {
+                "$gt": 0,
+                "$gte": int(one_year_ago.timestamp())
+            }
+
+    # Log the filters for debugging
+    logger.info(f"Built Pinecone filters: {filters}")
     return filters
 
 

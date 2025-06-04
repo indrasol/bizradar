@@ -1,8 +1,14 @@
 import os
+import sys
+ 
+app_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../"))
+if app_dir not in sys.path:
+    sys.path.insert(0, app_dir)
+    
 import time
 
 import json
-from datetime import datetime
+from datetime import datetime, timedelta, date
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
@@ -80,6 +86,7 @@ def fetch_sam_gov_records(last_indexed: Optional[str] = None) -> List[Dict]:
                     SELECT id, title, description, department, published_date, 
                            notice_id, solicitation_number, response_date, naics_code, url
                     FROM sam_gov
+                    ORDER BY id DESC
                 """)
                 records = cursor.fetchall()
                 logger.info(f"Fetched {len(records)} SAM.gov records from database")
@@ -90,6 +97,7 @@ def fetch_sam_gov_records(last_indexed: Optional[str] = None) -> List[Dict]:
                            notice_id, solicitation_number, response_date, naics_code, url,
                            created_at, updated_at
                     FROM sam_gov
+                    ORDER BY id DESC
                     WHERE created_at > %s OR updated_at > %s
                 """, (last_indexed, last_indexed))
                 records = cursor.fetchall()
@@ -128,6 +136,7 @@ def fetch_freelancer_data_table(last_indexed: Optional[str] = None) -> List[Dict
                     SELECT id, title, skills_required, price_budget, bids_so_far, 
                            additional_details, published_date, job_url
                     FROM freelancer_data_table
+                    ORDER BY id DESC
                 """)
                 records = cursor.fetchall()
                 logger.info(f"Fetched {len(records)} Freelancer records from database")
@@ -138,6 +147,7 @@ def fetch_freelancer_data_table(last_indexed: Optional[str] = None) -> List[Dict
                            additional_details, published_date, job_url, created_at, updated_at
                     FROM freelancer_data_table
                     WHERE created_at > %s OR updated_at > %s
+                    ORDER BY id DESC
                 """, (last_indexed, last_indexed))
                 records = cursor.fetchall()
                 logger.info(f"Fetched {len(records)} Freelancer records from database since {last_indexed}")
@@ -161,6 +171,350 @@ def normalize_embedding(embedding):
         return (np.array(embedding) / norm).tolist()
     return embedding
 
+def has_record_changed(existing_metadata: Dict, new_record: Dict, source: str) -> bool:
+    """
+    Compare existing metadata with new record to detect changes.
+    Returns True if any relevant fields have changed.
+    """
+    if source == "sam_gov":
+        # Fields to compare for SAM.gov records
+        fields_to_compare = {
+            "title": "title",
+            "department": "department",
+            "published_date": "published_date",
+            "response_date": "response_date",
+            "naics_code": "naics_code",
+            "notice_id": "notice_id",
+            "solicitation_number": "solicitation_number"
+        }
+    else:  # freelancer
+        # Fields to compare for Freelancer records
+        fields_to_compare = {
+            "title": "title",
+            "skills": "skills_required",
+            "bids": "bids_so_far",
+            "price": "price_budget",
+            "published_date": "published_date"
+        }
+
+    for metadata_field, record_field in fields_to_compare.items():
+        existing_value = existing_metadata.get(metadata_field, "")
+        new_value = str(new_record.get(record_field, ""))
+        
+        # Handle date fields
+        if "date" in metadata_field:
+            if existing_value and new_value:
+                try:
+                    existing_ts = int(existing_value)
+                    new_ts = int(datetime.strptime(str(new_value).split('T')[0], '%Y-%m-%d').timestamp())
+                    if existing_ts != new_ts:
+                        return True
+                except (ValueError, TypeError):
+                    if existing_value != new_value:
+                        return True
+        # Handle other fields
+        elif str(existing_value).strip() != str(new_value).strip():
+            return True
+            
+    return False
+
+def parse_freelancer_date(date_str: str) -> datetime:
+    """
+    Parse Freelancer-specific date formats.
+    Handles relative time strings and converts them to actual dates.
+    """
+    if not date_str:
+        return datetime.utcnow()
+        
+    date_str = date_str.lower().strip()
+    
+    # Handle relative time strings
+    if 'left' in date_str or 'ago' in date_str:
+        try:
+            # Extract number and unit
+            parts = date_str.split()
+            if len(parts) >= 2:
+                number = int(parts[0])
+                unit = parts[1]
+                
+                # Calculate time delta
+                if 'day' in unit:
+                    delta = timedelta(days=number)
+                elif 'hour' in unit:
+                    delta = timedelta(hours=number)
+                elif 'minute' in unit:
+                    delta = timedelta(minutes=number)
+                elif 'second' in unit:
+                    delta = timedelta(seconds=number)
+                else:
+                    return datetime.utcnow()
+                
+                # Add or subtract based on 'left' or 'ago'
+                if 'left' in date_str:
+                    return datetime.utcnow() + delta
+                else:  # ago
+                    return datetime.utcnow() - delta
+        except (ValueError, IndexError):
+            pass
+    
+    # Try parsing as ISO format
+    try:
+        return datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+    except ValueError:
+        pass
+    
+    # Try parsing as YYYY-MM-DD
+    try:
+        return datetime.strptime(date_str.split('T')[0], '%Y-%m-%d')
+    except ValueError:
+        pass
+    
+    # If all parsing fails, return current time
+    return datetime.utcnow()
+
+def safe_timestamp(date_value) -> int:
+    """
+    Safely convert date to timestamp.
+    Handles various date formats including relative time strings.
+    """
+    if not date_value:
+        return int(datetime.utcnow().timestamp())
+        
+    try:
+        # Handle string dates
+        if isinstance(date_value, str):
+            # Use Freelancer-specific date parser for relative time strings
+            date_value = parse_freelancer_date(date_value)
+                    
+        # Handle datetime objects
+        elif isinstance(date_value, datetime):
+            pass
+        # Handle date objects
+        elif isinstance(date_value, date):
+            # Convert date to datetime at midnight UTC
+            date_value = datetime.combine(date_value, datetime.min.time())
+        # Handle objects with timestamp method
+        elif hasattr(date_value, 'timestamp'):
+            return int(date_value.timestamp())
+        else:
+            logger.warning(f"Unsupported date type: {type(date_value)}, using current time")
+            return int(datetime.utcnow().timestamp())
+            
+        # Ensure we have a timezone-naive datetime
+        if date_value.tzinfo is not None:
+            date_value = date_value.replace(tzinfo=None)
+        return int(date_value.timestamp())
+    except (ValueError, TypeError, AttributeError) as e:
+        logger.warning(f"Error converting date to timestamp: {e}, using current time")
+        return int(datetime.utcnow().timestamp())
+
+def prepare_metadata(record: Dict, source: str) -> Dict:
+    """
+    Prepare metadata dictionary based on source type.
+    """
+    if source == "sam_gov":
+        return {
+            "source": "sam_gov",
+            "id_type": "sam_gov",
+            "department": record["department"] if record["department"] else "",
+            "title": record["title"] if record["title"] else "",
+            "published_date": safe_timestamp(record["published_date"]),
+            "notice_id": record["notice_id"] if record["notice_id"] else "",
+            "solicitation_number": record["solicitation_number"] if record["solicitation_number"] else "",
+            "response_date": safe_timestamp(record["response_date"]),
+            "naics_code": str(record["naics_code"]).strip() if record["naics_code"] else "",
+            "url_available": "yes" if record.get("url") else "no",
+            "indexed_at": int(datetime.utcnow().timestamp())
+        }
+    else:  # freelancer
+        # Clean and normalize price and bids
+        price = record["price_budget"] if record["price_budget"] else "0"
+        if isinstance(price, str):
+            # Remove currency symbols and convert to float
+            price = ''.join(c for c in price if c.isdigit() or c == '.')
+            try:
+                price = float(price)
+            except ValueError:
+                price = 0
+                
+        bids = record["bids_so_far"] if record["bids_so_far"] else "0"
+        if isinstance(bids, str):
+            # Extract number from strings like "5 bids"
+            bids = ''.join(c for c in bids if c.isdigit())
+            try:
+                bids = int(bids)
+            except ValueError:
+                bids = 0
+        
+        return {
+            "source": "freelancer",
+            "id_type": "freelancer",
+            "skills": record["skills_required"] if record["skills_required"] else "",
+            "title": record["title"] if record["title"] else "",
+            "bids": str(bids),
+            "price": str(price),
+            "published_date": safe_timestamp(record["published_date"]),
+            "job_url": record["job_url"] if record.get("job_url") else "",
+            "indexed_at": int(datetime.utcnow().timestamp())
+        }
+
+def index_records_to_pinecone(records: List[Dict], source: str, incremental: bool = True) -> int:
+    """
+    Common function to index records to Pinecone.
+    
+    Args:
+        records: List of records to index
+        source: Source type ("sam_gov" or "freelancer")
+        incremental: Whether this is an incremental update
+    
+    Returns:
+        Number of records indexed/updated
+    """
+    if not records:
+        logger.warning(f"No new records found in {source} to index.")
+        return 0
+    
+    logger.info(f"Starting to process {len(records)} {source} records...")
+    
+    # Keep track of statistics
+    stats = {
+        "indexed": 0,
+        "updated": 0,
+        "skipped": 0,
+        "failed": 0,
+        "empty_content": 0,
+        "invalid_dates": 0,
+        "batch_errors": 0,
+        "vector_errors": 0
+    }
+    
+    # Get Pinecone index
+    index = get_index()
+    if not index:
+        logger.error("Failed to initialize Pinecone index")
+        return 0
+
+    # Process records in batches
+    batch_size = 100
+    vectors = []
+    batch_count = 0
+    
+    for record in tqdm(records, desc=f"Processing {source} records"):
+        try:
+            # Create the Pinecone ID
+            record_id = f"{source}_{record['id']}"
+            
+            # Check if vector exists and get its metadata
+            existing_vector = None
+            if check_vector_exists(record_id):
+                try:
+                    fetch_result = index.fetch(ids=[record_id])
+                    if record_id in fetch_result.vectors:
+                        existing_vector = fetch_result.vectors[record_id]
+                        # logger.debug(f"Found existing vector for {record_id}")
+                except Exception as e:
+                    # logger.warning(f"Error fetching existing vector {record_id}: {e}")
+                    stats["vector_errors"] += 1
+            
+            # Prepare new metadata
+            new_metadata = prepare_metadata(record, source)
+            
+            # Skip if no changes and vector exists
+            if existing_vector and not has_record_changed(existing_vector.metadata, record, source):
+                # logger.info(f"Skipping {record_id} - no changes detected")
+                stats["skipped"] += 1
+                continue
+            
+            # Create content to embed based on source
+            if source == "sam_gov":
+                description = record['description'] if record['description'] else ""
+                title = record['title'] if record['title'] else ""
+                text = f"{title} {description}"
+            else:  # freelancer
+                additional_details = record['additional_details'] if record['additional_details'] else ""
+                skills = record['skills_required'] if record['skills_required'] else ""
+                title = record['title'] if record['title'] else ""
+                text = f"{title} {skills} {additional_details}"
+            
+            # Skip records with no meaningful content
+            if not text.strip():
+                # logger.warning(f"Skipping record {record_id} due to empty content")
+                stats["empty_content"] += 1
+                continue
+            
+            # Generate embedding
+            model = get_model()
+            embedding = model.encode(text).tolist()
+            embedding = normalize_embedding(embedding)
+            
+            if not embedding:
+                # logger.warning(f"Failed to normalize embedding for record {record_id}")
+                stats["failed"] += 1
+                continue
+            
+            # Add vector to batch
+            vectors.append((record_id, embedding, new_metadata))
+            
+            # Update statistics
+            if existing_vector:
+                stats["updated"] += 1
+                # logger.debug(f"Updating existing vector for {record_id}")
+            else:
+                stats["indexed"] += 1
+                # logger.debug(f"Creating new vector for {record_id}")
+            
+            # Process batch if full
+            if len(vectors) >= batch_size:
+                batch_count += 1
+                try:
+                    logger.info(f"Processing batch {batch_count} with {len(vectors)} vectors...")
+                    index.upsert(vectors=vectors)
+                    logger.info(f"Successfully processed batch {batch_count}")
+                    vectors = []
+                except Exception as e:
+                    logger.error(f"Error upserting batch {batch_count}: {e}")
+                    stats["batch_errors"] += 1
+                    stats["failed"] += len(vectors)
+                    vectors = []
+                
+        except Exception as e:
+            logger.error(f"Error processing {source} record {record['id']}: {str(e)}")
+            stats["failed"] += 1
+    
+    # Process remaining vectors
+    if vectors:
+        batch_count += 1
+        try:
+            logger.info(f"Processing final batch {batch_count} with {len(vectors)} vectors...")
+            index.upsert(vectors=vectors)
+            logger.info(f"Successfully processed final batch {batch_count}")
+        except Exception as e:
+            logger.error(f"Error upserting final batch {batch_count}: {e}")
+            stats["batch_errors"] += 1
+            stats["failed"] += len(vectors)
+    
+    # Update state
+    if stats["indexed"] > 0 or stats["updated"] > 0:
+        state = load_index_state()
+        state[source]["last_indexed"] = datetime.now().isoformat()
+        state[source]["count"] += stats["indexed"]
+        save_index_state(state)
+        logger.info(f"Updated indexing state for {source}")
+    
+    # Log detailed statistics
+    logger.info(f"\n{source} indexing completed with detailed statistics:")
+    logger.info(f"  - Total records processed: {len(records)}")
+    logger.info(f"  - New records indexed: {stats['indexed']}")
+    logger.info(f"  - Existing records updated: {stats['updated']}")
+    logger.info(f"  - Records skipped (no changes): {stats['skipped']}")
+    logger.info(f"  - Records skipped (empty content): {stats['empty_content']}")
+    logger.info(f"  - Records failed: {stats['failed']}")
+    logger.info(f"  - Vector fetch errors: {stats['vector_errors']}")
+    logger.info(f"  - Batch processing errors: {stats['batch_errors']}")
+    logger.info(f"  - Success rate: {((stats['indexed'] + stats['updated']) / len(records) * 100):.2f}%")
+    
+    return stats["indexed"] + stats["updated"]
+
 def index_sam_gov_to_pinecone(incremental=True):
     """
     Generate embeddings for sam_gov records and upsert them to Pinecone.
@@ -172,94 +526,9 @@ def index_sam_gov_to_pinecone(incremental=True):
     
     # Fetch records from sam_gov table
     records = fetch_sam_gov_records(last_indexed)
-    if not records:
-        logger.warning("No new records found in sam_gov table to index.")
-        return 0
     
-    # Keep track of successfully indexed records
-    indexed_count = 0
-    skipped_count = 0
-    vectors = []
-
-    # Process records
-    for record in tqdm(records, desc="Processing SAM.gov records"):
-        try:
-            # Create the Pinecone ID
-            record_id = f"sam_gov_{record['id']}"
-            
-            # Check if vector already exists in Pinecone - skip if it does
-            if check_vector_exists(record_id):
-                logger.info(f"Vector {record_id} already exists in Pinecone, skipping")
-                skipped_count += 1
-                continue
-                
-            # Create content to embed - combine relevant fields
-            description = record['description'] if record['description'] else ""
-            title = record['title'] if record['title'] else ""
-            
-            # Skip records with no meaningful content
-            if not title.strip() and not description.strip():
-                logger.warning(f"Skipping record {record['id']} due to empty content")
-                skipped_count += 1
-                continue
-                
-            # Combine fields for embedding
-            text = f"{title} {description}"
-            model = get_model()
-            embedding = model.encode(text).tolist()
-            
-            # Normalize the embedding
-            embedding = normalize_embedding(embedding)
-            if not embedding:
-                logger.warning(f"Failed to normalize embedding for record {record['id']}")
-                skipped_count += 1
-                continue
-                
-            # Create metadata for filtering - include more fields
-            metadata = {
-                "source": "sam_gov",
-                "id_type": "sam_gov",
-                "department": record["department"] if record["department"] else "",
-                "title": title,
-                "published_date": str(record["published_date"]) if record["published_date"] else "",
-                "notice_id": record["notice_id"] if record["notice_id"] else "",
-                "solicitation_number": record["solicitation_number"] if record["solicitation_number"] else "",
-                "response_date": str(record["response_date"]) if record["response_date"] else "",
-                "naics_code": str(record["naics_code"]) if record["naics_code"] else "",
-                "url_available": "yes" if record.get("url") else "no",
-                "indexed_at": datetime.now().isoformat()
-            }
-
-            # Add vector to list (id must be a string in Pinecone)
-            vectors.append((record_id, embedding, metadata))
-            indexed_count += 1
-            
-        except Exception as e:
-            logger.error(f"Error processing SAM.gov record {record['id']}: {str(e)}")
-            skipped_count += 1
-
-    # Batch upsert to Pinecone
-    batch_size = 100
-    total_batches = (len(vectors) + batch_size - 1) // batch_size
-    
-    for i in range(0, len(vectors), batch_size):
-        batch = vectors[i:i + batch_size]
-        try:
-            index = get_index()
-            index.upsert(vectors=batch)
-            logger.info(f"Upserted sam_gov batch {i//batch_size + 1} of {total_batches}")
-        except Exception as e:
-            logger.error(f"Error upserting sam_gov batch {i//batch_size + 1}: {str(e)}")
-            indexed_count -= len(batch)  # Adjust count for failed batch
-
-    # Update the state with the latest indexing time
-    if indexed_count > 0:
-        state["sam_gov"]["last_indexed"] = datetime.now().isoformat()
-        state["sam_gov"]["count"] += indexed_count
-        save_index_state(state)
-    
-    logger.info(f"Successfully indexed {indexed_count} sam_gov records to Pinecone. Skipped {skipped_count} records.")
-    return indexed_count
+    # Use common indexing function
+    return index_records_to_pinecone(records, "sam_gov", incremental)
 
 def index_freelancer_data_table_to_pinecone(incremental=True):
     """
@@ -272,93 +541,9 @@ def index_freelancer_data_table_to_pinecone(incremental=True):
     
     # Fetch records from freelancer_data_table
     records = fetch_freelancer_data_table(last_indexed)
-    if not records:
-        logger.warning("No new records found in freelancer_data_table to index.")
-        return 0
-
-    # Keep track of successfully indexed records
-    indexed_count = 0
-    skipped_count = 0
-    vectors = []
-
-    # Process records
-    for record in tqdm(records, desc="Processing Freelancer records"):
-        try:
-            # Create the Pinecone ID
-            record_id = f"freelancer_{record['id']}"
-            
-            # Check if vector already exists in Pinecone - skip if it does
-            if check_vector_exists(record_id):
-                logger.info(f"Vector {record_id} already exists in Pinecone, skipping")
-                skipped_count += 1
-                continue
-                
-            # Create content to embed - combine relevant fields
-            additional_details = record['additional_details'] if record['additional_details'] else ""
-            skills = record['skills_required'] if record['skills_required'] else ""
-            title = record['title'] if record['title'] else ""
-            
-            # Skip records with no meaningful content
-            if not title.strip() and not skills.strip() and not additional_details.strip():
-                logger.warning(f"Skipping record {record['id']} due to empty content")
-                skipped_count += 1
-                continue
-                
-            # Combine fields for embedding
-            text = f"{title} {skills} {additional_details}"
-            model = get_model()
-            embedding = model.encode(text).tolist()
-            
-            # Normalize the embedding
-            embedding = normalize_embedding(embedding)
-            if not embedding:
-                logger.warning(f"Failed to normalize embedding for record {record['id']}")
-                skipped_count += 1
-                continue
-
-            # Create metadata for filtering
-            metadata = {
-                "source": "freelancer",
-                "id_type": "freelancer",
-                "skills": skills,
-                "title": title,
-                "bids": str(record["bids_so_far"]) if record["bids_so_far"] else "0",
-                "price": str(record["price_budget"]) if record["price_budget"] else "0",
-                "published_date": str(record["published_date"]) if record["published_date"] else "",
-                "job_url": record["job_url"] if record.get("job_url") else "",
-                "indexed_at": datetime.now().isoformat()
-            }
-            
-            # Add vector to list
-            vectors.append((record_id, embedding, metadata))
-            indexed_count += 1
-            
-        except Exception as e:
-            logger.error(f"Error processing Freelancer record {record['id']}: {str(e)}")
-            skipped_count += 1
-
-    # Batch upsert to Pinecone
-    batch_size = 100
-    total_batches = (len(vectors) + batch_size - 1) // batch_size
     
-    for i in range(0, len(vectors), batch_size):
-        batch = vectors[i:i + batch_size]
-        try:
-            index = get_index()
-            index.upsert(vectors=batch)
-            logger.info(f"Upserted freelancer batch {i//batch_size + 1} of {total_batches}")
-        except Exception as e:
-            logger.error(f"Error upserting freelancer batch {i//batch_size + 1}: {str(e)}")
-            indexed_count -= len(batch)  # Adjust count for failed batch
-
-    # Update the state with the latest indexing time
-    if indexed_count > 0:
-        state["freelancer"]["last_indexed"] = datetime.now().isoformat()
-        state["freelancer"]["count"] += indexed_count
-        save_index_state(state)
-    
-    logger.info(f"Successfully indexed {indexed_count} freelancer records to Pinecone. Skipped {skipped_count} records.")
-    return indexed_count
+    # Use common indexing function
+    return index_records_to_pinecone(records, "freelancer", incremental)
 
 def check_search(query="cybersecurity"):
     """
