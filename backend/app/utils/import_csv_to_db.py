@@ -1,3 +1,10 @@
+import os
+import sys
+
+app_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../"))
+if app_dir not in sys.path:
+    sys.path.insert(0, app_dir)
+
 import pandas as pd
 from psycopg2.extras import execute_values
 from utils.db_utils import get_db_connection
