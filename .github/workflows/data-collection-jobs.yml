@@ -125,7 +125,7 @@ jobs:
         working-directory: ./backend
         run: |
           # python scripts/import_csv_to_db.py
-          python -m app.utils..import_csv_request
+          python -m app.utils.import_csv_request
         env:
           DB_HOST: ${{ secrets.DB_HOST }}
           DB_PORT: ${{ secrets.DB_PORT }}
