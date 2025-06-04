@@ -1,6 +1,18 @@
 """
 Freelancer.com scraper module for scheduled data collection
 """
+import os
+import sys
+
+# Add the backend directory to Python path
+backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if backend_dir not in sys.path:
+    sys.path.insert(0, backend_dir)
+
+app_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"))
+if app_dir not in sys.path:
+    sys.path.insert(0, app_dir)
+    
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry

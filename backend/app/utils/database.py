@@ -1,14 +1,14 @@
-import os
 import psycopg2
-from psycopg2.extras import RealDictCursor
 from dotenv import load_dotenv
+
+load_dotenv()
+
 from utils.db_utils import get_db_connection
 from utils.logger import get_logger
 
 # Configure logging
 logger = get_logger(__name__)
 
-load_dotenv()
 
 def check_duplicate(cursor, notice_id):
     """

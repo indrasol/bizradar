@@ -1,25 +1,26 @@
 import os
 import time
-import logging
 import requests
 import threading
 import pandas as pd
 import psycopg2
 from psycopg2.extras import execute_values
-from dotenv import load_dotenv
+
 from tqdm import tqdm
 from multiprocessing.pool import ThreadPool
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+
+from dotenv import load_dotenv
+load_dotenv()
+
+from utils.db_utils import get_db_connection, get_db_connection_params
+from utils.logger import get_logger
+
+logger = get_logger("csv_importer",True,True,"csv_importer.log")
 
 # Setup
-load_dotenv()
+
 IMPORT_USER = os.getenv("IMPORT_USER", "system")
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    handlers=[logging.FileHandler("indexing_csv.log"), logging.StreamHandler()]
-)
-logger = logging.getLogger("csv_importer")
 
 # Constants
 CSV_URL = "https://s3.amazonaws.com/falextracts/Contract%20Opportunities/datagov/ContractOpportunitiesFullCSV.csv"
@@ -33,17 +34,28 @@ BATCH_SIZE = 1000
 def ensure_dir():
     os.makedirs(os.path.dirname(LOCAL_FILE), exist_ok=True)
 
-def should_download_new_file(filepath):
-    """Download if file doesn't exist or is older than a day."""
+def should_download_new_file(filepath, max_age_days=1):
+    """
+    Determine if the file should be downloaded.
+    Download if the file does not exist or is older than max_age_days.
+    """
     if not os.path.exists(filepath):
-        logger.info("CSV file does not exist, proceeding to download.")
+        logger.info(f"File {filepath} does not exist, will download.")
         return True
-    modified_time = datetime.fromtimestamp(os.path.getmtime(filepath))
-    if datetime.now() - modified_time > timedelta(days=1):
-        logger.info("CSV file is older than 1 day, deleting and re-downloading.")
-        os.remove(filepath)
+
+    modified_time = datetime.fromtimestamp(os.path.getmtime(filepath), tz=timezone.utc)
+    now = datetime.now(tz=timezone.utc)
+    age = now - modified_time
+
+    logger.info(f"File last modified (UTC): {modified_time}")
+    logger.info(f"Current time (UTC): {now}")
+    logger.info(f"File age: {age}")
+
+    if age > timedelta(days=max_age_days):
+        logger.info(f"File {filepath} is older than {max_age_days} day(s), will download new file.")
         return True
-    logger.info("CSV file already exists and is fresh. Skipping download.")
+
+    logger.info(f"File {filepath} is fresh; skipping download.")
     return False
 
 def download_with_resume(url, filepath):
@@ -70,15 +82,6 @@ def download_with_resume(url, filepath):
     progress.close()
     logger.info("Download complete.")
 
-def db_connection():
-    return psycopg2.connect(
-        host=os.getenv("DB_HOST"),
-        port=os.getenv("DB_PORT"),
-        database=os.getenv("DB_NAME"),
-        user=os.getenv("DB_USER"),
-        password=os.getenv("DB_PASSWORD")
-    )
-
 def check_duplicates(cursor, notice_ids):
     format_ids = tuple(notice_ids)
     sql = f"SELECT notice_id FROM sam_gov_csv WHERE notice_id IN %s"
@@ -90,7 +93,7 @@ def insert_records(records):
         return 0
 
     try:
-        conn = db_connection()
+        conn = get_db_connection()
         cursor = conn.cursor()
 
         execute_values(
@@ -178,7 +181,7 @@ def import_csv_to_db():
         downloader.join()
 
     # Step 2: Ensure DB and Table
-    conn = db_connection()
+    conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS sam_gov_csv (
@@ -196,13 +199,7 @@ def import_csv_to_db():
     conn.close()
 
     # Step 3: Process and insert with multiprocessing
-    conn_params = {
-        "host": os.getenv("DB_HOST"),
-        "port": os.getenv("DB_PORT"),
-        "database": os.getenv("DB_NAME"),
-        "user": os.getenv("DB_USER"),
-        "password": os.getenv("DB_PASSWORD")
-    }
+    conn_params = get_db_connection_params()
 
     total_inserted = 0
     total_skipped = {"empty_notice_id": 0, "empty_description": 0, "duplicates": 0}
@@ -217,23 +214,24 @@ def import_csv_to_db():
     ), start=1):
         logger.info(f"Processing chunk #{chunk_num}...")
         records,skipped  = process_chunk(chunk, conn_params)
-        logger.info(f"Chunk #{chunk_num}: {len(records)} records to insert")
-
-        for i in range(0, len(records), BATCH_SIZE):
-            batch = records[i:i+BATCH_SIZE]
-            pool.apply_async(insert_records, args=(batch,), callback=lambda x: logger.info(f"Chunk {i+1}: Inserted {x} records"))
-
-        total_inserted += len(records)
-        for key in total_skipped:
-            total_skipped[key] += skipped[key]
-
+        records_len = len(records)
+ 
         logger.info(
-            f"Chunk {i+1}: Skipped(Duplicates)={skipped['duplicates']}, "
+            f"Chunk #{chunk_num}: Skipped(Duplicates)={skipped['duplicates']}, "
             f"Skipped(Empty ID)={skipped['empty_notice_id']}, Skipped(Empty Desc)={skipped['empty_description']}"
         )
-
+        logger.info(f"Chunk #{chunk_num}: {records_len} records to insert")
+ 
+        for i in range(0, records_len, BATCH_SIZE):
+            batch = records[i:i+BATCH_SIZE]
+            pool.apply_async(insert_records, args=(batch,), callback=lambda x: logger.info(f"Chunk #{chunk_num}: Inserted {x} records"))
+ 
+        total_inserted += records_len
+        for key in total_skipped:
+            total_skipped[key] += skipped[key]
+       
     pool.close()
-    pool.join()
+    pool.join() 
 
     logger.info(f"Import finished: Total inserted: {total_inserted}, Total skipped: {total_skipped}  in {time.time() - start:.2f}s")
 
