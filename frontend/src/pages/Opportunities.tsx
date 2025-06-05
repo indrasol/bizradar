@@ -55,6 +55,7 @@ import RecommendationsPanel from "../components/dashboard/RecommendationsPanel";
 import { J } from "node_modules/framer-motion/dist/types.d-6pKw1mTI";
 import { toast } from "sonner";
 import { useAuth } from "@/components/Auth/useAuth";
+import SearchProgress from '../components/SearchProgress';
 // import '../../src/App.css'
 
 
@@ -79,6 +80,16 @@ interface SearchParams {
   opportunity_type?: string | null; // New property for opportunity type
 }
 
+// Update the FilterValues interface
+interface FilterValues {
+  dueDate: string;
+  postedDate: string;
+  naicsCode: string;
+  opportunityType: string;
+  contractType: string | null;
+  platform: string | null;
+}
+
 export default function Opportunities() {
   const { logout } = useAuth();
   const navigate = useNavigate(); // Initialize the navigate function
@@ -93,8 +104,8 @@ export default function Opportunities() {
     // Removed jurisdiction and unspscCode
   });
 
-  const [expandedCard, setExpandedCard] = useState("state-executive");
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  // const [expandedCard, setExpandedCard] = useState("state-executive");
+  // const [sidebarOpen, setSidebarOpen] = useState(true);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
@@ -102,14 +113,14 @@ export default function Opportunities() {
   const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [expandRecommendations, setExpandRecommendations] = useState(false);
-  const [aiComponentCollapsed, setAiComponentCollapsed] = useState(false);
+  // const [aiComponentCollapsed, setAiComponentCollapsed] = useState(false);
   const [scrollToTopVisible, setScrollToTopVisible] = useState(false);
 
   // New state variables
   const [pursuitCount, setPursuitCount] = useState(0);
   const [showNotification, setShowNotification] = useState(false);
-  const [selectedTab, setSelectedTab] = useState("newest");
-  const [currentHoveredCard, setCurrentHoveredCard] = useState(null);
+  // const [selectedTab, setSelectedTab] = useState("newest");
+  // const [currentHoveredCard, setCurrentHoveredCard] = useState(null);
   const [refinedQuery, setRefinedQuery] = useState("");
   const [showRefinedQuery, setShowRefinedQuery] = useState(false);
   const [sortBy, setSortBy] = useState("relevance");  // Default to "relevance"
@@ -155,6 +166,57 @@ export default function Opportunities() {
     },
   ];
 
+  const NAICS_CODES = [
+    { code: "541511", description: "Custom Computer Programming Services" },
+    { code: "541512", description: "Computer Systems Design Services" },
+    { code: "541519", description: "Other Computer Related Services" },
+    { code: "518210", description: "Computing Infrastructure Providers, Data Processing, Web Hosting, and Related Services" },
+    { code: "541611", description: "Administrative Management and General Management Consulting Services" },
+    { code: "541715", description: "Research and Development in the Physical, Engineering, and Life Sciences (except Nanotechnology and Biotechnology)" },
+    // ...add more as needed
+  ];
+
+  // "541512", "541611", "541519","541715","518210"
+
+  const [naicsSuggestions, setNaicsSuggestions] = useState([]);
+  const [showNaicsDropdown, setShowNaicsDropdown] = useState(false);
+  const [naicsValue, setNaicsValue] = useState('');
+
+  const handleNaicsInputChange = (e) => {
+    const value = e.target.value;
+    // setFilterValues({ ...filterValues, naicsCode: value });
+    setNaicsValue(value);
+    let suggestions = []
+    if (value.length > 0) {
+      suggestions = NAICS_CODES.filter(
+        (item) =>
+          item.code.startsWith(value) ||
+          item.description.toLowerCase().includes(value.toLowerCase())
+      );
+      setNaicsSuggestions(suggestions);
+      setShowNaicsDropdown(true);
+    } else {
+      setNaicsSuggestions([]);
+      setShowNaicsDropdown(false);
+    }
+    if (suggestions.length == 0) {
+      setFilterValues({ ...filterValues, naicsCode: '' });
+    } else if (suggestions.length == 1) {
+      setFilterValues({ ...filterValues, naicsCode: value });
+    }
+  };
+
+  const handleNaicsSuggestionClick = (code) => {
+    setFilterValues({ ...filterValues, naicsCode: code });
+    setNaicsValue(code); // update input to show the selected code
+    setShowNaicsDropdown(false);
+
+    // // Only apply the filter when a suggestion is selected
+    // if (hasSearched) {
+    //   fetchFilteredResults({ ...filterValues, naicsCode: code });
+    // }
+  };
+
   // Initial dummy data - will be replaced with search results
   const initialOpportunities = [];
 
@@ -168,12 +230,12 @@ export default function Opportunities() {
   const resultsPerPage = 7; // Using 7 results per page
 
   // Calculate displayed opportunities based on pagination
-  const indexOfLastResult = currentPage * resultsPerPage;
-  const indexOfFirstResult = indexOfLastResult - resultsPerPage;
-  const currentOpportunities = opportunities.slice(
-    indexOfFirstResult,
-    indexOfLastResult
-  );
+  // const indexOfLastResult = currentPage * resultsPerPage;
+  // const indexOfFirstResult = indexOfLastResult - resultsPerPage;
+  // const currentOpportunities = opportunities.slice(
+  //   indexOfFirstResult,
+  //   indexOfLastResult
+  // );
 
   // Handle logout
   const handleLogout = async () => {
@@ -319,95 +381,95 @@ export default function Opportunities() {
 
 
   // Fetch AI recommendations
-  const fetchAiRecommendations = async () => {
-    if (requestInProgressRef.current || opportunities.length === 0) return;
+  // const fetchAiRecommendations = async () => {
+  //   if (requestInProgressRef.current || opportunities.length === 0) return;
 
-    const searchId = `${searchQuery}-${currentPage}`;
+  //   const searchId = `${searchQuery}-${currentPage}`;
 
-    if (searchId === lastSearchIdRef.current) {
-      console.log("Skipping duplicate recommendations request for:", searchId);
-      return;
-    }
+  //   if (searchId === lastSearchIdRef.current) {
+  //     console.log("Skipping duplicate recommendations request for:", searchId);
+  //     return;
+  //   }
 
-    requestInProgressRef.current = true;
-    lastSearchIdRef.current = searchId;
-    setIsLoadingRecommendations(true);
+  //   requestInProgressRef.current = true;
+  //   lastSearchIdRef.current = searchId;
+  //   setIsLoadingRecommendations(true);
 
-    console.log("Starting to fetch AI recommendations for page", currentPage);
+  //   console.log("Starting to fetch AI recommendations for page", currentPage);
 
-    try {
-      const userProfile = getUserProfile();
-      console.log("User profile for AI recommendations:", userProfile);
+  //   try {
+  //     const userProfile = getUserProfile();
+  //     console.log("User profile for AI recommendations:", userProfile);
 
-      const requestBody = {
-        companyUrl: userProfile.companyUrl,
-        companyDescription: userProfile.companyDescription || "", // Ensure this is set
-        opportunities: opportunities,
-        responseFormat: "json",
-        includeMatchReason: true,
-      };
-      console.log("AI recommendations request body:", requestBody);
+  //     const requestBody = {
+  //       companyUrl: userProfile.companyUrl,
+  //       companyDescription: userProfile.companyDescription || "", // Ensure this is set
+  //       opportunities: opportunities,
+  //       responseFormat: "json",
+  //       includeMatchReason: true,
+  //     };
+  //     console.log("AI recommendations request body:", requestBody);
 
-      const response = await fetch(`${API_BASE_URL}/ai-recommendations`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(requestBody),
-      });
+  //     const response = await fetch(`${API_BASE_URL}/ai-recommendations`, {
+  //       method: "POST",
+  //       headers: {
+  //         "Content-Type": "application/json",
+  //       },
+  //       body: JSON.stringify(requestBody),
+  //     });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+  //     if (!response.ok) {
+  //       throw new Error(`HTTP error! status: ${response.status}`);
+  //     }
 
-      const data = await response.json();
-      console.log("AI Recommendations raw response:", data);
+  //     const data = await response.json();
+  //     console.log("AI Recommendations raw response:", data);
 
-      if (data.recommendations && Array.isArray(data.recommendations)) {
-        console.log(
-          `Received ${data.recommendations.length} AI recommendations`
-        );
+  //     if (data.recommendations && Array.isArray(data.recommendations)) {
+  //       console.log(
+  //         `Received ${data.recommendations.length} AI recommendations`
+  //       );
 
-        const enhancedRecommendations = data.recommendations.map((rec) => {
-          const oppIndex =
-            typeof rec.opportunityIndex === "number"
-              ? Math.min(rec.opportunityIndex, opportunities.length - 1)
-              : 0;
-          const opportunity = opportunities[oppIndex];
+  //       const enhancedRecommendations = data.recommendations.map((rec) => {
+  //         const oppIndex =
+  //           typeof rec.opportunityIndex === "number"
+  //             ? Math.min(rec.opportunityIndex, opportunities.length - 1)
+  //             : 0;
+  //         const opportunity = opportunities[oppIndex];
 
-          return {
-            ...rec,
-            opportunity,
-            showDetailedReason: false, // Add this to track the expanded state
-          };
-        });
+  //         return {
+  //           ...rec,
+  //           opportunity,
+  //           showDetailedReason: false, // Add this to track the expanded state
+  //         };
+  //       });
 
-        setAiRecommendations(enhancedRecommendations);
-      } else {
-        console.warn("Received invalid recommendations format:", data);
-        setAiRecommendations([]);
-      }
-    } catch (error) {
-      console.error("Error fetching AI recommendations:", error);
-      setAiRecommendations([
-        {
-          id: "fallback-rec-1",
-          title: "AI Recommendation Service Temporarily Unavailable",
-          description:
-            "We couldn't retrieve personalized recommendations at this time. Please try again later.",
-          matchScore: 75,
-          opportunityIndex: 0,
-          matchReason:
-            "This is a fallback recommendation while the service is temporarily unavailable.",
-        },
-      ]);
-    } finally {
-      setTimeout(() => {
-        setIsLoadingRecommendations(false);
-        requestInProgressRef.current = false;
-      }, 500);
-    }
-  };
+  //       setAiRecommendations(enhancedRecommendations);
+  //     } else {
+  //       console.warn("Received invalid recommendations format:", data);
+  //       setAiRecommendations([]);
+  //     }
+  //   } catch (error) {
+  //     console.error("Error fetching AI recommendations:", error);
+  //     setAiRecommendations([
+  //       {
+  //         id: "fallback-rec-1",
+  //         title: "AI Recommendation Service Temporarily Unavailable",
+  //         description:
+  //           "We couldn't retrieve personalized recommendations at this time. Please try again later.",
+  //         matchScore: 75,
+  //         opportunityIndex: 0,
+  //         matchReason:
+  //           "This is a fallback recommendation while the service is temporarily unavailable.",
+  //       },
+  //     ]);
+  //   } finally {
+  //     setTimeout(() => {
+  //       setIsLoadingRecommendations(false);
+  //       requestInProgressRef.current = false;
+  //     }, 500);
+  //   }
+  // };
 
   // useEffect to prevent infinite loop of requests
   useEffect(() => {
@@ -425,17 +487,17 @@ export default function Opportunities() {
     });
   };
 
-  const toggleSidebar = () => {
-    setSidebarOpen(!sidebarOpen);
-  };
+  // const toggleSidebar = () => {
+  //   setSidebarOpen(!sidebarOpen);
+  // };
 
   const toggleFiltersBar = () => {
     setFiltersOpen(!filtersOpen);
   };
 
-  const toggleRecommendationsExpand = () => {
-    setExpandRecommendations(!expandRecommendations);
-  };
+  // const toggleRecommendationsExpand = () => {
+  //   setExpandRecommendations(!expandRecommendations);
+  // };
 
   const clearSearch = () => {
     setSearchQuery("");
@@ -455,7 +517,9 @@ export default function Opportunities() {
       dueDate: "none", // Set "none" as the default value
       postedDate: "all", // Default value
       naicsCode: "", // Default value
-      opportunityType: "All" // Default value
+      opportunityType: "All", // Default value
+      contractType: "All", // Default value
+      platform: "All" // Default value
     });
   };
 
@@ -474,117 +538,117 @@ export default function Opportunities() {
    * Try to load a previous search from Redis cache.
    * Returns true if cached results were found & applied.
    */
-  const checkForCachedSearch = async (query: string) => {
-    const user_id = tokenService.getUserIdFromToken();
-    console.log("Checking for cached search with query:", query);
+  // const checkForCachedSearch = async (query: string) => {
+  //   const user_id = tokenService.getUserIdFromToken();
+  //   console.log("Checking for cached search with query:", query);
 
-    try {
-      const resp = await fetch(`${API_BASE_URL}/search-opportunities`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query,
-          page: 1,
-          page_size: resultsPerPage,
-          is_new_search: false,
-          sort_by: sortBy,
-          user_id,
-        }),
-      });
+  //   try {
+  //     const resp = await fetch(`${API_BASE_URL}/search-opportunities`, {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify({
+  //         query,
+  //         page: 1,
+  //         page_size: resultsPerPage,
+  //         is_new_search: false,
+  //         sort_by: sortBy,
+  //         user_id,
+  //       }),
+  //     });
 
-      if (!resp.ok) {
-        console.error("Cache check request failed:", await resp.text());
-        return false;
-      }
+  //     if (!resp.ok) {
+  //       console.error("Cache check request failed:", await resp.text());
+  //       return false;
+  //     }
 
-      const data = await resp.json();
-      console.log("Cache check response:", data.results ? `Found ${data.results.length} results` : "No results found");
+  //     const data = await resp.json();
+  //     console.log("Cache check response:", data.results ? `Found ${data.results.length} results` : "No results found");
 
-      if (resp.ok && data.results?.length) {
-        setOpportunities(data.results);
-        setTotalResults(data.total);
-        setTotalPages(data.total_pages);
-        if (data.refined_query) setRefinedQuery(data.refined_query);
-        setHasSearched(true);
+  //     if (resp.ok && data.results?.length) {
+  //       setOpportunities(data.results);
+  //       setTotalResults(data.total);
+  //       setTotalPages(data.total_pages);
+  //       if (data.refined_query) setRefinedQuery(data.refined_query);
+  //       setHasSearched(true);
 
-        // fetch any cached AI recs
-        await fetchCachedRecommendations(data.results.map((r) => r.id));
+  //       // fetch any cached AI recs
+  //       await fetchCachedRecommendations(data.results.map((r) => r.id));
 
-        // Persist this cached search into sessionStorage so we can restore it later
-        saveSearchStateToSession(
-          query,
-          data.results,
-          data.total,
-          data.total_pages,
-          data.refined_query || ""
-        );
+  //       // Persist this cached search into sessionStorage so we can restore it later
+  //       saveSearchStateToSession(
+  //         query,
+  //         data.results,
+  //         data.total,
+  //         data.total_pages,
+  //         data.refined_query || ""
+  //       );
 
-        return true;
-      }
+  //       return true;
+  //     }
 
-      return false;
-    } catch (error) {
-      console.error("Error checking for cached search:", error);
-      return false;
-    }
-  };
+  //     return false;
+  //   } catch (error) {
+  //     console.error("Error checking for cached search:", error);
+  //     return false;
+  //   }
+  // };
 
 
-  // Add this function to check for cached recommendations
-  // Add this function to check for cached recommendations
-  const checkForCachedRecommendations = async (ids: string[]) => {
-    if (!ids.length) return false;
+  // // Add this function to check for cached recommendations
+  // // Add this function to check for cached recommendations
+  // const checkForCachedRecommendations = async (ids: string[]) => {
+  //   if (!ids.length) return false;
 
-    const userId = tokenService.getUserIdFromToken();
+  //   const userId = tokenService.getUserIdFromToken();
 
-    try {
-      // Check if recommendations exist in session storage first (fastest)
-      const sessionRecs = sessionStorage.getItem('aiRecommendations');
-      if (sessionRecs) {
-        try {
-          const parsed = JSON.parse(sessionRecs);
-          const recommendations = parsed.recommendations || [];
-          const searchQuery = parsed.searchQuery || "";
-          const timestamp = parsed.timestamp || "";
+  //   try {
+  //     // Check if recommendations exist in session storage first (fastest)
+  //     const sessionRecs = sessionStorage.getItem('aiRecommendations');
+  //     if (sessionRecs) {
+  //       try {
+  //         const parsed = JSON.parse(sessionRecs);
+  //         const recommendations = parsed.recommendations || [];
+  //         const searchQuery = parsed.searchQuery || "";
+  //         const timestamp = parsed.timestamp || "";
 
-          const hoursOld = (Date.now() - new Date(timestamp).getTime()) / 36e5;
+  //         const hoursOld = (Date.now() - new Date(timestamp).getTime()) / 36e5;
 
-          // Get current search query
-          const searchState = sessionStorage.getItem('lastOpportunitiesSearchState');
-          const currentQuery = searchState ? JSON.parse(searchState).query : "";
+  //         // Get current search query
+  //         const searchState = sessionStorage.getItem('lastOpportunitiesSearchState');
+  //         const currentQuery = searchState ? JSON.parse(searchState).query : "";
 
-          // If fresh and matching query, use these
-          if (hoursOld < 1 && searchQuery === currentQuery && recommendations.length > 0) {
-            console.log("Found cached recommendations in session storage");
-            return true;
-          }
-        } catch (e) {
-          console.error("Error parsing cached recommendations:", e);
-        }
-      }
+  //         // If fresh and matching query, use these
+  //         if (hoursOld < 1 && searchQuery === currentQuery && recommendations.length > 0) {
+  //           console.log("Found cached recommendations in session storage");
+  //           return true;
+  //         }
+  //       } catch (e) {
+  //         console.error("Error parsing cached recommendations:", e);
+  //       }
+  //     }
 
-      // Otherwise, check Redis cache via backend
-      const response = await fetch(`${API_BASE_URL}/check-recommendations`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          opportunity_ids: ids,
-          user_id: userId,
-          checkOnly: true  // Just check existence, don't return full data
-        })
-      });
+  //     // Otherwise, check Redis cache via backend
+  //     const response = await fetch(`${API_BASE_URL}/check-recommendations`, {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify({
+  //         opportunity_ids: ids,
+  //         user_id: userId,
+  //         checkOnly: true  // Just check existence, don't return full data
+  //       })
+  //     });
 
-      if (response.ok) {
-        const data = await response.json();
-        return data.exists; // Just return if they exist, don't load yet
-      }
+  //     if (response.ok) {
+  //       const data = await response.json();
+  //       return data.exists; // Just return if they exist, don't load yet
+  //     }
 
-      return false;
-    } catch (error) {
-      console.error("Error checking for cached recommendations:", error);
-      return false;
-    }
-  };
+  //     return false;
+  //   } catch (error) {
+  //     console.error("Error checking for cached recommendations:", error);
+  //     return false;
+  //   }
+  // };
 
   /**
    * Fetch any cached AI recommendations for a given list of IDs.
@@ -607,14 +671,15 @@ export default function Opportunities() {
 
   // Modify handleSearch to check for cached recommendations
   const handleSearch = async (e: React.FormEvent | null, suggestedQuery: string | null = null) => {
-    if (e) e.preventDefault();
-
+    e?.preventDefault();
     const query = suggestedQuery || searchQuery;
     console.log("▶️ [handleSearch] fired with query:", query);
     if (!query.trim()) return;
 
+    setExpandRecommendations(false);
     setIsSearching(true);
     setHasSearched(false);
+    setSearchId(null); // Reset search ID
 
     try {
       const response = await fetch(`${API_BASE_URL}/search-opportunities`, {
@@ -622,12 +687,28 @@ export default function Opportunities() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ query }),
+        body: JSON.stringify({
+          query,
+          user_id: tokenService.getUserIdFromToken(),
+          page: currentPage,
+          page_size: resultsPerPage,
+          is_new_search: true,
+          contract_type: filterValues.contractType,
+          platform: filterValues.platform,
+          due_date_filter: filterValues.dueDate,
+          posted_date_filter: filterValues.postedDate,
+          naics_code: filterValues.naicsCode,
+          opportunity_type: filterValues.opportunityType,
+          sort_by: sortBy
+        }),
       });
 
       const data = await response.json();
 
       if (data.success) {
+        // Set the search ID for progress tracking
+        setSearchId(data.search_id);
+
         // Check for refined query in the response and display it
         if (data.refined_query) {
           setRefinedQuery(data.refined_query);
@@ -655,98 +736,111 @@ export default function Opportunities() {
         setCurrentPage(data.page);
         setHasSearched(true);
 
-        // Save search state to session storage with either original or summarized results
+        // Save search state to session
         saveSearchStateToSession(
           query,
-          opportunities, // Use the state which will have summaries if available
+          processedResults,
           data.total,
           data.total_pages,
-          data.refined_query || ""
+          data.refined_query
         );
       } else {
         console.error(data.message);
         setOpportunities([]);
+        toast.error(data.message || 'Search failed');
       }
     } catch (error) {
       console.error("Error fetching opportunities:", error);
+      toast.error('An error occurred during search');
     } finally {
       setIsSearching(false);
     }
   };
 
-
-  const forcePageNavigation = async (pageNumber) => {
-    if (pageNumber === currentPage) return; // Prevent unnecessary API calls
-
-    console.log(`Direct pagination: Going to page ${pageNumber}`);
-    setIsSearching(true); // Set loading state
-
-    // Create a direct API request with minimal parameters
-    const requestBody = {
-      query: searchQuery,
-      user_id: tokenService.getUserIdFromToken(),
-      page: pageNumber,  // Ensure this is being properly sent
-      page_size: resultsPerPage,
-      due_date_filter: filterValues.dueDate,
-      posted_date_filter: filterValues.postedDate,
-      naics_code: filterValues.naicsCode,
-      opportunity_type: jobType,
-      sort_by: sortBy
-    };
-
-    console.log("Direct pagination request:", requestBody);
-
-    try {
-      // Use the filter endpoint for pagination too
-      const response = await fetch(`${API_BASE_URL}/filter-cached-results`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody)
-      });
-
-      console.log(`Direct pagination response status: ${response.status}`);
-
-      if (!response.ok) {
-        // If cache miss, fallback to regular search
-        if (response.status === 404) {
-          console.log("No cached results found, falling back to regular search");
-          return handleSearch(null, searchQuery); // Fallback to regular search
-        }
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log(`Direct pagination got ${data.results?.length || 0} results`);
-
-      if (data.success && data.results && Array.isArray(data.results)) {
-        // Process results
-        const processedResults = processSearchResults(data.results);
-
-        // Get summaries for the results
-        console.log("Fetching summaries for direct pagination results");
-        const resultsWithSummaries = await getSummariesForOpportunities(processedResults);
-
-        // Update state with new page data AFTER everything is ready
-        setOpportunities(resultsWithSummaries);
-        setTotalResults(data.total);
-        setCurrentPage(pageNumber);  // Update current page
-        setTotalPages(data.total_pages); // Update total pages
-
-        // Save state to session
-        saveSearchStateToSession(
-          searchQuery,
-          resultsWithSummaries,
-          data.total,
-          data.total_pages,
-          refinedQuery
-        );
-      }
-    } catch (error) {
-      console.error("Direct pagination error:", error);
-    } finally {
-      setIsSearching(false); // Reset loading state
-    }
+  // Add these handlers for search progress
+  const handleSearchComplete = () => {
+    setIsSearching(false);
+    // Any additional logic needed when search completes
   };
+
+  const handleSearchError = (error: string) => {
+    setIsSearching(false);
+    toast.error(error);
+  };
+
+
+  // const forcePageNavigation = async (pageNumber) => {
+  //   if (pageNumber === currentPage) return; // Prevent unnecessary API calls
+
+  //   console.log(`Direct pagination: Going to page ${pageNumber}`);
+  //   setIsSearching(true); // Set loading state
+
+  //   // Create a direct API request with minimal parameters
+  //   const requestBody = {
+  //     query: searchQuery,
+  //     user_id: tokenService.getUserIdFromToken(),
+  //     page: pageNumber,  // Ensure this is being properly sent
+  //     page_size: resultsPerPage,
+  //     due_date_filter: filterValues.dueDate,
+  //     posted_date_filter: filterValues.postedDate,
+  //     naics_code: filterValues.naicsCode,
+  //     opportunity_type: filterValues.opportunityType,
+  //     sort_by: sortBy
+  //   };
+
+  //   console.log("Direct pagination request:", requestBody);
+
+  //   try {
+  //     // Use the filter endpoint for pagination too
+  //     const response = await fetch(`${API_BASE_URL}/filter-cached-results`, {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify(requestBody)
+  //     });
+
+  //     console.log(`Direct pagination response status: ${response.status}`);
+
+  //     if (!response.ok) {
+  //       // If cache miss, fallback to regular search
+  //       if (response.status === 404) {
+  //         console.log("No cached results found, falling back to regular search");
+  //         return handleSearch(null, searchQuery); // Fallback to regular search
+  //       }
+  //       throw new Error(`HTTP error! status: ${response.status}`);
+  //     }
+
+  //     const data = await response.json();
+  //     console.log(`Direct pagination got ${data.results?.length || 0} results`);
+
+  //     if (data.success && data.results && Array.isArray(data.results)) {
+  //       // Process results
+  //       const processedResults = processSearchResults(data.results);
+
+  //       // Get summaries for the results
+  //       console.log("Fetching summaries for direct pagination results");
+  //       const resultsWithSummaries = await getSummariesForOpportunities(processedResults);
+
+  //       // Update state with new page data AFTER everything is ready
+  //       setOpportunities(resultsWithSummaries);
+  //       setTotalResults(data.total);
+  //       setCurrentPage(pageNumber);  // Update current page
+  //       setTotalPages(data.total_pages); // Update total pages
+
+  //       // Save state to session
+  //       saveSearchStateToSession(
+  //         searchQuery,
+  //         resultsWithSummaries,
+  //         data.total,
+  //         data.total_pages,
+  //         refinedQuery
+  //       );
+  //     }
+  //   } catch (error) {
+  //     console.error("Direct pagination error:", error);
+  //   } finally {
+  //     setIsSearching(false); // Reset loading state
+  //   }
+  // };
 
 
   const paginate = async (pageNumber) => {
@@ -883,11 +977,11 @@ export default function Opportunities() {
     navigate(`/contracts/rfp/${contractData.notice_id}`);
   };
 
-  const forceRender = () => {
-    if (aiRecommendations.length > 0 && isLoadingRecommendations) {
-      setIsLoadingRecommendations(false);
-    }
-  };
+  // const forceRender = () => {
+  //   if (aiRecommendations.length > 0 && isLoadingRecommendations) {
+  //     setIsLoadingRecommendations(false);
+  //   }
+  // };
 
   // Scroll to top functionality
   const scrollToTop = () => {
@@ -942,14 +1036,14 @@ export default function Opportunities() {
     }
   }, []);
 
-  const toggleDetailedReason = (index) => {
-    const updatedRecommendations = aiRecommendations.map((rec, i) =>
-      i === index
-        ? { ...rec, showDetailedReason: !rec.showDetailedReason }
-        : rec
-    );
-    setAiRecommendations(updatedRecommendations);
-  };
+  // const toggleDetailedReason = (index) => {
+  //   const updatedRecommendations = aiRecommendations.map((rec, i) =>
+  //     i === index
+  //       ? { ...rec, showDetailedReason: !rec.showDetailedReason }
+  //       : rec
+  //   );
+  //   setAiRecommendations(updatedRecommendations);
+  // };
 
   // useEffect to load pursuit count on component mount
   useEffect(() => {
@@ -1034,50 +1128,55 @@ export default function Opportunities() {
     }
   };
 
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      maximumFractionDigits: 0,
-    }).format(value);
-  };
+  // const formatCurrency = (value) => {
+  //   return new Intl.NumberFormat('en-US', {
+  //     style: 'currency',
+  //     currency: 'USD',
+  //     maximumFractionDigits: 0,
+  //   }).format(value);
+  // };
 
   // Add new state for filter values
-  const [filterValues, setFilterValues] = useState({
+  const [filterValues, setFilterValues] = useState<FilterValues>({
     dueDate: "none", // Set "none" as the default value
     postedDate: "all", // Default value
     naicsCode: "", // Default value
-    opportunityType: "All" // Default value
+    opportunityType: "All", // Default value
+    contractType: null,
+    platform: null
   });
 
   // New state for job type
-  const [jobType, setJobType] = useState("All"); // Default to "All"
+  // const [jobType, setJobType] = useState("All"); // Default to "All"
 
-  // Apply all filters function
+  // Add this useEffect to handle filter changes
+  useEffect(() => {
+    if (hasSearched) {
+      applyFilters();
+    }
+  }, [filterValues.dueDate, filterValues.postedDate, filterValues.naicsCode, filterValues.opportunityType]);
+
   const applyFilters = async () => {
     setIsSearching(true);
 
-    const filterParams = {
-      query: searchQuery,
-      user_id: tokenService.getUserIdFromToken(),
-      due_date_filter: filterValues.dueDate,
-      posted_date_filter: filterValues.postedDate,
-      naics_code: filterValues.naicsCode,
-      opportunity_type: jobType,
-      sort_by: sortBy,
-      page: 1,
-      page_size: resultsPerPage
-    };
-
     try {
-      console.log("Applying filters:", filterParams);
+      console.log("Applying filters:", filterValues);
 
-      const response = await fetch(`${API_BASE_URL}/filter-cached-results`, {
+      const response = await fetch(`${API_BASE_URL}/search-opportunities`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(filterParams),
+        body: JSON.stringify({
+          query: searchQuery,
+          due_date_filter: filterValues.dueDate,
+          posted_date_filter: filterValues.postedDate,
+          naics_code: filterValues.naicsCode,
+          opportunity_type: filterValues.opportunityType,
+          sort_by: sortBy,
+          page: 1,
+          page_size: resultsPerPage
+        }),
       });
 
       if (!response.ok) {
@@ -1128,53 +1227,53 @@ export default function Opportunities() {
   };
 
   // Update the opportunity type filter to use the applyFilters function
-  const toggleJobType = (type) => {
-    console.log(`Setting job type filter to: ${type}`);
-    // Update job type state
-    setJobType(type);
+  // const toggleJobType = (type) => {
+  //   console.log(`Setting job type filter to: ${type}`);
+  //   // Update job type state
+  //   setJobType(type);
 
-    // Apply filter immediately if we have search results
-    if (hasSearched) {
-      console.log(`Applying job type filter: ${type}`);
-      fetchFilteredResults({
-        ...filterValues,
-        opportunityType: type
-      });
-    }
-  };
+  //   // Apply filter immediately if we have search results
+  //   if (hasSearched) {
+  //     console.log(`Applying job type filter: ${type}`);
+  //     fetchFilteredResults({
+  //       ...filterValues,
+  //       opportunityType: type
+  //     });
+  //   }
+  // };
 
   // Similarly, update the other filter handlers to trigger applyFilters
-  const handleDueDateFilterChange = (value) => {
-    console.log(`Setting due date filter to: ${value}`);
-    setFilterValues((prev) => ({ ...prev, dueDate: value }));
+  // const handleDueDateFilterChange = (value) => {
+  //   console.log(`Setting due date filter to: ${value}`);
+  //   setFilterValues((prev) => ({ ...prev, dueDate: value }));
 
-    if (value === "none") {
-      // If "None" is selected, trigger a new search with the original query
-      console.log("No due date filter applied, fetching original results.");
-      handleSearch(null, originalQuery); // Call handleSearch with the original query
-    } else if (hasSearched) {
-      fetchFilteredResults({ ...filterValues, dueDate: value });
-    }
-  };
+  //   if (value === "none") {
+  //     // If "None" is selected, trigger a new search with the original query
+  //     console.log("No due date filter applied, fetching original results.");
+  //     handleSearch(null, originalQuery); // Call handleSearch with the original query
+  //   } else if (hasSearched) {
+  //     fetchFilteredResults({ ...filterValues, dueDate: value });
+  //   }
+  // };
 
   // Add similar handlers for other filters
-  const handlePostedDateFilterChange = (value) => {
-    console.log(`Setting posted date filter to: ${value}`);
-    setFilterValues((prev) => ({ ...prev, postedDate: value }));
+  // const handlePostedDateFilterChange = (value) => {
+  //   console.log(`Setting posted date filter to: ${value}`);
+  //   setFilterValues((prev) => ({ ...prev, postedDate: value }));
 
-    if (hasSearched) {
-      fetchFilteredResults({ ...filterValues, postedDate: value });
-    }
-  };
+  //   if (hasSearched) {
+  //     fetchFilteredResults({ ...filterValues, postedDate: value });
+  //   }
+  // };
 
-  const handleNaicsCodeChange = (value) => {
-    console.log(`Setting NAICS code filter to: ${value}`);
-    setFilterValues((prev) => ({ ...prev, naicsCode: value }));
+  // const handleNaicsCodeChange = (value) => {
+  //   console.log(`Setting NAICS code filter to: ${value}`);
+  //   setFilterValues((prev) => ({ ...prev, naicsCode: value }));
 
-    if (hasSearched) {
-      fetchFilteredResults({ ...filterValues, naicsCode: value });
-    }
-  };
+  //   if (hasSearched) {
+  //     fetchFilteredResults({ ...filterValues, naicsCode: value });
+  //   }
+  // };
 
   // Add this function to handle viewing details
   const handleViewDetails = (opportunity) => {
@@ -1336,18 +1435,14 @@ export default function Opportunities() {
   // console.log("Opportunities "+opportun);
 
   // Filtered opportunities based on job type
-  const filteredOpportunities = opportunities.filter((opportunity) => {
-
-
-
-
-    if (jobType === "Federal") {
-      return opportunity.platform === "sam.gov"; // Show only sam.gov opportunities
-    } else if (jobType === "Freelancer") {
-      return opportunity.platform !== "sam.gov"; // Show only freelancer opportunities
-    }
-    return true; // Show all opportunities if "All" is selected
-  });
+  // const filteredOpportunities = opportunities.filter((opportunity) => {
+  //   if (jobType === "Federal") {
+  //     return opportunity.platform === "sam.gov"; // Show only sam.gov opportunities
+  //   } else if (jobType === "Freelancer") {
+  //     return opportunity.platform !== "sam.gov"; // Show only freelancer opportunities
+  //   }
+  //   return true; // Show all opportunities if "All" is selected
+  // });
 
   // Functions to handle panel expansion/minimization
   const handleExpandPanel = () => {
@@ -1375,80 +1470,80 @@ export default function Opportunities() {
     hasSearched,
     isSearching,
     opportunitiesCount: opportunities.length,
-    filteredCount: filteredOpportunities?.length || 0
+    // filteredCount: filteredOpportunities?.length || 0
   });
 
   // Add state for recommendation availability
   const [hasExistingRecommendations, setHasExistingRecommendations] = useState(false);
 
-  const [originalResults, setOriginalResults] = useState([]); // State to store original results
-  const [originalQuery, setOriginalQuery] = useState(""); // State to store the original query
+  // const [originalResults, setOriginalResults] = useState([]); // State to store original results
+  // const [originalQuery, setOriginalQuery] = useState(""); // State to store the original query
 
-  const fetchFilteredResults = async (filters) => {
-    console.log("Fetching filtered results with filters:", filters);
-    setIsSearching(true);
+  // const fetchFilteredResults = async (filters) => {
+  //   console.log("Fetching filtered results with filters:", filters);
+  //   setIsSearching(true);
 
-    const params = {
-      query: searchQuery,
-      user_id: tokenService.getUserIdFromToken(),
-      due_date_filter: filters.dueDate,
-      posted_date_filter: filters.postedDate,
-      naics_code: filters.naicsCode,
-      opportunity_type: filters.opportunityType,
-      sort_by: sortBy,
-      page: 1,
-      page_size: resultsPerPage
-    };
+  //   const params = {
+  //     query: searchQuery,
+  //     user_id: tokenService.getUserIdFromToken(),
+  //     due_date_filter: filters.dueDate,
+  //     posted_date_filter: filters.postedDate,
+  //     naics_code: filters.naicsCode,
+  //     opportunity_type: filters.opportunityType,
+  //     sort_by: sortBy,
+  //     page: 1,
+  //     page_size: resultsPerPage
+  //   };
 
-    try {
-      // Use the new endpoint for filtering cached results
-      const response = await fetch(`${API_BASE_URL}/filter-cached-results`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(params),
-      });
+  //   try {
+  //     // Use the new endpoint for filtering cached results
+  //     const response = await fetch(`${API_BASE_URL}/filter-cached-results`, {
+  //       method: "POST",
+  //       headers: {
+  //         "Content-Type": "application/json",
+  //       },
+  //       body: JSON.stringify(params),
+  //     });
 
-      if (!response.ok) {
-        // If cache miss, fallback to regular search
-        if (response.status === 404) {
-          console.log("No cached results found, falling back to regular search");
-          return handleSearch(null, searchQuery);
-        }
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+  //     if (!response.ok) {
+  //       // If cache miss, fallback to regular search
+  //       if (response.status === 404) {
+  //         console.log("No cached results found, falling back to regular search");
+  //         return handleSearch(null, searchQuery);
+  //       }
+  //       throw new Error(`HTTP error! status: ${response.status}`);
+  //     }
 
-      const data = await response.json();
-      console.log("Filtered results received:", data);
+  //     const data = await response.json();
+  //     console.log("Filtered results received:", data);
 
-      if (data.success && data.results && Array.isArray(data.results)) {
-        // Update state with filtered results
-        setOpportunities(data.results);
-        setTotalResults(data.total);
-        setTotalPages(data.total_pages);
-        setCurrentPage(1);
+  //     if (data.success && data.results && Array.isArray(data.results)) {
+  //       // Update state with filtered results
+  //       setOpportunities(data.results);
+  //       setTotalResults(data.total);
+  //       setTotalPages(data.total_pages);
+  //       setCurrentPage(1);
 
-        // Save filtered results to session storage
-        saveSearchStateToSession(
-          searchQuery,
-          data.results,
-          data.total,
-          data.total_pages,
-          data.refined_query || refinedQuery
-        );
-      } else {
-        console.error("No results array in response data:", data);
-        setOpportunities([]);
-        setTotalResults(0);
-        setTotalPages(0);
-      }
-    } catch (error) {
-      console.error("Error fetching filtered results:", error);
-    } finally {
-      setIsSearching(false);
-    }
-  };
+  //       // Save filtered results to session storage
+  //       saveSearchStateToSession(
+  //         searchQuery,
+  //         data.results,
+  //         data.total,
+  //         data.total_pages,
+  //         data.refined_query || refinedQuery
+  //       );
+  //     } else {
+  //       console.error("No results array in response data:", data);
+  //       setOpportunities([]);
+  //       setTotalResults(0);
+  //       setTotalPages(0);
+  //     }
+  //   } catch (error) {
+  //     console.error("Error fetching filtered results:", error);
+  //   } finally {
+  //     setIsSearching(false);
+  //   }
+  // };
 
   // Add this in the same file as your search function
   const processSearchResults = (results) => {
@@ -1524,6 +1619,8 @@ export default function Opportunities() {
     }
   };
 
+  const [searchId, setSearchId] = useState<string | null>(null);
+
   return (
     <div className="h-screen flex flex-col bg-gray-50 text-gray-800">
       {/* Main Content */}
@@ -1587,8 +1684,8 @@ export default function Opportunities() {
                 )}
                 <button
                   className={`rounded-full flex items-center justify-center transition-all duration-300 ${filtersOpen
-                      ? "ml-auto bg-gray-100 hover:bg-gray-200 w-8 h-8"
-                      : "bg-blue-50 hover:bg-blue-100 text-blue-600 w-10 h-10 border border-blue-200"
+                    ? "ml-auto bg-gray-100 hover:bg-gray-200 w-8 h-8"
+                    : "bg-blue-50 hover:bg-blue-100 text-blue-600 w-10 h-10 border border-blue-200"
                     }`}
                   onClick={toggleFiltersBar}
                 >
@@ -1661,7 +1758,7 @@ export default function Opportunities() {
                                 name="due-date"
                                 className="accent-blue-500 w-4 h-4"
                                 checked={filterValues.dueDate === option.value}
-                                onChange={() => handleDueDateFilterChange(option.value)}
+                                onChange={() => setFilterValues({ ...filterValues, dueDate: option.value })}
                               />
                               <label htmlFor={option.id} className="text-sm text-gray-700">
                                 {option.label}
@@ -1738,27 +1835,46 @@ export default function Opportunities() {
                     {activeFilters.naicsCode && (
                       <div className="px-5 pb-4">
                         <div className="ml-7">
-                          <div className="mb-2">
+                          <div className="mb-2 relative">
                             <input
                               type="text"
                               placeholder="Ex: 541511"
                               className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-gray-50"
-                              value={filterValues.naicsCode}
-                              onChange={(e) => setFilterValues({ ...filterValues, naicsCode: e.target.value })}
+                              value={naicsValue}
+                              onChange={handleNaicsInputChange}
+                              onFocus={() => {
+                                if (filterValues.naicsCode) setShowNaicsDropdown(true);
+                              }}
+                              onBlur={() => setTimeout(() => setShowNaicsDropdown(false), 100)} // Delay to allow click
+                              autoComplete="off"
                             />
+                            {showNaicsDropdown && naicsSuggestions.length > 0 && (
+                              <ul className="absolute z-10 left-0 right-0 bg-white border border-gray-200 rounded-lg mt-1 max-h-48 overflow-y-auto shadow-lg">
+                                {naicsSuggestions.map((item) => (
+                                  <li
+                                    key={item.code}
+                                    className="px-4 py-2 cursor-pointer hover:bg-blue-50"
+                                    onMouseDown={() => handleNaicsSuggestionClick(item.code)}
+                                  >
+                                    <span className="font-medium">{item.code}</span> - {item.description}
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
                           </div>
                           <div className="text-xs text-gray-500">
                             <p className="mb-1">Common NAICS codes:</p>
                             <ul className="space-y-1">
                               <li><span className="font-medium">541511</span> - Custom Computer Programming Services</li>
                               <li><span className="font-medium">541512</span> - Computer Systems Design Services</li>
-                              <li><span className="font-medium">541519</span> - Other Computer Related Services</li>
-                              <li><span className="font-medium">518210</span> - Data Processing, Hosting, and Related Services</li>
+                              {/* <li><span className="font-medium">541519</span> - Other Computer Related Services</li>
+                              <li><span className="font-medium">518210</span> - Data Processing, Hosting, and Related Services</li> */}
                             </ul>
                           </div>
                         </div>
                       </div>
                     )}
+
                   </div>
 
                   {/* Opportunity Type Filter */}
@@ -1780,45 +1896,25 @@ export default function Opportunities() {
                     {activeFilters.opportunityType && (
                       <div className="px-5 pb-4">
                         <ul className="space-y-2 ml-7">
-                          <li className="flex items-center gap-2">
-                            <input
-                              type="radio"
-                              id="opp-type-all"
-                              name="opportunity-type"
-                              className="accent-blue-500 w-4 h-4"
-                              checked={jobType === "All"}
-                              onChange={() => setJobType("All")}
-                            />
-                            <label htmlFor="opp-type-all" className="text-sm text-gray-700">
-                              All
-                            </label>
-                          </li>
-                          <li className="flex items-center gap-2">
-                            <input
-                              type="radio"
-                              id="opp-type-federal"
-                              name="opportunity-type"
-                              className="accent-blue-500 w-4 h-4"
-                              checked={jobType === "Federal"}
-                              onChange={() => setJobType("Federal")}
-                            />
-                            <label htmlFor="opp-type-federal" className="text-sm text-gray-700">
-                              Federal (SAM.gov)
-                            </label>
-                          </li>
-                          <li className="flex items-center gap-2">
-                            <input
-                              type="radio"
-                              id="opp-type-freelancer"
-                              name="opportunity-type"
-                              className="accent-blue-500 w-4 h-4"
-                              checked={jobType === "Freelancer"}
-                              onChange={() => setJobType("Freelancer")}
-                            />
-                            <label htmlFor="opp-type-freelancer" className="text-sm text-gray-700">
-                              Freelancer
-                            </label>
-                          </li>
+                          {[
+                            { id: "all", value: "all", label: "All" },
+                            { id: "federal", value: "federal", label: "Federal (SAM.gov)" },
+                            { id: "freelancer", value: "freelancer", label: "Freelancer" },
+                          ].map((option) => (
+                            <li key={option.id} className="flex items-center gap-2">
+                              <input
+                                type="radio"
+                                id={option.id}
+                                name="opportunity-type"
+                                className="accent-blue-500 w-4 h-4"
+                                checked={filterValues.opportunityType === option.value}
+                                onChange={(e) => setFilterValues({ ...filterValues, opportunityType: option.value })}
+                              />
+                              <label htmlFor={option.id} className="text-sm text-gray-700">
+                                {option.label}
+                              </label>
+                            </li>
+                          ))}
                         </ul>
                       </div>
                     )}
@@ -1987,7 +2083,7 @@ export default function Opportunities() {
                     {hasSearched && !isSearching ? (
                       opportunities.length > 0 ? (
                         <div className="space-y-5 max-w-8xl mx-auto">
-                          {filteredOpportunities.map((opportunity) => (
+                          {opportunities.map((opportunity) => (
                             <div
                               key={opportunity.id}
                               className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-all hover:border-blue-200"
@@ -2010,14 +2106,14 @@ export default function Opportunities() {
                                             .split(' OR')
                                             .map(term => term.replace(/AND|OR|"/g, '').trim())
                                             .filter(term => term.length > 0);
-                                        
+
                                           if (searchTerms.length) {
                                             const regex = new RegExp(`\\b(${searchTerms.join('|')})\\b`, 'gi');
                                             text = text.replace(regex, (match) => {
                                               return `<span style="background-color: #B6D6FD; font-weight: bold;">${match}</span>`;
                                             });
                                           }
-                                        
+
                                           return text;
                                         };
 
@@ -2038,8 +2134,8 @@ export default function Opportunities() {
                                   {opportunity.response_date && (
                                     <div className="flex-shrink-0">
                                       <div className={`px-3 py-1.5 rounded-lg text-center ${new Date(opportunity.response_date) < new Date()
-                                          ? 'bg-red-50 text-red-600 border border-red-100'
-                                          : 'bg-blue-50 text-blue-600 border border-blue-100'
+                                        ? 'bg-red-50 text-red-600 border border-red-100'
+                                        : 'bg-blue-50 text-blue-600 border border-blue-100'
                                         }`}>
                                         <div className="text-xs font-medium">DUE</div>
                                         <div className="text-sm font-bold">{opportunity.response_date || "TBD"}</div>
@@ -2111,19 +2207,19 @@ export default function Opportunities() {
                                               .split(' OR')
                                               .map(term => term.replace(/AND|OR|"/g, '').trim())
                                               .filter(term => term.length > 0);
-                                          
+
                                             if (searchTerms.length) {
                                               const regex = new RegExp(`\\b(${searchTerms.join('|')})\\b`, 'gi');
                                               text = text.replace(regex, (match) => {
                                                 return `<span style="background-color:#B6D6FD; font-weight: bold;">${match}</span>`;
                                               });
                                             }
-                                          
-                                            return text.replace(dateRegex, (match) => 
+
+                                            return text.replace(dateRegex, (match) =>
                                               `<strong class="font-bold text-blue-700">${match}</strong>`
                                             );
                                           };
-                                          
+
 
                                           return (
                                             <div>
@@ -2244,21 +2340,21 @@ export default function Opportunities() {
                       )
                     ) : !hasSearched ? (
                       /* Show suggested searches when no search has been performed */
-                      <div className="p-6 bg-white rounded-xl border border-gray-200 shadow-md mb-6 max-w-8xl mx-auto">
-                        <h2 className="text-xl font-bold text-gray-800 mb-2">
+                      <div className="p-4 bg-white rounded-xl border border-gray-200 shadow-md mb-4 max-w-8xl mx-auto">
+                        <h2 className="text-xl font-bold text-gray-800 mb-1">
                           Popular Searches
                         </h2>
-                        <p className="text-gray-600 mb-6">
+                        <p className="text-gray-600 mb-3">
                           Find contract opportunities that match your business capabilities:
                         </p>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                           {suggestedQueries.map((query) => (
                             <div
                               key={query.id}
                               onClick={() => handleSuggestedQueryClick(query.id)}
-                              className="bg-white rounded-xl border border-gray-200 p-5 cursor-pointer hover:border-blue-300 hover:shadow-lg transition-all group"
+                              className="bg-white rounded-xl border border-gray-200 px-3 py-2 cursor-pointer hover:border-blue-300 hover:shadow-lg transition-all group"
                             >
-                              <div className="flex items-center mb-3">
+                              <div className="flex items-center my-1">
                                 <div className="p-2 rounded-lg bg-gray-50 group-hover:bg-blue-50 transition-colors">
                                   {query.icon}
                                 </div>
@@ -2266,17 +2362,20 @@ export default function Opportunities() {
                                   {query.title}
                                 </h3>
                               </div>
-                              <p className="text-gray-600 text-sm">
-                                {query.description}
-                              </p>
-                              <div className="mt-3 text-blue-600 text-sm font-medium flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                <span>Search now</span>
-                                <ChevronRight size={16} className="ml-1" />
+                              <div className="flex items-center mb-1">
+                                <div className="p-2 flex rounded-lg bg-gray-50 group-hover:bg-blue-50 transition-colors">
+                                  <p className="text-gray-600 text-sm">
+                                    {query.description}
+                                    <span className="ml-3 text-blue-600 text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity">Search now &gt;
+                                      {/* <ChevronRight size={16} className="ml-1" /> */}
+                                    </span>
+                                  </p>
+                                </div>
                               </div>
                             </div>
                           ))}
                         </div>
-                        <div className="mt-6 pt-6 border-t border-gray-100">
+                        <div className="mt-1 pt-1 border-t border-gray-100">
                           <div className="flex items-center gap-2">
                             <HelpCircle size={18} className="text-blue-500" />
                             <span className="text-sm text-gray-600">Need help finding opportunities? Try our <a href="#" className="text-blue-600 font-medium">guided search wizard</a> or <a href="#" className="text-blue-600 font-medium">contact support</a>.</span>
@@ -2313,6 +2412,17 @@ export default function Opportunities() {
         <div className="fixed bottom-6 right-6 bg-green-500 text-white py-2 px-4 rounded-lg shadow-lg flex items-center gap-2 animate-fade-in-up z-50">
           <Check size={18} />
           <span className="font-medium">Added to Pursuits</span>
+        </div>
+      )}
+
+      {/* Progress indicator */}
+      {isSearching && searchId && (
+        <div className="progress-container">
+          <SearchProgress
+            searchId={searchId}
+            onComplete={handleSearchComplete}
+            onError={handleSearchError}
+          />
         </div>
       )}
     </div>

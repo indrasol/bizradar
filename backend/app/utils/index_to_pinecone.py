@@ -97,8 +97,8 @@ def fetch_sam_gov_records(last_indexed: Optional[str] = None) -> List[Dict]:
                            notice_id, solicitation_number, response_date, naics_code, url,
                            created_at, updated_at
                     FROM sam_gov
-                    ORDER BY id DESC
                     WHERE created_at > %s OR updated_at > %s
+                    ORDER BY id DESC
                 """, (last_indexed, last_indexed))
                 records = cursor.fetchall()
                 logger.info(f"Fetched {len(records)} SAM.gov records from database since {last_indexed}")
