@@ -54,42 +54,42 @@ PostedDateFilter = Literal[
     'all', 'past_day', 'past_week', 'past_month', 'past_year'
 ]
  
-def to_unix_timestamp(dt: datetime) -> int:
-    ts = int(time.mktime(dt.timetuple()))
-    return ts * 1000 if TIMESTAMP_IN_MILLISECONDS else ts
+# def to_unix_timestamp(dt: datetime) -> int:
+#     ts = int(time.mktime(dt.timetuple()))
+#     return ts * 1000 if TIMESTAMP_IN_MILLISECONDS else ts
  
 def validate_nonempty_str(value: Optional[str]) -> Optional[str]:
     if not isinstance(value, str):
         return None
     val = value.strip().lower()
-    if val in ('', 'all', 'none'):
+    if val in ('', 'all', 'none','any'):
         return None
     return value.strip()
  
-def get_due_date_limit(filter_value: str, now: datetime) -> Optional[int]:
-    mapping = {
-        'active_only': now,
-        'next_7_days': now + timedelta(days=7),
-        'next_30_days': now + timedelta(days=30),
-        'next_3_months': now + timedelta(days=90),
-        'next_12_months': now + timedelta(days=365),
-    }
-    target_date = mapping.get(filter_value.lower())
-    if target_date:
-        return to_unix_timestamp(target_date)
-    return None
+# def get_due_date_limit(filter_value: str, now: datetime) -> Optional[int]:
+#     mapping = {
+#         'active_only': now,
+#         'next_7_days': now + timedelta(days=7),
+#         'next_30_days': now + timedelta(days=30),
+#         'next_3_months': now + timedelta(days=90),
+#         'next_12_months': now + timedelta(days=365),
+#     }
+#     target_date = mapping.get(filter_value.lower())
+#     if target_date:
+#         return to_unix_timestamp(target_date)
+#     return None
  
-def get_posted_date_limit(filter_value: str, now: datetime) -> Optional[int]:
-    mapping = {
-        'past_day': now - timedelta(days=1),
-        'past_week': now - timedelta(days=7),
-        'past_month': now - timedelta(days=30),
-        'past_year': now - timedelta(days=365),
-    }
-    target_date = mapping.get(filter_value.lower())
-    if target_date:
-        return to_unix_timestamp(target_date)
-    return None
+# def get_posted_date_limit(filter_value: str, now: datetime) -> Optional[int]:
+#     mapping = {
+#         'past_day': now - timedelta(days=1),
+#         'past_week': now - timedelta(days=7),
+#         'past_month': now - timedelta(days=30),
+#         'past_year': now - timedelta(days=365),
+#     }
+#     target_date = mapping.get(filter_value.lower())
+#     if target_date:
+#         return to_unix_timestamp(target_date)
+#     return None
  
 def build_filters(
     contract_type: Optional[str] = None,
@@ -116,13 +116,11 @@ def build_filters(
     posted_date_filter = validate_nonempty_str(posted_date_filter)
 
     # Source/Platform filter
-    if opportunity_type and opportunity_type != "All":
+    if opportunity_type:
         if opportunity_type.lower() == "federal":
             filters["source"] = "sam_gov"
         elif opportunity_type.lower() == "freelancer":
-            filters["source"] = "freelancer"
-    elif platform:
-        filters["source"] = platform.lower()
+            filters["source"] = "freelancer"    
 
     # NAICS code filter
     if naics_code:
@@ -132,60 +130,33 @@ def build_filters(
         else:
             filters["naics_code"] = {"$in": codes}  # Simple in list
 
-    # Due date filter (response_date in metadata)
+    # Due date filter
     if due_date_filter and due_date_filter != "none":
+        ts_map = {
+            "due_in_7_days": now + timedelta(days=7),
+            "next_30_days": now + timedelta(days=30),
+            "next_3_months": now + timedelta(days=90),
+            "next_12_months": now + timedelta(days=365),
+        }
         if due_date_filter == "active_only":
-            filters["response_date"] = {"$gt": 0}  # Just ensure it's not zero
-        elif due_date_filter == "due_in_7_days":
-            seven_days = now + timedelta(days=7)
+            filters["response_date"] = {"$gte": int(now.timestamp())}
+        elif due_date_filter in ts_map:
             filters["response_date"] = {
-                "$gt": 0,
-                "$lte": int(seven_days.timestamp())
-            }
-        elif due_date_filter == "next_30_days":
-            thirty_days = now + timedelta(days=30)
-            filters["response_date"] = {
-                "$gt": 0,
-                "$lte": int(thirty_days.timestamp())
-            }
-        elif due_date_filter == "next_3_months":
-            three_months = now + timedelta(days=90)
-            filters["response_date"] = {
-                "$gt": 0,
-                "$lte": int(three_months.timestamp())
-            }
-        elif due_date_filter == "next_12_months":
-            twelve_months = now + timedelta(days=365)
-            filters["response_date"] = {
-                "$gt": 0,
-                "$lte": int(twelve_months.timestamp())
+                "$gte": int(now.timestamp()),
+                "$lte": int(ts_map[due_date_filter].timestamp())
             }
 
-    # Posted date filter (published_date in metadata)
+    # Posted date filter
     if posted_date_filter and posted_date_filter != "all":
-        if posted_date_filter == "past_day":
-            one_day_ago = now - timedelta(days=1)
+        ts_map = {
+            "past_day": now - timedelta(days=1),
+            "past_week": now - timedelta(days=7),
+            "past_month": now - timedelta(days=30),
+            "past_year": now - timedelta(days=365),
+        }
+        if posted_date_filter in ts_map:
             filters["published_date"] = {
-                "$gt": 0,
-                "$gte": int(one_day_ago.timestamp())
-            }
-        elif posted_date_filter == "past_week":
-            one_week_ago = now - timedelta(days=7)
-            filters["published_date"] = {
-                "$gt": 0,
-                "$gte": int(one_week_ago.timestamp())
-            }
-        elif posted_date_filter == "past_month":
-            one_month_ago = now - timedelta(days=30)
-            filters["published_date"] = {
-                "$gt": 0,
-                "$gte": int(one_month_ago.timestamp())
-            }
-        elif posted_date_filter == "past_year":
-            one_year_ago = now - timedelta(days=365)
-            filters["published_date"] = {
-                "$gt": 0,
-                "$gte": int(one_year_ago.timestamp())
+                "$gte": int(ts_map[posted_date_filter].timestamp())
             }
 
     # Log the filters for debugging

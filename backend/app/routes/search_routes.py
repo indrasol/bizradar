@@ -7,7 +7,7 @@ import math
 from datetime import datetime, date
 from fastapi import APIRouter, Request, HTTPException, BackgroundTasks, Query
 from fastapi.encoders import jsonable_encoder
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from services.open_ai_refiner import refine_query
 from services.job_search import search_jobs
@@ -198,7 +198,7 @@ async def test_redis_connection(request: Request):
 @search_router.post("/search-opportunities")
 async def search_job_opportunities(request: Request):
     """
-    Search for job opportunities with Redis caching.
+    Search for job opportunities with Redis caching and real-time progress tracking.
     Uses original search_jobs function when cache is missing.
     """
     try:
@@ -211,15 +211,39 @@ async def search_job_opportunities(request: Request):
         contract_type = data.get('contract_type')
         platform = data.get('platform')
         
+        # Generate a unique search ID
+        search_id = f"{user_id}_{int(datetime.now().timestamp())}"
+        
+        # Initialize progress tracking
+        progress = {
+            'stage': 'initializing',
+            'message': 'Starting search process...',
+            'percentage': 0,
+            'search_id': search_id
+        }
+        
         # Initialize Redis client
         redis_client = RedisClient()
         
+        # Store initial progress
+        redis_client.set_json(f"search_progress:{search_id}", progress, expiry=300)  # 5 minutes expiry
+        
         # Check if we should use cached results
         if not is_new_search:
+            progress['stage'] = 'checking_cache'
+            progress['message'] = 'Checking for cached results...'
+            progress['percentage'] = 10
+            redis_client.set_json(f"search_progress:{search_id}", progress)
+            
             cache_key = f"search:{user_id}:{query.lower()}"
             if redis_client.exists(cache_key):
                 cached_data = redis_client.get_json(cache_key)
                 if cached_data:
+                    progress['stage'] = 'using_cache'
+                    progress['message'] = 'Using cached results...'
+                    progress['percentage'] = 90
+                    redis_client.set_json(f"search_progress:{search_id}", progress)
+                    
                     # Extract just the paginated portion for this response
                     all_results = cached_data.get('results', [])
                     total_count = len(all_results)
@@ -229,20 +253,31 @@ async def search_job_opportunities(request: Request):
                     end_idx = min(start_idx + page_size, total_count)
                     paginated_results = all_results[start_idx:end_idx] if start_idx < total_count else []
                     
+                    progress['stage'] = 'complete'
+                    progress['message'] = 'Search complete'
+                    progress['percentage'] = 100
+                    redis_client.set_json(f"search_progress:{search_id}", progress)
+                    
                     return {
                         'success': True,
                         'results': paginated_results,
                         'total': total_count,
                         'total_pages': total_pages,
                         'page': page,
-                        'refined_query': cached_data.get('refined_query', '')
+                        'refined_query': cached_data.get('refined_query', ''),
+                        'progress': progress,
+                        'search_id': search_id
                     }
         
         # This is a new search - perform query expansion/refinement
         refined_query = ""
         if is_new_search:
+            progress['stage'] = 'refining_query'
+            progress['message'] = 'Refining search query...'
+            progress['percentage'] = 20
+            redis_client.set_json(f"search_progress:{search_id}", progress)
+            
             try:
-                # Only refine the query for new searches (not cached ones)
                 refined_query = refine_query(
                     query=query,
                     contract_type=contract_type,
@@ -251,15 +286,17 @@ async def search_job_opportunities(request: Request):
                 logger.info(f"Query expansion: '{query}' → '{refined_query}'")
             except Exception as e:
                 logger.error(f"Error refining query: {str(e)}")
-                # If query refinement fails, use the original query
                 refined_query = query
         
-        # Use the refined query for the search if it exists, otherwise use the original query
         search_query = refined_query if refined_query else query
         
-        # Call search function with the expanded query
+        progress['stage'] = 'searching'
+        progress['message'] = 'Searching for opportunities...'
+        progress['percentage'] = 40
+        redis_client.set_json(f"search_progress:{search_id}", progress)
+        
         search_results = search_jobs(
-            query=search_query,  # Use the expanded query here
+            query=search_query,
             contract_type=data.get('contract_type'),
             platform=data.get('platform'),
             due_date_filter=data.get('due_date_filter'),
@@ -270,29 +307,32 @@ async def search_job_opportunities(request: Request):
             sort_by=data.get('sort_by', 'relevance')
         )
         
-        # Check if search_results is a list or a dictionary
+        progress['stage'] = 'processing_results'
+        progress['message'] = 'Processing search results...'
+        progress['percentage'] = 60
+        redis_client.set_json(f"search_progress:{search_id}", progress)
+        
         if isinstance(search_results, list):
-            # It's already a list of results
             all_results = search_results
         else:
-            # It's a dictionary with 'results' and possibly other fields
             all_results = search_results.get('results', [])
         
-        # Make results JSON serializable
         json_safe_results = json_serializable(all_results)
         
-        # Cache the full result set
+        progress['stage'] = 'caching'
+        progress['message'] = 'Caching results for future use...'
+        progress['percentage'] = 80
+        redis_client.set_json(f"search_progress:{search_id}", progress)
+        
         if json_safe_results:
             cache_key = f"search:{user_id}:{query.lower()}"
             cache_data = {
                 'results': json_safe_results,
-                'refined_query': refined_query,  # Store the refined query
+                'refined_query': refined_query,
                 'timestamp': datetime.now().isoformat()
             }
-            # Cache for 24 hours
             redis_client.set_json(cache_key, cache_data, expiry=86400)
         
-        # Calculate pagination for the response
         total_count = len(json_safe_results)
         total_pages = (total_count + page_size - 1) // page_size if total_count > 0 else 0
         
@@ -300,26 +340,42 @@ async def search_job_opportunities(request: Request):
         end_idx = min(start_idx + page_size, total_count)
         paginated_results = json_safe_results[start_idx:end_idx] if start_idx < total_count else []
         
-        # Return just the requested page, along with the refined query
+        progress['stage'] = 'complete'
+        progress['message'] = 'Search complete'
+        progress['percentage'] = 100
+        redis_client.set_json(f"search_progress:{search_id}", progress)
+        
         return {
             'success': True,
             'results': paginated_results,
             'total': total_count,
             'total_pages': total_pages,
             'page': page,
-            'refined_query': refined_query  # Include refined query in response
+            'refined_query': refined_query,
+            'progress': progress,
+            'search_id': search_id
         }
         
     except Exception as e:
         import traceback
         traceback.print_exc()
+        error_progress = {
+            'stage': 'error',
+            'message': f'Error occurred: {str(e)}',
+            'percentage': 0,
+            'search_id': search_id
+        }
+        redis_client.set_json(f"search_progress:{search_id}", error_progress)
+        
         return {
             'success': False,
             'message': f"Error: {str(e)}",
             'results': [],
             'total': 0,
             'total_pages': 0,
-            'page': 1
+            'page': 1,
+            'progress': error_progress,
+            'search_id': search_id
         }
 
 @search_router.post("/generate-recommendations")
@@ -1140,4 +1196,73 @@ async def get_opportunities(page: int = Query(1), limit: int = Query(10)):
         "results": opportunities[start:end],
         "total": len(opportunities),
         "total_pages": (len(opportunities) + limit - 1) // limit,  # Calculate total pages
+    }
+
+# Add this new endpoint for SSE progress updates
+@search_router.get("/search-progress-stream/{search_id}")
+async def search_progress(search_id: str):
+    """
+    Server-Sent Events endpoint for real-time search progress updates
+    """
+    async def event_generator():
+        try:
+            # Get the progress from Redis
+            redis_client = RedisClient()
+            progress_key = f"search_progress:{search_id}"
+            
+            while True:
+                # Get current progress
+                progress_data = redis_client.get_json(progress_key)
+                
+                if progress_data:
+                    # Send the progress data
+                    yield f"data: {json.dumps(progress_data)}\n\n"
+                    
+                    # If search is complete or error, end the stream
+                    if progress_data.get('stage') in ['complete', 'error']:
+                        break
+                
+                # Wait before next update
+                await asyncio.sleep(0.5)
+                
+        except Exception as e:
+            # Send error event
+            error_data = {
+                'stage': 'error',
+                'message': str(e),
+                'percentage': 0
+            }
+            yield f"data: {json.dumps(error_data)}\n\n"
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream"
+    )
+
+@search_router.get("/search-progress/{search_id}")
+async def get_search_progress(search_id: str):
+    redis_client = RedisClient()
+    progress = redis_client.get_json(f"search_progress:{search_id}")
+    results = redis_client.get_json(f"search_results:{search_id}")
+
+    if not progress:
+        return {
+            'stage': 'unknown',
+            'message': 'No progress found',
+            'percentage': 0,
+            'search_id': search_id,
+            'results': [],
+            'total': 0,
+            'total_pages': 0,
+            'page': 1,
+            'refined_query': '',
+        }
+
+    return {
+        **progress,
+        'results': results.get('results', []) if results else [],
+        'total': results.get('total', 0) if results else 0,
+        'total_pages': results.get('total_pages', 0) if results else 0,
+        'page': results.get('page', 1) if results else 1,
+        'refined_query': results.get('refined_query', '') if results else '',
     }
