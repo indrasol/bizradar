@@ -153,7 +153,7 @@ except Exception as e:
 
 
 cursor.execute('''
-CREATE TABLE freelancer_data_table (
+CREATE TABLE IF NOT EXISTS freelancer_data_table (
     id SERIAL PRIMARY KEY,
     job_url TEXT UNIQUE,
     title TEXT,
