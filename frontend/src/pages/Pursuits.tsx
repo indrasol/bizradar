@@ -473,7 +473,9 @@ export default function Pursuits(): JSX.Element {
         .from('sam_gov')
         .select('notice_id')
         .eq('title', pursuit.title)
-        .single();
+        // .single()
+        .limit(1)
+        .maybeSingle();
 
       if (error) {
         console.error("Error fetching noticeId:", error);

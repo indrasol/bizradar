@@ -278,11 +278,18 @@ async def search_job_opportunities(request: Request):
             redis_client.set_json(f"search_progress:{search_id}", progress)
             
             try:
-                refined_query = refine_query(
-                    query=query,
-                    contract_type=contract_type,
-                    platform=platform
-                )
+                cache_key = f"search:{user_id}:{query.lower()}"
+                if redis_client.exists(cache_key):
+                    cached_data = redis_client.get_json(cache_key)
+                    if cached_data:
+                        refined_query = cached_data.get('refined_query', "")
+                if refined_query == "":
+                    refined_query = refine_query(
+                        query=query,
+                        contract_type=contract_type,
+                        platform=platform
+                    )
+                # redis_client.set_json(f"search_refined_query:{search_id}", refined_query)
                 logger.info(f"Query expansion: '{query}' → '{refined_query}'")
             except Exception as e:
                 logger.error(f"Error refining query: {str(e)}")
@@ -329,7 +336,8 @@ async def search_job_opportunities(request: Request):
             cache_data = {
                 'results': json_safe_results,
                 'refined_query': refined_query,
-                'timestamp': datetime.now().isoformat()
+                'timestamp': datetime.now().isoformat(),
+                'query': query
             }
             redis_client.set_json(cache_key, cache_data, expiry=86400)
         
