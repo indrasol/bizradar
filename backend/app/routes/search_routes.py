@@ -1,7 +1,7 @@
 import os
 import json
 import hashlib
-from utils.logger import get_logger
+from app.utils.logger import get_logger
 import math
 
 from datetime import datetime, date
@@ -9,18 +9,18 @@ from fastapi import APIRouter, Request, HTTPException, BackgroundTasks, Query
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from services.open_ai_refiner import refine_query
-from services.job_search import search_jobs
-from services.pdf_service import generate_rfp_pdf
-from services.recommendations import generate_recommendations
-from services.company_scraper import generate_company_markdown
-from services.helper import json_serializable
-from utils.openai_client import get_openai_client
-from services.summary_service import process_opportunity_descriptions
-from utils.redis_connection import RedisClient
-from utils.database import fetch_opportunities_from_db
+from app.services.open_ai_refiner import refine_query
+from app.services.job_search import search_jobs
+from app.services.pdf_service import generate_rfp_pdf
+from app.services.recommendations import generate_recommendations
+from app.services.company_scraper import generate_company_markdown
+from app.services.helper import json_serializable
+from app.utils.openai_client import get_openai_client
+from app.services.summary_service import process_opportunity_descriptions
+from app.utils.redis_connection import RedisClient
+from app.utils.database import fetch_opportunities_from_db
 from collections import deque
-from services.filter_service import apply_filters_to_results, sort_results
+from app.services.filter_service import apply_filters_to_results, sort_results
 import asyncio
 from typing import List
 
