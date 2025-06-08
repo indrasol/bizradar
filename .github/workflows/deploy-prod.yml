@@ -1,65 +1,63 @@
-name: Build & Deploy – Bizradar
+name: Build and Deploy to bizradarv1 Azure Web App
 
 on:
   push:
-    branches: [ main ]
-  workflow_dispatch:
+    branches:
+      - main
+
+env:
+  # Match your ACR name and Azure Web App name
+  ACR_NAME: securetrack
+  WEBAPP_NAME: bizradarv1
+  RG_NAME: RG-EU-STB-PRD-01
+  IMAGE_NAME: biz_backend
 
 permissions:
   contents: read
-  id-token: write     # for azure/login OIDC
-
-env:
-  APP_NAME: Bizradar
-  PYTHON_VERSION: '3.11'
+  id-token: write
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+      # 1) Checkout the repo
+      - name: "Checkout GitHub repository"
+        uses: actions/checkout@v4
 
-    # ─── BUILD (local) ───────────────────────────────────────────────────────────
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
+      # 2) Login to Azure using the service principal
+      - name: "Login to Azure"
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID }}
 
-    - name: Prepare deployment folder
-      run: |
-        # 1.  make a clean folder for everything that must go to the server
-        mkdir deploy
-    
-        # 2.  copy your source package exactly as-is
-        cp -r backend deploy/
-    
-        # 3.  vendor all dependencies **into the deploy root**
-        pip install --upgrade pip
-        pip install --no-cache-dir -r backend/requirements.txt -t deploy
-    
-        # 4.  create the zip from inside deploy/
-        cd deploy
-        zip -r ../site.zip .
+      # 3) Set up Docker Buildx (for multi-arch builds, but standard works too)
+      # - name: "Set up Docker Buildx"
+      #   uses: docker/setup-buildx-action@v2
 
-    - name: Upload artifact (for troubleshooting)
-      uses: actions/upload-artifact@v4
-      with:
-        name: build-output
-        path: site.zip
+      # 4) Log in to ACR
+      - name: "Log in to ACR"
+        run: |
+          az acr login --name ${{ env.ACR_NAME }}
 
-    # ─── DEPLOY ─────────────────────────────────────────────────────────────────
-    - name: Azure login (OIDC)
-      uses: azure/login@v2
-      with:
-        client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID }}
-        tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID }}
-        subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID }}
+      # 5) Build the Docker image and push to ACR
+      - name: "Build and push Docker image to ACR"
+        run: |
+          # Tag format: <loginServer>/<imageName>:<tag>
+          ACR_LOGIN_SERVER=$(az acr show --name ${{ env.ACR_NAME }} --query loginServer --output tsv)
+          IMAGE_TAG="$ACR_LOGIN_SERVER/${{ env.IMAGE_NAME }}:latest"
 
-    - name: Deploy to Web App
-      id: deploy
-      uses: azure/webapps-deploy@v3
-      with:
-        app-name:   ${{ env.APP_NAME }}
-        package:    site.zip             # <── a single ZIP file
+          # Build the image (context is repo root)
+          docker build -f Dockerfile -t $IMAGE_TAG .
+
+          # Push to ACR
+          docker push $IMAGE_TAG
+
+      # 6) Deploy the new image to Azure Web App
+      - name: "Deploy to Azure Web App"
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ env.WEBAPP_NAME }}
+          # slot-name: production
+          images: ${{ env.ACR_NAME }}-dzc8a3deejhje7d4.azurecr.io/${{ env.IMAGE_NAME }}:latest
