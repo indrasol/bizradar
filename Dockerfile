@@ -1,6 +1,6 @@
 # ────────── build image ──────────
 FROM python:3.11-slim
-WORKDIR /bizapp
+WORKDIR /app
 
 # Install system dependencies that might be needed
 RUN apt-get update && apt-get install -y \
@@ -12,11 +12,11 @@ COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the actual application code
-COPY backend/ .
+COPY backend/app/ ./
 
 # Create a non-root user for security
 RUN useradd --create-home --shell /bin/bash app \
-    && chown -R app:app /bizapp
+    && chown -R app:app /app
 USER app
 
 # Health check
@@ -28,4 +28,4 @@ EXPOSE 8000
 
 # Simplified startup command with better error handling
 # CMD ["gunicorn", "--workers", "2", "--worker-class", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-", "--log-level", "info", "main:app"]
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2", "--access-log", "--log-level", "info"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2", "--access-log", "--log-level", "info"]
