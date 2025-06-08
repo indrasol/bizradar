@@ -1,5 +1,5 @@
 # ────────── build image ──────────
-FROM python:3.11-slim AS base
+FROM python:3.11-slim
 WORKDIR /bizapp
 
 # Install system dependencies that might be needed
@@ -17,7 +17,7 @@ COPY backend/ .
 # Create a non-root user for security
 RUN useradd --create-home --shell /bin/bash app \
     && chown -R app:app /bizapp
-USER bizapp
+USER app
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
@@ -28,4 +28,4 @@ EXPOSE 8000
 
 # Simplified startup command with better error handling
 # CMD ["gunicorn", "--workers", "2", "--worker-class", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-", "--log-level", "info", "main:app"]
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2", "--access-log", "--log-level", "info"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2", "--access-log", "--log-level", "info"]
