@@ -65,13 +65,14 @@ class ETLService:
             Dictionary with trigger results
         """
         try:
-            github_token = os.getenv("GITHUB_TOKEN")
+            # github_token = os.getenv("GITHUB_TOKEN")
+            from config.settings import GITHUB_TOKEN as github_token, GITHUB_OWNER as owner, GITHUB_REPO as repo
             if not github_token:
                 raise ValueError("GitHub token not configured")
                 
             # GitHub repository details
-            owner = os.getenv("GITHUB_OWNER")
-            repo = os.getenv("GITHUB_REPO")
+            # owner = os.getenv("GITHUB_OWNER")
+            # repo = os.getenv("GITHUB_REPO")
             workflow_id = "data-collection-jobs.yml"
             
             # Create initial record in database with trigger_type = 'ui-manual'

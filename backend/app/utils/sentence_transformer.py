@@ -14,7 +14,12 @@ def get_model():
     global _model
     if _model is None:
         try:
-            model_name = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2") # 'paraphrase-MiniLM-L3-v2'
+            try:
+                from config.settings import EMBEDDING_MODEL
+            except ImportError:
+                EMBEDDING_MODEL = None
+            
+            model_name = EMBEDDING_MODEL or "all-MiniLM-L6-v2" # 'paraphrase-MiniLM-L3-v2'
             from sentence_transformers import SentenceTransformer
             logger.info("Loading SentenceTransformer...")
             _model = SentenceTransformer(model_name)

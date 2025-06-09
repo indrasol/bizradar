@@ -145,7 +145,8 @@ async def fetch_opportunities() -> Dict[str, Any]:
         Dictionary with results summary
     """
     # Get SAM.gov API key from environment variable
-    api_key = os.getenv("SAM_API_KEY")
+    # api_key = os.getenv("SAM_API_KEY")
+    from config.settings import SAM_API_KEY as api_key
     
     if not api_key:
         logger.error("SAM.gov API key not found in environment variables.")

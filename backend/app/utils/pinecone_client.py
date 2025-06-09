@@ -18,13 +18,14 @@ def get_index():
             from pinecone import Pinecone
             logger.info("Initializing Pinecone index...")
 
-            api_key = os.getenv("PINECONE_API_KEY")
+            # api_key = os.getenv("PINECONE_API_KEY")
+            from config.settings import PINECONE_API_KEY as api_key, PINECONE_INDEX_NAME as pinecone_index_name
             if not api_key:
                 logger.error("Environment variable 'PINECONE_API_KEY' is not set or empty.")
             else:
                 pc = Pinecone(api_key=api_key)
 
-                index_name = os.getenv("PINECONE_INDEX_NAME") or 'job-indexx'
+                index_name = pinecone_index_name or 'job-indexx'
                 if not index_name:
                     logger.error("Environment variable 'PINECONE_INDEX_NAME' is not set or empty.")
                 else:   

@@ -26,7 +26,8 @@ logger = get_logger("csv_importer",True,True,"csv_importer.log")
 
 # Setup
 
-IMPORT_USER = os.getenv("IMPORT_USER", "system")
+# IMPORT_USER = os.getenv("IMPORT_USER", "system")
+from config.settings import IMPORT_USER
 
 # Constants
 CSV_URL = "https://s3.amazonaws.com/falextracts/Contract%20Opportunities/datagov/ContractOpportunitiesFullCSV.csv"

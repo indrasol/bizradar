@@ -18,8 +18,9 @@ FREELANCER_TABLE = "freelancer_projects"
 SAM_GOV_TABLE = "sam_gov"
 
 # SAM.gov API configuration
+from config.settings import SAM_API_KEY as api_key
 SAM_GOV_PARAMS = {
-    "api_key": os.getenv("SAM_API_KEY"),
+    "api_key": api_key,
     "q": "cybersecurity",
     "ncode": "541519",
     "postedFrom": (datetime.now() - timedelta(days=365)).strftime("%m/%d/%Y"),

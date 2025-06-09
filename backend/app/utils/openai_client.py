@@ -8,7 +8,8 @@ logger = get_logger(__name__)
 
 def get_openai_client():
     try:
-        api_key = os.getenv("OPENAI_API_KEY")
+        # api_key = os.getenv("OPENAI_API_KEY")
+        from config.settings import OPENAI_API_KEY as api_key
         if not api_key:
             logger.warning("OPENAI_API_KEY environment variable not set")
         else:
