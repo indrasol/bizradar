@@ -11,7 +11,8 @@ import { toast } from "sonner";
 import { FilterValues, Opportunity, SearchParams } from "@/models/opportunities";
 import Header from "@/components/opportunities/Header";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const API_BASE_URL = isDevelopment ? 'http://localhost:5000' : import.meta.env.VITE_API_BASE_URL;
 
 const OpportunitiesPage: React.FC = () => {
   const { logout } = useAuth();

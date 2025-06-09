@@ -23,10 +23,15 @@ class RedisClient:
             cls._instance = super(RedisClient, cls).__new__(cls)
             try:
                 # Read connection parameters from environment
-                redis_host     = os.getenv("REDIS_HOST")
-                redis_port     = int(os.getenv("REDIS_PORT", 6379))
-                redis_username = os.getenv("REDIS_USERNAME")
-                redis_password = os.getenv("REDIS_PASSWORD")
+                try:
+                    from config.settings import REDIS_HOST as redis_host, REDIS_PORT as redis_port, REDIS_USERNAME as redis_username, REDIS_PASSWORD as redis_password
+                except ImportError:
+                    redis_port = None
+                logger.info(redis_host,redis_port,redis_username,redis_password)
+                # redis_host     = os.getenv("REDIS_HOST")
+                # redis_port     = int(os.getenv("REDIS_PORT", 6379))
+                # redis_username = os.getenv("REDIS_USERNAME")
+                # redis_password = os.getenv("REDIS_PASSWORD")
 
                 if not (redis_host and redis_username and redis_password):
                     logger.warning("Missing Redis credentials (host, username, or password)")
@@ -36,7 +41,7 @@ class RedisClient:
                 # Initialize Redis client with ACL username/password
                 cls._instance.client = redis.Redis(
                     host=redis_host,
-                    port=redis_port,
+                    port=redis_port or 6379,
                     username=redis_username,
                     password=redis_password,
                     decode_responses=True

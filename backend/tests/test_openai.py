@@ -10,7 +10,8 @@ load_dotenv()
 @pytest.mark.asyncio
 async def test_process_query_with_openai():
     # Ensure the OpenAI API key is set
-    api_key = os.getenv("OPENAI_API_KEY")
+    # api_key = os.getenv("OPENAI_API_KEY")
+    from config.settings import OPENAI_API_KEY as api_key
     assert api_key is not None, "OpenAI API key must be set in the .env file"
 
     # Define a sample query

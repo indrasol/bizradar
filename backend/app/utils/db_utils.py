@@ -1,11 +1,12 @@
 # backend/app/utils/db_utils.py
 import os
+import sys
 import psycopg2
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
-
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from utils.logger import get_logger
 
 # Configure logging
@@ -17,9 +18,17 @@ class MissingEnvironmentVariableError(Exception):
 def get_db_connection_params():
     required_vars = ["DB_HOST", "DB_PORT", "DB_NAME", "DB_USER", "DB_PASSWORD"]
     params = {}
+    
+    # sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+    
+    import importlib
 
+    # Load the settings module
+    settings_module = importlib.import_module("config.settings")
+    
+    
     for var in required_vars:
-        value = os.getenv(var)
+        value = getattr(settings_module, var, None)
         if value is None:
             raise MissingEnvironmentVariableError(f"Environment variable '{var}' is required but not set.")
         params[var] = value
@@ -85,3 +94,5 @@ def initialize_tables():
     except Exception as e:
         logger.error(f"Failed to initialize database tables: {e}")
         raise
+    
+get_db_connection_params()
