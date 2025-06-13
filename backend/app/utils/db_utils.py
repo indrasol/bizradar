@@ -3,7 +3,7 @@ import os
 import sys
 import psycopg2
 from dotenv import load_dotenv
-
+from config.settings import DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
 # Load environment variables
 load_dotenv()
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -24,28 +24,28 @@ def get_db_connection_params():
     import importlib
 
     # Load the settings module
-    settings_module = importlib.import_module("config.settings")
+    # settings_module = importlib.import_module("config.settings")
     
     
-    for var in required_vars:
-        value = getattr(settings_module, var, None)
-        if value is None:
-            raise MissingEnvironmentVariableError(f"Environment variable '{var}' is required but not set.")
-        params[var] = value
+    # for var in required_vars:
+    #     value = getattr(settings_module, var, None)
+    #     if value is None:
+    #         raise MissingEnvironmentVariableError(f"Environment variable '{var}' is required but not set.")
+    #     params[var] = value
 
     # Convert port to int safely, default to 5432 if empty or invalid
-    try:
-        params["DB_PORT"] = int(params["DB_PORT"])
-    except ValueError:
-        logger.warning(f"Invalid DB_PORT value '{params['DB_PORT']}', using default port 5432")
-        params["DB_PORT"] = 5432
+    # try:
+    #     params["DB_PORT"] = int(params["DB_PORT"])
+    # except ValueError:
+    #     logger.warning(f"Invalid DB_PORT value '{params['DB_PORT']}', using default port 5432")
+    #     params["DB_PORT"] = 5432
 
     return {
-        "host": params["DB_HOST"],
-        "port": params["DB_PORT"],
-        "database": params["DB_NAME"],
-        "user": params["DB_USER"],
-        "password": params["DB_PASSWORD"],
+        "host": DB_HOST,
+        "port": DB_PORT,
+        "database": DB_NAME,
+        "user": DB_USER,
+        "password": DB_PASSWORD,
     }
 
 def get_db_connection():

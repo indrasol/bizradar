@@ -41,4 +41,4 @@ app.include_router(email_router, prefix="/api", tags=["email"])
 if __name__ == "__main__":
     import uvicorn
     # Run the server on port 5000 for local development
-    uvicorn.run(app, host="0.0.0.0", port=5000)
+    uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
