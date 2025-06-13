@@ -125,7 +125,7 @@ Return ONLY the refined query string, with no extra explanations.
         )
         
         refined_query = response.choices[0].message.content.strip()
-        logger.info(f"Original query: '{query}' → Refined: '{refined_query}'")
+        logger.info(f"Original query: '{query}' -> Refined: '{refined_query}'")
         
         return refined_query
 

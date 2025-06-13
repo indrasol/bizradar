@@ -17,6 +17,7 @@ redis
 celery[redis]>=5.5.0
 PyPDF2
 docx
+sendgrid==6.10.0
 
 # fastapi==0.115.0
 # uvicorn==0.30.6

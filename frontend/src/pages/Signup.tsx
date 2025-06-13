@@ -127,8 +127,17 @@ const Signup = ({
       navigate("/company-setup");
     } catch (err: any) {
       console.error("Signup error:", err);
-      setError(err.message || "Signup failed");
-      toast.error(err.message || "Signup failed");
+      // Check for specific error messages from Supabase
+      const errorMessage = err.message?.toLowerCase() || '';
+      if (errorMessage.includes('email already registered') || 
+          errorMessage.includes('user already registered') ||
+          errorMessage.includes('already exists')) {
+        setError("An account with this email already exists. Please try logging in instead.");
+        toast.error("An account with this email already exists. Please try logging in instead.");
+      } else {
+        setError(err.message || "Signup failed. Please try again.");
+        toast.error(err.message || "Signup failed. Please try again.");
+      }
     } finally {
       setIsLoading(false);
     }

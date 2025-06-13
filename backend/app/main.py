@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from routes.search_routes import search_router
 # Import our new admin routes
 from routes.admin_routes import router as admin_router
+from routes.email_routes import router as email_router
 from utils.rec_queue import start_consumer_loop
 
 app = FastAPI()
@@ -35,8 +36,9 @@ app.add_middleware(
 app.include_router(search_router)
 # Include admin routes
 app.include_router(admin_router)
+app.include_router(email_router, prefix="/api", tags=["email"])
 
 if __name__ == "__main__":
     import uvicorn
     # Run the server on port 5000 for local development
-    uvicorn.run(app, host="0.0.0.0", port=5000, reload=True)
+    uvicorn.run(app, host="0.0.0.0", port=5000)

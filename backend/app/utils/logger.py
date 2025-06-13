@@ -2,8 +2,8 @@ import logging
 
 def get_logger(
     name=__name__, 
-    to_console=False, 
-    to_file=False, 
+    to_console=True, 
+    to_file=True, 
     filename="app.log", 
     level=logging.INFO
 ):
