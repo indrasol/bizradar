@@ -25,7 +25,7 @@ const OpportunitiesPage: React.FC = () => {
     dueDate: "none",
     postedDate: "all",
     naicsCode: "",
-    opportunityType: "All",
+    opportunityType: "all",
     contractType: null,
     platform: null,
   });
@@ -65,18 +65,22 @@ const OpportunitiesPage: React.FC = () => {
     applyFilters();
   }, [filterValues.opportunityType, filterValues.dueDate, filterValues.postedDate, filterValues.naicsCode]);
 
-  const [generateSummary, setGenerateSummary] = useState(false)
   useEffect(() => {
-    if (generateSummary) {
-      setGenerateSummary(false);
-      const fetchSummaries = async () => {
-        const resultsWithSummaries = await getSummariesForOpportunities(opportunities);
-        setOpportunities(resultsWithSummaries);
-        saveSearchStateToSession(searchQuery, resultsWithSummaries, totalResults, totalPages, refinedQuery);
-      };
-      fetchSummaries();
-    }
-  }, [generateSummary]);
+    applySort();
+  }, [sortBy]);
+
+  const [generateSummary, setGenerateSummary] = useState(false)
+  // useEffect(() => {
+  //   if (generateSummary) {
+  //     setGenerateSummary(false);
+  //     const fetchSummaries = async () => {
+  //       const resultsWithSummaries = await getSummariesForOpportunities(opportunities);
+  //       setOpportunities(resultsWithSummaries);
+  //       saveSearchStateToSession(searchQuery, resultsWithSummaries, totalResults, totalPages, refinedQuery);
+  //     };
+  //     fetchSummaries();
+  //   }
+  // }, [generateSummary]);
 
   // const handleSearch = async (e: React.FormEvent | null, suggestedQuery: string | null = null) => {
   //   e?.preventDefault();
@@ -274,7 +278,7 @@ const OpportunitiesPage: React.FC = () => {
       setHasSearched(true);
 
       saveSearchStateToSession(query, opportunities, total, total_pages, refined_query || "");
-      setGenerateSummary(true);
+      // setGenerateSummary(true);
     } catch (error: any) {
       toast.error(error.message || "An error occurred during search");
       setOpportunities([]);
@@ -333,6 +337,24 @@ const OpportunitiesPage: React.FC = () => {
         page: 1,
         sort_by: sortBy,
         is_new_search: true,
+        due_date_filter: filterValues.dueDate,
+        posted_date_filter: filterValues.postedDate,
+        naics_code: filterValues.naicsCode,
+        opportunity_type: filterValues.opportunityType,
+      },
+      searchQuery
+    );
+  };
+
+  const applySort = async () => {
+    if (!searchQuery.trim()) return;
+
+    await performAndSetSearch(
+      {
+        query: searchQuery,
+        page: 1,
+        sort_by: sortBy,
+        is_new_search: false,
         due_date_filter: filterValues.dueDate,
         posted_date_filter: filterValues.postedDate,
         naics_code: filterValues.naicsCode,

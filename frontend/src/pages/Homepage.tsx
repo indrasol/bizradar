@@ -1,11 +1,17 @@
 import { Link } from "react-router-dom";
 import { Radar, Search, User, ArrowRight, Star, ChevronDown, Activity, Zap, Lock } from "lucide-react";
 import { motion, useScroll, useTransform, useInView } from "framer-motion";
-import { FaFacebook, FaLinkedin, FaTwitter } from "react-icons/fa";
+import { FaFacebook, FaLinkedin, FaTwitter, FaYoutube } from "react-icons/fa";
 import { useState, useRef, useEffect } from "react";
+import { useToast } from "@/hooks/use-toast";
+import { Toaster } from "@/components/ui/toaster";
+import { emailService } from "@/utils/emailService";
 
 const Layout = ({ children }) => {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [email, setEmail] = useState("");
+  const [isSubscribing, setIsSubscribing] = useState(false);
+  const { toast } = useToast();
   const heroRef = useRef(null);
   const featuresRef = useRef(null);
   const solutionsRef = useRef(null);
@@ -69,6 +75,54 @@ const Layout = ({ children }) => {
       x: mousePosition.x - 16,
       y: mousePosition.y - 16,
       opacity: 0.15
+    }
+  };
+
+  const handleSubscribe = async (e) => {
+    e.preventDefault();
+    
+    if (!email) {
+      toast({
+        title: "Error",
+        description: "Please enter your email address",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid email address",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSubscribing(true);
+
+    try {
+      // Subscribe to newsletter
+      const subscribeResponse = await emailService.subscribeToNewsletter(email);
+      
+      if (subscribeResponse.success) {
+        toast({
+          title: "Success!",
+          description: "Thank you for subscribing to our newsletter. We've sent you a welcome email!",
+        });
+        
+        setEmail("");
+      } else {
+        throw new Error(subscribeResponse.message);
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to subscribe. Please try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubscribing(false);
     }
   };
 
@@ -563,15 +617,18 @@ const Layout = ({ children }) => {
                   AI-driven contract tracking and business intelligence.
                 </p>
                 <div className="flex gap-4">
-                  <a href="#" className="text-gray-500 hover:text-blue-600 transition-colors duration-300 transform hover:scale-110">
+                  <a href="https://x.com/theindrasol" target="_blank" className="text-gray-500 hover:text-blue-600 transition-colors duration-300 transform hover:scale-110">
                     <FaTwitter className="w-5 h-5" />
                   </a>
-                  <a href="#" className="text-gray-500 hover:text-blue-600 transition-colors duration-300 transform hover:scale-110">
+                  <a href ="https://www.linkedin.com/company/indrasol/posts/?feedView=all" target="_blank" className="text-gray-500 hover:text-blue-600 transition-colors duration-300 transform hover:scale-110">
                     <FaLinkedin className="w-5 h-5" />
                   </a>
-                  <a href="#" className="text-gray-500 hover:text-blue-600 transition-colors duration-300 transform hover:scale-110">
-                    <FaFacebook className="w-5 h-5" />
+                  <a href="https://www.youtube.com/@IndrasolTech" target="_blank" className="text-gray-500 hover:text-blue-600 transition-colors duration-300 transform hover:scale-110">
+                    <FaYoutube className="w-5 h-5" />
                   </a>
+                  {/* <a href="#" className="text-gray-500 hover:text-blue-600 transition-colors duration-300 transform hover:scale-110">
+                    <FaFacebook className="w-5 h-5" />
+                  </a> */}
                 </div>
               </div>
               
@@ -596,16 +653,23 @@ const Layout = ({ children }) => {
               <div className="col-span-2 md:col-span-3">
                 <h3 className="font-semibold text-gray-900 mb-4">Stay Updated</h3>
                 <p className="text-gray-600 mb-4">Subscribe to our newsletter for the latest updates.</p>
-                <div className="flex">
+                <form onSubmit={handleSubscribe} className="flex">
                   <input 
                     type="email" 
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     placeholder="Your email" 
                     className="flex-1 bg-white border border-gray-300 rounded-l-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300"
+                    disabled={isSubscribing}
                   />
-                  <button className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-4 py-2 rounded-r-lg transition-all duration-300 shadow-md hover:shadow-lg">
-                    Subscribe
+                  <button 
+                    type="submit"
+                    disabled={isSubscribing}
+                    className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-4 py-2 rounded-r-lg transition-all duration-300 shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSubscribing ? "Subscribing..." : "Subscribe"}
                   </button>
-                </div>
+                </form>
               </div>
             </div>
             
@@ -626,6 +690,9 @@ const Layout = ({ children }) => {
           </div>
         </footer>
       </main>
+
+      {/* Add Toaster component */}
+      <Toaster />
     </div>
   );
 };

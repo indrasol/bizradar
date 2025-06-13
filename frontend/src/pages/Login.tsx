@@ -22,12 +22,31 @@ interface LoginProps {
   onSwitchToRegister?: () => void;
 }
 
-const Login = ({ isOpen = true, onOpenChange = () => {}, onSwitchToRegister = () => {} }: LoginProps) => {
+const Login = ({ isOpen = true, onOpenChange = () => { }, onSwitchToRegister = () => { } }: LoginProps) => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { login } = useContext(AuthContext);
+  const { login, loginWithOAuth } = useContext(AuthContext);
   const navigate = useNavigate();
+
+  // Social login handlers
+  const handleLinkedInLogin = () => {
+    toast.info("LinkedIn login will be available in future updates!", {
+      description: "We're working on integrating LinkedIn authentication for a seamless experience."
+    });
+  };
+
+  const handleGoogleLogin = () => {
+    toast.info("Google login coming soon!", {
+      description: "Stay tuned for Google authentication integration in our next release."
+    });
+  };
+
+  const handleFacebookLogin = () => {
+    toast.info("Facebook login will be implemented soon!", {
+      description: "We're currently developing Facebook authentication for enhanced social login options."
+    });
+  };
 
   // Initialize login form
   const loginForm = useForm<LoginFormValues>({
@@ -41,14 +60,14 @@ const Login = ({ isOpen = true, onOpenChange = () => {}, onSwitchToRegister = ()
   // Handle login form submission
   const onLoginSubmit = async (values: LoginFormValues) => {
     console.log("Login values:", values);
-    
+
     setIsLoading(true);
     setError(null);
-    
+
     try {
       // Attempt login via AuthContext
-       await login(values.identifier, values.password);
-      
+      await login(values.identifier, values.password);
+
       // Success notification and UI update
       toast.success("Login successful!");
       onOpenChange(false);
@@ -69,6 +88,15 @@ const Login = ({ isOpen = true, onOpenChange = () => {}, onSwitchToRegister = ()
 
   if (!isOpen) return null;
 
+  const signInWithOAuth = async (provider) => {
+    const err = await loginWithOAuth(provider);
+    if (err){
+        setError("Login failed");
+        toast.error("Login failed");
+    }
+    else toast.success("Redirecting...");
+  }
+
   return (
     <div className="flex justify-center items-center min-h-screen bg-gradient-to-b from-white to-gray-50 relative overflow-hidden">
       {/* Background decorative elements with asymmetrical design */}
@@ -76,27 +104,27 @@ const Login = ({ isOpen = true, onOpenChange = () => {}, onSwitchToRegister = ()
         {/* Diagonal decorative shapes */}
         <div className="absolute -top-20 -right-20 w-96 h-96 bg-gradient-to-bl from-blue-100 to-transparent transform rotate-12 rounded-3xl"></div>
         <div className="absolute -bottom-40 left-1/4 w-96 h-96 bg-gradient-to-tr from-emerald-50 to-transparent transform -rotate-12 rounded-3xl"></div>
-        
+
         {/* Scattered circles with different sizes and opacity */}
         <div className="absolute top-1/4 right-20 w-32 h-32 border border-blue-300 rounded-full opacity-40"></div>
         <div className="absolute bottom-1/4 left-10 w-48 h-48 border border-emerald-300 rounded-full opacity-30"></div>
         <div className="absolute top-1/5 left-1/3 w-64 h-64 rounded-full bg-blue-50 blur-3xl opacity-50"></div>
         <div className="absolute bottom-1/3 right-1/4 w-40 h-40 rounded-full bg-emerald-50 blur-3xl opacity-60"></div>
-        
+
         {/* Slanted accent line */}
         <div className="absolute top-0 bottom-0 left-1/3 w-1 bg-gradient-to-b from-blue-100 via-emerald-100 to-transparent transform rotate-12"></div>
       </div>
 
-        {/* Left decorative element - offset from center */}
-        <div className="hidden md:block md:w-2/5 relative -mr-20">
-          <div className="absolute -top-10 -left-10 w-full h-full">
-            <div className="w-64 h-64 bg-gradient-to-br from-blue-400/10 to-emerald-400/10 rounded-3xl transform rotate-12 ml-10"></div>
-            <div className="w-80 h-80 border border-blue-200 rounded-full absolute top-20 left-16 opacity-50"></div>
-            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-              <Radar className="w-32 h-32 text-blue-600/20" />
-            </div>
+      {/* Left decorative element - offset from center */}
+      <div className="hidden md:block md:w-2/5 relative -mr-20">
+        <div className="absolute -top-10 -left-10 w-full h-full">
+          <div className="w-64 h-64 bg-gradient-to-br from-blue-400/10 to-emerald-400/10 rounded-3xl transform rotate-12 ml-10"></div>
+          <div className="w-80 h-80 border border-blue-200 rounded-full absolute top-20 left-16 opacity-50"></div>
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+            <Radar className="w-32 h-32 text-blue-600/20" />
           </div>
         </div>
+      </div>
 
       {/* Login card */}
       <div className="relative z-10 w-full max-w-md mx-4">
@@ -111,26 +139,32 @@ const Login = ({ isOpen = true, onOpenChange = () => {}, onSwitchToRegister = ()
                 </div>
                 <span className="text-2xl font-semibold bg-blue-600 bg-clip-text text-transparent">Bizradar</span>
               </div>
-              
+
               <h2 className="text-2xl font-medium text-gray-800 ml-4 relative">
-                  <div className="absolute -left-4 top-1/2 transform -translate-y-1/2 w-2 h-8 bg-emerald-400 rounded-r-md"></div>
-                  Welcome back!
-                </h2>
+                <div className="absolute -left-4 top-1/2 transform -translate-y-1/2 w-2 h-8 bg-emerald-400 rounded-r-md"></div>
+                Welcome back!
+              </h2>
             </div>
 
             {/* Social Login Buttons */}
             <div className="space-y-4 mb-6">
-              <button className="w-full py-3 px-4 bg-white rounded-lg flex items-center justify-center gap-2 text-gray-700 font-medium border border-gray-200 shadow-sm hover:shadow-md transition-all">
+              <button
+                onClick={handleLinkedInLogin}
+                className="w-full py-3 px-4 bg-white rounded-lg flex items-center justify-center gap-2 text-gray-700 font-medium border border-gray-200 shadow-sm hover:shadow-md transition-all">
                 <FaLinkedin className="text-blue-600 text-lg" />
                 <span>Continue with LinkedIn</span>
               </button>
-              
-              <button className="w-full py-3 px-4 bg-white rounded-lg flex items-center justify-center gap-2 text-gray-700 font-medium border border-gray-200 shadow-sm hover:shadow-md transition-all">
+
+              <button
+                onClick={handleGoogleLogin}
+                className="w-full py-3 px-4 bg-white rounded-lg flex items-center justify-center gap-2 text-gray-700 font-medium border border-gray-200 shadow-sm hover:shadow-md transition-all">
                 <FaGoogle className="text-red-500 text-lg" />
                 <span>Continue with Google</span>
               </button>
-              
-              <button className="w-full py-3 px-4 bg-white rounded-lg flex items-center justify-center gap-2 text-gray-700 font-medium border border-gray-200 shadow-sm hover:shadow-md transition-all">
+
+              <button
+                onClick={handleFacebookLogin}
+                className="w-full py-3 px-4 bg-white rounded-lg flex items-center justify-center gap-2 text-gray-700 font-medium border border-gray-200 shadow-sm hover:shadow-md transition-all">
                 <FaFacebook className="text-blue-600 text-lg" />
                 <span>Continue with Facebook</span>
               </button>
@@ -140,7 +174,7 @@ const Login = ({ isOpen = true, onOpenChange = () => {}, onSwitchToRegister = ()
             <div className="flex items-center my-6">
               <div className="flex-1 h-px bg-gray-200"></div>
               <span className="px-4 text-sm text-gray-500">
-                OR 
+                OR
               </span>
               <div className="flex-1 h-px bg-gray-200"></div>
             </div>
@@ -245,8 +279,8 @@ const Login = ({ isOpen = true, onOpenChange = () => {}, onSwitchToRegister = ()
                 Sign up
               </button> */}
               <Link to="/signup" className="text-blue-600 font-medium hover:underline">
-                  Sign up
-                 </Link>
+                Sign up
+              </Link>
             </div>
           </div>
         </div>

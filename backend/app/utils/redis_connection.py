@@ -27,7 +27,7 @@ class RedisClient:
                     from config.settings import REDIS_HOST as redis_host, REDIS_PORT as redis_port, REDIS_USERNAME as redis_username, REDIS_PASSWORD as redis_password
                 except ImportError:
                     redis_port = None
-                logger.info(redis_host,redis_port,redis_username,redis_password)
+                logger.info(f"Redis connection parameters - Host: {redis_host}, Port: {redis_port}, Username: {redis_username}")
                 # redis_host     = os.getenv("REDIS_HOST")
                 # redis_port     = int(os.getenv("REDIS_PORT", 6379))
                 # redis_username = os.getenv("REDIS_USERNAME")
