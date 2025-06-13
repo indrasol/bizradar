@@ -46,6 +46,58 @@ def check_duplicate(cursor, notice_id):
     cursor.execute(query, (notice_id,))
     return cursor.fetchone() is not None
 
+def deduplicate_solicitation_number(cursor, solicitation_number, archived_by="dedup_script"):
+    """
+    Detects duplicates for a given solicitation_number in sam_gov.
+    If more than one exists, moves all except the latest (by id) to sam_gov_history.
+    
+    Args:
+        cursor: psycopg2 cursor
+        solicitation_number: The solicitation_number to check
+        archived_by: Optional, sets who archived the record
+    """
+    
+    # Step 1: Get all matching IDs ordered by id descending (latest first)
+    fetch_query = """
+        SELECT id FROM sam_gov
+        WHERE solicitation_number = %s
+        ORDER BY id DESC
+    """
+    cursor.execute(fetch_query, (solicitation_number,))
+    rows = cursor.fetchall()
+    
+    # If 0 or 1 records, nothing to do
+    if len(rows) <= 1:
+        return False  # No duplicates found
+
+    # Keep the first (latest), archive the rest
+    ids_to_archive = [row[0] for row in rows[1:]]  # Skip latest
+
+    # Step 2: Move to history
+    insert_query = f"""
+        INSERT INTO sam_gov_history (
+            id, notice_id, solicitation_number, title, department,
+            naics_code, published_date, response_date, description,
+            url, active, created_at, updated_at, additional_description,
+            archived_at, archived_by
+        )
+        SELECT
+            id, notice_id, solicitation_number, title, department,
+            naics_code, published_date, response_date, description,
+            url, active, created_at, updated_at, additional_description,
+            CURRENT_TIMESTAMP, %s
+        FROM sam_gov
+        WHERE id = ANY(%s)
+    """
+    cursor.execute(insert_query, (archived_by, ids_to_archive))
+
+    # Step 3: Delete from sam_gov
+    delete_query = "DELETE FROM sam_gov WHERE id = ANY(%s)"
+    cursor.execute(delete_query, (ids_to_archive,))
+
+    return True  # Duplicates handled
+
+
 def insert_data(rows):
     """
     Inserts multiple rows into the sam_gov table, avoiding duplicates.
@@ -74,6 +126,7 @@ def insert_data(rows):
             
             for row in rows:
                 notice_id = row.get("notice_id")
+                solicitation_number = row.get("solicitation_number")
                 
                 # Skip if notice_id is missing (shouldn't happen but just in case)
                 if not notice_id:
@@ -102,6 +155,11 @@ def insert_data(rows):
                         row["active"]
                     ))
                     inserted += 1
+                    
+                    # Deduplicate any old solicitation_number entries before inserting new one
+                    if solicitation_number:
+                        deduplicate_solicitation_number(cursor, solicitation_number)
+                        
                 except psycopg2.Error as e:
                     logger.error(f"Error inserting record {notice_id}: {e}")
                     skipped += 1

@@ -10,7 +10,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from services.open_ai_refiner import refine_query
-from services.job_search import search_jobs
+from services.job_search import search_jobs, sort_job_results
 from services.pdf_service import generate_rfp_pdf
 from services.recommendations import generate_recommendations
 from services.company_scraper import generate_company_markdown
@@ -241,11 +241,19 @@ async def search_job_opportunities(request: Request):
                 if cached_data:
                     progress['stage'] = 'using_cache'
                     progress['message'] = 'Using cached results...'
-                    progress['percentage'] = 90
+                    progress['percentage'] = 70
                     redis_client.set_json(f"search_progress:{search_id}", progress)
                     
                     # Extract just the paginated portion for this response
-                    all_results = cached_data.get('results', [])
+                    all_results = cached_data.get('results', [])   
+                    
+                    progress['stage'] = 'sort'
+                    progress['message'] = 'Sorting Results'
+                    progress['percentage'] = 80
+                    redis_client.set_json(f"search_progress:{search_id}", progress)                 
+                    
+                    all_results = sort_job_results(all_results, sort_by=data.get('sort_by', 'relevance'))
+                    
                     total_count = len(all_results)
                     total_pages = (total_count + page_size - 1) // page_size if total_count > 0 else 0
                     
@@ -290,7 +298,7 @@ async def search_job_opportunities(request: Request):
                         platform=platform
                     )
                 # redis_client.set_json(f"search_refined_query:{search_id}", refined_query)
-                logger.info(f"Query expansion: '{query}' → '{refined_query}'")
+                logger.info(f"Query expansion: '{query}' -> '{refined_query}'")
             except Exception as e:
                 logger.error(f"Error refining query: {str(e)}")
                 refined_query = query
@@ -323,12 +331,19 @@ async def search_job_opportunities(request: Request):
             all_results = search_results
         else:
             all_results = search_results.get('results', [])
+            
+        progress['stage'] = 'sort'
+        progress['message'] = 'Sorting Results'
+        progress['percentage'] = 80
+        redis_client.set_json(f"search_progress:{search_id}", progress)
+            
+        all_results = sort_job_results(all_results, sort_by=data.get('sort_by', 'relevance'))
         
         json_safe_results = json_serializable(all_results)
         
         progress['stage'] = 'caching'
         progress['message'] = 'Caching results for future use...'
-        progress['percentage'] = 80
+        progress['percentage'] = 90
         redis_client.set_json(f"search_progress:{search_id}", progress)
         
         if json_safe_results:

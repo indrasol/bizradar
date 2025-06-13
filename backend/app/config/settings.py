@@ -51,6 +51,10 @@ REDIS_PASSWORD=os.getenv("REDISPASSWORDBIZ")
 #OTHERS
 IMPORT_USER=os.getenv("IMPORTUSERBIZ")
 
+# Email (SendGrid)
+SENDGRID_API_KEY = os.getenv("SENDGRIDAPIKEY")
+# SENDGRID_FROM_EMAIL = os.getenv("SENDGRID_FROM_EMAIL", "noreply@bizradar.com")
+
 
 
 

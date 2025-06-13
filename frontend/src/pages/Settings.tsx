@@ -44,6 +44,7 @@ import { toast } from "sonner";
 import { supabase } from "../utils/supabase";
 import { useNavigate } from "react-router-dom";
 import SideBar from "../components/layout/SideBar";
+import PasswordManagement from "@/components/passwordmanager/PasswordManager";
 
 export const Settings = () => {
   const { user, logout } = useAuth();
@@ -72,7 +73,7 @@ export const Settings = () => {
     url: "",
     description: "",
     role: "",
-    
+
   });
 
   const [preferences, setPreferences] = useState({
@@ -85,9 +86,7 @@ export const Settings = () => {
   // Add state for security settings
   const [securityInfo, setSecurityInfo] = useState({
     twoFactorEnabled: false,
-    lastPasswordChange: "2 months ago",
     loginNotifications: true,
-    passwordStrength: "Medium",
   });
 
   // Add state for notification settings
@@ -98,6 +97,13 @@ export const Settings = () => {
     weeklyReports: true,
     marketingEmails: false,
     systemAnnouncements: true,
+    opportunityMatches: true,
+    deadlineReminders: true,
+    systemAnnouncementsInApp: true,
+    teamCollaboration: true,
+    statusChanges: true,
+    upcomingDeadlines: true
+ 
   });
 
   // Add state for billing information
@@ -191,7 +197,6 @@ export const Settings = () => {
               url: company.url || "",
               description: company.description || "",
               role: company.role || "",
-              
             });
 
             // Save to sessionStorage for use in recommendations
@@ -224,6 +229,46 @@ export const Settings = () => {
               preferencesData.time_zone || "Eastern Time (US & Canada)",
             date_format: preferencesData.date_format || "MM/DD/YYYY",
             theme: preferencesData.theme || "Light",
+          });
+        }
+
+        // Fetch notification settings
+        const { data: notificationData, error: notificationError } =
+          await supabase
+            .from("user_notifications")
+            .select("*")
+            .eq("user_id", user.id)
+            .single();
+
+        if (!notificationError && notificationData) {
+          setNotificationSettings({
+            emailNotifications: notificationData.email_notifications ?? true,
+            smsNotifications: notificationData.sms_notifications ?? false,
+            newOpportunityAlerts: notificationData.new_opportunity_alerts ?? true,
+            weeklyReports: notificationData.weekly_reports ?? true,
+            marketingEmails: notificationData.marketing_emails ?? false,
+            systemAnnouncements: notificationData.system_announcements ?? true,
+            opportunityMatches: notificationData.opportunity_matches ?? true,
+            deadlineReminders: notificationData.deadline_reminders ?? true,
+            systemAnnouncementsInApp: notificationData.system_announcements_in_app ?? true,
+            teamCollaboration: notificationData.team_collaboration ?? true,
+            statusChanges: notificationData.status_changes ?? true,
+            upcomingDeadlines: notificationData.upcoming_deadlines ?? true,
+          });
+        }
+
+        // Fetch security settings
+        const { data: securityData, error: securityError } =
+          await supabase
+            .from("user_security")
+            .select("*")
+            .eq("user_id", user.id)
+            .single();
+
+        if (!securityError && securityData) {
+          setSecurityInfo({
+            twoFactorEnabled: securityData.two_factor_enabled ?? false,            
+            loginNotifications: securityData.login_notifications ?? true,
           });
         }
       } catch (error) {
@@ -425,21 +470,55 @@ export const Settings = () => {
   };
 
   // Handle security settings change
-  const handleSecurityChange = (setting, value) => {
-    setSecurityInfo((prev) => ({
-      ...prev,
-      [setting]: value,
-    }));
-    toast.success(`${setting} setting updated`);
+  const handleSecurityChange = async (setting, value) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from("user_security")
+        .upsert({
+          user_id: user.id,
+          [setting]: value,
+        });
+
+      if (error) throw error;
+
+      setSecurityInfo((prev) => ({
+        ...prev,
+        [setting]: value,
+      }));
+
+      toast.success("Security settings updated successfully");
+    } catch (error) {
+      console.error("Error updating security settings:", error);
+      toast.error("Failed to update security settings");
+    }
   };
 
   // Handle notification settings change
-  const handleNotificationChange = (setting, value) => {
-    setNotificationSettings((prev) => ({
-      ...prev,
-      [setting]: value,
-    }));
-    toast.success(`${setting} setting updated`);
+  const handleNotificationChange = async (setting, value) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from("user_notifications")
+        .upsert({
+          user_id: user.id,
+          [setting]: value,
+        });
+
+      if (error) throw error;
+
+      setNotificationSettings((prev) => ({
+        ...prev,
+        [setting]: value,
+      }));
+
+      toast.success("Notification settings updated successfully");
+    } catch (error) {
+      console.error("Error updating notification settings:", error);
+      toast.error("Failed to update notification settings");
+    }
   };
 
   // Handle updating card information
@@ -482,8 +561,8 @@ export const Settings = () => {
               </div>
               <div className="flex items-center gap-4">
                 <button className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm hover:shadow transition-all flex items-center gap-2">
-                <span>Upgrade</span>
-                <Star size={14} className="ml-1" />
+                  <span>Upgrade</span>
+                  <Star size={14} className="ml-1" />
                 </button>
                 <div className="relative">
                   <Bell
@@ -519,41 +598,37 @@ export const Settings = () => {
               {/* Settings Navigation Tabs */}
               <div className="flex border-b border-gray-200 mb-6">
                 <button
-                  className={`px-4 py-2 ${
-                    activeTab === "Account"
+                  className={`px-4 py-2 ${activeTab === "Account"
                       ? "border-b-2 border-blue-500 text-blue-600 font-medium"
                       : "text-gray-500 hover:text-gray-700"
-                  }`}
+                    }`}
                   onClick={() => setActiveTab("Account")}
                 >
                   Account
                 </button>
                 <button
-                  className={`px-4 py-2 ${
-                    activeTab === "Security"
+                  className={`px-4 py-2 ${activeTab === "Security"
                       ? "border-b-2 border-blue-500 text-blue-600 font-medium"
                       : "text-gray-500 hover:text-gray-700"
-                  }`}
+                    }`}
                   onClick={() => setActiveTab("Security")}
                 >
                   Security
                 </button>
                 <button
-                  className={`px-4 py-2 ${
-                    activeTab === "Notifications"
+                  className={`px-4 py-2 ${activeTab === "Notifications"
                       ? "border-b-2 border-blue-500 text-blue-600 font-medium"
                       : "text-gray-500 hover:text-gray-700"
-                  }`}
+                    }`}
                   onClick={() => setActiveTab("Notifications")}
                 >
                   Notifications
                 </button>
                 <button
-                  className={`px-4 py-2 ${
-                    activeTab === "Billing"
+                  className={`px-4 py-2 ${activeTab === "Billing"
                       ? "border-b-2 border-blue-500 text-blue-600 font-medium"
                       : "text-gray-500 hover:text-gray-700"
-                  }`}
+                    }`}
                   onClick={() => setActiveTab("Billing")}
                 >
                   Billing
@@ -1191,7 +1266,7 @@ export const Settings = () => {
               {activeTab === "Security" && (
                 <>
                   {/* Password Section */}
-                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-6 transition-all hover:shadow-md">
+                  {/* <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-6 transition-all hover:shadow-md">
                     <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100">
                       <div className="flex items-center gap-3">
                         <div className="bg-blue-100 p-2 rounded-lg">
@@ -1351,7 +1426,9 @@ export const Settings = () => {
                         </ul>
                       </div>
                     </div>
-                  </div>
+                  </div> */}
+
+                  <PasswordManagement />
 
                   {/* Two-Factor Authentication */}
                   <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-6 transition-all hover:shadow-md">
@@ -1366,11 +1443,10 @@ export const Settings = () => {
                       </div>
                       <div className="flex items-center">
                         <div
-                          className={`mr-4 px-3 py-1 rounded-full text-sm font-medium ${
-                            securityInfo.twoFactorEnabled
+                          className={`mr-4 px-3 py-1 rounded-full text-sm font-medium ${securityInfo.twoFactorEnabled
                               ? "bg-green-100 text-green-600"
                               : "bg-gray-100 text-gray-600"
-                          }`}
+                            }`}
                         >
                           {securityInfo.twoFactorEnabled
                             ? "Enabled"
@@ -1633,11 +1709,10 @@ export const Settings = () => {
                       </div>
                       <div className="flex items-center">
                         <div
-                          className={`mr-4 px-3 py-1 rounded-full text-sm font-medium ${
-                            notificationSettings.emailNotifications
+                          className={`mr-4 px-3 py-1 rounded-full text-sm font-medium ${notificationSettings.emailNotifications
                               ? "bg-green-100 text-green-600"
                               : "bg-gray-100 text-gray-600"
-                          }`}
+                            }`}
                         >
                           {notificationSettings.emailNotifications
                             ? "Enabled"
@@ -1857,11 +1932,10 @@ export const Settings = () => {
                       </div>
                       <div className="flex items-center">
                         <div
-                          className={`mr-4 px-3 py-1 rounded-full text-sm font-medium ${
-                            notificationSettings.smsNotifications
+                          className={`mr-4 px-3 py-1 rounded-full text-sm font-medium ${notificationSettings.smsNotifications
                               ? "bg-green-100 text-green-600"
                               : "bg-gray-100 text-gray-600"
-                          }`}
+                            }`}
                         >
                           {notificationSettings.smsNotifications
                             ? "Enabled"
@@ -1944,7 +2018,13 @@ export const Settings = () => {
                                   id="sms-deadlines"
                                   type="checkbox"
                                   className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                  checked
+                                  checked={notificationSettings.upcomingDeadlines}
+                                  onChange={() =>
+                                    handleNotificationChange(
+                                      "upcomingDeadlines",
+                                      !notificationSettings.upcomingDeadlines
+                                    )
+                                  }
                                 />
                                 <label htmlFor="sms-deadlines" className="ml-3">
                                   <span className="block text-sm font-medium text-gray-700">
@@ -1962,7 +2042,13 @@ export const Settings = () => {
                                   id="sms-status"
                                   type="checkbox"
                                   className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                  checked
+                                  checked={notificationSettings.statusChanges}
+                                  onChange={() =>
+                                    handleNotificationChange(
+                                      "statusChanges",
+                                      !notificationSettings.statusChanges
+                                    )
+                                  }
                                 />
                                 <label htmlFor="sms-status" className="ml-3">
                                   <span className="block text-sm font-medium text-gray-700">
@@ -2036,7 +2122,13 @@ export const Settings = () => {
                             <input
                               type="checkbox"
                               className="sr-only peer"
-                              checked
+                              checked={notificationSettings.opportunityMatches}
+                                  onChange={() =>
+                                    handleNotificationChange(
+                                      "opportunityMatches",
+                                      !notificationSettings.opportunityMatches
+                                    )
+                                  }
                             />
                             <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                           </label>
@@ -2055,7 +2147,13 @@ export const Settings = () => {
                             <input
                               type="checkbox"
                               className="sr-only peer"
-                              checked
+                              checked={notificationSettings.deadlineReminders}
+                                  onChange={() =>
+                                    handleNotificationChange(
+                                      "deadlineReminders",
+                                      !notificationSettings.deadlineReminders
+                                    )
+                                  }
                             />
                             <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                           </label>
@@ -2074,7 +2172,13 @@ export const Settings = () => {
                             <input
                               type="checkbox"
                               className="sr-only peer"
-                              checked
+                              checked={notificationSettings.systemAnnouncementsInApp}
+                                  onChange={() =>
+                                    handleNotificationChange(
+                                      "systemAnnouncementsInApp",
+                                      !notificationSettings.systemAnnouncementsInApp
+                                    )
+                                  }
                             />
                             <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                           </label>
@@ -2094,7 +2198,13 @@ export const Settings = () => {
                             <input
                               type="checkbox"
                               className="sr-only peer"
-                              checked
+                              checked={notificationSettings.teamCollaboration}
+                                  onChange={() =>
+                                    handleNotificationChange(
+                                      "teamCollaboration",
+                                      !notificationSettings.teamCollaboration
+                                    )
+                                  }
                             />
                             <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                           </label>

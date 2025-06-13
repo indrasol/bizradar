@@ -322,7 +322,7 @@ def search_jobs(
                 all_results = []
 
                 # SAM.gov records
-                if sam_gov_ids and (not opportunity_type or opportunity_type in ["All", "Federal"]):
+                if sam_gov_ids and (not opportunity_type or opportunity_type.lower() in ["all", "federal"]):
                     placeholders = ','.join(['%s'] * len(sam_gov_ids))
                     sql = f"""
                         SELECT id, notice_id, solicitation_number, title, department,
@@ -372,17 +372,18 @@ def search_jobs(
                         all_results.append(rec)
 
                 # Freelancer records
-                if freelancer_ids and (not opportunity_type or opportunity_type in ["All", "Freelancer"]):
+                if freelancer_ids and (not opportunity_type or opportunity_type.lower() in ["all", "freelancer"]):
                     ph = ','.join(['%s'] * len(freelancer_ids))
                     fq = f"""
                         SELECT id, title, additional_details AS description,
                                skills_required AS agency, 'freelancer' AS platform,
-                               price_budget AS value, job_url AS external_url
+                               price_budget AS value, job_url AS external_url,
+                               created_at AS published_date, deadline AS response_date
                           FROM freelancer_data_table
                          WHERE id IN ({ph})
                     """
                     cur.execute(fq, freelancer_ids)
-                    fcols = ["id", "title", "description", "agency", "platform", "value", "external_url"]
+                    fcols = ["id", "title", "description", "agency", "platform", "value", "external_url", "published_date", "response_date"]
                     for r in cur.fetchall():
                         rec = dict(zip(fcols, r))
                         # Extract budget mentions from description
@@ -417,8 +418,10 @@ def search_jobs(
                             diff = (dd - today).days
                             if diff >= 0 and res.get('active') is not False:
                                 days_due = diff
+                            else:
+                                days_due = float('inf')  # Set to inf for past due or inactive opportunities
                         except Exception:
-                            pass
+                            days_due = float('inf')  # Set to inf for invalid dates
 
                     comps = {
                         'title_exact_match': eq * 0.5,
@@ -439,23 +442,87 @@ def search_jobs(
                         comps['bigram_matches'] +
                         comps['additional_desc_matches']
                     )
-
-                if sort_by == 'ending_soon':
-                    all_results.sort(key=lambda x: x['relevance_components']['days_until_due'])
-                elif sort_by == 'newest':
-                    all_results.sort(
-                        key=lambda x: datetime.strptime(
-                            str(x.get('published_date','2000-01-01')).split('T')[0],
-                            '%Y-%m-%d'
-                        ) if x.get('published_date') else datetime(2000,1,1),
-                        reverse=True
-                    )
-                else:
-                    all_results.sort(key=lambda x: x['relevance_score'], reverse=True)
+                    
+                # all_results = sort_results(all_results,sort_by)    
 
                 return all_results
         finally:
             conn.close()
     except Exception as e:
         logger.error(f"Search error: {e}")
+        return []
+
+
+def sort_job_results(all_results:List[Dict], sort_by: Optional[str] = "relevance" ) -> List[Dict]:
+    try:
+        # Debug logging
+        logger.info(f"Sorting {len(all_results)} results by {sort_by}")
+        
+        if not all_results:
+            return []
+
+        if sort_by == 'ending_soon':
+            # Debug logging for ending_soon sort
+            for idx, result in enumerate(all_results):
+                logger.info(f"Result {idx} response_date: {result.get('response_date')}")
+                logger.info(f"Result {idx} relevance_score: {result.get('relevance_score')}")
+
+            # Sort by response_date (due date)
+            def get_sort_key(x):
+                try:
+                    # Get response date
+                    response_date = x.get('response_date')
+                    if not response_date:
+                        return (float('inf'), 0)
+                    
+                    # Parse the date
+                    try:
+                        date_str = str(response_date).split('T')[0]
+                        due_date = datetime.strptime(date_str, '%Y-%m-%d')
+                        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+                        days_until_due = (due_date - today).days
+                        
+                        # If past due or inactive, put at the end
+                        if days_until_due < 0 or x.get('active') is False:
+                            return (float('inf'), 0)
+                            
+                        return (days_until_due, -(x.get('relevance_score', 0)))
+                    except Exception as e:
+                        logger.error(f"Error parsing date {response_date}: {e}")
+                        return (float('inf'), 0)
+                        
+                except Exception as e:
+                    logger.error(f"Error in sort key calculation: {e}")
+                    return (float('inf'), 0)
+
+            all_results.sort(key=get_sort_key)
+            
+        elif sort_by == 'newest':
+            def get_date_key(x):
+                try:
+                    date_str = str(x.get('published_date', '2000-01-01')).split('T')[0]
+                    return datetime.strptime(date_str, '%Y-%m-%d')
+                except Exception as e:
+                    logger.error(f"Error parsing date: {e}")
+                    return datetime(2000, 1, 1)
+            
+            all_results.sort(key=get_date_key, reverse=True)
+        else:
+            def get_relevance_key(x):
+                try:
+                    score = x.get('relevance_score')
+                    if score is None:
+                        return 0
+                    if isinstance(score, str):
+                        return float(score)
+                    return score
+                except Exception as e:
+                    logger.error(f"Error getting relevance score: {e}")
+                    return 0
+            
+            all_results.sort(key=get_relevance_key, reverse=True)
+
+        return all_results
+    except Exception as e:
+        logger.error(f"Sort error: {e}")
         return []

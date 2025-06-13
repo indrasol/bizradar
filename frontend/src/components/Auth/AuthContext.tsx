@@ -1,5 +1,5 @@
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
-import { Session, User, AuthError } from '@supabase/supabase-js';
+import { Session, User, AuthError, Provider } from '@supabase/supabase-js';
 import { supabase } from '../../utils/supabase';
 import tokenService from "../../utils/tokenService";
 
@@ -15,10 +15,11 @@ interface AuthContextType {
   loading: boolean;
   isAuthenticated: boolean;
   login: (identifier: string, password: string) => Promise<void>;
+  loginWithOAuth: (provider:Provider) => Promise<string | void>;
   register: (firstName: string, lastName: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
-  updatePassword: (password: string) => Promise<void>;
+  updatePassword: (password: string,oldPassword:string) => Promise<void>;
   updateProfile: (data: { firstName?: string; lastName?: string; avatar?: string }) => Promise<void>;
 }
 
@@ -29,6 +30,7 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   isAuthenticated: false,
   login: async () => {},
+  loginWithOAuth: async () => {},
   register: async () => {},
   logout: async () => {},
   resetPassword: async () => {},
@@ -206,9 +208,17 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         });
         
         if (profileError) {
-          console.error('Error creating user profile:', profileError);
-          // If profile creation fails, we should ideally delete the auth user
-          // but Supabase doesn't expose a direct method for this from client
+          // If profile creation fails, sign out the user
+          await supabase.auth.signOut();
+          setUser(null);
+          setSession(null);
+          tokenService.clearTokens();
+          
+          // Check if it's a duplicate email error
+          if (profileError.code === '23505' && profileError.message?.includes('profiles_email_key')) {
+            throw new Error('An account with this email already exists. Please try logging in instead.');
+          }
+          throw new Error('Failed to create user profile. Please try again.');
         }
       }
       
@@ -289,13 +299,40 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
   
   // Update password function - used when user is already authenticated or has a recovery token
-  const updatePassword = async (password: string) => {
+  const updatePassword = async (password: string, oldPassword:string) => {
     try {
-      const { error } = await supabase.auth.updateUser({
+
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+     
+      if (userError) {
+        console.error('Failed to get user:', userError.message);
+        throw new Error('Failed to get current user details');
+      }
+     
+      const email = user.email;
+     
+      // Step 1: Re-authenticate
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password: oldPassword,
+      });
+     
+      if (signInError) {
+        console.error('Old password is incorrect:', signInError.message);
+        throw new Error('Incorrect current password. Please verify and re-enter.');
+      }
+
+      const { error: updateError } = await supabase.auth.updateUser({
         password: password
       });
       
-      if (error) throw error;
+      if (updateError) {
+        console.error('Update new password error:', updateError);
+        throw new Error('Failed to update password');
+      }
     } catch (error) {
       const authError = error as AuthError;
       console.error('Update password error:', authError);
@@ -341,6 +378,29 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   };
 
+  // Update password function - used when user is already authenticated or has a recovery token
+  const loginWithOAuth = async (provider: Provider) => {
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: window.location.origin,
+        },
+      })
+ 
+      if (error) {
+        console.error("OAuth sign-in failed:", error.message)
+        // Optional: show toast, alert, or return the error message
+        return error.message
+      }
+ 
+      // Usually this doesn't reach here because the browser redirects
+    } catch (err: any) {
+      console.error("Unexpected error during OAuth:", err.message)
+      return "Unexpected login error"
+    }
+  };
+
   // The value to be provided to consumers
   const value = {
     user,
@@ -348,6 +408,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     loading,
     isAuthenticated: !!user,
     login,
+    loginWithOAuth,
     register,
     logout,
     resetPassword,

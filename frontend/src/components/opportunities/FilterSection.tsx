@@ -22,13 +22,13 @@ const FilterSection: React.FC<FilterSectionProps> = ({ title, icon, isActive, to
               <li key={option.id} className="flex items-center gap-2">
                 <input
                   type="radio"
-                  id={option.id}
+                  id={title.toLowerCase().replace(" ", "-")+"_"+option.id}
                   name={title.toLowerCase().replace(" ", "-")}
                   className="accent-blue-500 w-4 h-4"
                   checked={selectedValue === option.value}
                   onChange={() => onChange(option.value)}
                 />
-                <label htmlFor={option.id} className="text-sm text-gray-700">{option.label}</label>
+                <label htmlFor={title.toLowerCase().replace(" ", "-")+"_"+option.id} className="text-sm text-gray-700">{option.label}</label>
               </li>
             ))}
           </ul>
