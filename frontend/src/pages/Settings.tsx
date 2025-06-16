@@ -489,12 +489,27 @@ export const Settings = () => {
     if (!user) return;
 
     try {
+      let colName: string = 'two_factor_enabled';
+      switch (setting) {
+        case 'loginNotifications':
+          colName = 'login_notifications';
+          break;
+        case 'twoFactorEnabled':
+          colName = 'two_factor_enabled';
+          break;
+        default:
+          break;
+      }
+
       const { error } = await supabase
         .from("user_security")
         .upsert({
           user_id: user.id,
-          [setting]: value,
-        });
+          [colName]: value,
+        },
+          {
+            onConflict: 'user_id'
+          });
 
       if (error) throw error;
 
@@ -515,12 +530,58 @@ export const Settings = () => {
     if (!user) return;
 
     try {
+      let colName: string = 'two_factor_enabled';
+
+      switch (setting) {
+        case 'emailNotifications':
+          colName = 'email_notifications';
+          break;
+        case 'smsNotifications':
+          colName = 'sms_notifications';
+          break;
+        case 'newOpportunityAlerts':
+          colName = 'new_opportunity_alerts';
+          break;
+        case 'weeklyReports':
+          colName = 'weekly_reports';
+          break;
+        case 'marketingEmails':
+          colName = 'marketing_emails';
+          break;
+        case 'systemAnnouncements':
+          colName = 'system_announcements';
+          break;
+        case 'opportunityMatches':
+          colName = 'opporunity_matches';
+          break;
+        case 'deadlineReminders':
+          colName = 'deadline_reminders';
+          break;
+        case 'systemAnnouncementsInApp':
+          colName = 'system_announcements_in_app';
+          break;
+        case 'teamCollaboration':
+          colName = 'team_collaboration';
+          break;
+        case 'statusChanges':
+          colName = 'status_changes';
+          break;
+        case 'upcomingDeadlines':
+          colName = 'upcoming_deadlines';
+          break;
+        default:
+          break;
+      }
       const { error } = await supabase
         .from("user_notifications")
         .upsert({
           user_id: user.id,
-          [setting]: value,
-        });
+          [colName]: value,
+        },
+          {
+            onConflict: 'user_id'
+          }
+        );
 
       if (error) throw error;
 

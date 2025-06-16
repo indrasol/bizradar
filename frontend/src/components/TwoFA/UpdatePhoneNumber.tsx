@@ -24,10 +24,12 @@ const UpdatePhoneNumber: React.FC<UpdatePhoneNumberProps> = ({ onSuccess }) => {
         setLoading(true);
         try {
             await updatePhoneNumber(phone);
+            // toast.success('Phone number updated successfully!');
             toast.success('OTP sent successfully to your phone');
             setStep('enter-otp');
         } catch (error: any) {
             toast.error(`Error sending OTP: ${error.message}`);
+            // toast.error(`Error updating Phone number: ${error.message}`);
         } finally {
             setLoading(false);
         }
@@ -76,6 +78,7 @@ const UpdatePhoneNumber: React.FC<UpdatePhoneNumberProps> = ({ onSuccess }) => {
                         disabled={loading}
                     >
                         {loading ? 'Sending OTP...' : 'Send OTP'}
+                        {/* {loading ? 'Updating Phone Number...' : 'Update Phone Number'} */}
                     </button>
                 </>
             )}
