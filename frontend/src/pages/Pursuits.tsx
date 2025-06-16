@@ -566,6 +566,17 @@ export default function Pursuits(): JSX.Element {
         toast?.error(`Failed to mark as submitted: ${error.message}`);
         return;
       }
+
+      const { error:rfpError } = await supabase
+        .from('rfp_responses')
+        .update({ is_submitted: true })
+        .eq('pursuit_id', pursuitId);  
+      
+        if (rfpError) {
+          console.error("Error updating submission status:", error);
+          toast?.error(`Failed to mark as submitted: ${error.message}`);
+          return;
+        }
       
       // Update the local state
       setPursuits(pursuits.map(pursuit => 
