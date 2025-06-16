@@ -15,12 +15,15 @@ interface AuthContextType {
   loading: boolean;
   isAuthenticated: boolean;
   login: (identifier: string, password: string) => Promise<void>;
-  loginWithOAuth: (provider:Provider) => Promise<string | void>;
+  loginWithOAuth: (provider: Provider) => Promise<string | void>;
   register: (firstName: string, lastName: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
-  updatePassword: (password: string,oldPassword:string) => Promise<void>;
+  updatePassword: (password: string, oldPassword: string) => Promise<void>;
   updateProfile: (data: { firstName?: string; lastName?: string; avatar?: string }) => Promise<void>;
+  sendPhoneOtp: (phone: string) => Promise<void>;
+  verifyPhoneOtp: (phone: string, otp: string) => Promise<void>;
+  updatePhoneNumber: (phone: string) => Promise<void>;
 }
 
 // Create the context with a default value
@@ -29,13 +32,16 @@ const AuthContext = createContext<AuthContextType>({
   session: null,
   loading: true,
   isAuthenticated: false,
-  login: async () => {},
-  loginWithOAuth: async () => {},
-  register: async () => {},
-  logout: async () => {},
-  resetPassword: async () => {},
-  updatePassword: async () => {},
-  updateProfile: async () => {},
+  login: async () => { },
+  loginWithOAuth: async () => { },
+  register: async () => { },
+  logout: async () => { },
+  resetPassword: async () => { },
+  updatePassword: async () => { },
+  updateProfile: async () => { },
+  sendPhoneOtp: async () => { },
+  verifyPhoneOtp: async () => { },
+  updatePhoneNumber: async () => { }
 });
 
 interface AuthProviderProps {
@@ -52,28 +58,28 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     // Get the current session
     const initializeAuth = async () => {
       setLoading(true);
-      
+
       // Check if session exists
       const { data: { session }, error } = await supabase.auth.getSession();
-      
+
       if (error) {
         console.error('Error retrieving session:', error);
       }
-      
+
       if (session) {
         setSession(session);
         setUser(session.user);
-        
+
         // Store tokens for other API requests
         tokenService.setTokens(
           session.access_token,
           session.refresh_token
         );
-        
+
         // Set session marker for browser close detection
         sessionStorage.setItem("userActiveSession", "true");
       }
-      
+
       setLoading(false);
     };
 
@@ -85,13 +91,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       (_event, newSession) => {
         setSession(newSession);
         setUser(newSession?.user || null);
-        
+
         if (newSession) {
           tokenService.setTokens(
             newSession.access_token,
             newSession.refresh_token
           );
-          
+
           // Update session marker
           sessionStorage.setItem("userActiveSession", "true");
         } else {
@@ -105,7 +111,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     const handleBeforeUnload = () => {
       // Session marker will be lost when browser closes
     };
-    
+
     window.addEventListener("beforeunload", handleBeforeUnload);
 
     // Clean up subscription on unmount
@@ -118,13 +124,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   // Login function
   const login = async (identifier: string, password: string) => {
     setLoading(true);
-    
+
     try {
       // Check if identifier is email
       const isEmail = identifier.includes('@');
-      
+
       let response;
-      
+
       if (isEmail) {
         // Login with email/password
         response = await supabase.auth.signInWithPassword({
@@ -139,32 +145,32 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           .select('email')
           .eq('username', identifier)
           .single();
-          
+
         if (profileError || !profiles) {
           throw new Error('Username not found');
         }
-        
+
         // Then sign in with the email
         response = await supabase.auth.signInWithPassword({
           email: profiles.email,
           password,
         });
       }
-      
+
       const { data, error } = response;
-      
+
       if (error) throw error;
-      
+
       setSession(data.session);
       setUser(data.user);
-      
+
       // Store tokens
       if (data.session) {
         tokenService.setTokens(
           data.session.access_token,
           data.session.refresh_token
         );
-        
+
         // Set session marker
         sessionStorage.setItem("userActiveSession", "true");
       }
@@ -180,7 +186,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   // Register function
   const register = async (firstName: string, lastName: string, email: string, password: string) => {
     setLoading(true);
-    
+
     try {
       // Register the user
       const { data, error } = await supabase.auth.signUp({
@@ -193,9 +199,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           },
         },
       });
-      
+
       if (error) throw error;
-      
+
       // Create profile entry
       if (data.user) {
         const { error: profileError } = await supabase.from('profiles').insert({
@@ -206,14 +212,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           role: 'user',
           created_at: new Date().toISOString(),
         });
-        
+
         if (profileError) {
           // If profile creation fails, sign out the user
           await supabase.auth.signOut();
           setUser(null);
           setSession(null);
           tokenService.clearTokens();
-          
+
           // Check if it's a duplicate email error
           if (profileError.code === '23505' && profileError.message?.includes('profiles_email_key')) {
             throw new Error('An account with this email already exists. Please try logging in instead.');
@@ -221,11 +227,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           throw new Error('Failed to create user profile. Please try again.');
         }
       }
-      
+
       // Update state
       setSession(data.session);
       setUser(data.user);
-      
+
       // Store tokens
       if (data.session) {
         tokenService.setTokens(
@@ -253,7 +259,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ user_id: user.id }),
           });
-          
+
           // FIX: Check the response status properly
           if (!response.ok) {
             console.warn("Error clearing user cache:", await response.text());
@@ -265,14 +271,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           // Continue with logout even if cache clearing fails
         }
       }
-      
+
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
-      
+
       // Clear user and session
       setUser(null);
       setSession(null);
-      
+
       // Clear tokens and session marker
       tokenService.clearTokens();
       sessionStorage.removeItem("userActiveSession");
@@ -289,7 +295,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`,
       });
-      
+
       if (error) throw error;
     } catch (error) {
       const authError = error as AuthError;
@@ -297,29 +303,29 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       throw new Error(authError.message || 'Failed to send reset password email');
     }
   };
-  
+
   // Update password function - used when user is already authenticated or has a recovery token
-  const updatePassword = async (password: string, oldPassword:string) => {
+  const updatePassword = async (password: string, oldPassword: string) => {
     try {
 
       const {
         data: { user },
         error: userError,
       } = await supabase.auth.getUser();
-     
+
       if (userError) {
         console.error('Failed to get user:', userError.message);
         throw new Error('Failed to get current user details');
       }
-     
+
       const email = user.email;
-     
+
       // Step 1: Re-authenticate
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password: oldPassword,
       });
-     
+
       if (signInError) {
         console.error('Old password is incorrect:', signInError.message);
         throw new Error('Incorrect current password. Please verify and re-enter.');
@@ -328,7 +334,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       const { error: updateError } = await supabase.auth.updateUser({
         password: password
       });
-      
+
       if (updateError) {
         console.error('Update new password error:', updateError);
         throw new Error('Failed to update password');
@@ -343,33 +349,33 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   // Update user profile
   const updateProfile = async (data: { firstName?: string; lastName?: string; avatar?: string }) => {
     if (!user) throw new Error('No authenticated user');
-    
+
     try {
       // Update auth metadata
       const authUpdate: Record<string, any> = {};
       if (data.firstName) authUpdate.first_name = data.firstName;
       if (data.lastName) authUpdate.last_name = data.lastName;
-      
+
       if (Object.keys(authUpdate).length > 0) {
         const { error: authError } = await supabase.auth.updateUser({
           data: authUpdate,
         });
-        
+
         if (authError) throw authError;
       }
-      
+
       // Update profile
       const profileUpdate: Record<string, any> = {};
       if (data.firstName) profileUpdate.first_name = data.firstName;
       if (data.lastName) profileUpdate.last_name = data.lastName;
       if (data.avatar) profileUpdate.avatar_url = data.avatar;
-      
+
       if (Object.keys(profileUpdate).length > 0) {
         const { error: profileError } = await supabase
           .from('profiles')
           .update(profileUpdate)
           .eq('id', user.id);
-        
+
         if (profileError) throw profileError;
       }
     } catch (error) {
@@ -387,17 +393,69 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           redirectTo: window.location.origin,
         },
       })
- 
+
       if (error) {
         console.error("OAuth sign-in failed:", error.message)
         // Optional: show toast, alert, or return the error message
         return error.message
       }
- 
+
       // Usually this doesn't reach here because the browser redirects
     } catch (err: any) {
       console.error("Unexpected error during OAuth:", err.message)
       return "Unexpected login error"
+    }
+  };
+
+  const sendPhoneOtp = async (phone: string) => {
+    try {
+      const { error } = await supabase.auth.signInWithOtp({ phone });
+      if (error) {
+        console.error("Failed to send OTP:", error);
+        throw new Error(error.message);
+      }
+    } catch (error) {
+      throw new Error((error as AuthError).message || 'Failed to send OTP');
+    }
+  };
+
+  const verifyPhoneOtp = async (phone: string, otp: string) => {
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        phone,
+        token: otp,
+        type: 'sms',
+      });
+
+      if (error) {
+        console.error("OTP verification error:", error);
+        throw new Error(error.message);
+      }
+
+      // After successful verification, Supabase signs in user with a session
+      if (data.session && data.user) {
+        setSession(data.session);
+        setUser(data.user);
+        tokenService.setTokens(data.session.access_token, data.session.refresh_token);
+        sessionStorage.setItem("userActiveSession", "true");
+      }
+    } catch (error) {
+      throw new Error((error as AuthError).message || 'Failed to verify OTP');
+    }
+  };
+
+  const updatePhoneNumber = async (phone: string) => {
+    try {
+      const { error } = await supabase.auth.updateUser({ phone });
+
+      if (error) {
+        console.error("Phone update error:", error);
+        throw new Error(error.message);
+      }
+
+      setUser(prev => prev ? { ...prev, phone } : prev);
+    } catch (error) {
+      throw new Error((error as AuthError).message || 'Failed to update phone number');
     }
   };
 
@@ -414,6 +472,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     resetPassword,
     updatePassword,
     updateProfile,
+    sendPhoneOtp,
+    verifyPhoneOtp,
+    updatePhoneNumber
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

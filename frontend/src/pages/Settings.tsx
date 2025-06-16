@@ -45,6 +45,7 @@ import { supabase } from "../utils/supabase";
 import { useNavigate } from "react-router-dom";
 import SideBar from "../components/layout/SideBar";
 import PasswordManagement from "@/components/passwordmanager/PasswordManager";
+import UpdatePhoneNumber from "@/components/TwoFA/UpdatePhoneNumber";
 
 export const Settings = () => {
   const { user, logout } = useAuth();
@@ -89,6 +90,12 @@ export const Settings = () => {
     loginNotifications: true,
   });
 
+  // Add state for security settings
+  const [securityPhoneInfo, setSecurityPhoneInfo] = useState({
+    phoneNumber: "",
+    phoneVerified: false
+  });
+
   // Add state for notification settings
   const [notificationSettings, setNotificationSettings] = useState({
     emailNotifications: true,
@@ -103,7 +110,7 @@ export const Settings = () => {
     teamCollaboration: true,
     statusChanges: true,
     upcomingDeadlines: true
- 
+
   });
 
   // Add state for billing information
@@ -120,6 +127,7 @@ export const Settings = () => {
 
   // Add state for password visibility
   const [showPassword, setShowPassword] = useState(false);
+  const [showPhoneModal, setShowPhoneModal] = useState(false);
 
   // Handle logout
   const handleLogout = async () => {
@@ -154,6 +162,28 @@ export const Settings = () => {
             first_name: profileData.first_name || "",
             last_name: profileData.last_name || "",
             email: profileData.email || "",
+          });
+        }
+
+        // Update security info with phone number
+        setSecurityPhoneInfo(prev => ({
+          ...prev,
+          phoneNumber: profileData.phone_number || '',
+          phoneVerified: profileData.phone_verified || false
+        }));
+
+        // Fetch security settings
+        const { data: securityData, error: securityError } =
+          await supabase
+            .from("user_security")
+            .select("*")
+            .eq("user_id", user.id)
+            .single();
+
+        if (!securityError && securityData) {
+          setSecurityInfo({
+            twoFactorEnabled: securityData.two_factor_enabled ?? false,
+            loginNotifications: securityData.login_notifications ?? true,
           });
         }
 
@@ -254,21 +284,6 @@ export const Settings = () => {
             teamCollaboration: notificationData.team_collaboration ?? true,
             statusChanges: notificationData.status_changes ?? true,
             upcomingDeadlines: notificationData.upcoming_deadlines ?? true,
-          });
-        }
-
-        // Fetch security settings
-        const { data: securityData, error: securityError } =
-          await supabase
-            .from("user_security")
-            .select("*")
-            .eq("user_id", user.id)
-            .single();
-
-        if (!securityError && securityData) {
-          setSecurityInfo({
-            twoFactorEnabled: securityData.two_factor_enabled ?? false,            
-            loginNotifications: securityData.login_notifications ?? true,
           });
         }
       } catch (error) {
@@ -474,12 +489,27 @@ export const Settings = () => {
     if (!user) return;
 
     try {
+      let colName: string = 'two_factor_enabled';
+      switch (setting) {
+        case 'loginNotifications':
+          colName = 'login_notifications';
+          break;
+        case 'twoFactorEnabled':
+          colName = 'two_factor_enabled';
+          break;
+        default:
+          break;
+      }
+
       const { error } = await supabase
         .from("user_security")
         .upsert({
           user_id: user.id,
-          [setting]: value,
-        });
+          [colName]: value,
+        },
+          {
+            onConflict: 'user_id'
+          });
 
       if (error) throw error;
 
@@ -500,12 +530,58 @@ export const Settings = () => {
     if (!user) return;
 
     try {
+      let colName: string = 'two_factor_enabled';
+
+      switch (setting) {
+        case 'emailNotifications':
+          colName = 'email_notifications';
+          break;
+        case 'smsNotifications':
+          colName = 'sms_notifications';
+          break;
+        case 'newOpportunityAlerts':
+          colName = 'new_opportunity_alerts';
+          break;
+        case 'weeklyReports':
+          colName = 'weekly_reports';
+          break;
+        case 'marketingEmails':
+          colName = 'marketing_emails';
+          break;
+        case 'systemAnnouncements':
+          colName = 'system_announcements';
+          break;
+        case 'opportunityMatches':
+          colName = 'opporunity_matches';
+          break;
+        case 'deadlineReminders':
+          colName = 'deadline_reminders';
+          break;
+        case 'systemAnnouncementsInApp':
+          colName = 'system_announcements_in_app';
+          break;
+        case 'teamCollaboration':
+          colName = 'team_collaboration';
+          break;
+        case 'statusChanges':
+          colName = 'status_changes';
+          break;
+        case 'upcomingDeadlines':
+          colName = 'upcoming_deadlines';
+          break;
+        default:
+          break;
+      }
       const { error } = await supabase
         .from("user_notifications")
         .upsert({
           user_id: user.id,
-          [setting]: value,
-        });
+          [colName]: value,
+        },
+          {
+            onConflict: 'user_id'
+          }
+        );
 
       if (error) throw error;
 
@@ -599,8 +675,8 @@ export const Settings = () => {
               <div className="flex border-b border-gray-200 mb-6">
                 <button
                   className={`px-4 py-2 ${activeTab === "Account"
-                      ? "border-b-2 border-blue-500 text-blue-600 font-medium"
-                      : "text-gray-500 hover:text-gray-700"
+                    ? "border-b-2 border-blue-500 text-blue-600 font-medium"
+                    : "text-gray-500 hover:text-gray-700"
                     }`}
                   onClick={() => setActiveTab("Account")}
                 >
@@ -608,8 +684,8 @@ export const Settings = () => {
                 </button>
                 <button
                   className={`px-4 py-2 ${activeTab === "Security"
-                      ? "border-b-2 border-blue-500 text-blue-600 font-medium"
-                      : "text-gray-500 hover:text-gray-700"
+                    ? "border-b-2 border-blue-500 text-blue-600 font-medium"
+                    : "text-gray-500 hover:text-gray-700"
                     }`}
                   onClick={() => setActiveTab("Security")}
                 >
@@ -617,8 +693,8 @@ export const Settings = () => {
                 </button>
                 <button
                   className={`px-4 py-2 ${activeTab === "Notifications"
-                      ? "border-b-2 border-blue-500 text-blue-600 font-medium"
-                      : "text-gray-500 hover:text-gray-700"
+                    ? "border-b-2 border-blue-500 text-blue-600 font-medium"
+                    : "text-gray-500 hover:text-gray-700"
                     }`}
                   onClick={() => setActiveTab("Notifications")}
                 >
@@ -626,8 +702,8 @@ export const Settings = () => {
                 </button>
                 <button
                   className={`px-4 py-2 ${activeTab === "Billing"
-                      ? "border-b-2 border-blue-500 text-blue-600 font-medium"
-                      : "text-gray-500 hover:text-gray-700"
+                    ? "border-b-2 border-blue-500 text-blue-600 font-medium"
+                    : "text-gray-500 hover:text-gray-700"
                     }`}
                   onClick={() => setActiveTab("Billing")}
                 >
@@ -1444,8 +1520,8 @@ export const Settings = () => {
                       <div className="flex items-center">
                         <div
                           className={`mr-4 px-3 py-1 rounded-full text-sm font-medium ${securityInfo.twoFactorEnabled
-                              ? "bg-green-100 text-green-600"
-                              : "bg-gray-100 text-gray-600"
+                            ? "bg-green-100 text-green-600"
+                            : "bg-gray-100 text-gray-600"
                             }`}
                         >
                           {securityInfo.twoFactorEnabled
@@ -1500,10 +1576,29 @@ export const Settings = () => {
                                   Recovery Methods
                                 </p>
                                 <p className="text-sm text-gray-600 mt-1">
-                                  Phone Number: •••• ••• 5678{" "}
-                                  <button className="text-blue-500 ml-2">
-                                    Change
-                                  </button>
+                                  Phone Number: {securityPhoneInfo.phoneNumber ? (
+                                    <>
+                                      {securityPhoneInfo.phoneNumber}
+                                      {!securityPhoneInfo.phoneVerified && (
+                                        <span className="ml-2 text-amber-500 text-xs">
+                                          (Unverified)
+                                        </span>
+                                      )}
+                                      <button
+                                        className="text-blue-500 ml-2"
+                                        onClick={() => setShowPhoneModal(true)}
+                                      >
+                                        Change
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <button
+                                      className="text-blue-500"
+                                      onClick={() => setShowPhoneModal(true)}
+                                    >
+                                      Add Phone Number
+                                    </button>
+                                  )}
                                 </p>
                               </div>
                             </div>
@@ -1710,8 +1805,8 @@ export const Settings = () => {
                       <div className="flex items-center">
                         <div
                           className={`mr-4 px-3 py-1 rounded-full text-sm font-medium ${notificationSettings.emailNotifications
-                              ? "bg-green-100 text-green-600"
-                              : "bg-gray-100 text-gray-600"
+                            ? "bg-green-100 text-green-600"
+                            : "bg-gray-100 text-gray-600"
                             }`}
                         >
                           {notificationSettings.emailNotifications
@@ -1933,8 +2028,8 @@ export const Settings = () => {
                       <div className="flex items-center">
                         <div
                           className={`mr-4 px-3 py-1 rounded-full text-sm font-medium ${notificationSettings.smsNotifications
-                              ? "bg-green-100 text-green-600"
-                              : "bg-gray-100 text-gray-600"
+                            ? "bg-green-100 text-green-600"
+                            : "bg-gray-100 text-gray-600"
                             }`}
                         >
                           {notificationSettings.smsNotifications
@@ -2123,12 +2218,12 @@ export const Settings = () => {
                               type="checkbox"
                               className="sr-only peer"
                               checked={notificationSettings.opportunityMatches}
-                                  onChange={() =>
-                                    handleNotificationChange(
-                                      "opportunityMatches",
-                                      !notificationSettings.opportunityMatches
-                                    )
-                                  }
+                              onChange={() =>
+                                handleNotificationChange(
+                                  "opportunityMatches",
+                                  !notificationSettings.opportunityMatches
+                                )
+                              }
                             />
                             <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                           </label>
@@ -2148,12 +2243,12 @@ export const Settings = () => {
                               type="checkbox"
                               className="sr-only peer"
                               checked={notificationSettings.deadlineReminders}
-                                  onChange={() =>
-                                    handleNotificationChange(
-                                      "deadlineReminders",
-                                      !notificationSettings.deadlineReminders
-                                    )
-                                  }
+                              onChange={() =>
+                                handleNotificationChange(
+                                  "deadlineReminders",
+                                  !notificationSettings.deadlineReminders
+                                )
+                              }
                             />
                             <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                           </label>
@@ -2173,12 +2268,12 @@ export const Settings = () => {
                               type="checkbox"
                               className="sr-only peer"
                               checked={notificationSettings.systemAnnouncementsInApp}
-                                  onChange={() =>
-                                    handleNotificationChange(
-                                      "systemAnnouncementsInApp",
-                                      !notificationSettings.systemAnnouncementsInApp
-                                    )
-                                  }
+                              onChange={() =>
+                                handleNotificationChange(
+                                  "systemAnnouncementsInApp",
+                                  !notificationSettings.systemAnnouncementsInApp
+                                )
+                              }
                             />
                             <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                           </label>
@@ -2199,12 +2294,12 @@ export const Settings = () => {
                               type="checkbox"
                               className="sr-only peer"
                               checked={notificationSettings.teamCollaboration}
-                                  onChange={() =>
-                                    handleNotificationChange(
-                                      "teamCollaboration",
-                                      !notificationSettings.teamCollaboration
-                                    )
-                                  }
+                              onChange={() =>
+                                handleNotificationChange(
+                                  "teamCollaboration",
+                                  !notificationSettings.teamCollaboration
+                                )
+                              }
                             />
                             <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                           </label>
@@ -2578,6 +2673,33 @@ export const Settings = () => {
           </div>
         </div>
       </div>
+
+      {/* Phone Update Modal */}
+      {showPhoneModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Update Phone Number</h3>
+              <button
+                onClick={() => setShowPhoneModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <UpdatePhoneNumber
+              onSuccess={(phone) => {
+                setSecurityPhoneInfo(prev => ({
+                  ...prev,
+                  phoneNumber: phone,
+                  phoneVerified: true
+                }));
+                setShowPhoneModal(false);
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
