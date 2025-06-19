@@ -1,20 +1,38 @@
-fastapi
-uvicorn
-supabase
-openai
-numpy
-beautifulsoup4  # Added for BeautifulSoup support
-pandas          # Required for DataFrame operations
-requests        # For making HTTP requests
-python-multipart  # For form data if needed
-psycopg2-binary   # For Postgres
-pinecone>=2.0.0  # Updated for new Pinecone SDK
-sentence-transformers  # For embeddings
-python-dotenv
-reportlab>=3.6.0
-aiohttp          # Added for asynchronous HTTP requests
-redis
-celery[redis]>=5.5.0
+fastapi==0.109.2
+uvicorn==0.27.1
+supabase==2.15.0
+openai==1.75.0
+sentence-transformers==3.2.1
+numpy==1.26.4
+beautifulsoup4==4.13.4
+pandas==2.0.3
+requests==2.32.3
+python-multipart==0.0.9
+psycopg2-binary==2.9.9
+pinecone==6.0.2
+python-dotenv==1.0.1
+reportlab==4.4.0
+aiohttp==3.11.16
+redis==5.0.1
+celery==5.5.2
 PyPDF2
 docx
 sendgrid==6.10.0
+
+# fastapi==0.115.0
+# uvicorn==0.30.6
+# supabase==2.9.0
+# openai==1.51.0
+# sentence-transformers==3.1.1
+# numpy==1.26.4  # Only if required by sentence-transformers
+# beautifulsoup4==4.12.3
+# requests==2.32.3
+# python-multipart==0.0.9  # Only if handling uploads
+# psycopg2-binary==2.9.9
+# pinecone==5.3.1
+# python-dotenv==1.0.1
+# reportlab==4.2.2
+# aiohttp==3.10.5
+# redis==5.0.8
+# # Removed: pandas, celery[redis] (replace with polars or rq if needed)
+# # Optional: polars==1.7.1 or rq==1.16.2

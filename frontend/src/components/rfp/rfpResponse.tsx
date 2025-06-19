@@ -140,7 +140,12 @@ const RfpResponse = ({ contract, pursuitId }) => {
     sections: defaultTemplate(exampleJob)
   });
 
-  // Load saved RFP data when component mounts
+  // Add useEffect to log state changes
+  useEffect(() => {
+    console.log('isSubmitted state:', isSubmitted);
+  }, [isSubmitted]);
+
+  // Modify the loadRfpData function to properly set isSubmitted
   useEffect(() => {
     const loadRfpData = async () => {
       if (!pursuitId) return;
@@ -162,6 +167,11 @@ const RfpResponse = ({ contract, pursuitId }) => {
 
         if (responses && responses.length > 0) {
           const data = responses[0];
+          console.log("Loaded RFP data:", data);
+
+          // Set submission status first
+          setIsSubmitted(data.is_submitted || false);
+          console.log("Setting isSubmitted to:", data.is_submitted);
 
           if (data.content) {
             const content = data.content;
@@ -197,9 +207,6 @@ const RfpResponse = ({ contract, pursuitId }) => {
               sections: Array.isArray(content.sections) ? content.sections : defaultTemplate(exampleJob),
             });
           }
-
-          // Set submission status
-          setIsSubmitted(data.is_submitted || false);
 
           // Set last saved timestamp
           if (data.updated_at) {
@@ -244,11 +251,14 @@ const RfpResponse = ({ contract, pursuitId }) => {
   const saveRfpData = async (showNotification = true) => {
     try {
       setIsSaving(true);
-
-      // Determine the appropriate stage based on completion percentage
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = user?.id;
+      // Calculate completion percentage
       const completedSections = sections.filter(section => section.completed).length;
       const totalSections = sections.length;
+      const completionPercentage = totalSections > 0 ? Math.round((completedSections / totalSections) * 100) : 0;
 
+      // Determine stage based on completion
       let stageToSet;
       if (completedSections === totalSections && totalSections > 0) {
         stageToSet = "RFP Response Completed";
@@ -257,8 +267,6 @@ const RfpResponse = ({ contract, pursuitId }) => {
       } else {
         stageToSet = "Assessment";
       }
-
-      console.log("Saving RFP with stage:", stageToSet);
 
       // Prepare the content object to save
       const contentToSave = {
@@ -274,27 +282,51 @@ const RfpResponse = ({ contract, pursuitId }) => {
         submittedBy,
         theme,
         sections,
-        isSubmitted,
-        stage: stageToSet
+        isSubmitted
       };
 
-      // Store content in localStorage
-      localStorage.setItem(`rfp_response_${pursuitId || 'draft'}`, JSON.stringify(contentToSave));
+      // Update stage in pursuits table
+      const { error: pursuitError } = await supabase
+        .from('pursuits')
+        .update({ stage: stageToSet })
+        .eq('id', pursuitId);
+
+      if (pursuitError) {
+        throw pursuitError;
+      }
+
+      // Save to rfp_responses table
+      const { error: rfpError } = await supabase
+        .from('rfp_responses')
+        .upsert({
+          pursuit_id: pursuitId,
+          user_id: user?.id,
+          content: contentToSave,
+          is_submitted: isSubmitted,
+          completion_percentage: completionPercentage,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'pursuit_id'
+        });
+
+      if (rfpError) {
+        throw rfpError;
+      }
 
       // Update last saved timestamp
       setLastSaved(new Date().toLocaleTimeString());
 
-      // Dispatch a custom event that the Pursuits component can listen for
-      console.log("Dispatching rfp_saved event with details:", { pursuitId, stage: stageToSet });
+      // // Dispatch a custom event that the Pursuits component can listen for
+      // console.log("Dispatching rfp_saved event with details:", { pursuitId, stage: stageToSet });
 
-      const customEvent = new CustomEvent('rfp_saved', {
-        detail: {
-          pursuitId,
-          stage: stageToSet
-        }
-      });
+      // const customEvent = new CustomEvent('rfp_saved', {
+      //   detail: {
+      //     pursuitId,
+      //     stage: stageToSet
+      //   }
+      // });
 
-      window.dispatchEvent(customEvent);
+      // window.dispatchEvent(customEvent);
 
       // Show success notification
       if (showNotification) {
@@ -312,6 +344,10 @@ const RfpResponse = ({ contract, pursuitId }) => {
   };
 
   const handleLogoUpload = (e) => {
+    if (!isEditingAllowed()) {
+      console.log('Editing not allowed - proposal is submitted');
+      return;
+    }
     const file = e.target.files[0];
     if (file) {
       const reader = new FileReader();
@@ -359,6 +395,10 @@ const RfpResponse = ({ contract, pursuitId }) => {
   ]);
 
   const updateField = (index, field, value) => {
+    if (!isEditingAllowed()) {
+      console.log('Editing not allowed - proposal is submitted');
+      return;
+    }
     const copy = [...sections];
     copy[index][field] = value;
     console.log("Updated field:", copy[index][field]);
@@ -366,17 +406,29 @@ const RfpResponse = ({ contract, pursuitId }) => {
   };
 
   const toggleCompleted = (index) => {
+    if (!isEditingAllowed()) {
+      console.log('Editing not allowed - proposal is submitted');
+      return;
+    }
     const copy = [...sections];
     copy[index].completed = !copy[index].completed;
     setSections(copy);
   };
 
   const deleteSection = (id) => {
+    if (!isEditingAllowed()) {
+      console.log('Editing not allowed - proposal is submitted');
+      return;
+    }
     const updated = sections.filter((s) => s.id !== id);
     setSections(updated.map((s, i) => ({ ...s, id: i + 1 })));
   };
 
   const addSectionBelow = (index) => {
+    if (!isEditingAllowed()) {
+      console.log('Editing not allowed - proposal is submitted');
+      return;
+    }
     const newSection = {
       id: sections.length + 1,
       title: 'CUSTOM SECTION',
@@ -390,6 +442,10 @@ const RfpResponse = ({ contract, pursuitId }) => {
   };
 
   const moveSection = (id, direction) => {
+    if (!isEditingAllowed()) {
+      console.log('Editing not allowed - proposal is submitted');
+      return;
+    }
     const index = sections.findIndex(s => s.id === id);
     if ((direction === 'up' && index === 0) ||
       (direction === 'down' && index === sections.length - 1)) {
@@ -405,8 +461,24 @@ const RfpResponse = ({ contract, pursuitId }) => {
     setSections(copy.map((s, i) => ({ ...s, id: i + 1 })));
   };
 
+  // Modify the toggleSection function to allow expansion/collapse regardless of submission status
   const toggleSection = (id) => {
     setExpandedSection(expandedSection === id ? null : id);
+  };
+
+  // Add a separate function for checking if editing is allowed
+  const isEditingAllowed = () => {
+    console.log('Checking if editing is allowed. isSubmitted:', isSubmitted);
+    return !isSubmitted;
+  };
+
+  // Add event handlers for input changes that check isSubmitted
+  const handleInputChange = (setter) => (e) => {
+    if (!isEditingAllowed()) {
+      console.log('Editing not allowed - proposal is submitted');
+      return;
+    }
+    setter(e.target.value);
   };
 
   const getSectionIcon = (icon) => {
@@ -956,492 +1028,541 @@ const rgbToHex = (rgb: string): string | null => {
   const dueDateInfo = getDueDateProximity();
 
   return (
-    <div className="p-2 md:p-6 max-w-6xl mx-auto">
-      {/* Hidden ProposalContent for External Downloads */}
-      <div style={{ position: 'absolute', left: '-9999px' }} ref={contentRef}>
-        <RfpPreviewContent {...proposalData} />
-      </div>
-      {/* Preview Modal */}
-      {showPreview && (
-        <RfpPreview
-          {...proposalData}
-          closeRfpBuilder={() => setShowPreview(false)}
-        />
-      )}
+    <div className="fixed inset-0 bg-gray-50 overflow-y-auto">
+      <div className="min-h-full w-full">
+        <div className="p-2 md:p-6 max-w-6xl mx-auto">
+          {/* Hidden ProposalContent for External Downloads */}
+          <div style={{ position: 'absolute', left: '-9999px' }} ref={contentRef}>
+            <RfpPreviewContent {...proposalData} />
+          </div>
+          {/* Preview Modal */}
+          {showPreview && (
+            <RfpPreview
+              {...proposalData}
+              closeRfpBuilder={() => setShowPreview(false)}
+            />
+          )}
 
-      {/* Page Header with Contract Info */}
-      <div className="bg-white rounded-xl shadow-md p-6 mb-6 border border-gray-200">
-        <div className="flex justify-between items-start flex-wrap md:flex-nowrap gap-4">
-          {/* Contract Title and Details */}
-          <div className="flex-1">
-            <h1 className="text-xl md:text-2xl font-bold text-gray-800 mb-2">{contract?.title || 'Create RFP Response'}</h1>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-600 mt-2">
-              {contract?.department && (
-                <div className="flex items-center gap-1.5">
-                  <FileText className="w-4 h-4 text-gray-400" />
-                  <span>{contract.department}</span>
-                </div>
-              )}
+          {/* Page Header with Contract Info */}
+          <div className="bg-white rounded-xl shadow-md p-6 mb-6 border border-gray-200">
+            <div className="flex justify-between items-start flex-wrap md:flex-nowrap gap-4">
+              {/* Contract Title and Details */}
+              <div className="flex-1">
+                <h1 className="text-xl md:text-2xl font-bold text-gray-800 mb-2">{contract?.title || 'Create RFP Response'}</h1>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-600 mt-2">
+                  {contract?.department && (
+                    <div className="flex items-center gap-1.5">
+                      <FileText className="w-4 h-4 text-gray-400" />
+                      <span>{contract.department}</span>
+                    </div>
+                  )}
 
-              {dueDateInfo && (
-                <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full border ${dueDateInfo.color}`}>
-                  <Calendar className="w-3.5 h-3.5" />
-                  <span className="font-medium">{dueDateInfo.label}</span>
-                </div>
-              )}
+                  {dueDateInfo && (
+                    <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full border ${dueDateInfo.color}`}>
+                      <Calendar className="w-3.5 h-3.5" />
+                      <span className="font-medium">{dueDateInfo.label}</span>
+                    </div>
+                  )}
 
-              {contract?.naicsCode && (
-                <div className="flex items-center gap-1.5">
-                  <span className="text-gray-400">#</span>
-                  <span>NAICS: {contract.naicsCode}</span>
-                </div>
-              )}
+                  {contract?.naicsCode && (
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-gray-400">#</span>
+                      <span>NAICS: {contract.naicsCode}</span>
+                    </div>
+                  )}
 
-              {contract?.solicitation_number && (
-                <div className="flex items-center gap-1.5">
-                  <span className="text-gray-400">#</span>
-                  <span>Solicitation: {contract.solicitation_number}</span>
+                  {contract?.solicitation_number && (
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-gray-400">#</span>
+                      <span>Solicitation: {contract.solicitation_number}</span>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
+
+              {/* Completion Status */}
+              <div className="flex flex-col items-end">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="text-sm font-medium">
+                    <span className="text-gray-600">Completion:</span>
+                    <span className={`ml-1 ${completionPercentage === 100 ? 'text-green-600' : completionPercentage > 50 ? 'text-blue-600' : 'text-amber-600'}`}>
+                      {completionPercentage}%
+                    </span>
+                  </div>
+                  <div className="h-8 w-8 rounded-full flex items-center justify-center text-white shadow-sm"
+                    style={{
+                      background: `conic-gradient(#10B981 ${completionPercentage}%, #F3F4F6 0)`
+                    }}>
+                    <div className="h-6 w-6 rounded-full bg-white flex items-center justify-center">
+                      <span className="text-xs font-semibold text-gray-700">{completionPercentage}%</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="text-xs text-gray-500">
+                  {sections.filter(s => s.completed).length} of {sections.length} sections completed
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Completion Status */}
-          <div className="flex flex-col items-end">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="text-sm font-medium">
-                <span className="text-gray-600">Completion:</span>
-                <span className={`ml-1 ${completionPercentage === 100 ? 'text-green-600' : completionPercentage > 50 ? 'text-blue-600' : 'text-amber-600'}`}>
-                  {completionPercentage}%
-                </span>
-              </div>
-              <div className="h-8 w-8 rounded-full flex items-center justify-center text-white shadow-sm"
-                style={{
-                  background: `conic-gradient(#10B981 ${completionPercentage}%, #F3F4F6 0)`
-                }}>
-                <div className="h-6 w-6 rounded-full bg-white flex items-center justify-center">
-                  <span className="text-xs font-semibold text-gray-700">{completionPercentage}%</span>
+          {/* Top Header with Action Buttons */}
+          <div className="bg-white rounded-xl shadow-md p-5 mb-6 border border-gray-200">
+            <div className="flex justify-between items-center flex-wrap gap-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-full bg-blue-600 text-white shadow-sm">
+                  <FileText className="w-5 h-5" />
                 </div>
+                <h1 className="text-lg md:text-xl font-bold text-gray-800">RFP Response Builder</h1>
               </div>
-            </div>
-            <div className="text-xs text-gray-500">
-              {sections.filter(s => s.completed).length} of {sections.length} sections completed
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Top Header with Action Buttons */}
-      <div className="bg-white rounded-xl shadow-md p-5 mb-6 border border-gray-200">
-        <div className="flex justify-between items-center flex-wrap gap-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-full bg-blue-600 text-white shadow-sm">
-              <FileText className="w-5 h-5" />
-            </div>
-            <h1 className="text-lg md:text-xl font-bold text-gray-800">RFP Response Builder</h1>
-          </div>
-          <div className="flex gap-3 items-center flex-wrap">
-            {/* Save button and indicator */}
-            <button
-              onClick={() => saveRfpData(true)}
-              disabled={isSaving}
-              className={`inline-flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-3 py-2 rounded-lg shadow-sm ${isSaving ? 'opacity-70' : 'hover:bg-gray-50 hover:border-gray-400'} transition-all`}
-            >
-              <Save className="w-4 h-4" /> {isSaving ? 'Saving...' : 'Save'}
-            </button>
-
-            {lastSaved && (
-              <div className="text-xs text-gray-500 flex items-center gap-1">
-                <Clock className="w-3 h-3" />
-                Last saved: {lastSaved}
-              </div>
-            )}
-            <div className="flex gap-3 flex-wrap">
-              <div className="relative">
+              <div className="flex gap-3 items-center flex-wrap">
+                {/* Save button and indicator */}
                 <button
-                  onClick={() => {
-                    const themes = ['professional', 'modern', 'classic'];
-                    const currentIndex = themes.indexOf(theme);
-                    const nextIndex = (currentIndex + 1) % themes.length;
-                    setTheme(themes[nextIndex]);
-                  }}
-                  className="inline-flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-3 py-2 rounded-lg shadow-sm hover:bg-gray-50 hover:border-gray-400 transition-all"
+                  onClick={() => saveRfpData(true)}
+                  disabled={isSaving || isSubmitted}
+                  className={`inline-flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-3 py-2 rounded-lg shadow-sm ${(isSaving || isSubmitted) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50 hover:border-gray-400'} transition-all`}
                 >
-                  <Settings className="w-4 h-4" /> Theme: {theme.charAt(0).toUpperCase() + theme.slice(1)}
+                  <Save className="w-4 h-4" /> {isSaving ? 'Saving...' : 'Save'}
                 </button>
-              </div>
-              <button
-                onClick={handlePreview}
-                className="inline-flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-3 py-2 rounded-lg shadow-sm hover:bg-gray-50 hover:border-gray-400 transition-all"
-              >
-                <Eye className="w-4 h-4" /> Preview
-              </button>
-              <button
-                onClick={enhanceWithAI}
-                className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-2 rounded-lg shadow-sm hover:shadow transition-all hover:from-blue-700 hover:to-blue-800"
-              >
-                <Sparkles className="w-4 h-4" /> Enhance with AI
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Left Column - Company Info */}
-        <div className="md:col-span-1">
-          <div className="bg-white rounded-xl shadow-sm p-6 mb-6 border border-gray-200 transition-all hover:shadow-md">
-            <h2 className="text-lg font-semibold text-gray-800 mb-5 flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-blue-100 text-blue-600">
-                <Image className="w-4 h-4" />
-              </div>
-              Company Information
-            </h2>
-
-            <div className="space-y-4">
-              {logo ? (
-                <div className="flex flex-col items-center text-center mb-4">
-                  <img src={logo} alt="Company Logo" className="max-h-20 object-contain mb-3 p-2 border border-gray-100 rounded-lg bg-white shadow-sm" />
+                {lastSaved && (
+                  <div className="text-xs text-gray-500 flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    Last saved: {lastSaved}
+                  </div>
+                )}
+                <div className="flex gap-3 flex-wrap">
+                  <div className="relative">
+                    <button
+                      onClick={() => {
+                        const themes = ['professional', 'modern', 'classic'];
+                        const currentIndex = themes.indexOf(theme);
+                        const nextIndex = (currentIndex + 1) % themes.length;
+                        setTheme(themes[nextIndex]);
+                      }}
+                      disabled={isSubmitted}
+                      className={`inline-flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-3 py-2 rounded-lg shadow-sm ${isSubmitted ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50 hover:border-gray-400'} transition-all`}
+                    >
+                      <Settings className="w-4 h-4" /> Theme: {theme.charAt(0).toUpperCase() + theme.slice(1)}
+                    </button>
+                  </div>
                   <button
-                    onClick={() => setLogo(null)}
-                    className="text-sm text-gray-500 hover:text-red-500 flex items-center gap-1 mt-1 px-2 py-1 rounded-lg hover:bg-red-50 transition-colors"
+                    onClick={handlePreview}
+                    className="inline-flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-3 py-2 rounded-lg shadow-sm hover:bg-gray-50 hover:border-gray-400 transition-all"
                   >
-                    <X className="w-3 h-3" /> Remove Logo
+                    <Eye className="w-4 h-4" /> Preview
+                  </button>
+                  <button
+                    onClick={enhanceWithAI}
+                    disabled={isSubmitted}
+                    className={`inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-2 rounded-lg shadow-sm hover:shadow transition-all hover:from-blue-700 hover:to-blue-800 ${isSubmitted ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    <Sparkles className="w-4 h-4" /> Enhance with AI
                   </button>
                 </div>
-              ) : (
-                <div className="w-full border-2 border-dashed border-gray-200 rounded-xl py-8 flex items-center justify-center bg-gray-50 mb-4 hover:border-blue-300 hover:bg-blue-50 transition-colors cursor-pointer">
-                  <label className="flex flex-col items-center gap-2 cursor-pointer text-sm text-gray-500 hover:text-blue-600 transition-colors">
-                    <Image className="w-10 h-10 text-gray-400" />
-                    <span className="font-medium">Upload Company Logo</span>
-                    <span className="text-xs text-gray-400">Recommended: 300x100px</span>
-                    <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
-                  </label>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1.5">Company Name</label>
-                <input
-                  type="text"
-                  value={companyName}
-                  onChange={(e) => setCompanyName(e.target.value)}
-                  placeholder="Company Name"
-                  className="w-full border border-gray-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-200 focus:border-blue-400 focus:outline-none shadow-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1.5">Website</label>
-                <input
-                  type="text"
-                  value={companyWebsite}
-                  onChange={(e) => setCompanyWebsite(e.target.value)}
-                  placeholder="https://www.example.com"
-                  className="w-full border border-gray-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-200 focus:border-blue-400 focus:outline-none shadow-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1.5">Address</label>
-                <input
-                  type="text"
-                  value={letterhead}
-                  onChange={(e) => setLetterhead(e.target.value)}
-                  placeholder="Company Address"
-                  className="w-full border border-gray-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-200 focus:border-blue-400 focus:outline-none shadow-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1.5">Phone Number</label>
-                <input
-                  type="text"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="Phone Number"
-                  className="w-full border border-gray-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-200 focus:border-blue-400 focus:outline-none shadow-sm"
-                />
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200 transition-all hover:shadow-md">
-            <h2 className="text-lg font-semibold text-gray-800 mb-5 flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-purple-100 text-purple-600">
-                <FileText className="w-4 h-4" />
-              </div>
-              Proposal Details
-            </h2>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1.5">RFP Title</label>
-                <input
-                  type="text"
-                  value={rfpTitle}
-                  onChange={(e) => setRfpTitle(e.target.value)}
-                  placeholder="Proposal Title"
-                  className="w-full border border-gray-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-200 focus:border-blue-400 focus:outline-none shadow-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1.5">NAICS Code</label>
-                <input
-                  type="text"
-                  value={naicsCode}
-                  onChange={(e) => setNaicsCode(e.target.value)}
-                  placeholder="NAICS Code"
-                  className="w-full border border-gray-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-200 focus:border-blue-400 focus:outline-none shadow-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1.5">Solicitation Number</label>
-                <input
-                  type="text"
-                  value={solicitationNumber}
-                  onChange={(e) => setSolicitationNumber(e.target.value)}
-                  placeholder="Solicitation Number"
-                  className="w-full border border-gray-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-200 focus:border-blue-400 focus:outline-none shadow-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1.5">Issue Date</label>
-                <input
-                  type="text"
-                  value={issuedDate}
-                  onChange={(e) => setIssuedDate(e.target.value)}
-                  placeholder="Issue Date"
-                  className="w-full border border-gray-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-200 focus:border-blue-400 focus:outline-none shadow-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1.5">Submitted By</label>
-                <input
-                  type="text"
-                  value={submittedBy}
-                  onChange={(e) => setSubmittedBy(e.target.value)}
-                  placeholder="Your Name and Title"
-                  className="w-full border border-gray-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-200 focus:border-blue-400 focus:outline-none shadow-sm"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Column - Sections */}
-        <div className="md:col-span-2">
-          <div className="flex justify-between items-center mb-5">
-            <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-green-100 text-green-600">
-                <FileText className="w-4 h-4" />
-              </div>
-              Proposal Sections
-            </h2>
-            <button
-              onClick={() => addSectionBelow(sections.length - 1)}
-              className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow transition-all hover:from-blue-700 hover:to-blue-800"
-            >
-              <Plus className="w-4 h-4" /> Add Section
-            </button>
-          </div>
-
-          <div className="space-y-4">
-            {sections.map((section, index) => (
-              <div
-                key={section.id}
-                className={`rounded-xl shadow-sm border transition-all duration-300 
-                  ${section.completed ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-white'} 
-                  ${expandedSection === section.id ? 'shadow-md border-blue-200' : 'hover:border-blue-200 hover:shadow-sm'}`}
-              >
-                <div
-                  className={`flex justify-between items-center p-4 cursor-pointer rounded-t-xl
-                    ${expandedSection === section.id ? 'bg-blue-50' : section.completed ? 'bg-green-50' : 'bg-white'}`}
-                  onClick={() => toggleSection(section.id)}
-                >
-                  <div className="flex items-center gap-3 flex-1">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleCompleted(index);
-                      }}
-                      className="focus:outline-none transition-transform hover:scale-110"
-                    >
-                      {section.completed ? (
-                        <CheckCircle className="w-6 h-6 text-green-500" />
-                      ) : (
-                        <Circle className="w-6 h-6 text-gray-300 hover:text-blue-400" />
-                      )}
-                    </button>
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${section.completed ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'}`}>
-                      {getSectionIcon(section.icon)}
-                    </div>
-                    <div className="flex-1">
-                      <input
-                        type="text"
-                        value={section.title}
-                        onChange={(e) => updateField(index, 'title', e.target.value)}
-                        className={`text-base font-semibold w-full bg-transparent border-b border-transparent hover:border-gray-300 focus:border-blue-400 focus:outline-none py-1 ${section.completed ? 'text-green-700' : 'text-gray-700'}`}
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Left Column - Company Info */}
+            <div className="md:col-span-1">
+              <div className={`bg-white rounded-xl shadow-sm p-6 mb-6 border border-gray-200 transition-all hover:shadow-md ${isSubmitted ? 'opacity-75' : ''}`}>
+                <h2 className="text-lg font-semibold text-gray-800 mb-5 flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-blue-100 text-blue-600">
+                    <Image className="w-4 h-4" />
                   </div>
+                  Company Information
+                  {isSubmitted && (
+                    <span className="ml-2 px-2 py-1 text-xs font-medium bg-green-100 text-green-700 rounded-full">
+                      Submitted
+                    </span>
+                  )}
+                </h2>
 
-                  <div className="flex items-center gap-2">
-                    <div className="flex -space-x-1">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          moveSection(section.id, 'up');
-                        }}
-                        className={`w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 hover:text-blue-600 ${index === 0 ? 'opacity-30 cursor-not-allowed' : ''}`}
-                        disabled={index === 0}
-                        title="Move Up"
-                      >
-                        <ChevronUp className="w-5 h-5" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          moveSection(section.id, 'down');
-                        }}
-                        className={`w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 hover:text-blue-600 ${index === sections.length - 1 ? 'opacity-30 cursor-not-allowed' : ''}`}
-                        disabled={index === sections.length - 1}
-                        title="Move Down"
-                      >
-                        <ChevronDown className="w-5 h-5" />
-                      </button>
-                    </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteSection(section.id);
-                      }}
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-red-100 hover:text-red-600 transition-colors"
-                      title="Delete Section"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-blue-100 hover:text-blue-600 transition-colors"
-                      onClick={() => toggleSection(section.id)}
-                    >
-                      {expandedSection === section.id ? (
-                        <ChevronUp className="w-5 h-5" />
-                      ) : (
-                        <ChevronDown className="w-5 h-5" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                {expandedSection === section.id && (
-                  <div className="p-5 border-t border-gray-200 bg-white">
-                    <textarea
-                      rows={8}
-                      className="w-full border border-gray-200 p-4 rounded-lg focus:ring-2 focus:ring-blue-200 focus:border-blue-400 focus:outline-none shadow-inner bg-white"
-                      value={section.content}
-                      onChange={(e) => updateField(index, 'content', e.target.value)}
-                      placeholder="Enter section content here..."
-                    />
-                    <div className="flex justify-between mt-4">
-                      <div className="flex items-center gap-2">
+                <div className="space-y-4">
+                  {logo ? (
+                    <div className="flex flex-col items-center text-center mb-4">
+                      <img src={logo} alt="Company Logo" className="max-h-20 object-contain mb-3 p-2 border border-gray-100 rounded-lg bg-white shadow-sm" />
+                      {!isSubmitted && (
                         <button
-                          onClick={() => toggleCompleted(index)}
-                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors
-                            ${section.completed ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                          onClick={() => setLogo(null)}
+                          className="text-sm text-gray-500 hover:text-red-500 flex items-center gap-1 mt-1 px-2 py-1 rounded-lg hover:bg-red-50 transition-colors"
+                        >
+                          <X className="w-3 h-3" /> Remove Logo
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    !isSubmitted && (
+                      <div className="w-full border-2 border-dashed border-gray-200 rounded-xl py-8 flex items-center justify-center bg-gray-50 mb-4 hover:border-blue-300 hover:bg-blue-50 transition-colors cursor-pointer">
+                        <label className="flex flex-col items-center gap-2 cursor-pointer text-sm text-gray-500 hover:text-blue-600 transition-colors">
+                          <Image className="w-10 h-10 text-gray-400" />
+                          <span className="font-medium">Upload Company Logo</span>
+                          <span className="text-xs text-gray-400">Recommended: 300x100px</span>
+                          <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+                        </label>
+                      </div>
+                    )
+                  )}
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-1.5">Company Name</label>
+                    <input
+                      type="text"
+                      value={companyName}
+                      onChange={handleInputChange(setCompanyName)}
+                      placeholder="Company Name"
+                      disabled={isSubmitted}
+                      className={`w-full border border-gray-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-200 focus:border-blue-400 focus:outline-none shadow-sm ${isSubmitted ? 'bg-gray-50 cursor-not-allowed' : ''}`}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-1.5">Website</label>
+                    <input
+                      type="text"
+                      value={companyWebsite}
+                      onChange={handleInputChange(setCompanyWebsite)}
+                      placeholder="https://www.example.com"
+                      disabled={isSubmitted}
+                      className={`w-full border border-gray-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-200 focus:border-blue-400 focus:outline-none shadow-sm ${isSubmitted ? 'bg-gray-50 cursor-not-allowed' : ''}`}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-1.5">Address</label>
+                    <input
+                      type="text"
+                      value={letterhead}
+                      onChange={handleInputChange(setLetterhead)}
+                      placeholder="Company Address"
+                      disabled={isSubmitted}
+                      className={`w-full border border-gray-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-200 focus:border-blue-400 focus:outline-none shadow-sm ${isSubmitted ? 'bg-gray-50 cursor-not-allowed' : ''}`}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-1.5">Phone Number</label>
+                    <input
+                      type="text"
+                      value={phone}
+                      onChange={handleInputChange(setPhone)}
+                      placeholder="Phone Number"
+                      disabled={isSubmitted}
+                      className={`w-full border border-gray-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-200 focus:border-blue-400 focus:outline-none shadow-sm ${isSubmitted ? 'bg-gray-50 cursor-not-allowed' : ''}`}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className={`bg-white rounded-xl shadow-sm p-6 border border-gray-200 transition-all hover:shadow-md ${isSubmitted ? 'opacity-75' : ''}`}>
+                <h2 className="text-lg font-semibold text-gray-800 mb-5 flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-purple-100 text-purple-600">
+                    <FileText className="w-4 h-4" />
+                  </div>
+                  Proposal Details
+                </h2>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-1.5">RFP Title</label>
+                    <input
+                      type="text"
+                      value={rfpTitle}
+                      onChange={handleInputChange(setRfpTitle)}
+                      placeholder="Proposal Title"
+                      disabled={isSubmitted}
+                      className={`w-full border border-gray-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-200 focus:border-blue-400 focus:outline-none shadow-sm ${isSubmitted ? 'bg-gray-50 cursor-not-allowed' : ''}`}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-1.5">NAICS Code</label>
+                    <input
+                      type="text"
+                      value={naicsCode}
+                      onChange={handleInputChange(setNaicsCode)}
+                      placeholder="NAICS Code"
+                      disabled={isSubmitted}
+                      className={`w-full border border-gray-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-200 focus:border-blue-400 focus:outline-none shadow-sm ${isSubmitted ? 'bg-gray-50 cursor-not-allowed' : ''}`}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-1.5">Solicitation Number</label>
+                    <input
+                      type="text"
+                      value={solicitationNumber}
+                      onChange={handleInputChange(setSolicitationNumber)}
+                      placeholder="Solicitation Number"
+                      disabled={isSubmitted}
+                      className={`w-full border border-gray-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-200 focus:border-blue-400 focus:outline-none shadow-sm ${isSubmitted ? 'bg-gray-50 cursor-not-allowed' : ''}`}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-1.5">Issue Date</label>
+                    <input
+                      type="text"
+                      value={issuedDate}
+                      onChange={handleInputChange(setIssuedDate)}
+                      placeholder="Issue Date"
+                      disabled={isSubmitted}
+                      className={`w-full border border-gray-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-200 focus:border-blue-400 focus:outline-none shadow-sm ${isSubmitted ? 'bg-gray-50 cursor-not-allowed' : ''}`}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-1.5">Submitted By</label>
+                    <input
+                      type="text"
+                      value={submittedBy}
+                      onChange={handleInputChange(setSubmittedBy)}
+                      placeholder="Your Name and Title"
+                      disabled={isSubmitted}
+                      className={`w-full border border-gray-200 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-200 focus:border-blue-400 focus:outline-none shadow-sm ${isSubmitted ? 'bg-gray-50 cursor-not-allowed' : ''}`}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column - Sections */}
+            <div className="md:col-span-2">
+              <div className="flex justify-between items-center mb-5">
+                <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-green-100 text-green-600">
+                    <FileText className="w-4 h-4" />
+                  </div>
+                  Proposal Sections
+                </h2>
+                {!isSubmitted && (
+                  <button
+                    onClick={() => addSectionBelow(sections.length - 1)}
+                    className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow transition-all hover:from-blue-700 hover:to-blue-800"
+                  >
+                    <Plus className="w-4 h-4" /> Add Section
+                  </button>
+                )}
+              </div>
+
+              <div className="space-y-4">
+                {sections.map((section, index) => (
+                  <div
+                    key={section.id}
+                    className={`rounded-xl shadow-sm border transition-all duration-300 
+                      ${section.completed ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-white'} 
+                      ${expandedSection === section.id ? 'shadow-md border-blue-200' : 'hover:border-blue-200 hover:shadow-sm'}`}
+                  >
+                    <div
+                      className={`flex justify-between items-center p-4 cursor-pointer rounded-t-xl
+                        ${expandedSection === section.id ? 'bg-blue-50' : section.completed ? 'bg-green-50' : 'bg-white'}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleSection(section.id);
+                      }}
+                    >
+                      <div className="flex items-center gap-3 flex-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!isSubmitted) {
+                              toggleCompleted(index);
+                            }
+                          }}
+                          className="focus:outline-none transition-transform hover:scale-110"
                         >
                           {section.completed ? (
-                            <>
-                              <CheckCircle className="w-4 h-4" /> Completed
-                            </>
+                            <CheckCircle className="w-6 h-6 text-green-500" />
                           ) : (
-                            <>
-                              <Circle className="w-4 h-4" /> Mark as Complete
-                            </>
+                            <Circle className="w-6 h-6 text-gray-300 hover:text-blue-400" />
                           )}
                         </button>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${section.completed ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'}`}>
+                          {getSectionIcon(section.icon)}
+                        </div>
+                        <div className="flex-1">
+                          <input
+                            type="text"
+                            value={section.title}
+                            onChange={(e) => updateField(index, 'title', e.target.value)}
+                            disabled={isSubmitted}
+                            className={`text-base font-semibold w-full bg-transparent border-b border-transparent hover:border-gray-300 focus:border-blue-400 focus:outline-none py-1 ${section.completed ? 'text-green-700' : 'text-gray-700'} ${isSubmitted ? 'cursor-not-allowed' : ''}`}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <div className="flex -space-x-1">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!isSubmitted) {
+                                moveSection(section.id, 'up');
+                              }
+                            }}
+                            className={`w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 hover:text-blue-600 ${index === 0 || isSubmitted ? 'opacity-30 cursor-not-allowed' : ''}`}
+                            disabled={index === 0 || isSubmitted}
+                            title="Move Up"
+                          >
+                            <ChevronUp className="w-5 h-5" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!isSubmitted) {
+                                moveSection(section.id, 'down');
+                              }
+                            }}
+                            className={`w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 hover:text-blue-600 ${index === sections.length - 1 || isSubmitted ? 'opacity-30 cursor-not-allowed' : ''}`}
+                            disabled={index === sections.length - 1 || isSubmitted}
+                            title="Move Down"
+                          >
+                            <ChevronDown className="w-5 h-5" />
+                          </button>
+                        </div>
                         <button
-                          onClick={() => enhanceWithAI()}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!isSubmitted) {
+                              deleteSection(section.id);
+                            }
+                          }}
+                          className={`w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-red-100 hover:text-red-600 transition-colors ${isSubmitted ? 'opacity-30 cursor-not-allowed' : ''}`}
+                          disabled={isSubmitted}
+                          title="Delete Section"
                         >
-                          <Sparkles className="w-4 h-4" /> Enhance with AI
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-blue-100 hover:text-blue-600 transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleSection(section.id);
+                          }}
+                        >
+                          {expandedSection === section.id ? (
+                            <ChevronUp className="w-5 h-5" />
+                          ) : (
+                            <ChevronDown className="w-5 h-5" />
+                          )}
                         </button>
                       </div>
-                      <button
-                        onClick={() => addSectionBelow(index)}
-                        className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 transition-colors px-3 py-1.5 rounded-full hover:bg-blue-50"
-                      >
-                        <Plus className="w-4 h-4" /> Insert Section Below
-                      </button>
+                    </div>
+
+                    {expandedSection === section.id && (
+                      <div className="p-5 border-t border-gray-200 bg-white">
+                        <textarea
+                          rows={8}
+                          className={`w-full border border-gray-200 p-4 rounded-lg focus:ring-2 focus:ring-blue-200 focus:border-blue-400 focus:outline-none shadow-inner bg-white ${isSubmitted ? 'bg-gray-50 cursor-not-allowed' : ''}`}
+                          value={section.content}
+                          onChange={(e) => updateField(index, 'content', e.target.value)}
+                          placeholder="Enter section content here..."
+                          disabled={isSubmitted}
+                        />
+                        <div className="flex justify-between mt-4">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => toggleCompleted(index)}
+                              disabled={isSubmitted}
+                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors
+                                ${section.completed ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}
+                                ${isSubmitted ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            >
+                              {section.completed ? (
+                                <>
+                                  <CheckCircle className="w-4 h-4" /> Completed
+                                </>
+                              ) : (
+                                <>
+                                  <Circle className="w-4 h-4" /> Mark as Complete
+                                </>
+                              )}
+                            </button>
+                            <button
+                              onClick={() => enhanceWithAI()}
+                              disabled={isSubmitted}
+                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors
+                                ${isSubmitted ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            >
+                              <Sparkles className="w-4 h-4" /> Enhance with AI
+                            </button>
+                          </div>
+                          <button
+                            onClick={() => addSectionBelow(index)}
+                            disabled={isSubmitted}
+                            className={`inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 transition-colors px-3 py-1.5 rounded-full hover:bg-blue-50
+                              ${isSubmitted ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          >
+                            <Plus className="w-4 h-4" /> Insert Section Below
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Buttons at bottom */}
+              <div className="mt-8 flex justify-center gap-4">
+                <button
+                  onClick={handlePreview}
+                  className="inline-flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-6 py-3 rounded-xl shadow-sm hover:bg-gray-50 hover:border-gray-400 transition-all"
+                >
+                  <Eye className="w-5 h-5" /> Preview Proposal
+                </button>
+                <button
+                  onClick={() => setShowDownloadOptions(true)}
+                  className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-xl shadow-md hover:shadow-lg hover:from-blue-700 hover:to-blue-800 transition-all"
+                >
+                  <Download className="w-5 h-5" /> Download Proposal
+                </button>
+                {showDownloadOptions && (
+                  <div className="fixed inset-0 bg-black bg-opacity-60 z-40 flex items-center justify-center" onClick={() => setShowDownloadOptions(false)}>
+                    <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
+                      <div className="flex justify-between items-center mb-6">
+                        <h3 className="text-xl font-bold text-gray-800">Download Options</h3>
+                        <button
+                          onClick={() => setShowDownloadOptions(false)}
+                          className="text-gray-500 hover:text-gray-700 hover:bg-gray-100 p-1 rounded-full transition-colors"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
+
+                      <div className="space-y-4">
+                        <button
+                          onClick={downloadPDF}
+                          className="w-full flex items-center gap-4 p-4 border border-gray-200 rounded-xl hover:bg-red-50 hover:border-red-200 transition-colors group"
+                        >
+                          <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center group-hover:bg-red-200 transition-colors">
+                            <FileText className="w-6 h-6 text-red-600" />
+                          </div>
+                          <div className="text-left">
+                            <div className="font-medium text-gray-800 group-hover:text-red-700 transition-colors">PDF Document</div>
+                            <div className="text-sm text-gray-500">Best for printing and sharing</div>
+                          </div>
+                        </button>
+
+                        <button
+                          onClick={downloadWord}
+                          className="w-full flex items-center gap-4 p-4 border border-gray-200 rounded-xl hover:bg-blue-50 hover:border-blue-200 transition-colors group"
+                        >
+                          <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+                            <FileText className="w-6 h-6 text-blue-600" />
+                          </div>
+                          <div className="text-left">
+                            <div className="font-medium text-gray-800 group-hover:text-blue-700 transition-colors">Word Document</div>
+                            <div className="text-sm text-gray-500">Best for editing and customization</div>
+                          </div>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
               </div>
-            ))}
-          </div>
-
-          {/* Buttons at bottom */}
-          <div className="mt-8 flex justify-center gap-4">
-            <button
-              onClick={handlePreview}
-              className="inline-flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-6 py-3 rounded-xl shadow-sm hover:bg-gray-50 hover:border-gray-400 transition-all"
-            >
-              <Eye className="w-5 h-5" /> Preview Proposal
-            </button>
-            <button
-              onClick={() => setShowDownloadOptions(true)}
-              className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-xl shadow-md hover:shadow-lg hover:from-blue-700 hover:to-blue-800 transition-all"
-            >
-              <Download className="w-5 h-5" /> Download Proposal
-            </button>
-            {showDownloadOptions && (
-              <div className="fixed inset-0 bg-black bg-opacity-60 z-40 flex items-center justify-center" onClick={() => setShowDownloadOptions(false)}>
-                <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
-                  <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-xl font-bold text-gray-800">Download Options</h3>
-                    <button
-                      onClick={() => setShowDownloadOptions(false)}
-                      className="text-gray-500 hover:text-gray-700 hover:bg-gray-100 p-1 rounded-full transition-colors"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
-                  </div>
-
-                  <div className="space-y-4">
-                    <button
-                      onClick={downloadPDF}
-                      className="w-full flex items-center gap-4 p-4 border border-gray-200 rounded-xl hover:bg-red-50 hover:border-red-200 transition-colors group"
-                    >
-                      <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center group-hover:bg-red-200 transition-colors">
-                        <FileText className="w-6 h-6 text-red-600" />
-                      </div>
-                      <div className="text-left">
-                        <div className="font-medium text-gray-800 group-hover:text-red-700 transition-colors">PDF Document</div>
-                        <div className="text-sm text-gray-500">Best for printing and sharing</div>
-                      </div>
-                    </button>
-
-                    <button
-                      onClick={downloadWord}
-                      className="w-full flex items-center gap-4 p-4 border border-gray-200 rounded-xl hover:bg-blue-50 hover:border-blue-200 transition-colors group"
-                    >
-                      <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center group-hover:bg-blue-200 transition-colors">
-                        <FileText className="w-6 h-6 text-blue-600" />
-                      </div>
-                      <div className="text-left">
-                        <div className="font-medium text-gray-800 group-hover:text-blue-700 transition-colors">Word Document</div>
-                        <div className="text-sm text-gray-500">Best for editing and customization</div>
-                      </div>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
+            </div>
           </div>
         </div>
       </div>
