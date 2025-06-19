@@ -1,0 +1,95 @@
+{
+  "company_logo": "Path to the company's logo image (preferably PNG format)",
+  "company_website": "Official website of the company",
+  "proposal_class": "Type or title of the proposal (e.g., Cybersecurity Assessment)",
+  "proposal_bid": "Bid or contract reference number issued by the client",
+  "date_today": "The current date of the proposal submission (e.g., January 10, 2025)",
+  "company_ceo": "Name of the company's CEO or signing authority",
+  "company_street": "Street address of the company headquarters",
+  "company_city": "City of the company headquarters",
+  "company_state": "State where the company is located",
+  "company_zip": "ZIP code of the company location",
+  "company_phone": "Main contact phone number for the company",
+  "company_email": "Email address for official correspondence",
+  "proposal_org": "Full name of the client or organization issuing the RFP",
+  "proposal_address": "Mailing address of the organization issuing the RFP",
+  "date_returned": "Date when the proposal is submitted back to the client",
+  "company_name": "Registered name of the company submitting the proposal",
+  "company_esign": "Path to the electronic signature image for signing the proposal",
+  "cert_elig": "Path to the certificate of eligibility image or document",
+  "gen_para1": "Introductory paragraph explaining the company’s understanding of the client’s needs and goals",
+  "auth_reps": [
+    {
+      "name": "Full name of the authorized representative",
+      "title": "Job title of the representative",
+      "address": "Business address of the representative",
+      "phone": "Phone number of the representative",
+      "email": "Email address of the representative"
+    }
+  ],
+  "gen_para2": "Company overview paragraph covering experience, services, and capabilities",
+  "proposal_class_image": "Path to an optional image representing the proposal class (e.g., security diagram or icon)",
+  "gen_para3": "Paragraph elaborating on certifications, partnerships, or service frameworks",
+  "gen_para4": "Description of specialized security solutions and risk management expertise",
+  "gen_para5": "Brief call to action or partnership invitation statement",
+  "gen_para6": "Final overview paragraph encouraging trust and highlighting commitment to client success",
+  "customers": [
+    {
+      "client": "Name of the client or project engagement",
+      "name": "Name of the client contact person",
+      "title": "Job title of the client contact",
+      "phone": "Phone number of the client contact",
+      "email": "Email of the client contact",
+      "services": "Bulleted list or summary of services delivered",
+      "review": "Testimonial or endorsement from the client"
+    }
+  ],
+  "gen_para7": "Paragraph introducing the project team and its qualifications",
+  "gen_para8": "Paragraph summarizing the team’s overall cybersecurity experience",
+  "gen_para9": "Paragraph emphasizing leadership expertise and strategic vision",
+  "proposal_due_date": "Date and time when the proposal is due",
+  "scope_of_work": "Summary of services and objectives described in the RFP",
+  "proposal_infrastructure": "Overview of the client’s current IT infrastructure relevant to the proposal",
+  "assessments": [
+    {
+      "area": "Name of the assessment area (e.g., Cybersecurity Program Analysis)",
+      "scope_of_work": ["List of tasks or areas covered in this assessment"],
+      "deliverables": "Specific output or report that will be provided for this assessment"
+    }
+  ],
+  "deliverables": [
+    {
+      "title": "Name or number of the deliverable",
+      "description": "Detailed explanation of what the deliverable includes"
+    }
+  ],
+  "service_costs": [
+    {
+      "component": "Service line item title",
+      "description": "Explanation of what is included in this service",
+      "cost": "Cost associated with this component (e.g., $40,000)"
+    }
+  ],
+  "project_cost": "Total proposed project cost (sum of all service components)",
+  "terms_cond": [
+    {
+      "title": "Title of the term or condition (e.g., Firm Fixed Price Agreement)",
+      "description": "Explanation or legal clarification of the term"
+    }
+  ],
+  "pay_schedule": [
+    {
+      "event": "Milestone or phase triggering payment",
+      "payment_percentage": "Percentage of total payment to be made at this event",
+      "amount": "Monetary value of this payment milestone"
+    }
+  ],
+  "summary_intro": "Introductory paragraph to the executive summary highlighting the company’s strengths",
+  "summary": [
+    {
+      "title": "Key feature or value point (e.g., Proven Methodology)",
+      "content": "Details about that value or method in the context of the proposal"
+    }
+  ],
+  "summary_conclusion": "Final paragraph to summarize the value, invite collaboration, and close the proposal"
+}
