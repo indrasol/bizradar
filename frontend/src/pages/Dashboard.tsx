@@ -1237,51 +1237,53 @@ const BizRadarDashboard = () => {
                       </div>
                     </div>
 
-                    <div className="p-4 space-y-3">
-                      {submittedPursuits.map((pursuit) => (
-                        <div key={pursuit.id} className="rounded-lg border border-gray-200 p-4 hover:shadow-sm transition-all group">
-                          <div className="flex items-start">
-                            <div className="flex-shrink-0 p-2 bg-green-100 text-green-600 rounded-lg mr-3">
-                              <CheckCircle2 className="h-4 w-4" />
-                            </div>
-                            <div className="flex-1">
-                              <h3 className="text-md font-medium text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
-                                {pursuit.title}
-                              </h3>
-                              <div className="mb-2 flex items-center text-xs font-medium text-gray-600 bg-gray-100 px-3 py-1 rounded-full w-fit">
-                                <Clock className="h-3 w-3 mr-1 text-green-500" />
-                                <span>
-                                  {`Submitted ${formatTimeAgo(pursuit.updated_at)}`}
-                                </span>
+                    <div className="h-[400px] overflow-y-auto">
+                      <div className="p-4 space-y-3">
+                        {submittedPursuits.map((pursuit) => (
+                          <div key={pursuit.id} className="rounded-lg border border-gray-200 p-4 hover:shadow-sm transition-all group">
+                            <div className="flex items-start">
+                              <div className="flex-shrink-0 p-2 bg-green-100 text-green-600 rounded-lg mr-3">
+                                <CheckCircle2 className="h-4 w-4" />
                               </div>
-                              <div className="flex items-center space-x-2 text-xs text-gray-500">
-                                <span className="flex items-center">
-                                  <FileText className="h-3 w-3 mr-1" />
-                                  Pursuit
-                                </span>
-                                <span>•</span>
-                                <span>{pursuit.stage}</span>
+                              <div className="flex-1">
+                                <h3 className="text-md font-medium text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
+                                  {pursuit.title}
+                                </h3>
+                                <div className="mb-2 flex items-center text-xs font-medium text-gray-600 bg-gray-100 px-3 py-1 rounded-full w-fit">
+                                  <Clock className="h-3 w-3 mr-1 text-green-500" />
+                                  <span>
+                                    {`Submitted ${formatTimeAgo(pursuit.updated_at)}`}
+                                  </span>
+                                </div>
+                                <div className="flex items-center space-x-2 text-xs text-gray-500">
+                                  <span className="flex items-center">
+                                    <FileText className="h-3 w-3 mr-1" />
+                                    Pursuit
+                                  </span>
+                                  <span>•</span>
+                                  <span>{pursuit.stage}</span>
+                                </div>
                               </div>
+                              <button
+                                className="ml-2 p-2 text-gray-400 hover:text-blue-500 transition-colors rounded-lg hover:bg-blue-50"
+                                title="Follow up"
+                                onClick={() => handleFollowUp(pursuit.id)}
+                              >
+                                <MessageSquare className="h-5 w-5" />
+                              </button>
                             </div>
-                            <button
-                              className="ml-2 p-2 text-gray-400 hover:text-blue-500 transition-colors rounded-lg hover:bg-blue-50"
-                              title="Follow up"
-                              onClick={() => handleFollowUp(pursuit.id)}
-                            >
-                              <MessageSquare className="h-5 w-5" />
-                            </button>
                           </div>
-                        </div>
-                      ))}
+                        ))}
 
-                      {submittedPursuits.length === 0 && (
-                        <div className="text-center py-6 text-gray-500">
-                          No submitted pursuits yet
-                        </div>
-                      )}
+                        {submittedPursuits.length === 0 && (
+                          <div className="text-center py-6 text-gray-500">
+                            No submitted pursuits yet
+                          </div>
+                        )}
+                      </div>
 
                       {submittedPursuits.length > 0 && (
-                        <div className="p-3 text-center">
+                        <div className="p-3 text-center border-t border-gray-100 sticky bottom-0 bg-white">
                           <Link
                             to="/pursuits?filter=submitted"
                             className="text-blue-600 hover:text-blue-800 text-sm font-medium inline-flex items-center"
