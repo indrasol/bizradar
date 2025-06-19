@@ -33,6 +33,10 @@ import RfpPreview from './rfpPreview';
 import RfpPreviewContent from './rfpPreviewContent';
 import jsPDF from 'jspdf';
 
+// Import API base URL
+const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const API_BASE_URL = isDevelopment ? 'http://localhost:5000' : import.meta.env.VITE_API_BASE_URL;
+
 const RfpResponse = ({ contract, pursuitId }) => {
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -960,9 +964,196 @@ const rgbToHex = (rgb: string): string | null => {
   return `${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
 };
 
-  const enhanceWithAI = () => {
-    // AI enhancement logic would go here
-    alert("AI enhancement feature would be implemented here");
+  const enhanceWithAI = async () => {
+    try {
+      // Show loading state
+      toast?.info("Enhancing RFP with AI...");
+      
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error("User not authenticated");
+      }
+
+      // First, try to get company data from user_companies table
+      let companyData = null;
+      try {
+        const { data: userCompanies, error: userCompaniesError } = await supabase
+          .from('user_companies')
+          .select(`
+            *,
+            companies (
+              id,
+              name,
+              url,
+              description
+            )
+          `)
+          .eq('user_id', user.id)
+          .eq('is_primary', true)
+          .single();
+
+        if (!userCompaniesError && userCompanies && userCompanies.companies) {
+          companyData = userCompanies.companies;
+          console.log("Found company data from user_companies:", companyData);
+        }
+      } catch (error) {
+        console.log("No primary company found in user_companies, using form data");
+      }
+
+      // Parse company address from letterhead or use company data
+      let companyCity = '';
+      let companyState = '';
+      let companyZip = '';
+      let companyStreet = '';
+      
+      if (companyData) {
+        // Use data from user_companies table
+        companyStreet = companyData.address || '';
+        companyCity = companyData.city || '';
+        companyState = companyData.state || '';
+        companyZip = companyData.zip_code || '';
+      } else {
+        // Parse from letterhead field
+        const addressParts = letterhead.split(',').map(part => part.trim());
+        companyStreet = addressParts.length > 0 ? addressParts[0] : letterhead;
+        companyCity = addressParts.length > 1 ? addressParts[2] : '';
+        const companyStateZip = addressParts.length > 2 ? addressParts[3] : '';
+        [companyState, companyZip] = companyStateZip.split(' ').filter(Boolean);
+      }
+      
+      // Prepare company context data with fallback logic
+      const company_context = {
+        company_logo: companyData?.logo || logo || "",
+        company_website: companyData?.website || companyWebsite,
+        company_ceo: companyData?.ceo_name || submittedBy,
+        company_name: companyData?.name || companyName,
+        company_street: companyStreet,
+        company_city: companyCity,
+        company_state: companyState || "",
+        company_zip: companyZip || "",
+        company_phone: companyData?.phone || phone,
+        company_email: companyData?.email || "", // Could be extracted from submittedBy or added as separate field
+        company_esign: "", // Could be added as separate field
+      };
+
+      // Prepare proposal context data
+      const proposal_context = {
+        proposal_class: rfpTitle,
+        proposal_bid: solicitationNumber,
+        proposal_org: contract?.department || "",
+        proposal_address: contract?.department || "",
+        proposal_phone: "", // Could be extracted from contract data
+        proposal_due_date: contract?.dueDate || "",
+        proposal_description: contract?.description || "",
+        proposal_title: rfpTitle,
+      };
+
+      console.log("Sending company context:", company_context);
+      console.log("Sending proposal context:", proposal_context);
+      
+      // Call the backend API
+      const response = await fetch(`${API_BASE_URL}/enhance-rfp-with-ai`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          company_context,
+          proposal_context,
+          pursuitId,
+          userId: user?.id
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.success && result.enhanced_data) {
+        // Process the enhanced data and update the sections
+        const enhancedData = result.enhanced_data;
+        
+        // Create updated sections based on enhanced data
+        const updatedSections = [...sections];
+        
+        // Update sections with enhanced content
+        updatedSections.forEach((section, index) => {
+          const sectionTitle = section.title.toUpperCase();
+          
+          if (sectionTitle.includes("EXECUTIVE SUMMARY") && enhancedData.gen_para1) {
+            updatedSections[index] = { ...section, content: String(enhancedData.gen_para1) };
+          } else if (sectionTitle.includes("COMPANY OVERVIEW") && enhancedData.gen_para2) {
+            updatedSections[index] = { ...section, content: String(enhancedData.gen_para2) };
+          } else if (sectionTitle.includes("QUALIFICATIONS") && enhancedData.gen_para3) {
+            updatedSections[index] = { ...section, content: String(enhancedData.gen_para3) };
+          } else if (sectionTitle.includes("TECHNICAL") && enhancedData.gen_para4) {
+            updatedSections[index] = { ...section, content: String(enhancedData.gen_para4) };
+          } else if (sectionTitle.includes("PRICING") && enhancedData.gen_para5) {
+            updatedSections[index] = { ...section, content: String(enhancedData.gen_para5) };
+          } else if (sectionTitle.includes("SCOPE") && enhancedData.scope_of_work) {
+            updatedSections[index] = { ...section, content: String(enhancedData.scope_of_work) };
+          }
+        });
+        
+        // Add new sections if they don't exist
+        if (enhancedData.deliverables && enhancedData.deliverables.length > 0) {
+          const deliverablesSection = {
+            id: sections.length + 1,
+            title: 'DELIVERABLES',
+            content: enhancedData.deliverables.map(d => `${d.title}: ${d.description}`).join('\n\n'),
+            icon: 'deliverables',
+            completed: false
+          };
+          updatedSections.push(deliverablesSection);
+        }
+        
+        if (enhancedData.service_costs && enhancedData.service_costs.length > 0) {
+          const costsSection = {
+            id: sections.length + 2,
+            title: 'SERVICE COSTS',
+            content: enhancedData.service_costs.map(c => `${c.component}: ${c.description} - ${c.cost}`).join('\n\n'),
+            icon: 'costs',
+            completed: false
+          };
+          updatedSections.push(costsSection);
+        }
+        
+        // Update the sections state
+        setSections(updatedSections);
+        
+        // Update other fields if enhanced data provides them
+        if (enhancedData.company_name) {
+          setCompanyName(String(enhancedData.company_name));
+        }
+        if (enhancedData.company_website) {
+          setCompanyWebsite(String(enhancedData.company_website));
+        }
+        if (enhancedData.company_phone) {
+          setPhone(String(enhancedData.company_phone));
+        }
+        if (enhancedData.company_street) {
+          setLetterhead(String(enhancedData.company_street));
+        }
+        
+        toast?.success("RFP enhanced successfully with AI!");
+        
+        // Auto-save the enhanced content
+        setTimeout(() => {
+          saveRfpData(true);
+        }, 1000);
+        
+      } else {
+        throw new Error(result.message || 'Failed to enhance RFP');
+      }
+      
+    } catch (error) {
+      console.error('Error enhancing RFP with AI:', error);
+      toast?.error(`Failed to enhance RFP: ${error.message}`);
+    }
   };
 
   // Show preview screen
@@ -1030,7 +1221,7 @@ const rgbToHex = (rgb: string): string | null => {
   return (
     <div className="fixed inset-0 bg-gray-50 overflow-y-auto">
       <div className="min-h-full w-full">
-        <div className="p-2 md:p-6 max-w-6xl mx-auto">
+        <div className="p-2 md:p-6 max-w-6xl mx-auto" style={{ paddingTop: '3.5rem' }}>
           {/* Hidden ProposalContent for External Downloads */}
           <div style={{ position: 'absolute', left: '-9999px' }} ref={contentRef}>
             <RfpPreviewContent {...proposalData} />

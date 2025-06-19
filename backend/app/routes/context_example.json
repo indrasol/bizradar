@@ -1,0 +1,232 @@
+{
+    "company_logo": "C:\\Users\\rdine\\Downloads\\bizradar_modules\\images\\Indrasol company logo_.png",
+    "company_website": "https://www.indrasol.com",
+    "proposal_class": "Cybersecurity Assessment",
+    "proposal_bid": "105-25",
+    "date_today": "January 10, 2025",
+    "company_ceo": "Brahma Gupta",
+    "company_street": "6101 Bollinger Canyon Rd, Suite 335 C",
+    "company_city": "San Ramon",
+    "company_state": "CA",
+    "company_zip": "94583",
+    "company_phone": "(510) 754-2001",
+    "company_email": "bgupta@indrasol.com",
+    "proposal_org": "KENAI PENINSULA BOROUGH SCHOOL DISTRICT (KPBSD)",
+    "proposal_address": "PURCHASING DEPARTMENT,\n139 East Park Avenue,\nSoldotna, Alaska 99669-7553",
+    "date_returned": "Feb 4, 2025",
+    "company_name": "Indrasol",
+    "company_esign": "C:\\Users\\rdine\\Downloads\\bizradar_modules\\images\\esign.png",
+    "cert_elig": "C:\\Users\\rdine\\Downloads\\bizradar_modules\\images\\certificate_of_eligibility.png",
+    "gen_para1": "We understand the critical importance of this engagement in evaluating, strengthening, and ensuring the resilience of KPBSD's cybersecurity infrastructure. Our team will conduct a comprehensive assessment, including vulnerability identification, penetration testing, firewall evaluation, IT policy review, and compliance alignment with NIST Cybersecurity Framework (CSF). Through this process, we will provide detailed reports, prioritized security recommendations, and a structured roadmap for continuous improvement. Indrasol is fully committed to delivering these services with professionalism, expertise, and efficiency to help KPBSD enhance its cybersecurity posture.",
+    "auth_reps": [
+        {
+            "name": "Brahma Gupta",
+            "title": "CEO",
+            "address": "6101 Bollinger Canyon Rd, Suite 335 C, San Ramon, CA 94583",
+            "phone": "(510) 754-2001",
+            "email": "bgupta@indrasol.com"
+        },
+        {
+            "name": "Satish Govindappa",
+            "title": "Chief Security Officer (CSO)",
+            "address": "6101 Bollinger Canyon Rd, Suite 335 C, San Ramon, CA 94583",
+            "phone": "(469) 826-9266",
+            "email": "satish.govindappa@indrasol.com"
+        },
+        {
+            "name": "Jordan DiFazio",
+            "title": "Public Relations Officer",
+            "address": "6101 Bollinger Canyon Rd, Suite 335 C, San Ramon, CA 94583",
+            "phone": "(469) 826-9266",
+            "email": "jordan.difazio@indrasol.com"
+        }
+    ],
+    "gen_para2": "Indrasol is a technology and consulting firm dedicated to helping businesses prosper by providing a range of services designed to enhance performance and reduce costs. With over 15 years of experience and more than 50 successfully completed projects, Indrasol specializes in improving functions across Cyber Security, Network Security, Cloud Security, Supply Chain, Procurement, Human Capital, Financial Planning & Analysis, Budgeting, Reporting, and Business Analytics.",
+    "proposal_class_image": "C:\\Users\\rdine\\Downloads\\bizradar_modules\\images\\proposal_class_image.png",
+    "gen_para3": "As an Oracle Gold Partner, Indrasol offers expertise in managed services, professional services, cloud services, data analytics, and cybersecurity. Our team of certified professionals is committed to delivering top-tier solutions tailored to meet the unique needs of every client.",
+    "gen_para4": "At Indrasol, we specialize in delivering premium AI security, application security, security architecture, network security, and SOC 2 services, offering comprehensive risk management solutions tailored to businesses of all sizes. Backed by extensive industry expertise and proficiency in the NIST Cybersecurity Framework and ANSI ISO/IEC 27001 standards, we are committed to excellence and aligning with global best practices.",
+    "gen_para5": "Discover how Indrasol can partner with you to build a robust and resilient security foundation.",
+    "gen_para6": "Whether you require risk management, regulatory compliance, or expert advice in AI security, application security, security architecture, or network security, we are dedicated to supporting your success with confidence and security.",
+    "customers": [
+        {
+            "client": "Alorica – Enterprise Security Assessment & Compliance Audit",
+            "name": "David Wellman",
+            "title": "VP of Finance",
+            "phone": "(949) 527 4674",
+            "email": "david.wellman@alorica.com",
+            "services": "- Conducted security audit across Alorica's global IT infrastructure.\n- Assessed network vulnerabilities, firewall configurations, and endpoint security.\n- Provided remediation plans for ISO 27001 compliance.",
+            "review": "I've worked with Indrasol team extensively over the past several years, as they not only assist us with the ongoing maintenance and support of our management financial reporting systems, but they were also our implementation partner as we moved our on-premises Hyperion instance to the cloud, while also doing a major implementation of Oracle's EPBCS (Enterprise Planning and Budgeting Cloud Solution). When it came time to choose a partner, it came down to Indrasol and one of the other big-name companies that you would think of when it comes to that sort of engagement. While the relative value they provided compared to the competition was readily apparent, that was not the major factor that tipped things in their favor – our main considerations were their expertise and skills in the area, the ready partnership and communication they showed, as well as their flexibility to adapt & adjust within reasonable bounds as the project progressed."
+        },
+        {
+            "client": "Gigamon – Cloud Security & Threat Detection Framework",
+            "name": "Chandra Sreeram",
+            "title": "Marketing Analytics & Ops Leader",
+            "phone": "(408) 203 5783",
+            "email": "Chandra.Sreeram@gigamon.com",
+            "services": "- Implemented cloud security solutions for Microsoft Azure & AWS.\n- Performed penetration testing and security assessments.\n- Developed customized threat detection for security monitoring.",
+            "review": "Having worked with the Indrasol team under Brahma's leadership over the past few years, I can say that they have strong expertise in analytics and cloud technologies. They have been assisting us with marketing analytics on the Azure platform. We are happy with Indrasol, and I strongly recommend them."
+        },
+        {
+            "client": "Accuray – Cybersecurity Risk Assessment & Firewall Hardening",
+            "name": "Raj Vakil",
+            "title": "Senior VP of Finance",
+            "phone": "(408) 507 7224",
+            "email": "rvakil@accuray.com",
+            "services": "- Conducted penetration testing for internal/external vulnerabilities.\n- Provided firewall security review and hardening strategies.\n- Developed an incident response plan and trained IT staff.",
+            "review": "We've been working with Indrasol for almost three years now and plan to continue working with the team of talented people for years to come. They have the right technical staff to take up any task. Whether it's an enhancement or a year-long project, they stay on top of things with absolute commitment. They consistently exceed our expectations, providing quality services with cost efficient support, quick resolution of issues and round-the-clock availability."
+        }
+    ],
+    "gen_para7": "Indrasol prides itself on assembling a team of highly skilled professionals who bring extensive expertise in cybersecurity, compliance, and risk management. Our team members hold top industry certifications and have worked on numerous government and enterprise security projects. Below is a detailed overview of our team's expertise and qualifications.",
+    "gen_para8": "Indrasol's cybersecurity team is composed of highly experienced professionals with extensive backgrounds in security assessments, penetration testing, compliance, and risk management.",
+    "gen_para9": "The team is led by industry veterans with deep expertise in both offensive and defensive cybersecurity tactics. Indrasol's cybersecurity initiatives are spearheaded by industry veterans with deep expertise in both offensive and defensive security strategies.",
+    "proposal_due_date": "4:00 P.M., Alaska Time, February 7, 2025",
+    "scope_of_work": "The Kenai Peninsula Borough School District (KPBSD) is seeking a comprehensive cybersecurity assessment to: ✔ Evaluate its current cybersecurity posture, ✔ Develop an improvement plan, and ✔ Provide technical recommendations tailored to a public-sector K-12 school district. Indrasol's cybersecurity assessment will align with NIST Cybersecurity Framework (CSF), NIST 800-171, and industry best practices to ensure a structured, risk-based approach.",
+    "proposal_infrastructure": "KPBSD operates 42 schools with approximately 8,400 students and 1,200 staff. The district maintains a wide area network (WAN) connecting schools across southcentral Alaska, ensuring access to digital resources essential for education. While KPBSD and the Kenai Peninsula Borough (KPB) are separate government entities, they have a long-standing, tightly integrated IT relationship. KPB owns the majority of the buildings and internal cable plant that KPBSD operates within. KPBSD's core IT infrastructure is housed in the Soldotna data center, a facility shared with KPB. KPBSD and KPB operate separate networks but share a single demarcated connection in the Soldotna data center for specific shared resources. This cybersecurity assessment will be solely focused on KPBSD, with KPB's operations only considered where they impact KPBSD's network security (e.g., network interconnects and shared resources).",
+    "assessments": [
+        {
+            "area": "1. Cybersecurity Program Analysis",
+            "scope_of_work": [
+                "Assess KPBSD's existing security measures, including:",
+                "Device-level security for routers, switches, wireless infrastructure, cameras, printers.",
+                "OS-level security, including local security policies, group policies, and patch management.",
+                "Network security, including firewall configurations, content filtering, and access controls.",
+                "Core infrastructure security, including Active Directory, VOIP PBX, and file servers.",
+                "Application security for Line of Business (LoB) applications such as HR, Finance, and Student Records.",
+                "Disaster Recovery (DR) & Continuity of Operations (COOP) planning and effectiveness.",
+                "User training and processes to prevent phishing, social engineering, and cybersecurity threats."
+            ],
+            "deliverables": "Confidential Cybersecurity Assessment Report identifying deficiencies, risks, and mitigation strategies."
+        },
+        {
+            "area": "2. IT Policies & Procedures Review",
+            "scope_of_work": [
+                "Identify deficiencies in existing IT policies and procedures.",
+                "Determine missing policies and gaps in the security governance framework.",
+                "Provide sample policies to strengthen KPBSD's cybersecurity posture."
+            ],
+            "deliverables": "Policy & Governance Assessment Report with recommended policy improvements."
+        },
+        {
+            "area": "3. Cybersecurity Program Improvement Plan",
+            "scope_of_work": [
+                "Develop a prioritized roadmap for security improvements.",
+                "Provide technical and operational recommendations for risk mitigation.",
+                "Ensure recommendations align with KPBSD's operational scale and available resources.",
+                "Identify resource deficiencies and provide actionable resolution options."
+            ],
+            "deliverables": "Prioritized Cybersecurity Improvement Plan for risk mitigation and enhanced security resilience."
+        },
+        {
+            "area": "4. Optional Services (if included in proposal)",
+            "scope_of_work": [
+                "Penetration Testing (external/internal testing for vulnerabilities).",
+                "Other vendor-recommended assessment tasks to enhance security posture."
+            ],
+            "deliverables": "Optional Penetration Testing Report (if included), detailing attack vectors and mitigation strategies."
+        }
+    ],
+    "deliverables": [
+        {
+            "title": "1. Confidential Cybersecurity Assessment Report",
+            "description": "A detailed technical report containing identified security gaps, risks, and technical deficiencies with remediation recommendations."
+        },
+        {
+            "title": "2. Prioritized Cyber Security Improvement Plan",
+            "description": "A structured roadmap with actionable recommendations to improve KPBSD's cybersecurity resilience and risk mitigation strategies."
+        },
+        {
+            "title": "3. Executive Summary Report",
+            "description": "A non-sensitive, high-level report for leadership, summarizing key security findings and recommended improvements without exposing technical vulnerabilities."
+        }
+    ],
+    "service_costs": [
+        {
+            "component": "Cybersecurity Risk Assessment & Infrastructure Audit",
+            "description": "Comprehensive assessment of KPBSD's network, endpoint security, firewalls, Active Directory, VoIP PBX, and cloud infrastructure. Includes security configuration reviews and vulnerability analysis.",
+            "cost": "$400,000"
+        },
+        {
+            "component": "IT Security Policy & Compliance Review",
+            "description": "Review of existing IT security policies, procedures, and compliance frameworks (NIST CSF, NIST 800-171, CMMC). Identify gaps, recommend policy updates, and provide governance best practices.",
+            "cost": "$40,000"
+        },
+        {
+            "component": "Security Awareness & Training Program",
+            "description": "Development of customized cybersecurity training materials for KPBSD staff and students. Includes anti-phishing simulations, security workshops, and user awareness training.",
+            "cost": "$25,000"
+        },
+        {
+            "component": "Incident Response & Disaster Recovery (IR/DR) Strategy",
+            "description": "Development of Incident Response Playbooks, Security Incident Management Plans, and Disaster Recovery (DR) Frameworks. Focus on rapid detection, containment, and mitigation of cyber threats.",
+            "cost": "$20,000"
+        },
+        {
+            "component": "Threat Intelligence & Advanced Threat Hunting",
+            "description": "Deployment of threat intelligence techniques, dark web monitoring, advanced analytics, and proactive cyber threat identification to strengthen KPBSD's security posture.",
+            "cost": "$30,000"
+        },
+        {
+            "component": "Compliance Readiness & Security Hardening",
+            "description": "Strategic consulting to ensure KPBSD aligns with federal and state cybersecurity mandates. Includes recommendations for security configuration improvements and access control enhancements.",
+            "cost": "$20,000"
+        },
+        {
+            "component": "Final Cybersecurity Assessment Report & Strategic Roadmap",
+            "description": "Delivery of comprehensive security assessment findings, risk prioritization, mitigation strategies, and a long-term cybersecurity improvement plan. Includes CISO-level executive summary for leadership review.",
+            "cost": "$25,000"
+        }
+    ],
+    "project_cost": "$560,000",
+    "terms_cond": [
+        {
+            "title": "Discounts & Negotiations",
+            "description": "The price is subject to negotiations. Any applicable discounts or cost reductions will be discussed and finalized during contract negotiations."
+        },
+        {
+            "title": "Firm Fixed Price Agreement",
+            "description": "Upon award, pricing for services under this contract will remain a firm fixed price for the duration of the contract, including any extensions."
+        },
+        {
+            "title": "KPBSD Resources Required",
+            "description": "Yes, we need KPBSD resource"
+        }
+    ],
+    "pay_schedule": [
+        {
+            "event": "Upon Contract Signing (April 2025)",
+            "payment_percentage": "20%",
+            "amount": "$112,000"
+        },
+        {
+            "event": "After Cybersecurity Risk Assessment (June 2025)",
+            "payment_percentage": "30%",
+            "amount": "$168,000"
+        },
+        {
+            "event": "After Policy Review, Compliance Readiness & Incident Response Strategy (September 2025)",
+            "payment_percentage": "30%",
+            "amount": "$168,000"
+        },
+        {
+            "event": "Upon Final Report Submission & Project Closure (November 2025)",
+            "payment_percentage": "20%",
+            "amount": "$112,000"
+        }
+    ],
+    "summary_intro": "Indrasol is uniquely positioned to deliver exceptional cybersecurity services to KPBSD by leveraging our extensive experience, certified expertise, and client-centric approach. Our team brings decades of hands-on cybersecurity experience across diverse industries, ensuring that KPBSD receives best-in-class protection against evolving threats.",
+    "summary": [
+        {
+            "title": "A Proven Methodology Aligned with IFB Requirements",
+            "content": "We tailor our approach to meet the specific requirements outlined in the Invitation for Bid (IFB), ensuring compliance, efficiency, and effectiveness. Our structured process integrates risk-based assessments, threat modeling, and proactive mitigation strategies to deliver comprehensive security solutions."
+        },
+        {
+            "title": "Industry-Leading Tools and Frameworks for Reliable Assessments",
+            "content": "We utilize cutting-edge security tools, frameworks, and best practices, such as NIST, ISO 27001, and CIS benchmarks, to conduct in-depth evaluations. Our team's expertise ensures thorough risk analysis, vulnerability assessments, and compliance validation, providing KPBSD with a robust cybersecurity foundation."
+        },
+        {
+            "title": "Commitment to Transparency, Quality, and Value",
+            "content": "At Indrasol, we prioritize open communication and accountability. Our transparent reporting, clear recommendations, and commitment to delivering measurable value help KPBSD make informed security decisions. We focus on long-term resilience, empowering KPBSD to maintain a strong security posture while optimizing resources effectively."
+        }
+    ],
+    "summary_conclusion": "We are eager to collaborate with KPBSD to enhance its cybersecurity resilience and uphold its mission of serving the community safely and securely. We appreciate the opportunity to present our capabilities and look forward to becoming KPBSD's trusted cybersecurity partner."
+}
