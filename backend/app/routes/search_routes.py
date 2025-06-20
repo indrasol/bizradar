@@ -270,6 +270,7 @@ async def search_job_opportunities(request: Request):
                     return {
                         'success': True,
                         'results': paginated_results,
+                        'all_results': json_safe_results,
                         'total': total_count,
                         'total_pages': total_pages,
                         'page': page,
@@ -372,6 +373,7 @@ async def search_job_opportunities(request: Request):
         return {
             'success': True,
             'results': paginated_results,
+            'all_results': json_safe_results,
             'total': total_count,
             'total_pages': total_pages,
             'page': page,
@@ -395,6 +397,7 @@ async def search_job_opportunities(request: Request):
             'success': False,
             'message': f"Error: {str(e)}",
             'results': [],
+            'all_results': [],
             'total': 0,
             'total_pages': 0,
             'page': 1,
