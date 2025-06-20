@@ -32,6 +32,10 @@ import { Document, Packer, Paragraph, TextRun, ImageRun, AlignmentType } from 'd
 import RfpPreview from './rfpPreview';
 import RfpPreviewContent from './rfpPreviewContent';
 import jsPDF from 'jspdf';
+import '@react-pdf-viewer/core/lib/styles/index.css';
+import '@react-pdf-viewer/default-layout/lib/styles/index.css';
+import { Worker, Viewer } from '@react-pdf-viewer/core';
+import { defaultLayoutPlugin } from '@react-pdf-viewer/default-layout';
 
 // Import API base URL
 const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
@@ -73,6 +77,10 @@ const RfpResponse = ({ contract, pursuitId }) => {
   // Change these state variables
   const [naicsCode, setNaicsCode] = useState(contract?.naicsCode || '000000');
   const [solicitationNumber, setSolicitationNumber] = useState(contract?.solicitation_number || '');
+
+  // Add new state for modal and PDF URL
+  const [showPdfModal, setShowPdfModal] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState('');
 
   // Move the defaultTemplate function above the sections state declaration
   const defaultTemplate = (job) => [
@@ -135,7 +143,7 @@ const RfpResponse = ({ contract, pursuitId }) => {
     companyWebsite: 'https://www.bizradar.com',
     letterhead: '123 Innovation Drive, Suite 100, TechCity, TX 75001',
     phone: '(510) 754-2001',
-    rfpTitle: contract?.title ||  'Proposal for Cybersecurity Audit & Penetration Testing Services',
+    rfpTitle: contract?.title || 'Proposal for Cybersecurity Audit & Penetration Testing Services',
     naicsCode: contract?.naicsCode || '000000',
     solicitationNumber: contract?.solicitation_number || '',
     issuedDate: contract?.published_date || new Date().toLocaleDateString(),
@@ -947,31 +955,31 @@ const RfpResponse = ({ contract, pursuitId }) => {
   };
 
   // Utility function to convert RGB to 6-digit hex
-const rgbToHex = (rgb: string): string | null => {
-  const rgbMatch = rgb.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/i);
-  if (!rgbMatch) return null;
+  const rgbToHex = (rgb: string): string | null => {
+    const rgbMatch = rgb.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/i);
+    if (!rgbMatch) return null;
 
-  const r = parseInt(rgbMatch[1], 10);
-  const g = parseInt(rgbMatch[2], 10);
-  const b = parseInt(rgbMatch[3], 10);
+    const r = parseInt(rgbMatch[1], 10);
+    const g = parseInt(rgbMatch[2], 10);
+    const b = parseInt(rgbMatch[3], 10);
 
-  // Convert to hex and ensure 2 digits per channel
-  const toHex = (value: number) => {
-    const hex = value.toString(16);
-    return hex.length === 1 ? '0' + hex : hex;
+    // Convert to hex and ensure 2 digits per channel
+    const toHex = (value: number) => {
+      const hex = value.toString(16);
+      return hex.length === 1 ? '0' + hex : hex;
+    };
+
+    return `${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
   };
-
-  return `${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
-};
 
   const enhanceWithAI = async () => {
     try {
       // Show loading state
       toast?.info("Enhancing RFP with AI...");
-      
+
       // Get current user
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       if (!user) {
         throw new Error("User not authenticated");
       }
@@ -1007,7 +1015,7 @@ const rgbToHex = (rgb: string): string | null => {
       let companyState = '';
       let companyZip = '';
       let companyStreet = '';
-      
+
       if (companyData) {
         // Use data from user_companies table
         companyStreet = companyData.address || '';
@@ -1022,7 +1030,7 @@ const rgbToHex = (rgb: string): string | null => {
         const companyStateZip = addressParts.length > 2 ? addressParts[3] : '';
         [companyState, companyZip] = companyStateZip.split(' ').filter(Boolean);
       }
-      
+
       // Prepare company context data with fallback logic
       const company_context = {
         company_logo: companyData?.logo || logo || "",
@@ -1052,7 +1060,7 @@ const rgbToHex = (rgb: string): string | null => {
 
       console.log("Sending company context:", company_context);
       console.log("Sending proposal context:", proposal_context);
-      
+
       // Call the backend API
       const response = await fetch(`${API_BASE_URL}/enhance-rfp-with-ai`, {
         method: 'POST',
@@ -1072,18 +1080,20 @@ const rgbToHex = (rgb: string): string | null => {
       }
 
       const result = await response.json();
-      
+
       if (result.success && result.enhanced_data) {
         // Process the enhanced data and update the sections
         const enhancedData = result.enhanced_data;
-        
+        const pdf_path = result.pdf_path;
+        const merged_docx_path = result.merged_docx_path;
+
         // Create updated sections based on enhanced data
         const updatedSections = [...sections];
-        
+
         // Update sections with enhanced content
         updatedSections.forEach((section, index) => {
           const sectionTitle = section.title.toUpperCase();
-          
+
           if (sectionTitle.includes("EXECUTIVE SUMMARY") && enhancedData.gen_para1) {
             updatedSections[index] = { ...section, content: String(enhancedData.gen_para1) };
           } else if (sectionTitle.includes("COMPANY OVERVIEW") && enhancedData.gen_para2) {
@@ -1098,7 +1108,7 @@ const rgbToHex = (rgb: string): string | null => {
             updatedSections[index] = { ...section, content: String(enhancedData.scope_of_work) };
           }
         });
-        
+
         // Add new sections if they don't exist
         if (enhancedData.deliverables && enhancedData.deliverables.length > 0) {
           const deliverablesSection = {
@@ -1110,7 +1120,7 @@ const rgbToHex = (rgb: string): string | null => {
           };
           updatedSections.push(deliverablesSection);
         }
-        
+
         if (enhancedData.service_costs && enhancedData.service_costs.length > 0) {
           const costsSection = {
             id: sections.length + 2,
@@ -1121,10 +1131,10 @@ const rgbToHex = (rgb: string): string | null => {
           };
           updatedSections.push(costsSection);
         }
-        
+
         // Update the sections state
         setSections(updatedSections);
-        
+
         // Update other fields if enhanced data provides them
         if (enhancedData.company_name) {
           setCompanyName(String(enhancedData.company_name));
@@ -1138,18 +1148,24 @@ const rgbToHex = (rgb: string): string | null => {
         if (enhancedData.company_street) {
           setLetterhead(String(enhancedData.company_street));
         }
-        
+
         toast?.success("RFP enhanced successfully with AI!");
-        
+
         // Auto-save the enhanced content
         setTimeout(() => {
           saveRfpData(true);
         }, 1000);
-        
+
+        // Set PDF URL and show PDF modal
+        if (pdf_path) {
+          setPdfUrl(pdf_path);
+          setShowPdfModal(true);
+        }
+
       } else {
         throw new Error(result.message || 'Failed to enhance RFP');
       }
-      
+
     } catch (error) {
       console.error('Error enhancing RFP with AI:', error);
       toast?.error(`Failed to enhance RFP: ${error.message}`);
@@ -1217,6 +1233,8 @@ const rgbToHex = (rgb: string): string | null => {
   };
 
   const dueDateInfo = getDueDateProximity();
+
+  const defaultLayoutPluginInstance = defaultLayoutPlugin();
 
   return (
     <div className="fixed inset-0 bg-gray-50 overflow-y-auto">
@@ -1755,6 +1773,36 @@ const rgbToHex = (rgb: string): string | null => {
               </div>
             </div>
           </div>
+
+          {/* PDF Modal */}
+          {showPdfModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
+              <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-3xl relative">
+                <button
+                  onClick={() => setShowPdfModal(false)}
+                  className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+                <h2 className="text-lg font-bold mb-4">Preview PDF</h2>
+                <div className="w-full h-[70vh] mb-4">
+                  <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js">
+                    <Viewer
+                      fileUrl={pdfUrl}
+                      plugins={[defaultLayoutPluginInstance]}
+                    />
+                  </Worker>
+                </div>
+                <a
+                  href={pdfUrl}
+                  download
+                  className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700"
+                >
+                  <Download className="w-5 h-5" /> Download PDF
+                </a>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
