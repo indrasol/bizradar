@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { X, FileText } from 'lucide-react';
+import { X, FileText, ChevronDown } from 'lucide-react';
 import { Opportunity } from './types';
 
 interface CreatePursuitDialogProps {
@@ -11,6 +11,8 @@ interface CreatePursuitDialogProps {
     stage: string;
     due_date: string | null;
     tags: string[];
+    isFederalContract: boolean;
+    assignee: string | null;
   }) => void;
 }
 
@@ -21,13 +23,44 @@ export const CreatePursuitDialog: React.FC<CreatePursuitDialogProps> = ({
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [showTagsDropdown, setShowTagsDropdown] = useState(false);
+  const [showAssigneeDropdown, setShowAssigneeDropdown] = useState(false);
   const [newPursuit, setNewPursuit] = useState({
     title: "",
     description: "",
     stage: "Assessment",
     due_date: null as string | null,
     tags: [] as string[],
+    isFederalContract: false,
+    assignee: null as string | null,
   });
+
+  const availableTags = ["RFP", "RFI", "IDIQ", "BPA", "GSA", "NAICS"];
+  const availableAssignees = ["John Doe", "Jane Smith", "Mike Johnson"];
+
+  const toggleTag = (tag: string) => {
+    setNewPursuit(prev => ({
+      ...prev,
+      tags: prev.tags.includes(tag)
+        ? prev.tags.filter(t => t !== tag)
+        : [...prev.tags, tag]
+    }));
+  };
+
+  const toggleFederalContract = () => {
+    setNewPursuit(prev => ({
+      ...prev,
+      isFederalContract: !prev.isFederalContract
+    }));
+  };
+
+  const setAssignee = (assignee: string | null) => {
+    setNewPursuit(prev => ({
+      ...prev,
+      assignee
+    }));
+    setShowAssigneeDropdown(false);
+  };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -64,6 +97,8 @@ export const CreatePursuitDialog: React.FC<CreatePursuitDialogProps> = ({
       stage: "Assessment",
       due_date: null,
       tags: [],
+      isFederalContract: false,
+      assignee: null,
     });
     setSelectedFiles([]);
   };
@@ -112,35 +147,110 @@ export const CreatePursuitDialog: React.FC<CreatePursuitDialogProps> = ({
           {/* Tags and Options */}
           <div className="flex flex-wrap gap-2 mb-6">
             {/* Federal Contract Button */}
-            <button className="px-3 py-1.5 border border-gray-300 rounded-full text-sm text-gray-700 hover:bg-gray-50">
+            <button 
+              className={`px-3 py-1.5 border rounded-full text-sm flex items-center gap-1 ${
+                newPursuit.isFederalContract 
+                  ? 'bg-blue-100 text-blue-800 border-blue-200' 
+                  : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+              }`}
+              onClick={toggleFederalContract}
+            >
+              <span className="h-2 w-2 bg-blue-500 rounded-full"></span>
               Federal Contract
             </button>
 
             {/* Assessment Tag */}
             <div className="px-3 py-1.5 bg-amber-100 text-amber-800 rounded-full text-sm flex items-center gap-1 font-medium">
               <span className="h-2 w-2 bg-amber-500 rounded-full"></span>
-              Assessment
+              {newPursuit.stage}
             </div>
 
-            {/* No Assignee Tag */}
-            <button className="px-3 py-1.5 border border-gray-300 rounded-full text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-1">
-              <span className="text-gray-500">👤</span>
-              No assignee
-            </button>
+            {/* Assignee Tag */}
+            <div className="relative">
+              <button 
+                className="px-3 py-1.5 border border-gray-300 rounded-full text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-1"
+                onClick={() => setShowAssigneeDropdown(!showAssigneeDropdown)}
+              >
+                <span className="text-gray-500">👤</span>
+                {newPursuit.assignee || 'No assignee'}
+                <ChevronDown size={14} />
+              </button>
+              {showAssigneeDropdown && (
+                <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 w-48">
+                  <div className="p-1">
+                    <button
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded"
+                      onClick={() => setAssignee(null)}
+                    >
+                      No assignee
+                    </button>
+                    {availableAssignees.map(assignee => (
+                      <button
+                        key={assignee}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded"
+                        onClick={() => setAssignee(assignee)}
+                      >
+                        {assignee}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Date Picker */}
             <input
               type="date"
               className="px-3 py-1.5 border border-gray-300 rounded-full text-sm text-gray-700 hover:bg-gray-50"
+              value={newPursuit.due_date || ''}
               onChange={(e) =>
                 setNewPursuit({ ...newPursuit, due_date: e.target.value })
               }
             />
 
             {/* Select Tags */}
-            <button className="px-3 py-1.5 border border-gray-300 rounded-full text-sm text-gray-700 hover:bg-gray-50">
-              + Select tags
-            </button>
+            <div className="relative">
+              <button 
+                className="px-3 py-1.5 border border-gray-300 rounded-full text-sm text-gray-700 hover:bg-gray-50"
+                onClick={() => setShowTagsDropdown(!showTagsDropdown)}
+              >
+                + Select tags
+              </button>
+              {showTagsDropdown && (
+                <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 w-48">
+                  <div className="p-1">
+                    {availableTags.map(tag => (
+                      <button
+                        key={tag}
+                        className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded flex items-center gap-2 ${
+                          newPursuit.tags.includes(tag) ? 'bg-gray-100' : ''
+                        }`}
+                        onClick={() => toggleTag(tag)}
+                      >
+                        <span className={`h-2 w-2 rounded-full ${
+                          newPursuit.tags.includes(tag) ? 'bg-blue-500' : 'bg-gray-300'
+                        }`}></span>
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Selected Tags */}
+            {newPursuit.tags.map(tag => (
+              <div key={tag} className="px-3 py-1.5 bg-blue-100 text-blue-800 rounded-full text-sm flex items-center gap-1">
+                <span className="h-2 w-2 bg-blue-500 rounded-full"></span>
+                {tag}
+                <button
+                  onClick={() => toggleTag(tag)}
+                  className="ml-1 text-blue-600 hover:text-blue-800"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            ))}
           </div>
 
           {/* File Upload Section */}

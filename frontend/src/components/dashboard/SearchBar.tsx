@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Search, Sparkles } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
 import { TypeWriter } from "../ui/TypeWriter";  // Update this line
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -97,16 +98,19 @@ export const SearchBar = ({
           type="text"
           placeholder="Search opportunities..."
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+          // onChange={(e) => setQuery(e.target.value)}
+          // onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
           className="w-full"
         />
-        <Button 
-          onClick={handleSearch} 
-          disabled={isLoading}
-          className="min-w-[100px]"
+        <Link 
+          to="/Login"
+          // onClick={handleSearch} 
+          // disabled={isLoading}
+          className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm hover:shadow transition-all flex items-center gap-1"
         >
-          {isLoading ? (
+          <Search className="w-4 h-4 mr-2" />
+          Search
+          {/* {isLoading ? (
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
               <span>Searching...</span>
@@ -116,8 +120,8 @@ export const SearchBar = ({
               <Search className="w-4 h-4 mr-2" />
               Search
             </>
-          )}
-        </Button>
+          )} */}
+        </Link>
       </div>
 
       <AnimatePresence mode="wait">
