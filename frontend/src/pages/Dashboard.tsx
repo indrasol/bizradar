@@ -32,7 +32,10 @@ import SideBar from "../components/layout/SideBar";
 import { useAuth } from "../components/Auth/useAuth";
 import { supabase } from "../utils/supabase";
 import { toast } from "sonner";
+import { UpgradeModal } from "@/components/subscription/UpgradeModal";
 
+
+// const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 const BizRadarDashboard = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -649,7 +652,9 @@ const BizRadarDashboard = () => {
               </div>
             </div>
             <div className="flex items-center space-x-3">
-              <button className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 transition-all">
+              <button
+              // onClick={() => setShowUpgradeModal(true)} 
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 transition-all">
                 <span>Upgrade</span>
                 <Star size={14} className="ml-1" />
               </button>
@@ -706,7 +711,7 @@ const BizRadarDashboard = () => {
                     <Search className="mr-2 h-4 w-4" />
                     Find New Opportunities
                   </Link>
-                  <button
+                  {/* <button
                     className="inline-flex items-center px-5 py-2.5 border border-transparent text-sm font-medium rounded-lg shadow-md text-white bg-emerald-500 hover:bg-emerald-600 transition-all duration-300 hover:shadow-lg transform hover:-translate-y-0.5"
                     onClick={toggleDialog}
                   >
@@ -716,7 +721,7 @@ const BizRadarDashboard = () => {
                   <button className="inline-flex items-center px-5 py-2.5 border border-transparent text-sm font-medium rounded-lg shadow-md text-white bg-blue-600 hover:bg-blue-700 transition-all duration-300 hover:shadow-lg transform hover:-translate-y-0.5">
                     <Upload className="mr-2 h-4 w-4" />
                     Upload
-                  </button>
+                  </button> */}
                 </div>
               </div>
 

@@ -116,11 +116,20 @@ const Layout = ({ children }) => {
         throw new Error(subscribeResponse.message);
       }
     } catch (error) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to subscribe. Please try again later.",
-        variant: "destructive",
-      });
+      // Check for unique constraint violation
+      if (error.message?.includes("newsletter_subscribers_email_key")) {
+        toast({
+          title: "Already Subscribed",
+          description: "This email address is already subscribed to our newsletter.",
+          variant: "default",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to subscribe. Please try again later.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsSubscribing(false);
     }

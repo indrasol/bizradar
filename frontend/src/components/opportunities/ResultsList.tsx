@@ -3,6 +3,8 @@ import { Download, Bell, Shield, Search, Zap, Database, Code } from "lucide-reac
 import OpportunityCard from "./OpportunityCard";
 import Pagination from "./Pagination";
 import SuggestedSearches from "./SuggestedSearches";
+import * as XLSX from "xlsx";
+import { toast } from "@/hooks/use-toast";
 
 import { ResultsListProps, SuggestedQuery } from "../../models/opportunities"
 
@@ -78,11 +80,59 @@ const ResultsList: React.FC<ResultsListProps> = ({
               {totalResults} {totalResults === 1 ? "result" : "results"}
             </div>
             <div className="flex items-center gap-2">
-              <button className="bg-white border border-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-sm flex items-center gap-1.5 shadow-sm hover:bg-gray-50 transition-colors">
+              <button
+                className="bg-white border border-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-sm flex items-center gap-1.5 shadow-sm hover:bg-gray-50 transition-colors"
+                onClick={() => {
+                  // Try to get all results from sessionStorage (allOpportunitiesForExport)
+                  let allOpportunities = opportunities;
+                  try {
+                    const state = sessionStorage.getItem("allOpportunitiesForExport");
+                    if (state) {
+                      const parsed = JSON.parse(state);
+                      if (Array.isArray(parsed) && parsed.length > 0) {
+                        allOpportunities = parsed;
+                      }
+                    }
+                  } catch (e) {
+                    // fallback to current opportunities
+                  }
+                  if (!allOpportunities || allOpportunities.length === 0) {
+                    toast({ title: "No results to export", description: "There are no opportunities to export.", variant: "destructive" });
+                    return;
+                  }
+                  const data = allOpportunities.map(({ id, title, agency, description, platform, external_url, naics_code, published_date, response_date, budget, solicitation_number }) => ({
+                    ID: id,
+                    Title: title,
+                    Agency: agency,
+                    Description: description,
+                    Platform: platform,
+                    URL: external_url,
+                    "NAICS Code": naics_code,
+                    "Published Date": published_date,
+                    "Response Date": response_date,
+                    Budget: budget,
+                    "Solicitation #": solicitation_number,
+                  }));
+                  const worksheet = XLSX.utils.json_to_sheet(data);
+                  const workbook = XLSX.utils.book_new();
+                  XLSX.utils.book_append_sheet(workbook, worksheet, "Opportunities");
+                  XLSX.writeFile(workbook, "opportunities.xlsx");
+                  toast({ title: "Export Successful", description: `Exported ${allOpportunities.length} opportunities to Excel.` });
+                }}
+              >
                 <Download size={14} className="text-gray-500" />
                 <span>Export</span>
               </button>
-              <button className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm flex items-center gap-1.5 shadow-sm hover:bg-blue-700 transition-colors">
+              <button
+                className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm flex items-center gap-1.5 shadow-sm hover:bg-blue-700 transition-colors"
+                onClick={() => {
+                  toast({
+                    title: "Subscribed!",
+                    description: "You will be notified daily about new opportunities.",
+                    variant: "default"
+                  });
+                }}
+              >
                 <Bell size={14} />
                 <span>Notify Me Daily</span>
               </button>

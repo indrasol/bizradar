@@ -236,6 +236,11 @@ const OpportunitiesPage: React.FC = () => {
       throw new Error("Invalid data format received");
     }
 
+    // Save all_results to sessionStorage for export
+    if (Array.isArray(data.all_results)) {
+      sessionStorage.setItem("allOpportunitiesForExport", JSON.stringify(data.all_results));
+    }
+
     // Process results
     const processedResults = processSearchResults(data.results);
 

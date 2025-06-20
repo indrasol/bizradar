@@ -431,7 +431,8 @@ export default function Pursuits(): JSX.Element {
 
       if (data) {
         const noticeId = data.notice_id;
-        window.location.href = `https://sam.gov/opp/${noticeId}/view`;
+        // window.location.href = `https://sam.gov/opp/${noticeId}/view`;
+        window.open(`https://sam.gov/opp/${noticeId}/view`);
       } else {
         toast?.error("No notice ID found for the selected pursuit.");
       }
@@ -752,7 +753,8 @@ export default function Pursuits(): JSX.Element {
       {showRfpBuilder && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-start overflow-y-auto">
           <div className="bg-white rounded-lg shadow-xl w-full mx-auto relative">
-            <div className="sticky top-0 bg-white z-10 p-4 border-b flex justify-between items-center">
+            {/* <div className="sticky top-0 bg-white z-10 p-4 border-b flex justify-between items-center"> */}
+            <div className="sticky top-0 z-10 p-4 border-b flex justify-between items-center">
               <h2 className="text-xl font-bold">RFP Response Builder</h2>
               <button
                 onClick={closeRfpBuilder}
