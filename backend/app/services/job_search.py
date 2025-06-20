@@ -378,7 +378,7 @@ def search_jobs(
                         SELECT id, title, additional_details AS description,
                                skills_required AS agency, 'freelancer' AS platform,
                                price_budget AS value, job_url AS external_url,
-                               created_at AS published_date, deadline AS response_date
+                               published_date
                           FROM freelancer_data_table
                          WHERE id IN ({ph})
                     """

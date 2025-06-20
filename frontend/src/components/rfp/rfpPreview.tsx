@@ -399,65 +399,69 @@ const rfpPreview: React.FC<rfpPreviewProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-start overflow-y-auto pt-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full mx-4 relative">
-        <div className="sticky top-0 bg-white z-10 p-4 border-b border-gray-100 flex justify-between items-center rounded-t-xl">
-          <h2 className="text-xl font-bold text-gray-800">Proposal Preview</h2>
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <button
-                onClick={() => setShowDownloadOptions(!showDownloadOptions)}
-                className="inline-flex items-center gap-2 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-sm hover:shadow hover:bg-blue-600"
-              >
-                <Download className="w-4 h-4" /> Download
-              </button>
-              {showDownloadOptions && (
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl z-20 border border-gray-100 overflow-hidden">
+    <div className="fixed inset-0 bg-black bg-opacity-70 z-[100]">
+      <div className="absolute inset-0 overflow-y-auto">
+        <div className="min-h-full flex justify-center items-start pt-4 pb-8">
+          <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full mx-4 relative my-8">
+            <div className="sticky top-0 bg-white z-10 p-4 border-b border-gray-100 flex justify-between items-center rounded-t-xl">
+              <h2 className="text-xl font-bold text-gray-800">Proposal Preview</h2>
+              <div className="flex items-center gap-3">
+                <div className="relative">
                   <button
-                    onClick={downloadPDF}
-                    className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-100 flex items-center gap-2"
+                    onClick={() => setShowDownloadOptions(!showDownloadOptions)}
+                    className="inline-flex items-center gap-2 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-sm hover:shadow hover:bg-blue-600"
                   >
-                    <FileText className="w-4 h-4 text-red-500" /> Download as PDF
+                    <Download className="w-4 h-4" /> Download
                   </button>
-                  <button
-                    onClick={downloadWord}
-                    className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-2"
-                  >
-                    <FileText className="w-4 h-4 text-blue-500" /> Download as Word
-                  </button>
+                  {showDownloadOptions && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl z-20 border border-gray-100 overflow-hidden">
+                      <button
+                        onClick={downloadPDF}
+                        className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-100 flex items-center gap-2"
+                      >
+                        <FileText className="w-4 h-4 text-red-500" /> Download as PDF
+                      </button>
+                      <button
+                        onClick={downloadWord}
+                        className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-2"
+                      >
+                        <FileText className="w-4 h-4 text-blue-500" /> Download as Word
+                      </button>
+                    </div>
+                  )}
                 </div>
-              )}
+                <button
+                  onClick={enhanceWithAI}
+                  className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white px-4 py-2 rounded-lg shadow-sm hover:shadow hover:from-purple-700 hover:to-purple-800"
+                >
+                  <Sparkles className="w-4 h-4" /> Enhance with AI
+                </button>
+                <button
+                  onClick={closeRfpBuilder}
+                  className="text-gray-500 hover:text-gray-700 p-2 hover:bg-gray-100 rounded-full"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
-            <button
-              onClick={enhanceWithAI}
-              className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white px-4 py-2 rounded-lg shadow-sm hover:shadow hover:from-purple-700 hover:to-purple-800"
-            >
-              <Sparkles className="w-4 h-4" /> Enhance with AI
-            </button>
-            <button
-              onClick={closeRfpBuilder}
-              className="text-gray-500 hover:text-gray-700 p-2 hover:bg-gray-100 rounded-full"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-        <div className="p-8 min-h-screen bg-gray-50">
-          <div ref={contentRef}>
-            <RfpPreviewContent
-              logo={logo}
-              companyName={companyName}
-              companyWebsite={companyWebsite}
-              letterhead={letterhead}
-              phone={phone}
-              rfpTitle={rfpTitle}
-              naicsCode={naicsCode}
-              solicitationNumber={solicitationNumber}
-              issuedDate={issuedDate}
-              submittedBy={submittedBy}
-              theme={theme}
-              sections={sections}
-            />
+            <div className="p-8 min-h-screen bg-gray-50">
+              <div ref={contentRef}>
+                <RfpPreviewContent
+                  logo={logo}
+                  companyName={companyName}
+                  companyWebsite={companyWebsite}
+                  letterhead={letterhead}
+                  phone={phone}
+                  rfpTitle={rfpTitle}
+                  naicsCode={naicsCode}
+                  solicitationNumber={solicitationNumber}
+                  issuedDate={issuedDate}
+                  submittedBy={submittedBy}
+                  theme={theme}
+                  sections={sections}
+                />
+              </div>
+            </div>
           </div>
         </div>
       </div>
