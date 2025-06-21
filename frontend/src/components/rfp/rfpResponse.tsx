@@ -1084,8 +1084,8 @@ const RfpResponse = ({ contract, pursuitId }) => {
       if (result.success && result.enhanced_data) {
         // Process the enhanced data and update the sections
         const enhancedData = result.enhanced_data;
-        const pdf_path = result.pdf_path;
-        const merged_docx_path = result.merged_docx_path;
+        const pdf_download_url = result.pdf_download_url;
+        const docx_download_url = result.docx_download_url;
 
         // Create updated sections based on enhanced data
         const updatedSections = [...sections];
@@ -1157,8 +1157,8 @@ const RfpResponse = ({ contract, pursuitId }) => {
         }, 1000);
 
         // Set PDF URL and show PDF modal
-        if (pdf_path) {
-          setPdfUrl(pdf_path);
+        if (pdf_download_url) {
+          setPdfUrl(pdf_download_url);
           setShowPdfModal(true);
         }
 
