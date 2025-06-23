@@ -5,7 +5,7 @@ from utils.logger import get_logger
 import math
 
 from datetime import datetime, date
-from fastapi import APIRouter, Request, HTTPException, BackgroundTasks, Query
+from fastapi import APIRouter, Request, HTTPException, BackgroundTasks, Query, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, StreamingResponse
 
@@ -1294,6 +1294,45 @@ async def get_search_progress(search_id: str):
         'refined_query': results.get('refined_query', '') if results else '',
     }
 
+@search_router.get("/download/{file_type}/{filename}")
+async def download_file(file_type: str, filename: str):
+    """
+    Download generated files (PDF or DOCX) by filename
+    """
+    try:
+        # Validate file type
+        if file_type not in ['pdf', 'docx']:
+            raise HTTPException(status_code=400, detail="Invalid file type")
+        
+        # Construct the file path - look in temp directory
+        import tempfile
+        temp_dir = tempfile.gettempdir()
+        file_path = os.path.join(temp_dir, filename)
+        
+        # Check if file exists
+        if not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail="File not found")
+        
+        # Determine content type
+        content_type = "application/pdf" if file_type == "pdf" else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        
+        # Read and return the file
+        with open(file_path, 'rb') as file:
+            file_content = file.read()
+        
+        return Response(
+            content=file_content,
+            media_type=content_type,
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}",
+                "Content-Length": str(len(file_content))
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Error downloading file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to download file: {str(e)}")
+
 @search_router.post("/enhance-rfp-with-ai")
 async def enhance_rfp_with_ai(request: Request):
     """
@@ -1385,18 +1424,25 @@ async def enhance_rfp_with_ai(request: Request):
         templates_dir = os.path.join(os.path.dirname(__file__), "../utils/templates")
         merged_docx_path, pdf_path = generate_merge_and_convert_report(enhanced_data, templates_dir)
         
-        # Prepare download/display URLs (assuming you have a static file serving endpoint)
-        # For now, just return the file paths; you may want to implement a /download endpoint
+        # Extract filenames from paths for download URLs
+        docx_filename = os.path.basename(merged_docx_path)
+        pdf_filename = os.path.basename(pdf_path)
+        
+        # Create download URLs
+        docx_download_url = f"{request.base_url}download/docx/{docx_filename}"
+        pdf_download_url = f"{request.base_url}download/pdf/{pdf_filename}"
+        
         print("--------------------------------")
-        print(merged_docx_path)
-        print(pdf_path)
+        print(f"DOCX download URL: {docx_download_url}")
+        print(f"PDF download URL: {pdf_download_url}")
         print("--------------------------------")
+        
         return {
             "success": True,
             "enhanced_data": enhanced_data,
             "message": "RFP content enhanced successfully",
-            "merged_docx_path": merged_docx_path,
-            "pdf_path": pdf_path
+            "docx_download_url": docx_download_url,
+            "pdf_download_url": pdf_download_url
         }
         
     except Exception as e:
