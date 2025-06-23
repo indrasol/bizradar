@@ -18,6 +18,10 @@ celery==5.5.2
 PyPDF2
 docx
 sendgrid==6.10.0
+docxtpl
+python-docx
+docxcompose
+docx2pdf
 
 # fastapi==0.115.0
 # uvicorn==0.30.6
