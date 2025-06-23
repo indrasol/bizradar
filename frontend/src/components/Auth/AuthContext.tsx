@@ -184,11 +184,95 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   // Register function
-  const register = async (firstName: string, lastName: string, email: string, password: string) => {
+  // const register = async (firstName: string, lastName: string, email: string, password: string) => {
+  //   setLoading(true);
+
+  //   try {
+  //     // Register the user
+  //     const { data, error } = await supabase.auth.signUp({
+  //       email,
+  //       password,
+  //       options: {
+  //         data: {
+  //           first_name: firstName,
+  //           last_name: lastName,
+  //         },
+  //       },
+  //     });
+
+  //     if (error) throw error;
+
+  //     // Create profile entry
+  //     if (data.user) {
+  //       const { error: profileError } = await supabase.from('profiles').insert({
+  //         id: data.user.id,
+  //         first_name: firstName,
+  //         last_name: lastName,
+  //         email: email,
+  //         role: 'user',
+  //         created_at: new Date().toISOString(),
+  //       });
+
+  //       if (profileError) {
+  //         // If profile creation fails, sign out the user
+  //         await supabase.auth.signOut();
+  //         setUser(null);
+  //         setSession(null);
+  //         tokenService.clearTokens();
+
+  //         // Check if it's a duplicate email error
+  //         if (profileError.code === '23505' && profileError.message?.includes('profiles_email_key')) {
+  //           throw new Error('An account with this email already exists. Please try logging in instead.');
+  //         }
+  //         throw new Error('Failed to create user profile. Please try again.');
+  //       }
+  //     }
+
+  //     // Update state
+  //     setSession(data.session);
+  //     setUser(data.user);
+
+  //     // Store tokens
+  //     if (data.session) {
+  //       tokenService.setTokens(
+  //         data.session.access_token,
+  //         data.session.refresh_token
+  //       );
+  //     }
+  //   } catch (error) {
+  //     const authError = error as AuthError;
+  //     console.error('Registration error:', authError);
+  //     throw new Error(authError.message || 'Failed to register');
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
+  const register = async (
+    firstName: string,
+    lastName: string,
+    email: string,
+    password: string,
+    // setUser: (user: any) => void,
+    // setSession: (session: any) => void,
+    // setLoading: (isLoading: boolean) => void
+  ) => {
     setLoading(true);
 
     try {
-      // Register the user
+
+      // Step 1: Check if user already exists in auth.users
+      const { data: existingUser } = await supabase
+        .from('profiles') // or `auth.users` if you have access
+        .select('id')
+        .eq('email', email)
+        .maybeSingle();
+
+      if (existingUser) {
+        throw new Error('An account with this email already exists. Please log in instead.');
+      }
+
+      // Sign up the user with custom user_metadata
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -200,44 +284,39 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         },
       });
 
-      if (error) throw error;
-
-      // Create profile entry
-      if (data.user) {
-        const { error: profileError } = await supabase.from('profiles').insert({
-          id: data.user.id,
-          first_name: firstName,
-          last_name: lastName,
-          email: email,
-          role: 'user',
-          created_at: new Date().toISOString(),
-        });
-
-        if (profileError) {
-          // If profile creation fails, sign out the user
-          await supabase.auth.signOut();
-          setUser(null);
-          setSession(null);
-          tokenService.clearTokens();
-
-          // Check if it's a duplicate email error
-          if (profileError.code === '23505' && profileError.message?.includes('profiles_email_key')) {
-            throw new Error('An account with this email already exists. Please try logging in instead.');
-          }
-          throw new Error('Failed to create user profile. Please try again.');
+      if (error) {
+        // Duplicate email or any other auth error
+        if (error.message.toLowerCase().includes('user already registered')) {
+          throw new Error('An account with this email already exists. Please try logging in.');
         }
+        throw error;
       }
 
-      // Update state
-      setSession(data.session);
-      setUser(data.user);
+      if (data.user) {
+        // Optionally update profile fields (first_name/last_name) since the trigger only inserts email
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({
+            first_name: firstName,
+            last_name: lastName,
+          })
+          .eq('id', data.user.id);
 
-      // Store tokens
-      if (data.session) {
-        tokenService.setTokens(
-          data.session.access_token,
-          data.session.refresh_token
-        );
+        if (updateError) {
+          console.warn('Profile update failed:', updateError.message);
+        }
+
+        // Set user and session
+        setUser(data.user);
+        setSession(data.session);
+
+        // Store tokens
+        if (data.session) {
+          tokenService.setTokens(
+            data.session.access_token,
+            data.session.refresh_token
+          );
+        }
       }
     } catch (error) {
       const authError = error as AuthError;
