@@ -1351,6 +1351,18 @@ async def enhance_rfp_with_ai(request: Request):
         if not company_context or not proposal_context:
             raise HTTPException(status_code=400, detail="Both company_context and proposal_context are required")
         
+        # --- Redis cache check ---
+        # Create a unique hash for the context
+        context_str = json.dumps({"company_context": company_context, "proposal_context": proposal_context}, sort_keys=True)
+        context_hash = hashlib.md5(context_str.encode()).hexdigest()
+        cache_key = f"enhanced_rfp:{user_id}:{pursuit_id}:{context_hash}"
+        
+        # Check Redis for cached enhanced RFP
+        cached_result = redis_client.get_json(cache_key)
+        if cached_result:
+            logger.info(f"Returning cached enhanced RFP for pursuit ID: {pursuit_id}")
+            return cached_result
+        
         # Prepare the data structure for AI processing using the provided format
         current_dir = os.path.dirname(__file__)
         with open(os.path.join(current_dir, "context_prompt.json"), "r") as file:
@@ -1437,13 +1449,16 @@ async def enhance_rfp_with_ai(request: Request):
         print(f"PDF download URL: {pdf_download_url}")
         print("--------------------------------")
         
-        return {
+        result = {
             "success": True,
             "enhanced_data": enhanced_data,
             "message": "RFP content enhanced successfully",
             "docx_download_url": docx_download_url,
             "pdf_download_url": pdf_download_url
         }
+        # --- Cache the result in Redis ---
+        redis_client.set_json(cache_key, result, expiry=CACHE_TTL)
+        return result
         
     except Exception as e:
         logger.error(f"Error enhancing RFP with AI: {str(e)}")
