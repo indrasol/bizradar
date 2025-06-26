@@ -1,6 +1,7 @@
 import React from 'react';
 import { Bot, PenLine, CheckCircle, Trash2, CheckSquare } from 'lucide-react';
 import { Pursuit } from './types';
+import { format, parseISO, isValid } from 'date-fns';
 
 interface ListViewProps {
   pursuits: Pursuit[];
@@ -10,6 +11,18 @@ interface ListViewProps {
   onAskAI: (pursuit: Pursuit) => void;
   onToggleSubmission: (id: string) => void;
 }
+
+const formatDate = (dateString: string) => {
+  if (!dateString || dateString === "TBD") return "No Due Date Set";
+  // Try to parse as ISO, fallback to Date constructor
+  const date = parseISO(dateString);
+  if (isValid(date)) {
+    return format(date, 'MM/dd/yyyy');
+  }
+  // fallback for non-ISO strings
+  const fallbackDate = new Date(dateString);
+  return isValid(fallbackDate) ? format(fallbackDate, 'MM/dd/yyyy') : dateString;
+};
 
 export const ListView: React.FC<ListViewProps> = ({
   pursuits,
@@ -114,11 +127,11 @@ export const ListView: React.FC<ListViewProps> = ({
                   </span>
                 </td>
                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {pursuit.created}
+                  {formatDate(pursuit.created)}
                 </td>
                 <td className="px-4 py-4 whitespace-nowrap">
                   <div className="text-sm text-red-600 font-medium">
-                    {pursuit.dueDate !== "TBD" ? pursuit.dueDate : "No Due Date Set"}
+                    {formatDate(pursuit.dueDate)}
                   </div>
                 </td>
                 <td className="px-4 py-4 whitespace-nowrap text-sm text-center">
