@@ -1,6 +1,6 @@
 import React from 'react';
 import { ChevronRight, Power } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/components/Auth/useAuth';
 import { toast } from 'sonner';
 
@@ -27,7 +27,7 @@ export const PursuitHeader: React.FC<PursuitHeaderProps> = ({ onViewAnalytics })
     <div className="border-b border-gray-200 bg-white shadow-sm">
       <div className="flex items-center justify-between px-6 py-4">
         <div className="flex items-center gap-2">
-          <span className="text-gray-500 text-sm font-medium">Portfolio</span>
+          <Link to="/dashboard" className="text-gray-500 text-sm font-medium hover:text-blue-600 transition-colors">Home</Link>
           <ChevronRight size={16} className="text-gray-500" />
           <span className="font-medium text-gray-500">Pursuits</span>
         </div>

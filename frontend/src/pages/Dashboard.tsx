@@ -33,6 +33,7 @@ import { useAuth } from "../components/Auth/useAuth";
 import { supabase } from "../utils/supabase";
 import { toast } from "sonner";
 import { UpgradeModal } from "@/components/subscription/UpgradeModal";
+import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
 
 
 // const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -481,6 +482,13 @@ const BizRadarDashboard = () => {
     // You could open a modal, navigate to a messages page, etc.
   };
 
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+
+  const handleUpgradeSuccess = () => {
+    setUpgradeOpen(false);
+    toast.success('Your subscription has been upgraded successfully!');
+  };
+
   return (
     <div className="flex flex-col h-screen bg-gray-50">
       {/* Create Pursuit Dialog */}
@@ -642,28 +650,19 @@ const BizRadarDashboard = () => {
           <div className="bg-white border-b border-gray-200 py-3 px-6 flex justify-between items-center shadow-sm">
             <div className="flex items-center space-x-6">
               <div className="flex items-center space-x-2">
-                <span className="text-sm font-medium text-gray-500">
-                  Portfolio
-                </span>
-                <ChevronRight className="h-4 w-4 text-gray-500" />
-                <span className="text-sm font-medium text-gray-500 ">
-                  Home
-                </span>
+                <Link to="/dashboard" className="text-sm font-medium text-gray-500 hover:text-blue-600 transition-colors">Home</Link>
+                {/* <ChevronRight className="h-4 w-4 text-gray-500" />
+                <span className="text-sm font-medium text-gray-500">Home</span> */}
               </div>
             </div>
             <div className="flex items-center space-x-3">
               <button
-              // onClick={() => setShowUpgradeModal(true)} 
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 transition-all">
+                onClick={() => setUpgradeOpen(true)}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 transition-all">
                 <span>Upgrade</span>
                 <Star size={14} className="ml-1" />
               </button>
-              <div className="relative">
-                <button className="p-2 text-gray-500 hover:text-gray-600 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors">
-                  <Bell className="h-5 w-5" />
-                </button>
-                <div className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></div>
-              </div>
+              <NotificationDropdown />
               <div className="relative">
                 <button className="p-2 text-gray-500 hover:text-gray-600 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors">
                   <MessageSquare className="h-5 w-5" />
@@ -699,7 +698,7 @@ const BizRadarDashboard = () => {
                     <span className="mx-2">•</span>
                     <span className="flex items-center">
                       <Target className="h-4 w-4 mr-1 text-blue-500" />
-                      Portfolio
+                      Home
                     </span>
                   </div>
                 </div>
@@ -1307,6 +1306,12 @@ const BizRadarDashboard = () => {
           </div>
         </div>
       </div>
+
+      <UpgradeModal
+        isOpen={upgradeOpen}
+        onClose={() => setUpgradeOpen(false)}
+        onSuccess={handleUpgradeSuccess}
+      />
     </div>
   );
 };

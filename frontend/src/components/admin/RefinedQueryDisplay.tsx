@@ -1,24 +1,25 @@
 import React, { useState } from 'react';
 import { ChevronDown, ChevronUp, Sparkles, Brain, Copy, Check } from 'lucide-react';
+import { TypeWriter } from '../ui/TypeWriter';
 
 const RefinedQueryDisplay = ({ originalQuery, refinedQuery, isVisible, onClose }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
-  
+
   // Parse the refined query to highlight the different components
   const parseQuery = (query) => {
     if (!query) return [];
-    
+
     // Split by OR and AND
     const parts = [];
     let currentString = '';
     let inQuotes = false;
-    
+
     for (let i = 0; i < query.length; i++) {
       const char = query[i];
       const nextThree = query.substr(i, 3);
       const nextFour = query.substr(i, 4);
-      
+
       if (char === '"') {
         inQuotes = !inQuotes;
         currentString += char;
@@ -36,11 +37,11 @@ const RefinedQueryDisplay = ({ originalQuery, refinedQuery, isVisible, onClose }
         currentString += char;
       }
     }
-    
+
     if (currentString.trim()) {
       parts.push({ type: 'term', content: currentString.trim() });
     }
-    
+
     return parts;
   };
 
@@ -69,21 +70,21 @@ const RefinedQueryDisplay = ({ originalQuery, refinedQuery, isVisible, onClose }
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button 
+          <button
             onClick={copyToClipboard}
             className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
             title="Copy enhanced query"
           >
             {copied ? <Check size={18} className="text-green-600" /> : <Copy size={18} />}
           </button>
-          <button 
+          <button
             onClick={() => setIsExpanded(!isExpanded)}
             className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
             title={isExpanded ? "Collapse" : "Expand"}
           >
             {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
           </button>
-          <button 
+          <button
             onClick={onClose}
             className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
             title="Close"
@@ -92,7 +93,7 @@ const RefinedQueryDisplay = ({ originalQuery, refinedQuery, isVisible, onClose }
           </button>
         </div>
       </div>
-      
+
       {!isExpanded ? (
         <div className="py-2 px-6 flex items-center">
           <div className="mr-3">
@@ -101,7 +102,19 @@ const RefinedQueryDisplay = ({ originalQuery, refinedQuery, isVisible, onClose }
           </div>
           <div className="flex-1 overflow-hidden">
             <div className="font-medium text-gray-700 mb-1">{originalQuery}</div>
-            <div className="text-sm font-mono text-gray-600 truncate">{refinedQuery.replaceAll(' OR ',', ')}</div>
+            <div className="text-sm font-mono text-gray-600 truncate">
+              {
+                refinedQuery.replaceAll(' OR ', ', ')
+              }
+              {/* {refinedQuery && (
+                <TypeWriter
+                  text={refinedQuery}
+                  onComplete={() => {
+                    console.log('Animation completed');
+                  }}
+                />
+              )} */}
+              </div>
           </div>
         </div>
       ) : (
@@ -110,27 +123,27 @@ const RefinedQueryDisplay = ({ originalQuery, refinedQuery, isVisible, onClose }
             <div className="text-sm font-medium text-gray-500 mr-6">Original:</div>
             <div className="font-medium text-gray-700">{originalQuery}</div>
           </div>
-          
+
           <div className="flex flex-col mb-2">
             <div className="text-sm font-medium text-gray-500 mb-1">Enhanced:</div>
             <div className="bg-white p-3 rounded-lg border border-indigo-100 shadow-inner">
               <div className="flex flex-wrap">
                 {terms.map((term, index) => (
-                  <span 
-                    key={index} 
+                  <span
+                    key={index}
                     className={
-                      term.type === 'operator' 
-                        ? 'text-purple-600 font-bold px-1' 
+                      term.type === 'operator'
+                        ? 'text-purple-600 font-bold px-1'
                         : 'bg-indigo-50 text-indigo-800 px-2 py-1 rounded-md m-0.5'
                     }
                   >
-                    {term.content.replaceAll(' OR ',', ')}
+                    {term.content.replaceAll(' OR ', ', ')}
                   </span>
                 ))}
               </div>
             </div>
           </div>
-          
+
           <div className="bg-indigo-50 p-3 rounded-lg border border-indigo-100">
             <div className="flex items-center mb-2">
               <Sparkles size={18} className="text-purple-500 mr-2" />

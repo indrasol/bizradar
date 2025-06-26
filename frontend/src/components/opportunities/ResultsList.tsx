@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef, useEffect } from "react";
 import { Download, Bell, Shield, Search, Zap, Database, Code } from "lucide-react";
 import OpportunityCard from "./OpportunityCard";
 import Pagination from "./Pagination";
@@ -8,7 +8,7 @@ import { toast } from "@/hooks/use-toast";
 
 import { ResultsListProps, SuggestedQuery } from "../../models/opportunities"
 
-const ResultsList: React.FC<ResultsListProps> = ({
+const ResultsList: React.FC<ResultsListProps & { onScroll?: (scrollTop: number) => void, scrollContainerRef?: React.RefObject<HTMLDivElement> }> = ({
   opportunities,
   isSearching,
   hasSearched,
@@ -25,6 +25,8 @@ const ResultsList: React.FC<ResultsListProps> = ({
   setExpandedDescriptions,
   refinedQuery,
   handleSuggestedQueryClick,
+  onScroll,
+  scrollContainerRef,
 }) => {
   const suggestedQueries: SuggestedQuery[] = [
     {
@@ -57,8 +59,28 @@ const ResultsList: React.FC<ResultsListProps> = ({
     },
   ];
    
+  const internalRef = useRef<HTMLDivElement>(null);
+  const refToUse = scrollContainerRef || internalRef;
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (onScroll && refToUse.current) {
+        onScroll(refToUse.current.scrollTop);
+      }
+    };
+    const node = refToUse.current;
+    if (node) {
+      node.addEventListener("scroll", handleScroll);
+    }
+    return () => {
+      if (node) {
+        node.removeEventListener("scroll", handleScroll);
+      }
+    };
+  }, [onScroll, refToUse]);
+
   return (
-    <div className="flex-1 overflow-y-auto p-2 results-container">
+    <div ref={refToUse} className="flex-1 overflow-y-auto p-2 results-container">
       <div className="border-b border-gray-200 px-5 py-2 bg-white flex items-center justify-between">
         <div className="flex items-center gap-6">
           <div

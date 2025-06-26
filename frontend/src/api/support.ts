@@ -23,10 +23,20 @@ export const supportApi = {
     return data;
   },
 
-  async createTicket(ticket: Omit<SupportTicket, 'id' | 'createdAt' | 'updatedAt'>): Promise<SupportTicket> {
+  async createTicket(ticket: Omit<SupportTicket, 'id' | 'created_at' | 'updated_at' | 'user_id'>): Promise<SupportTicket> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User must be logged in to create a support ticket.');
+    const now = new Date().toISOString();
     const { data, error } = await supabase
       .from('support_tickets')
-      .insert([ticket])
+      .insert([
+        {
+          ...ticket,
+          user_id: user.id,
+          created_at: now,
+          updated_at: now
+        }
+      ])
       .select()
       .single();
 

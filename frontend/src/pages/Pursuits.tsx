@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { FileText, X, PenLine, CheckCircle } from "lucide-react";
 import SideBar from "../components/layout/SideBar";
@@ -14,6 +14,7 @@ import { CalendarView } from "@/components/pursuits/CalendarView";
 import { ListView } from "@/components/pursuits/ListView";
 import { CreatePursuitDialog } from "@/components/pursuits/CreatePursuitDialog";
 import { Pursuit, Opportunity, RfpSaveEventDetail } from "@/components/pursuits/types";
+import ScrollToTopButton from "../components/opportunities/ScrollToTopButton";
 
 const isDevelopment = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
 const API_BASE_URL = isDevelopment
@@ -35,6 +36,11 @@ export default function Pursuits(): JSX.Element {
   const [currentRfpPursuitId, setCurrentRfpPursuitId] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showScrollToTop, setShowScrollToTop] = useState(false);
+  const [mainContentNode, setMainContentNode] = useState<HTMLDivElement | null>(null);
+  const mainContentRef = useCallback((node: HTMLDivElement | null) => {
+    setMainContentNode(node);
+  }, []);
 
   // File input ref
   const fileInputRef = useRef(null);
@@ -715,6 +721,30 @@ export default function Pursuits(): JSX.Element {
     }
   };
 
+  useEffect(() => {
+    const node = mainContentNode;
+    if (!node) return;
+    node.scrollTop = 0;
+    const handleScroll = () => {
+      if (node.scrollTop > 100) {
+        setShowScrollToTop(true);
+      } else {
+        setShowScrollToTop(false);
+      }
+    };
+    node.addEventListener("scroll", handleScroll);
+    setTimeout(handleScroll, 0);
+    return () => {
+      node.removeEventListener("scroll", handleScroll);
+    };
+  }, [mainContentNode, view, filteredPursuits.length]);
+
+  const handleScrollToTop = () => {
+    if (mainContentNode) {
+      mainContentNode.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
   // Show loading state
   if (isLoading) {
     return (
@@ -794,7 +824,7 @@ export default function Pursuits(): JSX.Element {
             }}
           />
 
-          <div className="flex-1 overflow-auto p-5">
+          <div className="flex-1 overflow-auto p-5" ref={mainContentRef}>
             {pursuits.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-[60vh]">
                 <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full mb-5">
@@ -842,6 +872,7 @@ export default function Pursuits(): JSX.Element {
                 )}
               </>
             )}
+            <ScrollToTopButton isVisible={showScrollToTop} scrollToTop={handleScrollToTop} />
           </div>
         </div>
       </div>

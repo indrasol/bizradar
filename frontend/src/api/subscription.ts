@@ -1,5 +1,8 @@
 import { supabase } from '@/utils/supabase';
 import { Subscription, SubscriptionPlan } from '@/models/subscription';
+import { useToast } from '@/components/ui/use-toast';
+
+
 
 export const subscriptionApi = {
   async getCurrentSubscription(): Promise<Subscription | null> {
@@ -59,16 +62,32 @@ export const subscriptionApi = {
   },
 
   async createSubscription(planType: string): Promise<Subscription> {
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      throw new Error('User must be logged in to create a subscription.');
+    }
+
+    const startDate = new Date();
+    const endDate = new Date(startDate);
+    endDate.setMonth(endDate.getMonth() + 1);
+
     const { data, error } = await supabase
       .from('user_subscriptions')
-      .insert([{
+      .upsert({
+        user_id: user.id,
         plan_type: planType,
         status: 'active',
-        start_date: new Date().toISOString(),
-        end_date: null
-      }])
+        start_date: startDate.toISOString(),
+        end_date: endDate.toISOString()
+      }, { onConflict: 'user_id' })
       .select()
       .single();
+    // const { toast } = useToast();
+    // toast({
+    //   title: 'Subscription Upgraded',
+    //   description: 'Your subscription has been upgraded successfully!',
+    // });
 
     if (error) throw error;
     return data;
