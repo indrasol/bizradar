@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { X, Check } from 'lucide-react';
 import { subscriptionApi } from '@/api/subscription';
-import { SubscriptionPlan } from '@/models/subscription';
+import { SubscriptionPlan, Subscription } from '@/models/subscription';
 
 interface UpgradeModalProps {
   isOpen: boolean;
@@ -18,10 +18,13 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [currentSubscription, setCurrentSubscription] = useState<Subscription | null>(null);
+  const [subLoading, setSubLoading] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       loadPlans();
+      loadCurrentSubscription();
     }
   }, [isOpen]);
 
@@ -32,6 +35,19 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
     } catch (err) {
       console.error('Failed to load subscription plans:', err);
       setError('Failed to load subscription plans. Please try again.');
+    }
+  };
+
+  const loadCurrentSubscription = async () => {
+    setSubLoading(true);
+    try {
+      const sub = await subscriptionApi.getCurrentSubscription();
+      setCurrentSubscription(sub);
+      if (sub) setSelectedPlan(sub.plan_type);
+    } catch (err) {
+      console.error('Failed to load current subscription:', err);
+    } finally {
+      setSubLoading(false);
     }
   };
 
@@ -68,6 +84,18 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
             </button>
           </div>
 
+          {subLoading ? (
+            <div className="mb-4">Loading your current subscription...</div>
+          ) : currentSubscription ? (
+            <div className="mb-4 p-3 bg-blue-50 text-blue-700 rounded-md">
+              Current Plan: <strong>{currentSubscription.plan_type}</strong>
+            </div>
+          ) : (
+            <div className="mb-4 p-3 bg-gray-50 text-gray-700 rounded-md">
+              No active subscription found.
+            </div>
+          )}
+
           {error && (
             <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-md">
               {error}
@@ -82,7 +110,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                   selectedPlan === plan.type
                     ? 'border-blue-500 bg-blue-50'
                     : 'border-gray-200 hover:border-blue-300'
-                }`}
+                } ${currentSubscription && currentSubscription.plan_type === plan.type ? 'ring-2 ring-blue-400' : ''}`}
                 onClick={() => setSelectedPlan(plan.type)}
               >
                 <div className="flex justify-between items-start mb-4">

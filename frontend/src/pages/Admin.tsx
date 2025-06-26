@@ -15,6 +15,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import SideBar from "../components/layout/SideBar";
+import { Link } from 'react-router-dom';
 
 // Define the correct API base URL
 const API_BASE_URL = 'http://localhost:5000';
@@ -317,7 +318,7 @@ const Admin = () => {
           <div className="border-b border-gray-200 bg-white shadow-sm">
             <div className="flex items-center justify-between px-6 py-4">
               <div className="flex items-center gap-2">
-                <span className="text-gray-500 text-sm font-medium">Dashboard</span>
+                <Link to="/dashboard" className="text-gray-500 text-sm font-medium hover:text-blue-600 transition-colors">Home</Link>
                 <ChevronRight size={16} className="text-gray-400" />
                 <span className="font-medium text-gray-800">Admin</span>
               </div>
