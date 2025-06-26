@@ -4,8 +4,9 @@ import SearchBar from "./SearchBar";
 import ResultsList from "./ResultsList";
 import { MainContentProps } from "@/models/opportunities";
 import RefinedQueryDisplay from "../admin/RefinedQueryDisplay";
+import { AnimatePresence, motion } from "framer-motion";
 
-const MainContent: React.FC<MainContentProps> = ({
+const MainContent: React.FC<MainContentProps & { onResultsScroll?: (scrollTop: number) => void, resultsListRef?: React.RefObject<HTMLDivElement> }> = ({
   searchQuery,
   setSearchQuery,
   handleSearch,
@@ -30,7 +31,9 @@ const MainContent: React.FC<MainContentProps> = ({
   expandedDescriptions,
   setExpandedDescriptions,
   handleSuggestedQueryClick,
-  applyFilters
+  applyFilters,
+  onResultsScroll,
+  resultsListRef
 }) => {
   return (
     <div className="flex-1 flex overflow-hidden">
@@ -46,14 +49,23 @@ const MainContent: React.FC<MainContentProps> = ({
           handleSearch={handleSearch}
           clearSearch={clearSearch}
         />
+        <AnimatePresence mode="wait">
         {showRefinedQuery && refinedQuery && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="p-6 bg-gradient-to-r from-blue-50 via-indigo-50 to-blue-50 rounded-lg border border-blue-100 shadow-sm"
+          >
           <RefinedQueryDisplay
             originalQuery={searchQuery}
             refinedQuery={refinedQuery}
             isVisible={showRefinedQuery}
             onClose={() => setShowRefinedQuery(false)}
           />
+          </motion.div>
         )}
+        </AnimatePresence>
         <ResultsList
           opportunities={opportunities}
           isSearching={isSearching}
@@ -71,6 +83,8 @@ const MainContent: React.FC<MainContentProps> = ({
           setExpandedDescriptions={setExpandedDescriptions}
           refinedQuery={refinedQuery}
           handleSuggestedQueryClick={handleSuggestedQueryClick}
+          onScroll={onResultsScroll}
+          scrollContainerRef={resultsListRef}
         />
       </div>
     </div>

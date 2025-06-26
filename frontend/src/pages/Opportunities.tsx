@@ -42,6 +42,8 @@ const OpportunitiesPage: React.FC = () => {
   const [expandedDescriptions, setExpandedDescriptions] = useState<Record<string, boolean>>({});
   const requestInProgressRef = useRef<boolean>(false);
   const lastSearchIdRef = useRef<string>("");
+  const [showScrollToTop, setShowScrollToTop] = useState(false);
+  const resultsListRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchPursuitCount = async () => {
@@ -256,6 +258,17 @@ const OpportunitiesPage: React.FC = () => {
     };
   };
 
+  // Helper to get refined/expanded query from backend
+  const getRefinedQuery = async (query: string, contractType?: string | null, platform?: string | null) => {
+    const response = await fetch(`${API_BASE_URL}/refine-query`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query, contract_type: contractType, platform }),
+    });
+    const data = await response.json();
+    if (data.success) return data.refined_query;
+    throw new Error(data.message || "Failed to refine query");
+  };
 
   const performAndSetSearch = async (
     params: Partial<SearchParams>,
@@ -265,25 +278,27 @@ const OpportunitiesPage: React.FC = () => {
     setHasSearched(false);
 
     try {
-      const {
-        opportunities,
-        total,
-        total_pages,
-        page,
-        refined_query,
-      } = await executeSearch(params);
+      // 1. Get expanded query first
+      const refinedQuery = await getRefinedQuery(query, params.contract_type, params.platform);
+      setRefinedQuery(refinedQuery);
+      setShowRefinedQuery(true);
 
-      setRefinedQuery(refined_query || "");
-      setShowRefinedQuery(!!refined_query);
+      // 2. Now search using the expanded query
+      const result = await executeSearch({ ...params, query: refinedQuery });
 
-      setOpportunities(opportunities);
-      setTotalResults(total);
-      setTotalPages(total_pages);
-      setCurrentPage(page);
+      setOpportunities(result.opportunities);
+      setTotalResults(result.total);
+      setTotalPages(result.total_pages);
+      setCurrentPage(result.page);
       setHasSearched(true);
 
-      saveSearchStateToSession(query, opportunities, total, total_pages, refined_query || "");
-      // setGenerateSummary(true);
+      saveSearchStateToSession(
+        query,
+        result.opportunities,
+        result.total,
+        result.total_pages,
+        result.refined_query || ""
+      );
     } catch (error: any) {
       toast.error(error.message || "An error occurred during search");
       setOpportunities([]);
@@ -501,6 +516,21 @@ const OpportunitiesPage: React.FC = () => {
     sessionStorage.setItem("lastOpportunitiesSearchState", JSON.stringify(searchState));
   };
 
+  // Handler for ResultsList scroll
+  const handleResultsScroll = (scrollTop: number) => {
+    if (scrollTop > 100) {
+      setShowScrollToTop(true);
+    } else {
+      setShowScrollToTop(false);
+    }
+  };
+
+  const handleScrollToTop = () => {
+    if (resultsListRef.current) {
+      resultsListRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
   return (
     <div className="h-screen flex flex-col bg-gray-50 text-gray-800">
       <div className="flex flex-1 overflow-hidden">
@@ -533,10 +563,12 @@ const OpportunitiesPage: React.FC = () => {
             setExpandedDescriptions={setExpandedDescriptions}
             handleSuggestedQueryClick={handleSuggestedQueryClick}
             applyFilters={applyFilters}
+            onResultsScroll={handleResultsScroll}
+            resultsListRef={resultsListRef}
           />
         </div>
       </div>
-      <ScrollToTopButton isVisible={true} scrollToTop={() => window.scrollTo({ top: 0, behavior: "smooth" })} />
+      <ScrollToTopButton isVisible={showScrollToTop} scrollToTop={handleScrollToTop} />
       <NotificationToast show={showNotification} />
     </div>
   );

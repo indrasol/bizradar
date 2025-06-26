@@ -19,6 +19,8 @@ export const ListView: React.FC<ListViewProps> = ({
   onAskAI,
   onToggleSubmission,
 }) => {
+  const internalRef = React.useRef<HTMLDivElement>(null);
+
   const getStageColor = (stage: string): string => {
     if (stage.includes("RFP Response Initiated")) {
       return "bg-yellow-100 text-yellow-800";

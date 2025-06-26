@@ -24,7 +24,6 @@ export const SupportTicketForm: React.FC<SupportTicketFormProps> = ({
 
     try {
       await supportApi.createTicket({
-        userId: '1',
         subject,
         description,
         priority,

@@ -91,6 +91,21 @@ def get_cache_keys(query, user_id=None, include_filters=False, **filters):
         "refined_query_key": f"{filter_key}:refined_query"
     }
 
+def get_or_generate_refined_query(query, contract_type, platform, user_id):
+    """
+    Utility to get the refined query from cache or generate and cache it if not present.
+    """
+    cache_key = f"search:{user_id}:{query.lower()}"
+    redis_client = RedisClient()
+    refined_query = ""
+    if redis_client.exists(cache_key):
+        cached_data = redis_client.get_json(cache_key)
+        if cached_data:
+            refined_query = cached_data.get('refined_query', "")
+    if refined_query == "":
+        refined_query = refine_query(query, contract_type, platform)
+        redis_client.set_json(cache_key, {"refined_query": refined_query}, expiry=86400)
+    return refined_query
 
 @search_router.post("/process-documents")
 async def process_documents(request: Request):
@@ -195,7 +210,6 @@ async def test_redis_connection(request: Request):
         logger.error(f"Redis test error: {e}")
         return {"connection_status": "failed", "error": str(e), "timestamp": str(datetime.now())}
 
-# Fix for the search_job_opportunities function in search_routes.py
 @search_router.post("/search-opportunities")
 async def search_job_opportunities(request: Request):
     """
@@ -211,6 +225,7 @@ async def search_job_opportunities(request: Request):
         is_new_search = data.get('is_new_search', True)
         contract_type = data.get('contract_type')
         platform = data.get('platform')
+        refined_query_param = data.get('refined_query')  # <-- Accept refined_query from frontend
         
         # Generate a unique search ID
         search_id = f"{user_id}_{int(datetime.now().timestamp())}"
@@ -255,6 +270,8 @@ async def search_job_opportunities(request: Request):
                     
                     all_results = sort_job_results(all_results, sort_by=data.get('sort_by', 'relevance'))
                     
+                    json_safe_results = json_serializable(all_results)
+                    
                     total_count = len(all_results)
                     total_pages = (total_count + page_size - 1) // page_size if total_count > 0 else 0
                     
@@ -288,18 +305,11 @@ async def search_job_opportunities(request: Request):
             redis_client.set_json(f"search_progress:{search_id}", progress)
             
             try:
-                cache_key = f"search:{user_id}:{query.lower()}"
-                if redis_client.exists(cache_key):
-                    cached_data = redis_client.get_json(cache_key)
-                    if cached_data:
-                        refined_query = cached_data.get('refined_query', "")
-                if refined_query == "":
-                    refined_query = refine_query(
-                        query=query,
-                        contract_type=contract_type,
-                        platform=platform
-                    )
-                # redis_client.set_json(f"search_refined_query:{search_id}", refined_query)
+                if refined_query_param:
+                    # Use refined_query provided by frontend
+                    refined_query = refined_query_param
+                else:
+                    refined_query = get_or_generate_refined_query(query, contract_type, platform, user_id)
                 logger.info(f"Query expansion: '{query}' -> '{refined_query}'")
             except Exception as e:
                 logger.error(f"Error refining query: {str(e)}")
@@ -1463,3 +1473,18 @@ async def enhance_rfp_with_ai(request: Request):
     except Exception as e:
         logger.error(f"Error enhancing RFP with AI: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to enhance RFP: {str(e)}")
+
+@search_router.post("/refine-query")
+async def get_refined_query(request: Request):
+    data = await request.json()
+    query = data.get("query")
+    contract_type = data.get("contract_type")
+    platform = data.get("platform")
+    user_id = data.get("user_id", "anonymous")  # Extract user_id, default to 'anonymous'
+    if not query:
+        return {"success": False, "message": "Query required"}
+    try:
+        refined_query = get_or_generate_refined_query(query, contract_type, platform, user_id)
+        return {"success": True, "refined_query": refined_query}
+    except Exception as e:
+        return {"success": False, "message": str(e)}

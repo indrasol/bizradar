@@ -4,7 +4,7 @@ export type SubscriptionStatus = 'active' | 'cancelled' | 'expired';
 export interface Subscription {
   id: string;
   userId: string;
-  planType: PlanType;
+  plan_type: PlanType;
   status: SubscriptionStatus;
   startDate: string;
   endDate: string | null;

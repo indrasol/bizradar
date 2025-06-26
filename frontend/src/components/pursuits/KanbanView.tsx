@@ -58,7 +58,7 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
   };
 
   return (
-    <div className="flex gap-4 p-4 overflow-x-auto h-full">
+    <div className="flex gap-4 p-4 overflow-x-auto">
       {STAGES.map((stage) => (
         <div
           key={stage.id}

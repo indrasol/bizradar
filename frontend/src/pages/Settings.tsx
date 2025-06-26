@@ -6,7 +6,7 @@ import {
   User,
   Building,
   Mail,
-  Link,
+  // Link,
   FileText,
   Globe,
   Clock,
@@ -39,13 +39,16 @@ import {
   Plus,
   Star,
   Power,
+  Link as LinkIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "../utils/supabase";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import SideBar from "../components/layout/SideBar";
 import PasswordManagement from "@/components/passwordmanager/PasswordManager";
 import UpdatePhoneNumber from "@/components/TwoFA/UpdatePhoneNumber";
+import { UpgradeModal } from "@/components/subscription/UpgradeModal";
+import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
 
 export const Settings = () => {
   const { user, logout } = useAuth();
@@ -128,6 +131,7 @@ export const Settings = () => {
   // Add state for password visibility
   const [showPassword, setShowPassword] = useState(false);
   const [showPhoneModal, setShowPhoneModal] = useState(false);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
 
   // Handle logout
   const handleLogout = async () => {
@@ -607,6 +611,11 @@ export const Settings = () => {
     toast.success("You will be redirected to the subscription page");
   };
 
+  const handleUpgradeSuccess = () => {
+    setUpgradeOpen(false);
+    toast.success('Your subscription has been upgraded successfully!');
+  };
+
   // Display loading state if user data is not loaded yet
   if (loading) {
     return (
@@ -629,24 +638,18 @@ export const Settings = () => {
           <div className="border-b border-gray-200 bg-white shadow-sm">
             <div className="flex items-center justify-between px-6 py-4">
               <div className="flex items-center gap-2">
-                <span className="text-gray-500 text-sm font-medium">
-                  Portfolio
-                </span>
+                <Link to="/dashboard" className="text-gray-500 text-sm font-medium hover:text-blue-600 transition-colors">Home</Link>
                 <ChevronRight size={16} className="text-gray-500" />
                 <span className="font-medium text-gray-500">Settings</span>
               </div>
               <div className="flex items-center gap-4">
-                <button className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm hover:shadow transition-all flex items-center gap-2">
+                <button
+                  onClick={() => setUpgradeOpen(true)}
+                  className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm hover:shadow transition-all flex items-center gap-2">
                   <span>Upgrade</span>
                   <Star size={14} className="ml-1" />
                 </button>
-                <div className="relative">
-                  <Bell
-                    size={20}
-                    className="text-gray-500 hover:text-gray-700 cursor-pointer"
-                  />
-                  <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 rounded-full"></div>
-                </div>
+                <NotificationDropdown />
                 <button
                   onClick={handleLogout}
                   className="bg-blue-50 text-blue-600 hover:bg-blue-100 px-4 py-2 rounded-lg text-sm flex items-center gap-2 border border-blue-100 transition-colors"
@@ -868,7 +871,7 @@ export const Settings = () => {
                             </label>
                             <div className="relative">
                               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <Link className="h-5 w-5 text-gray-400" />
+                                <LinkIcon className="h-5 w-5 text-gray-400" />
                               </div>
                               <input
                                 type="url"
@@ -994,7 +997,7 @@ export const Settings = () => {
                                 </div>
                                 <div className="flex items-center space-x-3 col-span-2">
                                   <div className="flex-shrink-0 bg-blue-50 p-2 rounded-lg">
-                                    <Link className="w-5 h-5 text-blue-500" />
+                                    <LinkIcon className="w-5 h-5 text-blue-500" />
                                   </div>
                                   <div>
                                     <p className="text-sm text-gray-500">
@@ -2700,6 +2703,11 @@ export const Settings = () => {
           </div>
         </div>
       )}
+      <UpgradeModal
+        isOpen={upgradeOpen}
+        onClose={() => setUpgradeOpen(false)}
+        onSuccess={handleUpgradeSuccess}
+      />
     </div>
   );
 };
