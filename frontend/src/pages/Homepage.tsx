@@ -7,7 +7,6 @@ import { useState, useRef, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Toaster } from "@/components/ui/toaster";
 import { emailService } from "@/utils/emailService";
-import { X } from 'lucide-react';
 
 const Layout = ({ children }) => {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
