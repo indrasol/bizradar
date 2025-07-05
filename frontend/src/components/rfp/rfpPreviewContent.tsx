@@ -230,9 +230,10 @@ const rfpPreviewContent: React.FC<rfpPreviewContentProps> = ({
                         <h2 className={`text-2xl font-bold mb-4 ${styles.header}`}>
                             {section.title}
                         </h2>
-                        <div className={`whitespace-pre-line ${styles.textColor}`}>
-                            {section.content}
-                        </div>
+                        <div 
+                            className={`${styles.textColor}`}
+                            dangerouslySetInnerHTML={{ __html: section.content }}
+                        />
                     </div>
                 ))}
             </div>
