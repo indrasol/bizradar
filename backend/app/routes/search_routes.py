@@ -23,7 +23,7 @@ from collections import deque
 from services.filter_service import apply_filters_to_results, sort_results
 import asyncio
 from typing import List
-from utils.doc_generation import generate_merge_and_convert_report
+# from utils.doc_generation import generate_merge_and_convert_report
 
 # Configure logging
 logger = get_logger(__name__)
@@ -1348,131 +1348,131 @@ async def enhance_rfp_with_ai(request: Request):
     """
     Enhance RFP response with AI by processing the provided data and returning enhanced content
     """
+    # try:
+    data = await request.json()
+    logger.info("Enhance RFP with AI request received")
+    
+    # Extract the context data from the request
+    company_context = data.get("company_context", {})
+    proposal_context = data.get("proposal_context", {})
+    pursuit_id = data.get("pursuitId")
+    user_id = data.get("userId")
+    
+    if not company_context or not proposal_context:
+        raise HTTPException(status_code=400, detail="Both company_context and proposal_context are required")
+    
+    # --- Redis cache check ---
+    # Create a unique hash for the context
+    context_str = json.dumps({"company_context": company_context, "proposal_context": proposal_context}, sort_keys=True)
+    context_hash = hashlib.md5(context_str.encode()).hexdigest()
+    cache_key = f"enhanced_rfp:{user_id}:{pursuit_id}:{context_hash}"
+    
+    # Check Redis for cached enhanced RFP
+    cached_result = redis_client.get_json(cache_key)
+    if cached_result:
+        logger.info(f"Returning cached enhanced RFP for pursuit ID: {pursuit_id}")
+        return cached_result
+    
+    # Prepare the data structure for AI processing using the provided format
+    current_dir = os.path.dirname(__file__)
+    with open(os.path.join(current_dir, "context_prompt.json"), "r") as file:
+        rfp_context_prompt = file.read()
+    with open(os.path.join(current_dir, "context_example.json"), "r") as file:
+        rfp_context_example = file.read()
+    
+    # Use OpenAI to enhance the content
+    client = get_openai_client()
+    
+    # Create a comprehensive prompt for AI enhancement
+    system_prompt = """You are an expert RFP (Request for Proposal) enhancement specialist. 
+    You will receive RFP data and enhance it to create a professional, comprehensive proposal.
+    
+    Your task is to:
+    1. Enhance existing content to be more professional and compelling
+    2. Fill in missing sections with appropriate content based on the proposal type
+    3. Ensure consistency in tone and style throughout the document
+    4. Add relevant technical details and industry best practices
+    5. Improve the overall structure and flow of the proposal
+    
+    Return the enhanced data in the same JSON structure as provided, with improved content."""
+    
+    user_prompt = f"""Please generate the following RFP data to create a professional, comprehensive proposal:
+    
+    {rfp_context_prompt}
+    using the data provided in company data in {company_context} and proposal data in {proposal_context}
+    Use the following example to guide your response:
+    {rfp_context_example}
+    
+    Focus on:
+    - Making the content more compelling and professional
+    - Adding relevant technical details
+    - Ensuring consistency across all sections
+    - Improving the overall proposal structure
+    
+    Return the enhanced data in the same JSON format."""
+    
+    response = client.chat.completions.create(
+        model="gpt-4-turbo-preview",
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ],
+        temperature=0.7,
+        max_tokens=4000
+    )
+    enhanced_content = response.choices[0].message.content
+    print("--------------------------------")
+    print(enhanced_content)
+    print("--------------------------------")
+    
+    # Try to parse the enhanced content as JSON
     try:
-        data = await request.json()
-        logger.info("Enhance RFP with AI request received")
+        # Extract JSON from the response if it's wrapped in markdown
+        if "```json" in enhanced_content:
+            enhanced_content = enhanced_content.split("```json")[1].split("```", 1)[0].strip()
+        elif "```" in enhanced_content:
+            enhanced_content = enhanced_content.split("```", 1)[1].strip()
         
-        # Extract the context data from the request
-        company_context = data.get("company_context", {})
-        proposal_context = data.get("proposal_context", {})
-        pursuit_id = data.get("pursuitId")
-        user_id = data.get("userId")
+        enhanced_data = json.loads(enhanced_content)
+    except json.JSONDecodeError:
+        # If JSON parsing fails, return the raw enhanced content
+        enhanced_data = {"enhanced_content": enhanced_content}
+    
+    # Log the enhancement process
+    # logger.info(f"RFP enhancement completed for pursuit ID: {pursuit_id}")
+    
+    # # --- Generate and merge DOCX, then convert to PDF ---
+    
+    # templates_dir = os.path.join(os.path.dirname(__file__), "../utils/templates")
+    # merged_docx_path, pdf_path = generate_merge_and_convert_report(enhanced_data, templates_dir)
+    
+    # # Extract filenames from paths for download URLs
+    # docx_filename = os.path.basename(merged_docx_path)
+    # pdf_filename = os.path.basename(pdf_path)
+    
+    # # Create download URLs
+    # docx_download_url = f"{request.base_url}download/docx/{docx_filename}"
+    # pdf_download_url = f"{request.base_url}download/pdf/{pdf_filename}"
+    
+    # print("--------------------------------")
+    # print(f"DOCX download URL: {docx_download_url}")
+    # print(f"PDF download URL: {pdf_download_url}")
+    # print("--------------------------------")
+    
+    result = {
+        "success": True,
+        "enhanced_data": enhanced_data,
+        "message": "RFP content enhanced successfully",
+        # "docx_download_url": docx_download_url,
+        # "pdf_download_url": pdf_download_url
+    }
+    # --- Cache the result in Redis ---
+    redis_client.set_json(cache_key, result, expiry=CACHE_TTL)
+    return result
         
-        if not company_context or not proposal_context:
-            raise HTTPException(status_code=400, detail="Both company_context and proposal_context are required")
-        
-        # --- Redis cache check ---
-        # Create a unique hash for the context
-        context_str = json.dumps({"company_context": company_context, "proposal_context": proposal_context}, sort_keys=True)
-        context_hash = hashlib.md5(context_str.encode()).hexdigest()
-        cache_key = f"enhanced_rfp:{user_id}:{pursuit_id}:{context_hash}"
-        
-        # Check Redis for cached enhanced RFP
-        cached_result = redis_client.get_json(cache_key)
-        if cached_result:
-            logger.info(f"Returning cached enhanced RFP for pursuit ID: {pursuit_id}")
-            return cached_result
-        
-        # Prepare the data structure for AI processing using the provided format
-        current_dir = os.path.dirname(__file__)
-        with open(os.path.join(current_dir, "context_prompt.json"), "r") as file:
-            rfp_context_prompt = file.read()
-        with open(os.path.join(current_dir, "context_example.json"), "r") as file:
-            rfp_context_example = file.read()
-        
-        # Use OpenAI to enhance the content
-        client = get_openai_client()
-        
-        # Create a comprehensive prompt for AI enhancement
-        system_prompt = """You are an expert RFP (Request for Proposal) enhancement specialist. 
-        You will receive RFP data and enhance it to create a professional, comprehensive proposal.
-        
-        Your task is to:
-        1. Enhance existing content to be more professional and compelling
-        2. Fill in missing sections with appropriate content based on the proposal type
-        3. Ensure consistency in tone and style throughout the document
-        4. Add relevant technical details and industry best practices
-        5. Improve the overall structure and flow of the proposal
-        
-        Return the enhanced data in the same JSON structure as provided, with improved content."""
-        
-        user_prompt = f"""Please generate the following RFP data to create a professional, comprehensive proposal:
-        
-        {rfp_context_prompt}
-        using the data provided in company data in {company_context} and proposal data in {proposal_context}
-        Use the following example to guide your response:
-        {rfp_context_example}
-        
-        Focus on:
-        - Making the content more compelling and professional
-        - Adding relevant technical details
-        - Ensuring consistency across all sections
-        - Improving the overall proposal structure
-        
-        Return the enhanced data in the same JSON format."""
-        
-        response = client.chat.completions.create(
-            model="gpt-4-turbo-preview",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ],
-            temperature=0.7,
-            max_tokens=4000
-        )
-        enhanced_content = response.choices[0].message.content
-        print("--------------------------------")
-        print(enhanced_content)
-        print("--------------------------------")
-        
-        # Try to parse the enhanced content as JSON
-        try:
-            # Extract JSON from the response if it's wrapped in markdown
-            if "```json" in enhanced_content:
-                enhanced_content = enhanced_content.split("```json")[1].split("```", 1)[0].strip()
-            elif "```" in enhanced_content:
-                enhanced_content = enhanced_content.split("```", 1)[1].strip()
-            
-            enhanced_data = json.loads(enhanced_content)
-        except json.JSONDecodeError:
-            # If JSON parsing fails, return the raw enhanced content
-            enhanced_data = {"enhanced_content": enhanced_content}
-        
-        # Log the enhancement process
-        logger.info(f"RFP enhancement completed for pursuit ID: {pursuit_id}")
-        
-        # --- Generate and merge DOCX, then convert to PDF ---
-        
-        templates_dir = os.path.join(os.path.dirname(__file__), "../utils/templates")
-        merged_docx_path, pdf_path = generate_merge_and_convert_report(enhanced_data, templates_dir)
-        
-        # Extract filenames from paths for download URLs
-        docx_filename = os.path.basename(merged_docx_path)
-        pdf_filename = os.path.basename(pdf_path)
-        
-        # Create download URLs
-        docx_download_url = f"{request.base_url}download/docx/{docx_filename}"
-        pdf_download_url = f"{request.base_url}download/pdf/{pdf_filename}"
-        
-        print("--------------------------------")
-        print(f"DOCX download URL: {docx_download_url}")
-        print(f"PDF download URL: {pdf_download_url}")
-        print("--------------------------------")
-        
-        result = {
-            "success": True,
-            "enhanced_data": enhanced_data,
-            "message": "RFP content enhanced successfully",
-            "docx_download_url": docx_download_url,
-            "pdf_download_url": pdf_download_url
-        }
-        # --- Cache the result in Redis ---
-        redis_client.set_json(cache_key, result, expiry=CACHE_TTL)
-        return result
-        
-    except Exception as e:
-        logger.error(f"Error enhancing RFP with AI: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to enhance RFP: {str(e)}")
+    # except Exception as e:
+    #     logger.error(f"Error enhancing RFP with AI: {str(e)}")
+    #     raise HTTPException(status_code=500, detail=f"Failed to enhance RFP: {str(e)}")
 
 @search_router.post("/refine-query")
 async def get_refined_query(request: Request):
