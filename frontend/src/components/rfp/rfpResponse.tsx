@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import mammoth from "mammoth";
 import {
   Download,
   Sparkles,
@@ -31,11 +32,13 @@ import { saveAs } from 'file-saver';
 import { Document, Packer, Paragraph, TextRun, ImageRun, AlignmentType } from 'docx';
 import RfpPreview from './rfpPreview';
 import RfpPreviewContent from './rfpPreviewContent';
+import DocumentEditor from './DocumentEditor';
 import jsPDF from 'jspdf';
 import '@react-pdf-viewer/core/lib/styles/index.css';
 import '@react-pdf-viewer/default-layout/lib/styles/index.css';
 import { Worker, Viewer } from '@react-pdf-viewer/core';
 import { defaultLayoutPlugin } from '@react-pdf-viewer/default-layout';
+import nunjucks from 'nunjucks';
 
 // Import API base URL
 const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
@@ -82,60 +85,110 @@ const RfpResponse = ({ contract, pursuitId }) => {
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [pdfUrl, setPdfUrl] = useState('');
 
+  // State for preview modal
+  const [showMergedPreview, setShowMergedPreview] = useState(false);
+  const [mergedPreviewContent, setMergedPreviewContent] = useState('');
+
+  // Ref for the DocumentEditor preview
+  const previewEditorRef = useRef(null);
+
   // Move the defaultTemplate function above the sections state declaration
   const defaultTemplate = (job) => [
     {
       id: 1,
       title: 'COVER PAGE',
-      content: `[Automatically generated from your company information]`,
+      content: '/rfp_templates/cover_page_template.docx',
       icon: 'cover',
       completed: false
     },
     {
       id: 2,
       title: 'TABLE OF CONTENTS',
-      content: 'Executive Summary\nCompany Overview\nQualifications and Experience\nTechnical Approach\nProject Management Plan\nCompliance & Certifications\nPricing Structure\nReferences\nAppendices',
+      content: '/rfp_templates/table_of_content_template.docx',
       icon: 'toc',
       completed: false
     },
     {
       id: 3,
       title: 'EXECUTIVE SUMMARY',
-      content: "This section briefly introduces your company's understanding of the project and how your solution aligns with the client's goals.",
+      content: '/rfp_templates/executive_summary_template.docx',
       icon: 'summary',
       completed: false
     },
     {
       id: 4,
       title: 'COMPANY OVERVIEW',
-      content: `${companyName} is a leading provider of innovative solutions for government and commercial clients. With extensive experience in delivering high-quality services, we are well-positioned to meet the requirements outlined in this RFP.`,
+      content: '/rfp_templates/company_overview_template.docx',
       icon: 'company',
       completed: false
     },
     {
       id: 5,
       title: 'QUALIFICATIONS AND EXPERIENCE',
-      content: 'Outline your company\'s qualifications and experience relevant to this RFP.',
+      content: '/rfp_templates/qualifications_experience_template.docx',
       icon: 'qualifications',
       completed: false
     },
     {
       id: 6,
       title: 'TECHNICAL APPROACH',
-      content: 'Detail your approach to addressing the requirements in this RFP.',
+      content: '/rfp_templates/technical_approach_template.docx',
       icon: 'technical',
       completed: false
     },
     {
       id: 7,
       title: 'PRICING STRUCTURE',
-      content: 'Provide your pricing details and payment terms.',
+      content: '/rfp_templates/pricing_structure_template.docx',
       icon: 'pricing',
       completed: false
     }
   ];
 
-  const [sections, setSections] = useState(defaultTemplate(exampleJob));
+  // Utility function to convert a docx file (by URL or path) to HTML using mammoth
+  // Note: This function assumes mammoth is available in the environment.
+  // Usage: const html = await docxToHtml('/path/to/file.docx');
+  async function docxToHtml(docxUrl: string): Promise<string> {
+    try {
+      // Fetch the docx file as an ArrayBuffer
+      const response = await fetch(docxUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch docx file: ${response.statusText}`);
+      }
+      const arrayBuffer = await response.arrayBuffer();
+
+      // Use mammoth to convert the ArrayBuffer to HTML
+      // @ts-ignore
+      const { value: html } = await mammoth.convertToHtml({ arrayBuffer });
+      return html;
+    } catch (error) {
+      console.error('Error converting docx to HTML:', error);
+      return '<p>Error loading document content.</p>';
+    }
+  }
+
+  const [sections, setSections] = useState<any[]>([]);
+
+  useEffect(() => {
+    // Helper to load all docx files and replace content with HTML
+    const loadSectionsWithHtml = async () => {
+      const templateSections = defaultTemplate(exampleJob);
+      const sectionsWithHtml = await Promise.all(
+        templateSections.map(async (section) => {
+          // If content is a .docx path, convert to HTML
+          if (typeof section.content === 'string' && section.content.endsWith('.docx')) {
+            const html = await docxToHtml(section.content);
+            return { ...section, content: html };
+          }
+          return section;
+        })
+      );
+      setSections(sectionsWithHtml);
+    };
+
+    loadSectionsWithHtml();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [proposalData, setProposalData] = useState({
     logo: null,
@@ -327,18 +380,6 @@ const RfpResponse = ({ contract, pursuitId }) => {
 
       // Update last saved timestamp
       setLastSaved(new Date().toLocaleTimeString());
-
-      // // Dispatch a custom event that the Pursuits component can listen for
-      // console.log("Dispatching rfp_saved event with details:", { pursuitId, stage: stageToSet });
-
-      // const customEvent = new CustomEvent('rfp_saved', {
-      //   detail: {
-      //     pursuitId,
-      //     stage: stageToSet
-      //   }
-      // });
-
-      // window.dispatchEvent(customEvent);
 
       // Show success notification
       if (showNotification) {
@@ -972,7 +1013,7 @@ const RfpResponse = ({ contract, pursuitId }) => {
     return `${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
   };
 
-  const enhanceWithAI = async () => {
+  const enhanceWithAI = async (sectionsToEnhance: any[]) => {
     try {
       // Show loading state
       toast?.info("Enhancing RFP with AI...");
@@ -1087,67 +1128,20 @@ const RfpResponse = ({ contract, pursuitId }) => {
         const pdf_download_url = result.pdf_download_url;
         const docx_download_url = result.docx_download_url;
 
-        // Create updated sections based on enhanced data
-        const updatedSections = [...sections];
-
-        // Update sections with enhanced content
-        updatedSections.forEach((section, index) => {
-          const sectionTitle = section.title.toUpperCase();
-
-          if (sectionTitle.includes("EXECUTIVE SUMMARY") && enhancedData.gen_para1) {
-            updatedSections[index] = { ...section, content: String(enhancedData.gen_para1) };
-          } else if (sectionTitle.includes("COMPANY OVERVIEW") && enhancedData.gen_para2) {
-            updatedSections[index] = { ...section, content: String(enhancedData.gen_para2) };
-          } else if (sectionTitle.includes("QUALIFICATIONS") && enhancedData.gen_para3) {
-            updatedSections[index] = { ...section, content: String(enhancedData.gen_para3) };
-          } else if (sectionTitle.includes("TECHNICAL") && enhancedData.gen_para4) {
-            updatedSections[index] = { ...section, content: String(enhancedData.gen_para4) };
-          } else if (sectionTitle.includes("PRICING") && enhancedData.gen_para5) {
-            updatedSections[index] = { ...section, content: String(enhancedData.gen_para5) };
-          } else if (sectionTitle.includes("SCOPE") && enhancedData.scope_of_work) {
-            updatedSections[index] = { ...section, content: String(enhancedData.scope_of_work) };
-          }
+        // For each section to enhance, treat the current HTML as a nunjucks template, render with enhancedData, and set it back
+        const enhancedSections = sectionsToEnhance.map((section) => {
+          const template = section.content;
+          const rendered = nunjucks.renderString(template, enhancedData);
+          return { ...section, content: rendered };
         });
 
-        // Add new sections if they don't exist
-        if (enhancedData.deliverables && enhancedData.deliverables.length > 0) {
-          const deliverablesSection = {
-            id: sections.length + 1,
-            title: 'DELIVERABLES',
-            content: enhancedData.deliverables.map(d => `${d.title}: ${d.description}`).join('\n\n'),
-            icon: 'deliverables',
-            completed: false
-          };
-          updatedSections.push(deliverablesSection);
-        }
-
-        if (enhancedData.service_costs && enhancedData.service_costs.length > 0) {
-          const costsSection = {
-            id: sections.length + 2,
-            title: 'SERVICE COSTS',
-            content: enhancedData.service_costs.map(c => `${c.component}: ${c.description} - ${c.cost}`).join('\n\n'),
-            icon: 'costs',
-            completed: false
-          };
-          updatedSections.push(costsSection);
-        }
-
-        // Update the sections state
-        setSections(updatedSections);
-
-        // Update other fields if enhanced data provides them
-        if (enhancedData.company_name) {
-          setCompanyName(String(enhancedData.company_name));
-        }
-        if (enhancedData.company_website) {
-          setCompanyWebsite(String(enhancedData.company_website));
-        }
-        if (enhancedData.company_phone) {
-          setPhone(String(enhancedData.company_phone));
-        }
-        if (enhancedData.company_street) {
-          setLetterhead(String(enhancedData.company_street));
-        }
+        // Update only the relevant sections in the main sections state
+        setSections((prevSections) =>
+          prevSections.map((section) => {
+            const match = enhancedSections.find((s) => s.id === section.id);
+            return match ? match : section;
+          })
+        );
 
         toast?.success("RFP enhanced successfully with AI!");
 
@@ -1156,10 +1150,9 @@ const RfpResponse = ({ contract, pursuitId }) => {
           saveRfpData(true);
         }, 1000);
 
-        // Set PDF URL and show PDF modal
+        // Set PDF URL but do not show the PDF modal
         if (pdf_download_url) {
           setPdfUrl(pdf_download_url);
-          setShowPdfModal(true);
         }
 
       } else {
@@ -1174,7 +1167,10 @@ const RfpResponse = ({ contract, pursuitId }) => {
 
   // Show preview screen
   const handlePreview = () => {
-    setShowPreview(true);
+    // Merge all section contents with a horizontal rule or page break
+    const merged = sections.map(s => s.content).join('<hr style="page-break-after:always; margin:32px 0;"/>');
+    setMergedPreviewContent(merged);
+    setShowMergedPreview(true);
   };
 
   // Calculate completion percentage
@@ -1235,6 +1231,100 @@ const RfpResponse = ({ contract, pursuitId }) => {
   const dueDateInfo = getDueDateProximity();
 
   const defaultLayoutPluginInstance = defaultLayoutPlugin();
+
+  // Handler to download the preview as PDF
+  const handleDownloadPreviewPDF = async () => {
+    // Find the editor content DOM node
+    const editorElement = document.querySelector('.ProseMirror');
+    if (!editorElement) return;
+
+    // Create a temporary container for PDF rendering
+    const tempContainer = document.createElement('div');
+    tempContainer.style.position = 'absolute';
+    tempContainer.style.left = '-9999px';
+    tempContainer.style.background = 'white';
+    tempContainer.style.padding = '32px';
+    tempContainer.style.width = '794px'; // A4 width in px at 96 DPI
+    tempContainer.style.fontFamily = 'Times New Roman, serif';
+    tempContainer.style.fontSize = '16px';
+    tempContainer.style.lineHeight = '1.6';
+    tempContainer.style.color = '#000000';
+    tempContainer.innerHTML = editorElement.innerHTML;
+    tempContainer.className = 'temp-pdf-container';
+    document.body.appendChild(tempContainer);
+
+    const style = document.createElement('style');
+    style.textContent = `
+      .temp-pdf-container h1 { font-size: 32px; font-weight: bold; margin: 24px 0 16px 0; color: #1f2937; page-break-after: avoid; }
+      .temp-pdf-container h2 { font-size: 24px; font-weight: bold; margin: 20px 0 12px 0; color: #374151; page-break-after: avoid; }
+      .temp-pdf-container h3 { font-size: 20px; font-weight: bold; margin: 16px 0 8px 0; color: #4b5563; page-break-after: avoid; }
+      .temp-pdf-container p { margin: 12px 0; page-break-inside: avoid; }
+      .temp-pdf-container ul, .temp-pdf-container ol { margin: 12px 0; padding-left: 24px; page-break-inside: avoid; }
+      .temp-pdf-container li { margin: 4px 0; }
+      .temp-pdf-container strong { font-weight: bold; }
+      .temp-pdf-container em { font-style: italic; }
+      .temp-pdf-container u { text-decoration: underline; }
+      .temp-pdf-container table { border-collapse: collapse; margin: 16px 0; width: 100%; page-break-inside: avoid; }
+      .temp-pdf-container table td, .temp-pdf-container table th { border: 2px solid #e5e7eb; padding: 8px 12px; }
+      .temp-pdf-container table th { background-color: #f9fafb; font-weight: bold; }
+      .temp-pdf-container img { max-width: 100%; height: auto; margin: 16px 0; page-break-inside: avoid; }
+    `;
+    document.head.appendChild(style);
+
+    const html2canvas = (await import('html2canvas')).default;
+    const jsPDF = (await import('jspdf')).default;
+
+    const canvas = await html2canvas(tempContainer, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: '#ffffff',
+      logging: false,
+      height: tempContainer.scrollHeight,
+    });
+
+    document.body.removeChild(tempContainer);
+    document.head.removeChild(style);
+
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = 210;
+    const pageHeight = 297;
+    const margin = 10;
+    const imgWidth = pageWidth - (margin * 2);
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+    let y = margin;
+    let remainingHeight = imgHeight;
+    let sourceY = 0;
+
+    while (remainingHeight > 0) {
+      const availableHeight = pageHeight - (margin * 2);
+      const sliceHeight = Math.min(remainingHeight, availableHeight);
+      const sourceHeight = (sliceHeight * canvas.width) / imgWidth;
+      const sliceCanvas = document.createElement('canvas');
+      sliceCanvas.width = canvas.width;
+      sliceCanvas.height = sourceHeight;
+      const sliceCtx = sliceCanvas.getContext('2d');
+      if (sliceCtx) {
+        sliceCtx.drawImage(
+          canvas,
+          0, sourceY,
+          canvas.width, sourceHeight,
+          0, 0,
+          canvas.width, sourceHeight
+        );
+        const sliceImgData = sliceCanvas.toDataURL('image/png');
+        pdf.addImage(sliceImgData, 'PNG', margin, y, imgWidth, sliceHeight);
+      }
+      remainingHeight -= sliceHeight;
+      sourceY += sourceHeight;
+      if (remainingHeight > 0) {
+        pdf.addPage();
+        y = margin;
+      }
+    }
+    pdf.save('proposal-preview.pdf');
+  };
 
   return (
     <div className="fixed inset-0 bg-gray-50 overflow-y-auto">
@@ -1361,7 +1451,7 @@ const RfpResponse = ({ contract, pursuitId }) => {
                     <Eye className="w-4 h-4" /> Preview
                   </button>
                   <button
-                    onClick={enhanceWithAI}
+                    onClick={() => enhanceWithAI(sections)}//Top action enhancewithai
                     disabled={isSubmitted}
                     className={`inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-2 rounded-lg shadow-sm hover:shadow transition-all hover:from-blue-700 hover:to-blue-800 ${isSubmitted ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
@@ -1662,13 +1752,12 @@ const RfpResponse = ({ contract, pursuitId }) => {
 
                     {expandedSection === section.id && (
                       <div className="p-5 border-t border-gray-200 bg-white">
-                        <textarea
-                          rows={8}
-                          className={`w-full border border-gray-200 p-4 rounded-lg focus:ring-2 focus:ring-blue-200 focus:border-blue-400 focus:outline-none shadow-inner bg-white ${isSubmitted ? 'bg-gray-50 cursor-not-allowed' : ''}`}
+                        <DocumentEditor
                           value={section.content}
-                          onChange={(e) => updateField(index, 'content', e.target.value)}
-                          placeholder="Enter section content here..."
+                          onChange={(value) => updateField(index, 'content', value)}
                           disabled={isSubmitted}
+                          placeholder="Enter section content here..."
+                          className="min-h-[400px]"
                         />
                         <div className="flex justify-between mt-4">
                           <div className="flex items-center gap-2">
@@ -1690,7 +1779,7 @@ const RfpResponse = ({ contract, pursuitId }) => {
                               )}
                             </button>
                             <button
-                              onClick={() => enhanceWithAI()}
+                              onClick={() => enhanceWithAI([section])}// Sectional enhance with AI
                               disabled={isSubmitted}
                               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors
                                 ${isSubmitted ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -1774,32 +1863,33 @@ const RfpResponse = ({ contract, pursuitId }) => {
             </div>
           </div>
 
-          {/* PDF Modal */}
-          {showPdfModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
-              <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-3xl relative">
+          {/* Merged DocumentEditor Preview Modal */}
+          {showMergedPreview && (
+            <div
+              className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center"
+              onClick={() => setShowMergedPreview(false)}
+            >
+              <div
+                className="bg-white rounded-xl shadow-xl p-6 w-full max-w-4xl relative"
+                onClick={e => e.stopPropagation()}
+              >
                 <button
-                  onClick={() => setShowPdfModal(false)}
+                  onClick={() => setShowMergedPreview(false)}
                   className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+                  aria-label="Close preview"
                 >
                   <X className="w-6 h-6" />
                 </button>
-                <h2 className="text-lg font-bold mb-4">Preview PDF</h2>
-                <div className="w-full h-[70vh] mb-4">
-                  <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js">
-                    <Viewer
-                      fileUrl={pdfUrl}
-                      plugins={[defaultLayoutPluginInstance]}
-                    />
-                  </Worker>
+                <h2 className="text-lg font-bold mb-4">Proposal Preview</h2>
+                <div className="w-full mb-4">
+                  <DocumentEditor value={mergedPreviewContent} onChange={setMergedPreviewContent} disabled={false} />
                 </div>
-                <a
-                  href={pdfUrl}
-                  download
-                  className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700"
+                <button
+                  onClick={handleDownloadPreviewPDF}
+                  className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-2 rounded-lg shadow-sm hover:shadow hover:from-blue-700 hover:to-blue-800"
                 >
-                  <Download className="w-5 h-5" /> Download PDF
-                </a>
+                  <Download className="w-5 h-5" /> Download as PDF
+                </button>
               </div>
             </div>
           )}
