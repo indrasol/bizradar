@@ -38,7 +38,105 @@ import '@react-pdf-viewer/core/lib/styles/index.css';
 import '@react-pdf-viewer/default-layout/lib/styles/index.css';
 import { Worker, Viewer } from '@react-pdf-viewer/core';
 import { defaultLayoutPlugin } from '@react-pdf-viewer/default-layout';
-import nunjucks from 'nunjucks';
+
+
+const renderTemplate = (template: string, data: any): string => {
+  // First handle for loops
+  template = processForLoops(template, data);
+  
+  // Then handle conditionals
+  template = processConditionals(template, data);
+  
+  // Finally handle simple variable substitution
+  return template.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
+    const value = key.split('.').reduce((obj, k) => obj?.[k.trim()], data);
+    return value !== undefined ? String(value) : match;
+  });
+};
+
+const processForLoops = (template: string, data: any): string => {
+  // Match {% for item in array %} ... {% endfor %}
+  const forLoopRegex = /\{%\s*for\s+(\w+)\s+in\s+(\w+)\s*%\}([\s\S]*?)\{%\s*endfor\s*%\}/g;
+  
+  return template.replace(forLoopRegex, (match, itemName, arrayName, loopContent) => {
+    const array = arrayName.split('.').reduce((obj, k) => obj?.[k.trim()], data);
+    
+    if (!Array.isArray(array)) {
+      console.warn(`Template: Array '${arrayName}' not found or not an array`);
+      return '';
+    }
+    
+    return array.map(item => {
+      // Create a new context with the current item
+      const itemContext = { ...data, [itemName]: item };
+      
+      // Process nested loops and conditionals within this loop
+      let processedContent = processForLoops(loopContent, itemContext);
+      processedContent = processConditionals(processedContent, itemContext);
+      
+      // Handle variable substitution within the loop
+      return processedContent.replace(/\{\{([^}]+)\}\}/g, (varMatch, key) => {
+        const value = key.split('.').reduce((obj, k) => obj?.[k.trim()], itemContext);
+        return value !== undefined ? String(value) : varMatch;
+      });
+    }).join('');
+  });
+};
+
+const processConditionals = (template: string, data: any): string => {
+  // Match {% if condition %} ... {% endif %}
+  const ifRegex = /\{%\s*if\s+([^%]+)\s*%\}([\s\S]*?)\{%\s*endif\s*%\}/g;
+  
+  return template.replace(ifRegex, (match, condition, content) => {
+    const isTrue = evaluateCondition(condition, data);
+    return isTrue ? content : '';
+  });
+};
+
+const evaluateCondition = (condition: string, data: any): boolean => {
+  // Simple condition evaluation
+  // Supports: variable, variable == value, variable != value, variable.length > 0
+  
+  const trimmedCondition = condition.trim();
+  
+  // Check if it's a simple variable existence check
+  if (!trimmedCondition.includes(' ')) {
+    const value = trimmedCondition.split('.').reduce((obj, k) => obj?.[k.trim()], data);
+    return value !== undefined && value !== null && value !== '';
+  }
+  
+  // Check for equality/inequality
+  const equalityMatch = trimmedCondition.match(/^(.+)\s*(==|!=)\s*(.+)$/);
+  if (equalityMatch) {
+    const [, left, operator, right] = equalityMatch;
+    const leftValue = left.trim().split('.').reduce((obj, k) => obj?.[k.trim()], data);
+    const rightValue = right.trim().replace(/['"]/g, ''); // Remove quotes
+    
+    if (operator === '==') {
+      return String(leftValue) === rightValue;
+    } else if (operator === '!=') {
+      return String(leftValue) !== rightValue;
+    }
+  }
+  
+  // Check for length comparisons
+  const lengthMatch = trimmedCondition.match(/^(.+)\.length\s*(>|<|>=|<=)\s*(\d+)$/);
+  if (lengthMatch) {
+    const [, arrayPath, operator, length] = lengthMatch;
+    const array = arrayPath.trim().split('.').reduce((obj, k) => obj?.[k.trim()], data);
+    const arrayLength = Array.isArray(array) ? array.length : 0;
+    const compareLength = parseInt(length);
+    
+    switch (operator) {
+      case '>': return arrayLength > compareLength;
+      case '<': return arrayLength < compareLength;
+      case '>=': return arrayLength >= compareLength;
+      case '<=': return arrayLength <= compareLength;
+    }
+  }
+  
+  return false;
+};
 
 // Import API base URL
 const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
@@ -1125,13 +1223,13 @@ const RfpResponse = ({ contract, pursuitId }) => {
       if (result.success && result.enhanced_data) {
         // Process the enhanced data and update the sections
         const enhancedData = result.enhanced_data;
-        const pdf_download_url = result.pdf_download_url;
-        const docx_download_url = result.docx_download_url;
+        // const pdf_download_url = result.pdf_download_url;
+        // const docx_download_url = result.docx_download_url;
 
-        // For each section to enhance, treat the current HTML as a nunjucks template, render with enhancedData, and set it back
+        // For each section to enhance, treat the current HTML as a template, render with enhancedData, and set it back
         const enhancedSections = sectionsToEnhance.map((section) => {
           const template = section.content;
-          const rendered = nunjucks.renderString(template, enhancedData);
+          const rendered = renderTemplate(template, enhancedData);
           return { ...section, content: rendered };
         });
 
@@ -1151,9 +1249,9 @@ const RfpResponse = ({ contract, pursuitId }) => {
         }, 1000);
 
         // Set PDF URL but do not show the PDF modal
-        if (pdf_download_url) {
-          setPdfUrl(pdf_download_url);
-        }
+        // if (pdf_download_url) {
+        //   setPdfUrl(pdf_download_url);
+        // }
 
       } else {
         throw new Error(result.message || 'Failed to enhance RFP');
