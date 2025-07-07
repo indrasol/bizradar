@@ -2,6 +2,7 @@ import React, { createContext, useState, useEffect, ReactNode } from 'react';
 import { Session, User, AuthError, Provider } from '@supabase/supabase-js';
 import { supabase } from '../../utils/supabase';
 import tokenService from "../../utils/tokenService";
+import * as UAParser from 'ua-parser-js';
 
 // Define your API base URL
 const isDevelopment = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
@@ -173,6 +174,47 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
         // Set session marker
         sessionStorage.setItem("userActiveSession", "true");
+
+        // --- Device/Session Tracking Logic ---
+        // Generate or retrieve a unique device_id for this browser
+        let deviceId = localStorage.getItem('bizradar_device_id');
+        if (!deviceId) {
+          deviceId = crypto.randomUUID();
+          localStorage.setItem('bizradar_device_id', deviceId);
+        }
+        // Use UAParser to get device/browser info
+        const parser = new UAParser.UAParser();
+        const uaResult = parser.getResult();
+        const deviceName = `${uaResult.os.name || 'Unknown OS'} (${uaResult.browser.name || 'Unknown Browser'})`;
+        // Optionally, get location (not implemented here, but could use a geolocation API)
+        // For now, set as 'Unknown'
+        const location = 'Unknown';
+        // Build device object
+        const deviceObj = {
+          device_id: deviceId,
+          name: deviceName,
+          last_active: new Date().toISOString(),
+          location,
+          current: true
+        };
+        // Fetch current recent_devices
+        const { data: secData, error: secError } = await supabase
+          .from('user_security')
+          .select('recent_devices')
+          .eq('user_id', data.user.id)
+          .single();
+        let devices = secData?.recent_devices || [];
+        // Remove any previous entry for this device_id
+        devices = devices.filter((d: any) => d.device_id !== deviceId);
+        // Mark all as not current
+        devices = devices.map((d: any) => ({ ...d, current: false }));
+        // Add this device as current
+        devices.push(deviceObj);
+        // Save back to Supabase
+        await supabase
+          .from('user_security')
+          .update({ recent_devices: devices })
+          .eq('user_id', data.user.id);
       }
     } catch (error) {
       const authError = error as AuthError;

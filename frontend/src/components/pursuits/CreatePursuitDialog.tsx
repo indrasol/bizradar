@@ -34,6 +34,7 @@ export const CreatePursuitDialog: React.FC<CreatePursuitDialogProps> = ({
     isFederalContract: false,
     assignee: null as string | null,
   });
+  const [titleError, setTitleError] = useState<string | null>(null);
 
   const availableTags = ["RFP", "RFI", "IDIQ", "BPA", "GSA", "NAICS"];
   const availableAssignees = ["John Doe", "Jane Smith", "Mike Johnson"];
@@ -88,6 +89,11 @@ export const CreatePursuitDialog: React.FC<CreatePursuitDialogProps> = ({
   };
 
   const handleSubmit = () => {
+    if (!newPursuit.title.trim()) {
+      setTitleError("Title is required");
+      return;
+    }
+    setTitleError(null);
     onCreatePursuit(newPursuit);
     onClose();
     // Reset form
@@ -127,12 +133,17 @@ export const CreatePursuitDialog: React.FC<CreatePursuitDialogProps> = ({
           <input
             type="text"
             placeholder="Pursuit title"
-            className="w-full p-2 border-b border-gray-200 text-lg font-medium mb-4 focus:outline-none focus:border-blue-500"
+            className={`w-full p-2 border-b border-gray-200 text-lg font-medium mb-1 focus:outline-none focus:border-blue-500 ${titleError ? 'border-red-500' : ''}`}
             value={newPursuit.title}
-            onChange={(e) =>
-              setNewPursuit({ ...newPursuit, title: e.target.value })
-            }
+            onChange={(e) => {
+              setNewPursuit({ ...newPursuit, title: e.target.value });
+              if (titleError && e.target.value.trim()) setTitleError(null);
+            }}
+            required
           />
+          {titleError && (
+            <div className="text-red-500 text-xs mb-3">{titleError}</div>
+          )}
 
           {/* Description Input */}
           <textarea

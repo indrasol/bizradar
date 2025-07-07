@@ -44,6 +44,7 @@ const OpportunitiesPage: React.FC = () => {
   const lastSearchIdRef = useRef<string>("");
   const [showScrollToTop, setShowScrollToTop] = useState(false);
   const resultsListRef = useRef<HTMLDivElement>(null);
+  const [userProfile, setUserProfile] = useState<{ companyUrl?: string; companyDescription?: string }>({});
 
   useEffect(() => {
     const fetchPursuitCount = async () => {
@@ -70,6 +71,49 @@ const OpportunitiesPage: React.FC = () => {
   useEffect(() => {
     applySort();
   }, [sortBy]);
+
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      // 1. Try sessionStorage first
+      const userProfileStr = sessionStorage.getItem("userProfile");
+      if (userProfileStr) {
+        try {
+          setUserProfile(JSON.parse(userProfileStr));
+          return;
+        } catch (e) {
+          // continue to API fallback
+        }
+      }
+      // 2. Fallback: fetch from Supabase
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        // Get user's companies
+        const { data: userCompanies, error: userCompaniesError } = await supabase
+          .from("user_companies")
+          .select("*")
+          .eq("user_id", user.id);
+        if (userCompaniesError || !userCompanies || userCompanies.length === 0) return;
+        const primaryCompany = userCompanies.find((c: any) => c.is_primary) || userCompanies[0];
+        // Get company details
+        const { data: companyDetails, error: companyDetailsError } = await supabase
+          .from("companies")
+          .select("*")
+          .eq("id", primaryCompany.company_id)
+          .single();
+        if (companyDetailsError || !companyDetails) return;
+        const profile = {
+          companyUrl: companyDetails.url || "",
+          companyDescription: companyDetails.description || ""
+        };
+        setUserProfile(profile);
+        sessionStorage.setItem("userProfile", JSON.stringify(profile));
+      } catch (e) {
+        setUserProfile({});
+      }
+    };
+    fetchUserProfile();
+  }, []);
 
   const [generateSummary, setGenerateSummary] = useState(false)
   // useEffect(() => {
@@ -565,6 +609,7 @@ const OpportunitiesPage: React.FC = () => {
             applyFilters={applyFilters}
             onResultsScroll={handleResultsScroll}
             resultsListRef={resultsListRef}
+            userProfile={userProfile}
           />
         </div>
       </div>

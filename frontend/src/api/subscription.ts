@@ -5,12 +5,24 @@ import { useToast } from '@/components/ui/use-toast';
 
 
 export const subscriptionApi = {
+
+
+  
   async getCurrentSubscription(): Promise<Subscription | null> {
+    const { data: { user } } = await supabase.auth.getUser();
+        
+        if (!user) {
+          console.log("No user logged in");
+          return;
+        }
     const { data, error } = await supabase
-      .from('user_subscriptions')
-      .select('*')
-      .eq('status', 'active')
-      .single();
+    .from('user_subscriptions')
+    .select('*')
+    .eq('user_id', user.id)
+    .eq('status', 'active')
+    .order('created_at', { ascending: false }) // if you want the latest
+    .limit(1)
+    .single();
 
     if (error && error.code !== 'PGRST116') throw error; // PGRST116 is "no rows returned"
     return data;
@@ -36,9 +48,12 @@ export const subscriptionApi = {
         name: 'Premium Plan',
         price: 29.99,
         features: [
+          '100 opportunity searches',
+          '20 AI generated RFP responses per month',
+          'Advanced analytics and reporting',
+          'Priority customer support',
           'Advanced opportunity tracking',
           'Real-time notifications',
-          'Advanced analytics',
           'Priority support',
           'Custom reports'
         ],
@@ -49,6 +64,11 @@ export const subscriptionApi = {
         name: 'Enterprise Plan',
         price: 99.99,
         features: [
+          'Unlimited opportunity searches',
+          '50 AI generated RFP responses per month',
+          'Advanced analytics and reporting',
+          'Priority customer support',
+          'Team collaboration (up to 5 users)',
           'Everything in Premium',
           'Dedicated account manager',
           'Custom integrations',
