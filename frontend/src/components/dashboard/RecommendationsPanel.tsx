@@ -384,7 +384,7 @@ const RecommendationsPanel = ({
                         </div>
                       </div>
                       <div className="flex items-start">
-{/* Match Analysis Box */}
+                          {/* Match Analysis Box */}
                           <div className="mt-3 bg-blue-50 p-4 rounded-lg border border-blue-100">
                             <div className="flex items-start">
                               <div className="bg-white p-1.5 rounded-full mr-3 mt-0.5 border border-blue-200 shadow-sm">

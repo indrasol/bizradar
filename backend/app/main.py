@@ -6,6 +6,7 @@ from routes.search_routes import search_router
 from routes.admin_routes import router as admin_router
 from routes.email_routes import router as email_router
 from utils.rec_queue import start_consumer_loop
+from routes.payment_methods import router as payment_methods_router
 
 app = FastAPI()
 
@@ -21,6 +22,9 @@ origins = [
     "https://bizradar.netlify.app",  # Your production frontend domain
     "https://bizradar.netlify.app/",     # Include trailing slash version
     "http://bizradar.netlify.app",       # Include HTTP version
+    "https://bizradarv1.netlify.app",  # Your production frontend domain
+    "https://bizradarv1.netlify.app/",
+    "http://bizradarv1.netlify.app", 
     # "*"  # Temporarily allow all origins during development
 ]
 
@@ -37,6 +41,7 @@ app.include_router(search_router)
 # Include admin routes
 app.include_router(admin_router)
 app.include_router(email_router, prefix="/api", tags=["email"])
+app.include_router(payment_methods_router, prefix="/api")
 
 if __name__ == "__main__":
     import uvicorn

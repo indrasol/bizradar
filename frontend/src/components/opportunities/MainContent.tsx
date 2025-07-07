@@ -5,8 +5,9 @@ import ResultsList from "./ResultsList";
 import { MainContentProps } from "@/models/opportunities";
 import RefinedQueryDisplay from "../admin/RefinedQueryDisplay";
 import { AnimatePresence, motion } from "framer-motion";
+import RecommendationsPanel from "../dashboard/RecommendationsPanel";
 
-const MainContent: React.FC<MainContentProps & { onResultsScroll?: (scrollTop: number) => void, resultsListRef?: React.RefObject<HTMLDivElement> }> = ({
+const MainContent: React.FC<MainContentProps & { userProfile: { companyUrl?: string; companyDescription?: string }, onResultsScroll?: (scrollTop: number) => void, resultsListRef?: React.RefObject<HTMLDivElement> }> = ({
   searchQuery,
   setSearchQuery,
   handleSearch,
@@ -33,7 +34,8 @@ const MainContent: React.FC<MainContentProps & { onResultsScroll?: (scrollTop: n
   handleSuggestedQueryClick,
   applyFilters,
   onResultsScroll,
-  resultsListRef
+  resultsListRef,
+  userProfile
 }) => {
   return (
     <div className="flex-1 flex overflow-hidden">
@@ -66,6 +68,15 @@ const MainContent: React.FC<MainContentProps & { onResultsScroll?: (scrollTop: n
           </motion.div>
         )}
         </AnimatePresence>
+        {hasSearched && (
+          <RecommendationsPanel
+            opportunities={opportunities}
+            userProfile={userProfile}
+            onExpand={() => {}}
+            onMinimize={() => {}}
+            isExpanded={false}
+          />
+        )}
         <ResultsList
           opportunities={opportunities}
           isSearching={isSearching}
