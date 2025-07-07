@@ -7,12 +7,14 @@ interface UpgradeModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  refreshKey?: number;
 }
 
 export const UpgradeModal: React.FC<UpgradeModalProps> = ({
   isOpen,
   onClose,
-  onSuccess
+  onSuccess,
+  refreshKey
 }) => {
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
@@ -26,7 +28,9 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
       loadPlans();
       loadCurrentSubscription();
     }
-  }, [isOpen]);
+    // Also reload when refreshKey changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, refreshKey]);
 
   const loadPlans = async () => {
     try {
@@ -43,9 +47,14 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
     try {
       const sub = await subscriptionApi.getCurrentSubscription();
       setCurrentSubscription(sub);
-      if (sub) setSelectedPlan(sub.plan_type);
+      if (sub) {
+        setSelectedPlan(sub.plan_type);
+      } else {
+        setSelectedPlan(null);
+      }
     } catch (err) {
       console.error('Failed to load current subscription:', err);
+      setSelectedPlan(null);
     } finally {
       setSubLoading(false);
     }

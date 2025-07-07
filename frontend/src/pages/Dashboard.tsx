@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   Bell,
   Settings,
@@ -98,6 +98,22 @@ const BizRadarDashboard = () => {
 
   // First, add this state for submitted pursuits
   const [submittedPursuits, setSubmittedPursuits] = useState([]);
+
+  // --- AI Recommendations State ---
+  const [aiRecommendations, setAiRecommendations] = useState([]);
+  const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
+
+  // Add state for tracking which pursuit is being added
+  const [addingPursuitId, setAddingPursuitId] = useState(null);
+
+  // Add state to store fetched opportunities for use in rendering
+  const [dashboardOpportunities, setDashboardOpportunities] = useState([]);
+
+  // --- Add state for follow-up modal and notes ---
+  const [showFollowUpModal, setShowFollowUpModal] = useState(false);
+  const [followUpPursuit, setFollowUpPursuit] = useState(null);
+  const [followUpNotes, setFollowUpNotes] = useState([]);
+  const [newFollowUpNote, setNewFollowUpNote] = useState("");
 
   // Function to navigate to previous month
   const navigateToPreviousMonth = () => {
@@ -475,11 +491,43 @@ const BizRadarDashboard = () => {
     }
   };
 
-  // Add this function to handle follow up button clicks
-  const handleFollowUp = (pursuitId) => {
-    // Implement your follow up logic here
-    console.log('Following up on pursuit:', pursuitId);
-    // You could open a modal, navigate to a messages page, etc.
+  // --- Update handleFollowUp to open the follow-up modal ---
+  const handleFollowUp = async (pursuit) => {
+    setFollowUpPursuit(pursuit);
+    setShowFollowUpModal(true);
+    setNewFollowUpNote("");
+    if (!user) {
+      setFollowUpNotes([]);
+      return;
+    }
+    const { data, error } = await supabase
+      .from("pursuit_followup_notes")
+      .select("note, created_at")
+      .eq("pursuit_id", pursuit.id)
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+    if (error) {
+      setFollowUpNotes([]);
+    } else {
+      setFollowUpNotes(data || []);
+    }
+  };
+
+  // --- Save new note to Supabase ---
+  const handleSaveFollowUpNote = async () => {
+    if (!newFollowUpNote.trim() || !user || !followUpPursuit) return;
+    const noteText = newFollowUpNote.trim();
+    const { data, error } = await supabase
+      .from("pursuit_followup_notes")
+      .insert({
+        pursuit_id: followUpPursuit.id,
+        user_id: user.id,
+        note: noteText,
+      });
+    if (!error) {
+      setFollowUpNotes([{ note: noteText, created_at: new Date().toISOString() }, ...followUpNotes]);
+      setNewFollowUpNote("");
+    }
   };
 
   const [upgradeOpen, setUpgradeOpen] = useState(false);
@@ -487,6 +535,161 @@ const BizRadarDashboard = () => {
   const handleUpgradeSuccess = () => {
     setUpgradeOpen(false);
     toast.success('Your subscription has been upgraded successfully!');
+  };
+
+  // --- Fetch Opportunities and Recommendations on Load ---
+  useEffect(() => {
+    const fetchRecommendations = async () => {
+      setIsLoadingRecommendations(true);
+
+      // 1. Get user profile and userId for searchQuery
+      let companyUrl = "";
+      let companyDescription = "";
+      try {
+        const userProfileStr = sessionStorage.getItem("userProfile");
+        if (userProfileStr) {
+          const userProfile = JSON.parse(userProfileStr);
+          companyUrl = userProfile.companyUrl || "";
+          companyDescription = userProfile.companyDescription || "";
+        }
+      } catch (e) {}
+      let userId = null;
+      try {
+        const tokenService = (await import("../utils/tokenService")).default;
+        userId = tokenService.getUserIdFromToken();
+      } catch (e) {}
+
+      // 2. Generate searchQuery
+      const searchQuery = `${companyUrl || ""}|${companyDescription || ""}|${userId || ""}`;
+
+      // 3. Check cache first
+      const cache = sessionStorage.getItem('dashboardAiRecommendations');
+      if (cache) {
+        const parsed = JSON.parse(cache);
+        if (
+          parsed.searchQuery === searchQuery &&
+          parsed.recommendations &&
+          parsed.dashboardOpportunities &&
+          Date.now() - parsed.timestamp < 60 * 60 * 1000 // 1 hour
+        ) {
+          setAiRecommendations(parsed.recommendations.slice(0, 3));
+          setDashboardOpportunities(parsed.dashboardOpportunities);
+          setIsLoadingRecommendations(false);
+          return;
+        }
+      }
+
+      // 4. If not cached, fetch opportunities and proceed as before
+      const API_BASE_URL = window.location.hostname === "localhost"
+        ? "http://localhost:5000"
+        : import.meta.env.VITE_API_BASE_URL;
+      const response = await fetch(`${API_BASE_URL}/search-opportunities`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          page: 1,
+          page_size: 10,
+          user_id: null,
+          query: "",
+          is_new_search: true,
+        }),
+      });
+      const data = await response.json();
+      if (!data.success || !Array.isArray(data.results) || data.results.length === 0) {
+        setAiRecommendations([]);
+        setIsLoadingRecommendations(false);
+        return;
+      }
+      const opportunities = data.results;
+
+      // Filter for future response_date
+      const now = new Date();
+      const futureOpportunities = opportunities.filter(opp => {
+        if (!opp.response_date) return false;
+        const respDate = new Date(opp.response_date);
+        return respDate > now;
+      });
+      setDashboardOpportunities(futureOpportunities);
+
+      // 5. Call AI recommendations API
+      const recResponse = await fetch(`${API_BASE_URL}/ai-recommendations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyUrl,
+          companyDescription,
+          opportunities: futureOpportunities.slice(0, 10),
+          responseFormat: "json",
+          includeMatchReason: true,
+          userId,
+          searchQuery,
+        }),
+      });
+      const recData = await recResponse.json();
+      if (recData && Array.isArray(recData.recommendations)) {
+        const sortedRecs = [...recData.recommendations].sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0));
+        setAiRecommendations(sortedRecs.slice(0, 3));
+        sessionStorage.setItem(
+          'dashboardAiRecommendations',
+          JSON.stringify({
+            recommendations: sortedRecs,
+            dashboardOpportunities: futureOpportunities,
+            timestamp: Date.now(),
+            searchQuery,
+          })
+        );
+      } else {
+        setAiRecommendations([]);
+      }
+      setIsLoadingRecommendations(false);
+    };
+    fetchRecommendations();
+  }, []);
+
+  // Add to Pursuits handler
+  const handleAddToPursuit = async (opportunity) => {
+    if (!user) {
+      toast.error("You must be logged in to add pursuits.");
+      return;
+    }
+    setAddingPursuitId(opportunity.id);
+    try {
+      // Always use the original opportunity title if available
+      let originalTitle = opportunity.title;
+      if (typeof opportunity.opportunityIndex === 'number' && dashboardOpportunities[opportunity.opportunityIndex]) {
+        originalTitle = dashboardOpportunities[opportunity.opportunityIndex].title;
+      }
+      // Check if already added
+      const { data: existingPursuits } = await supabase
+        .from("pursuits")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("title", originalTitle);
+      if (existingPursuits && existingPursuits.length > 0) {
+        toast.info("Already added to pursuits.");
+        setAddingPursuitId(null);
+        return;
+      }
+      // Insert new pursuit
+      const { data, error } = await supabase
+        .from("pursuits")
+        .insert([
+          {
+            title: originalTitle,
+            description: opportunity.description || opportunity.matchReason || "",
+            stage: "Assessment",
+            user_id: user.id,
+            due_date: opportunity.response_date || null,
+          },
+        ])
+        .select();
+      if (error) throw error;
+      toast.success("Added to pursuits!");
+    } catch (error) {
+      toast.error("Failed to add to pursuits.");
+    } finally {
+      setAddingPursuitId(null);
+    }
   };
 
   return (
@@ -635,6 +838,55 @@ const BizRadarDashboard = () => {
               >
                 Import Pursuit
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showFollowUpModal && followUpPursuit && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md relative">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-800">
+                Follow Up on: {followUpPursuit.title}
+              </h3>
+              <button
+                onClick={() => setShowFollowUpModal(false)}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-6">
+              <textarea
+                placeholder="Add your follow-up note here..."
+                className="w-full p-2 border-b border-gray-200 text-sm mb-4 focus:outline-none focus:border-blue-500 min-h-24"
+                value={newFollowUpNote}
+                onChange={e => setNewFollowUpNote(e.target.value)}
+              ></textarea>
+              <button
+                onClick={handleSaveFollowUpNote}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 w-full mb-4"
+              >
+                Save Note
+              </button>
+              <div className="mt-4">
+                <h4 className="font-medium text-gray-700 mb-2">Previous Follow-ups</h4>
+                <div className="max-h-48 overflow-y-auto space-y-2">
+                  {followUpNotes.length === 0 ? (
+                    <div className="text-gray-400 text-sm">No follow-up notes yet.</div>
+                  ) : (
+                    <ul>
+                      {followUpNotes.map((note, idx) => (
+                        <li key={idx} className="bg-gray-50 p-3 rounded border border-gray-200">
+                          <div className="text-xs text-gray-500 mb-1">{new Date(note.created_at).toLocaleString()}</div>
+                          <div className="text-gray-800 text-sm">{note.note}</div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -932,226 +1184,137 @@ const BizRadarDashboard = () => {
                       </Link>
                     </div>
 
-                    {/* Alert */}
-                    <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-yellow-800 flex items-start">
-                      <AlertTriangle className="h-5 w-5 mr-3 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <p className="font-medium mb-1">
-                          No highly relevant matches found
-                        </p>
-                        <p className="text-sm text-yellow-700">
-                          We couldn't find any highly relevant new opportunities
-                          for your organization. Please check back tomorrow!
-                        </p>
+                    {/* Recommendations Loading/Empty/Results */}
+                    {isLoadingRecommendations ? (
+                      <div className="flex items-center justify-center h-40">
+                        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500"></div>
+                        <span className="ml-4 text-gray-600 font-medium">Generating recommendations...</span>
                       </div>
-                    </div>
-
-                    {/* Opportunity cards */}
-                    <div className="space-y-5">
-                      {/* Card 1 */}
-                      <div className="rounded-lg border border-gray-200 overflow-hidden transition-all hover:shadow-md group">
-                        <div className="p-5">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <h3 className="text-lg font-medium text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
-                                Joint Service General Protective Masks M50, M51,
-                                and M53A1
-                              </h3>
-                              <p className="text-sm text-gray-600 mb-3">
-                                Sources Sought • The Department of Defense,
-                                specifically the Army, is seeking industry
-                                capabilities to produce and...
-                              </p>
-                              <div className="flex flex-wrap items-center gap-4 text-xs">
-                                <div className="flex items-center text-gray-500">
-                                  <Shield className="h-3 w-3 mr-1 text-blue-500" />
-                                  DEPT OF DEFENSE
-                                </div>
-                                <div className="flex items-center text-gray-500">
-                                  <Clock className="h-3 w-3 mr-1" />
-                                  Released: Mar 5, 2025
-                                </div>
-                                <div className="flex items-center px-2 py-1 bg-amber-50 text-amber-700 rounded-full">
-                                  <Clock className="h-3 w-3 mr-1" />
-                                  Due: Mar 28, 2025
-                                </div>
-                              </div>
-                            </div>
-                            <div className="ml-4 flex flex-col items-end">
-                              <div className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium mb-2">
-                                85% Match
-                              </div>
-                              <div className="text-gray-400 group-hover:text-blue-500 transition-colors">
-                                <ExternalLink className="h-4 w-4" />
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="border-t border-gray-200 px-5 py-3 bg-gray-50 flex justify-between items-center">
-                          <div className="text-xs text-gray-500">
-                            Estimated value:{" "}
-                            <span className="font-medium">$750K-$1.5M</span>
-                          </div>
-                          <button className="inline-flex items-center px-4 py-1.5 border border-gray-300 text-xs font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 hover:text-blue-600 transition-colors shadow-sm">
-                            Add to Pursuits
-                          </button>
+                    ) : aiRecommendations.length === 0 ? (
+                      <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-yellow-800 flex items-start">
+                        <AlertTriangle className="h-5 w-5 mr-3 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-medium mb-1">
+                            No highly relevant matches found
+                          </p>
+                          <p className="text-sm text-yellow-700">
+                            We couldn't find any highly relevant new opportunities for your organization. Please check back tomorrow!
+                          </p>
                         </div>
                       </div>
-
-                      {/* Card 2 */}
-                      <div className="rounded-lg border border-gray-200 overflow-hidden transition-all hover:shadow-md group">
-                        <div className="p-5">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <h3 className="text-lg font-medium text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
-                                Context-Aware Decision Support
-                              </h3>
-                              <p className="text-sm text-gray-600 mb-3">
-                                SBIR/STTR • Description &lt;p&gt;In
-                                today&rsquo;s training and operational
-                                environments, commanders are confronted with...
-                              </p>
-                              <div className="flex flex-wrap items-center gap-4 text-xs">
-                                <div className="flex items-center text-gray-500">
-                                  <Shield className="h-3 w-3 mr-1 text-blue-500" />
-                                  DOD
+                    ) : (
+                      <div className="space-y-5">
+                        {aiRecommendations.map((rec, idx) => {
+                          // Always use the opportunityIndex to look up the correct opportunity in dashboardOpportunities
+                          let externalUrl = rec.external_url;
+                          if (!externalUrl && typeof rec.opportunityIndex === 'number' && Array.isArray(dashboardOpportunities)) {
+                            const opp = dashboardOpportunities[rec.opportunityIndex];
+                            if (opp && opp.external_url) {
+                              externalUrl = opp.external_url;
+                            }
+                          }
+                          // If the index is out of bounds or missing, do not make the card clickable
+                          const isClickable = externalUrl && externalUrl !== '#' && typeof rec.opportunityIndex === 'number' && dashboardOpportunities[rec.opportunityIndex];
+                          externalUrl = isClickable ? externalUrl : null;
+                          return (
+                            <div
+                              key={rec.id || idx}
+                              className={`rounded-lg border border-gray-200 overflow-hidden transition-all hover:shadow-md group ${isClickable ? 'cursor-pointer hover:bg-blue-50' : 'cursor-default'}`}
+                              onClick={() => {
+                                if (isClickable) {
+                                  window.open(externalUrl, '_blank', 'noopener,noreferrer');
+                                }
+                              }}
+                              tabIndex={isClickable ? 0 : -1}
+                              role="button"
+                              onKeyDown={e => {
+                                if (isClickable && e.key === 'Enter') {
+                                  window.open(externalUrl, '_blank', 'noopener,noreferrer');
+                                }
+                              }}
+                            >
+                              <div className="p-5">
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1">
+                                    <h3 className="text-lg font-medium text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
+                                      {typeof rec.opportunityIndex === 'number' && dashboardOpportunities[rec.opportunityIndex]
+                                        ? dashboardOpportunities[rec.opportunityIndex].title
+                                        : rec.title}
+                                    </h3>
+                                    <p className="text-sm text-gray-600 mb-3">
+                                      {rec.description || rec.matchReason || "No description available."}
+                                    </p>
+                                    <div className="flex flex-wrap items-center gap-4 text-xs">
+                                      {rec.agency && (
+                                        <div className="flex items-center text-gray-500">
+                                          <Shield className="h-3 w-3 mr-1 text-blue-500" />
+                                          {rec.agency}
+                                        </div>
+                                      )}
+                                      {rec.published_date && (
+                                        <div className="flex items-center text-gray-500">
+                                          <Clock className="h-3 w-3 mr-1" />
+                                          Released: {new Date(rec.published_date).toLocaleDateString()}
+                                        </div>
+                                      )}
+                                      {rec.response_date && (
+                                        <div className="flex items-center px-2 py-1 bg-amber-50 text-amber-700 rounded-full">
+                                          <Clock className="h-3 w-3 mr-1" />
+                                          Due: {new Date(rec.response_date).toLocaleDateString()}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="ml-4 flex flex-col items-end">
+                                    {rec.matchScore && (
+                                      <div className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium mb-2">
+                                        {rec.matchScore}% Match
+                                      </div>
+                                    )}
+                                    {isClickable && (
+                                      <a
+                                        href={externalUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-gray-400 group-hover:text-blue-500 transition-colors"
+                                        onClick={e => e.stopPropagation()}
+                                      >
+                                        <ExternalLink className="h-4 w-4" />
+                                      </a>
+                                    )}
+                                  </div>
                                 </div>
-                                <div className="flex items-center text-gray-500">
-                                  <Clock className="h-3 w-3 mr-1" />
-                                  Released: Mar 5, 2025
+                              </div>
+                              <div className="border-t border-gray-200 px-5 py-3 bg-gray-50 flex justify-between items-center">
+                                <div className="text-xs text-gray-500">
+                                  Estimated value: {rec.budget ? <span className="font-medium">{rec.budget}</span> : <span>N/A</span>}
                                 </div>
-                                <div className="flex items-center px-2 py-1 bg-green-50 text-green-700 rounded-full">
-                                  <Clock className="h-3 w-3 mr-1" />
-                                  Due: Apr 23, 2025
-                                </div>
+                                <button
+                                  className={`inline-flex items-center px-4 py-1.5 border border-gray-300 text-xs font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 hover:text-blue-600 transition-colors shadow-sm ${addingPursuitId === rec.id ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    handleAddToPursuit(rec);
+                                  }}
+                                  disabled={addingPursuitId === rec.id}
+                                >
+                                  {addingPursuitId === rec.id ? (
+                                    <span className="flex items-center"><span className="animate-spin h-4 w-4 mr-2 border-b-2 border-blue-500 rounded-full"></span>Adding...</span>
+                                  ) : (
+                                    <>Add to Pursuits</>
+                                  )}
+                                </button>
                               </div>
                             </div>
-                            <div className="ml-4 flex flex-col items-end">
-                              <div className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium mb-2">
-                                72% Match
-                              </div>
-                              <div className="text-gray-400 group-hover:text-blue-500 transition-colors">
-                                <ExternalLink className="h-4 w-4" />
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="border-t border-gray-200 px-5 py-3 bg-gray-50 flex justify-between items-center">
-                          <div className="text-xs text-gray-500">
-                            Estimated value:{" "}
-                            <span className="font-medium">$100K-$250K</span>
-                          </div>
-                          <button className="inline-flex items-center px-4 py-1.5 border border-gray-300 text-xs font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 hover:text-blue-600 transition-colors shadow-sm">
-                            Add to Pursuits
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Card 3 */}
-                      <div className="rounded-lg border border-gray-200 overflow-hidden transition-all hover:shadow-md group">
-                        <div className="p-5">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <h3 className="text-lg font-medium text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
-                                Context-Aware Decision Support
-                              </h3>
-                              <p className="text-sm text-gray-600 mb-3">
-                                SBIR/STTR • Description &lt;p&gt;In
-                                today&rsquo;s training and operational
-                                environments, commanders are confronted with...
-                              </p>
-                              <div className="flex flex-wrap items-center gap-4 text-xs">
-                                <div className="flex items-center text-gray-500">
-                                  <Shield className="h-3 w-3 mr-1 text-blue-500" />
-                                  DOD
-                                </div>
-                                <div className="flex items-center text-gray-500">
-                                  <Clock className="h-3 w-3 mr-1" />
-                                  Released: Mar 5, 2025
-                                </div>
-                                <div className="flex items-center px-2 py-1 bg-green-50 text-green-700 rounded-full">
-                                  <Clock className="h-3 w-3 mr-1" />
-                                  Due: Apr 23, 2025
-                                </div>
-                              </div>
-                            </div>
-                            <div className="ml-4 flex flex-col items-end">
-                              <div className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium mb-2">
-                                72% Match
-                              </div>
-                              <div className="text-gray-400 group-hover:text-blue-500 transition-colors">
-                                <ExternalLink className="h-4 w-4" />
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="border-t border-gray-200 px-5 py-3 bg-gray-50 flex justify-between items-center">
-                          <div className="text-xs text-gray-500">
-                            Estimated value:{" "}
-                            <span className="font-medium">$100K-$250K</span>
-                          </div>
-                          <button className="inline-flex items-center px-4 py-1.5 border border-gray-300 text-xs font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 hover:text-blue-600 transition-colors shadow-sm">
-                            Add to Pursuits
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Card 4 */}
-                      <div className="rounded-lg border border-gray-200 overflow-hidden transition-all hover:shadow-md group">
-                        <div className="p-5">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <h3 className="text-lg font-medium text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
-                                Design & Installation of Playgrounds
-                              </h3>
-                              <p className="text-sm text-gray-600 mb-3">
-                                Construction • The City of North Myrtle Beach is
-                                soliciting proposals for the design and
-                                installation of playground...
-                              </p>
-                              <div className="flex flex-wrap items-center gap-4 text-xs">
-                                <div className="flex items-center text-gray-500">
-                                  <Shield className="h-3 w-3 mr-1 text-blue-500" />
-                                  City of North Myrtle Beach
-                                </div>
-                                <div className="flex items-center text-gray-500">
-                                  <Clock className="h-3 w-3 mr-1" />
-                                  Released: Mar 4, 2025
-                                </div>
-                                <div className="flex items-center px-2 py-1 bg-amber-50 text-amber-700 rounded-full">
-                                  <Clock className="h-3 w-3 mr-1" />
-                                  Due: Mar 25, 2025
-                                </div>
-                              </div>
-                            </div>
-                            <div className="ml-4 flex flex-col items-end">
-                              <div className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium mb-2">
-                                65% Match
-                              </div>
-                              <div className="text-gray-400 group-hover:text-blue-500 transition-colors">
-                                <ExternalLink className="h-4 w-4" />
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="border-t border-gray-200 px-5 py-3 bg-gray-50 flex justify-between items-center">
-                          <div className="text-xs text-gray-500">
-                            Estimated value:{" "}
-                            <span className="font-medium">$250K-$500K</span>
-                          </div>
-                          <button className="inline-flex items-center px-4 py-1.5 border border-gray-300 text-xs font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 hover:text-blue-600 transition-colors shadow-sm">
-                            Add to Pursuits
-                          </button>
+                          );
+                        })}
+                        <div className="flex justify-center pt-2">
+                          <Link to="/opportunities" className="text-blue-600 hover:text-blue-800 text-sm font-medium inline-flex items-center">
+                            View more opportunities
+                            <ChevronRight className="h-4 w-4 ml-1" />
+                          </Link>
                         </div>
                       </div>
-
-                      <div className="flex justify-center pt-2">
-                        <Link to="/opportunities" className="text-blue-600 hover:text-blue-800 text-sm font-medium inline-flex items-center">
-                          View more opportunities
-                          <ChevronRight className="h-4 w-4 ml-1" />
-                        </Link>
-                      </div>
-                    </div>
+                    )}
                   </div>
                 </div>
 
@@ -1271,7 +1434,7 @@ const BizRadarDashboard = () => {
                               <button
                                 className="ml-2 p-2 text-gray-400 hover:text-blue-500 transition-colors rounded-lg hover:bg-blue-50"
                                 title="Follow up"
-                                onClick={() => handleFollowUp(pursuit.id)}
+                                onClick={() => handleFollowUp(pursuit)}
                               >
                                 <MessageSquare className="h-5 w-5" />
                               </button>
