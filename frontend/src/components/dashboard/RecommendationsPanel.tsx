@@ -41,7 +41,7 @@ const RecommendationsPanel = ({
 }: RecommendationsPanelProps) => {
   const [aiRecommendations, setAiRecommendations] = useState([]);
   const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
-  const [aiComponentCollapsed, setAiComponentCollapsed] = useState(false);
+  const [aiComponentCollapsed, setAiComponentCollapsed] = useState(true);
   const [cancelRequested, setCancelRequested] = useState(false);
   const [showDetailedReason, setShowDetailedReason] = useState({});
   const API_BASE_URL = window.location.hostname === "localhost" ? "http://localhost:5000" : import.meta.env.VITE_API_BASE_URL;
