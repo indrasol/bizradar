@@ -57,7 +57,7 @@ const MainContent: React.FC<MainContentProps & { userProfile: { companyUrl?: str
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="p-6 bg-gradient-to-r from-blue-50 via-indigo-50 to-blue-50 rounded-lg border border-blue-100 shadow-sm"
+            className="p-4 bg-gradient-to-r from-blue-50 via-indigo-50 to-blue-50 rounded-lg border border-blue-100 shadow-sm"
           >
           <RefinedQueryDisplay
             originalQuery={searchQuery}
