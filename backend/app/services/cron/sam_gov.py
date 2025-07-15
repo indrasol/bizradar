@@ -97,16 +97,65 @@ def deduplicate_solicitation_number(cursor, solicitation_number, archived_by="de
 
     return True  # Duplicates handled
 
+def upsert_with_history(cursor, row, archived_by="upsert_script"):
+    """
+    Upsert a record into sam_gov. If a record with the same notice_id exists and any field changes, move the old record to sam_gov_history before inserting the new one.
+    """
+    # 1. Check if record exists
+    cursor.execute("SELECT * FROM sam_gov WHERE notice_id = %s", (row["notice_id"],))
+    existing = cursor.fetchone()
+    if existing:
+        # Get column names
+        colnames = [desc[0] for desc in cursor.description]
+        # 2. If any field has changed, move to history
+        changed = False
+        for idx, colname in enumerate(colnames):
+            if colname in row and row[colname] != existing[idx]:
+                changed = True
+                break
+        if changed:
+            # Move to history
+            insert_history_query = """
+                INSERT INTO sam_gov_history (
+                    id, notice_id, solicitation_number, title, department,
+                    naics_code, published_date, response_date, description,
+                    url, active, created_at, updated_at, additional_description,
+                    archived_at, archived_by
+                )
+                SELECT
+                    id, notice_id, solicitation_number, title, department,
+                    naics_code, published_date, response_date, description,
+                    url, active, created_at, updated_at, additional_description,
+                    CURRENT_TIMESTAMP, %s
+                FROM sam_gov WHERE notice_id = %s
+            """
+            cursor.execute(insert_history_query, (archived_by, row["notice_id"]))
+            # Delete old record
+            cursor.execute("DELETE FROM sam_gov WHERE notice_id = %s", (row["notice_id"],))
+    # 3. Insert new record
+    insert_query = """
+        INSERT INTO sam_gov
+        (title, department, published_date, response_date, naics_code, description,
+         notice_id, solicitation_number, url, active)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    """
+    cursor.execute(insert_query, (
+        row["title"],
+        row["department"],
+        row["published_date"],
+        row["response_date"],
+        row["naics_code"],
+        row["description"],
+        row["notice_id"],
+        row["solicitation_number"],
+        row["url"],
+        row["active"]
+    ))
+
 
 def insert_data(rows):
     """
-    Inserts multiple rows into the sam_gov table, avoiding duplicates.
-    
-    Args:
-        rows: List of dictionaries containing data to insert
-    
-    Returns:
-        dict: Summary with counts of inserted and skipped records
+    Inserts or updates multiple rows into the sam_gov table, moving old records to history if any field changes.
     """
     connection = get_db_connection()
     if not connection:
@@ -117,60 +166,28 @@ def insert_data(rows):
     
     try:
         with connection.cursor() as cursor:
-            insert_query = """
-                INSERT INTO sam_gov
-                (title, department, published_date, response_date, naics_code, description,
-                 notice_id, solicitation_number, url, active)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """
-            
             for row in rows:
                 notice_id = row.get("notice_id")
-                solicitation_number = row.get("solicitation_number")
-                
-                # Skip if notice_id is missing (shouldn't happen but just in case)
+                # Skip if notice_id is missing
                 if not notice_id:
                     logger.warning("Skipping row with missing notice_id")
                     skipped += 1
                     continue
-                
-                # Check if this record already exists
-                if check_duplicate(cursor, notice_id):
-                    logger.info(f"Skipping duplicate record with notice_id: {notice_id}")
-                    skipped += 1
-                    continue
-                
-                # Insert the record if it doesn't exist
                 try:
-                    cursor.execute(insert_query, (
-                        row["title"],
-                        row["department"],
-                        row["published_date"],
-                        row["response_date"],
-                        row["naics_code"],
-                        row["description"],
-                        notice_id,
-                        row["solicitation_number"],
-                        row["url"],
-                        row["active"]
-                    ))
+                    upsert_with_history(cursor, row)
                     inserted += 1
-                    
                     # Deduplicate any old solicitation_number entries before inserting new one
+                    solicitation_number = row.get("solicitation_number")
                     if solicitation_number:
                         deduplicate_solicitation_number(cursor, solicitation_number)
-                        
-                except psycopg2.Error as e:
-                    logger.error(f"Error inserting record {notice_id}: {e}")
+                except Exception as e:
+                    logger.error(f"Error upserting record {notice_id}: {e}")
                     skipped += 1
-                    # Continue with other records even if one fails
                     continue
-                
         connection.commit()
-        logger.info(f"Database insertion complete. Inserted: {inserted}, Skipped duplicates: {skipped}")
+        logger.info(f"Database upsert complete. Inserted/Updated: {inserted}, Skipped: {skipped}")
         return {"inserted": inserted, "skipped": skipped}
-    
-    except psycopg2.Error as e:
+    except Exception as e:
         connection.rollback()
         logger.error(f"Error during database transaction: {e}")
         return {"error": str(e), "inserted": inserted, "skipped": skipped}
@@ -232,7 +249,8 @@ async def fetch_opportunities() -> Dict[str, Any]:
             "ncode": naics,
             "postedFrom": posted_from,
             "postedTo": posted_to,
-            "limit": records_per_naics  # Only request what we need
+            "limit": records_per_naics,  # Only request what we need
+            "noticeType": "o,k,p,r,s" #"o,p,k,r,s,i,a,u"  # Only contract opportunity types
         }
         
         log_params = params.copy()
@@ -251,7 +269,7 @@ async def fetch_opportunities() -> Dict[str, Any]:
                             current_opps = data.get("opportunitiesData", [])
                             
                             if not current_opps:
-                                logger.info(f"No records found for NAICS {naics}")
+                                logger.info(f"No contract opportunities found for NAICS {naics}")
                                 continue
                             
                             # Add NAICS code to each opportunity for reference
