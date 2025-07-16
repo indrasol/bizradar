@@ -632,15 +632,65 @@ def index_all_to_pinecone(incremental=True, sources=None):
     logger.info(f"\nIndexing completed in {elapsed_time:.2f} seconds!")
     return {"total_indexed": total_indexed, "elapsed_time": elapsed_time}
 
+def cleanup_orphaned_sam_gov_vectors():
+    """
+    Remove Pinecone vectors for notice_ids that no longer exist in the sam_gov table.
+    """
+    logger.info("Starting cleanup of orphaned Pinecone vectors for sam_gov...")
+    index = get_index()
+    # 1. Get all notice_ids in Pinecone for sam_gov
+    pinecone_ids = set()
+    try:
+        # Pinecone may require pagination for large indexes
+        response = index.fetch(ids=None, filter={"source": "sam_gov"})
+        if hasattr(response, 'vectors'):
+            pinecone_ids = set(response.vectors.keys())
+        else:
+            logger.warning("Pinecone fetch did not return vectors. Skipping cleanup.")
+            return 0
+    except Exception as e:
+        logger.error(f"Error fetching Pinecone vectors: {e}")
+        return 0
+    logger.info(f"Found {len(pinecone_ids)} sam_gov vectors in Pinecone.")
+    # 2. Get all notice_ids in sam_gov table
+    connection = get_db_connection()
+    db_ids = set()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT notice_id FROM sam_gov")
+            db_ids = set(str(row[0]) for row in cursor.fetchall())
+    except Exception as e:
+        logger.error(f"Error fetching notice_ids from sam_gov: {e}")
+        return 0
+    finally:
+        connection.close()
+    logger.info(f"Found {len(db_ids)} notice_ids in sam_gov table.")
+    # 3. Find orphaned vectors
+    orphaned_ids = pinecone_ids - db_ids
+    logger.info(f"Found {len(orphaned_ids)} orphaned vectors to delete.")
+    # 4. Delete orphaned vectors
+    deleted = 0
+    if orphaned_ids:
+        try:
+            # Pinecone delete can take a list of ids
+            index.delete(ids=list(orphaned_ids))
+            deleted = len(orphaned_ids)
+            logger.info(f"Deleted {deleted} orphaned vectors from Pinecone.")
+        except Exception as e:
+            logger.error(f"Error deleting orphaned vectors: {e}")
+    return deleted
+
 if __name__ == "__main__":
     # By default, run incremental indexing (only new/updated records)
     # For a full reindex, run with: python index_to_pinecone.py --full
     import sys
     incremental = "--full" not in sys.argv
-    
+    cleanup = "--cleanup" in sys.argv
     if not incremental:
         logger.info("Running FULL reindexing of all records...")
     else:
         logger.info("Running INCREMENTAL indexing (new/updated records only)...")
-    
+    if cleanup:
+        logger.info("Running orphaned vector cleanup before indexing...")
+        cleanup_orphaned_sam_gov_vectors()
     index_all_to_pinecone(incremental=incremental)
