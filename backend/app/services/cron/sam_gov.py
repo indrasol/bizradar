@@ -343,31 +343,23 @@ async def fetch_opportunities() -> Dict[str, Any]:
             try:
                 # Import indexing function and run indexing for ALL data
                 logger.info("Running Pinecone indexing for ALL records...")
-                
-                # Try to import the indexing function
                 try:
-                    # Add app directory to python path if not already there
-                    # app_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-                    # if app_dir not in sys.path:
-                    #     sys.path.insert(0, app_dir)
-                    # sys.path.append(os.path.join(parent_dir, "utils"))
-                        
-                    # Import here to avoid circular imports - file is in utils folder
-                    try:
-                        from utils.index_to_pinecone import index_sam_gov_to_pinecone
-                    except ModuleNotFoundError:
-                        from app.utils.index_to_pinecone import index_sam_gov_to_pinecone
-                    
-                    # Run indexing for ALL SAM.gov records, rely on Pinecone's upsert to handle duplicates
-                    index_result = index_sam_gov_to_pinecone(incremental=False)
-                    db_results["indexed_count"] = index_result
-                    logger.info(f"Successfully indexed {index_result} records to Pinecone")
-                    
-                except ImportError as e:
-                    logger.warning(f"Could not import utils.index_to_pinecone module: {e}")
-                    logger.warning("Pinecone indexing will be skipped for this run")
-                    db_results["indexed_count"] = 0
-                    
+                    from utils.index_to_pinecone import index_sam_gov_to_pinecone, cleanup_orphaned_sam_gov_vectors
+                except ModuleNotFoundError:
+                    from app.utils.index_to_pinecone import index_sam_gov_to_pinecone, cleanup_orphaned_sam_gov_vectors
+                # Run indexing for ALL SAM.gov records
+                index_result = index_sam_gov_to_pinecone(incremental=False)
+                db_results["indexed_count"] = index_result
+                logger.info(f"Successfully indexed {index_result} records to Pinecone")
+                # Run orphaned vector cleanup
+                logger.info("Running Pinecone orphaned vector cleanup...")
+                deleted_count = cleanup_orphaned_sam_gov_vectors()
+                logger.info(f"Deleted {deleted_count} orphaned Pinecone vectors.")
+            except ImportError as e:
+                logger.warning(f"Could not import utils.index_to_pinecone module: {e}")
+                logger.warning("Pinecone indexing will be skipped for this run")
+                db_results["indexed_count"] = 0
+                
             except Exception as e:
                 logger.error(f"Error during Pinecone indexing: {e}")
                 db_results["indexing_error"] = str(e)
