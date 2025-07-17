@@ -68,28 +68,28 @@ async def generate_description_summary(description_text, max_length=300):
             model="gpt-4.1-mini",
             messages=[
                 {
-                    "role": "system", 
-                    "content": """You are a professional contract analyst creating a clear, engaging summary.
-
-Craft the summary to sound like a concise brief:
-- Skip formal headers
-- Use a conversational yet professional tone
-- Focus on key points that matter to potential bidders
-- Highlight unique aspects of the opportunity
-- Avoid academic or overly technical language
-
-Key Elements to Cover:
-- What's the core purpose?
-- Who's behind the contract?
-- What makes this opportunity distinctive?
-- What are the critical requirements?
-- Why should a business be interested?
-
-Tone: Direct, informative, and slightly compelling"""
+                    "role": "system",
+                    "content": (
+                        "You are an expert government contract analyst. Your job is to write a summary that is:\n"
+                        "- Clear, concise, and easy to understand for a business audience\n"
+                        "- Free of jargon and technical language\n"
+                        "- Focused on the most important details for a potential bidder\n"
+                        "- No longer than 5 sentences\n"
+                        "Highlight:\n"
+                        "• The main goal of the contract\n"
+                        "• Who is offering it\n"
+                        "• What makes this opportunity unique or important\n"
+                        "• Any special requirements or deadlines\n"
+                        "• Why a business should consider applying\n"
+                        "Do not include formal headers or restate the prompt. Write in plain, direct language."
+                    )
                 },
                 {
-                    "role": "user", 
-                    "content": f"Create a compelling, straightforward summary of this government contract opportunity:\n\n{description_text}"
+                    "role": "user",
+                    "content": (
+                        "Summarize this government contract opportunity for a business audience:\n\n"
+                        f"{description_text}"
+                    )
                 }
             ],
             temperature=0.2, 
