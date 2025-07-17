@@ -635,23 +635,22 @@ def index_all_to_pinecone(incremental=True, sources=None):
 def cleanup_orphaned_sam_gov_vectors():
     """
     Remove Pinecone vectors for notice_ids that no longer exist in the sam_gov table.
+    Only deletes vectors that are not clearly from other sources (e.g., skips those starting with 'freelancer_').
     """
     logger.info("Starting cleanup of orphaned Pinecone vectors for sam_gov...")
     index = get_index()
-    # 1. Get all notice_ids in Pinecone for sam_gov
     pinecone_ids = set()
     try:
-        # Pinecone may require pagination for large indexes
-        response = index.fetch(ids=None, filter={"source": "sam_gov"})
-        if hasattr(response, 'vectors'):
-            pinecone_ids = set(response.vectors.keys())
-        else:
-            logger.warning("Pinecone fetch did not return vectors. Skipping cleanup.")
-            return 0
+        # Each item yielded by index.list() is a list of vector IDs
+        for batch in index.list():
+            for vector_id in batch:
+                # Only consider IDs that do NOT start with 'freelancer_'
+                if not str(vector_id).startswith('freelancer_'):
+                    pinecone_ids.add(str(vector_id))
     except Exception as e:
-        logger.error(f"Error fetching Pinecone vectors: {e}")
+        logger.error(f"Error listing Pinecone vectors: {e}")
         return 0
-    logger.info(f"Found {len(pinecone_ids)} sam_gov vectors in Pinecone.")
+    logger.info(f"Found {len(pinecone_ids)} sam_gov-like vectors in Pinecone.")
     # 2. Get all notice_ids in sam_gov table
     connection = get_db_connection()
     db_ids = set()
@@ -666,19 +665,93 @@ def cleanup_orphaned_sam_gov_vectors():
         connection.close()
     logger.info(f"Found {len(db_ids)} notice_ids in sam_gov table.")
     # 3. Find orphaned vectors
-    orphaned_ids = pinecone_ids - db_ids
-    logger.info(f"Found {len(orphaned_ids)} orphaned vectors to delete.")
-    # 4. Delete orphaned vectors
+    orphaned_ids = list(pinecone_ids - db_ids)
+    logger.info(f"Found {len(orphaned_ids)} orphaned sam_gov vectors to delete.")
+    # 4. Delete orphaned vectors in batches of 1000
     deleted = 0
+    batch_size = 1000
     if orphaned_ids:
         try:
-            # Pinecone delete can take a list of ids
-            index.delete(ids=list(orphaned_ids))
-            deleted = len(orphaned_ids)
-            logger.info(f"Deleted {deleted} orphaned vectors from Pinecone.")
+            for i in range(0, len(orphaned_ids), batch_size):
+                batch = orphaned_ids[i:i+batch_size]
+                index.delete(ids=batch)
+                deleted += len(batch)
+                logger.info(f"Deleted batch {i//batch_size+1}: {len(batch)} sam_gov vectors.")
+            logger.info(f"Deleted {deleted} orphaned sam_gov vectors from Pinecone.")
         except Exception as e:
             logger.error(f"Error deleting orphaned vectors: {e}")
     return deleted
+
+
+def cleanup_to_only_sam_gov_vectors():
+    """
+    Delete all Pinecone vectors that are not valid sam_gov notice_ids (i.e., not a hex string with no prefix),
+    and also delete orphaned sam_gov vectors (those not present in the sam_gov table).
+    Returns the total number of vectors deleted.
+    """
+    import re
+    logger.info("Starting full Pinecone cleanup: keep only valid sam_gov vectors (and remove orphans)...")
+    index = get_index()
+    pinecone_ids = set()
+    try:
+        for batch in index.list():
+            for vector_id in batch:
+                pinecone_ids.add(str(vector_id))
+    except Exception as e:
+        logger.error(f"Error listing Pinecone vectors: {e}")
+        return 0
+    logger.info(f"Found {len(pinecone_ids)} total vectors in Pinecone.")
+
+    # Regex for valid sam_gov notice_id (hex string, no prefix)
+    sam_gov_pattern = re.compile(r"^[a-fA-F0-9]+$")
+    sam_gov_ids = set([vid for vid in pinecone_ids if sam_gov_pattern.match(vid)])
+    non_sam_gov_ids = list(pinecone_ids - sam_gov_ids)
+
+    # Delete all non-sam_gov vectors
+    deleted_non_sam_gov = 0
+    batch_size = 1000
+    if non_sam_gov_ids:
+        try:
+            for i in range(0, len(non_sam_gov_ids), batch_size):
+                batch = non_sam_gov_ids[i:i+batch_size]
+                index.delete(ids=batch)
+                deleted_non_sam_gov += len(batch)
+                logger.info(f"Deleted batch {i//batch_size+1}: {len(batch)} non-sam_gov vectors.")
+            logger.info(f"Deleted {deleted_non_sam_gov} non-sam_gov vectors from Pinecone.")
+        except Exception as e:
+            logger.error(f"Error deleting non-sam_gov vectors: {e}")
+
+    # Now, get all notice_ids in sam_gov table
+    connection = get_db_connection()
+    db_ids = set()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT notice_id FROM sam_gov")
+            db_ids = set(str(row[0]) for row in cursor.fetchall())
+    except Exception as e:
+        logger.error(f"Error fetching notice_ids from sam_gov: {e}")
+        return deleted_non_sam_gov
+    finally:
+        connection.close()
+    logger.info(f"Found {len(db_ids)} notice_ids in sam_gov table.")
+
+    # Find orphaned sam_gov vectors (in Pinecone but not in DB)
+    orphaned_ids = list(sam_gov_ids - db_ids)
+    deleted_orphaned = 0
+    if orphaned_ids:
+        try:
+            for i in range(0, len(orphaned_ids), batch_size):
+                batch = orphaned_ids[i:i+batch_size]
+                index.delete(ids=batch)
+                deleted_orphaned += len(batch)
+                logger.info(f"Deleted batch {i//batch_size+1}: {len(batch)} orphaned sam_gov vectors.")
+            logger.info(f"Deleted {deleted_orphaned} orphaned sam_gov vectors from Pinecone.")
+        except Exception as e:
+            logger.error(f"Error deleting orphaned sam_gov vectors: {e}")
+
+    total_deleted = deleted_non_sam_gov + deleted_orphaned
+    logger.info(f"Total vectors deleted: {total_deleted} (non-sam_gov: {deleted_non_sam_gov}, orphaned sam_gov: {deleted_orphaned})")
+    return total_deleted
 
 if __name__ == "__main__":
     # By default, run incremental indexing (only new/updated records)

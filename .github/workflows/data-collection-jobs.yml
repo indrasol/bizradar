@@ -140,10 +140,10 @@ jobs:
     # Run when scheduled or manually triggered with appropriate input
     if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'freelancer' || github.event.inputs.job == ''))
     runs-on: ubuntu-latest
-    outputs:
-      record_count: ${{ steps.run-scraper.outputs.record_count }}
-      new_record_count: ${{ steps.run-scraper.outputs.new_record_count }}
-      status: ${{ steps.run-scraper.outputs.status }}
+    # outputs:
+    #   record_count: ${{ steps.run-scraper.outputs.record_count }}
+    #   new_record_count: ${{ steps.run-scraper.outputs.new_record_count }}
+    #   status: ${{ steps.run-scraper.outputs.status }}
     
     steps:
       - name: Checkout repository
@@ -160,28 +160,20 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r backend/requirements.txt
           pip install requests beautifulsoup4 pandas psycopg2-binary python-dotenv
-      
-      - name: Run Freelancer scraper
-        id: run-scraper
-        working-directory: ./backend
-        run: |
-
-          # Pass the ETL record ID and trigger type
-          python -m app.services.cron.freelancer --record-id ${{ needs.setup-etl-history.outputs.record_id }} --trigger-type ${{ needs.setup-etl-history.outputs.trigger_type }}
-          
-          # Extract results for workflow outputs
-          result=$(python -m app.services.cron.freelancer --record-id ${{ needs.setup-etl-history.outputs.record_id }} --trigger-type ${{ needs.setup-etl-history.outputs.trigger_type }})
-          echo "Freelancer scraper result: $result"
-          
-          # Extract key values from the result using grep and sed
-          count=$(echo "$result" | grep -o '"count": [0-9]*' | sed 's/"count": //')
-          new_count=$(echo "$result" | grep -o '"new_count": [0-9]*' | sed 's/"new_count": //')
-          status=$(echo "$result" | grep -o '"status": "[^"]*"' | sed 's/"status": "//' | sed 's/"$//')
-          
-          # Set outputs
-          echo "record_count=$count" >> $GITHUB_OUTPUT
-          echo "new_record_count=$new_count" >> $GITHUB_OUTPUT
-          echo "status=$status" >> $GITHUB_OUTPUT
+# Comment out only the step that runs the freelancer scraper
+#    - name: Run Freelancer scraper
+#      id: run-scraper
+#      working-directory: ./backend
+#      run: |
+#        python -m app.services.cron.freelancer --record-id ${{ needs.setup-etl-history.outputs.record_id }} --trigger-type ${{ needs.setup-etl-history.outputs.trigger_type }}
+#        result=$(python -m app.services.cron.freelancer --record-id ${{ needs.setup-etl-history.outputs.record_id }} --trigger-type ${{ needs.setup-etl-history.outputs.trigger_type }})
+#        echo "Freelancer scraper result: $result"
+#        count=$(echo "$result" | grep -o '"count": [0-9]*' | sed 's/"count": //')
+#        new_count=$(echo "$result" | grep -o '"new_count": [0-9]*' | sed 's/"new_count": //')
+#        status=$(echo "$result" | grep -o '"status": "[^"]*"' | sed 's/"status": "//' | sed 's/"$//')
+#        echo "record_count=$count" >> $GITHUB_OUTPUT
+#        echo "new_record_count=$new_count" >> $GITHUB_OUTPUT
+#        echo "status=$status" >> $GITHUB_OUTPUT
           
         env:
           # Database credentials
@@ -288,7 +280,7 @@ jobs:
       - name: Determine overall status
         id: status
         run: |
-          freelancer_status="${{ needs.freelancer-scraper.outputs.status || 'skipped' }}"
+          freelancer_status="skipped"
           sam_gov_status="${{ needs.sam-gov-api.outputs.status || 'skipped' }}"
           
           if [[ "$freelancer_status" == "error" || "$sam_gov_status" == "error" ]]; then
@@ -307,8 +299,8 @@ jobs:
             --status ${{ steps.status.outputs.overall_status }} \
             --sam-gov-count ${{ needs.sam-gov-api.outputs.record_count || 0 }} \
             --sam-gov-new ${{ needs.sam-gov-api.outputs.new_record_count || 0 }} \
-            --freelancer-count ${{ needs.freelancer-scraper.outputs.record_count || 0 }} \
-            --freelancer-new ${{ needs.freelancer-scraper.outputs.new_record_count || 0 }} \
+            --freelancer-count 0 \
+            --freelancer-new 0 \
             --trigger-type ${{ needs.setup-etl-history.outputs.trigger_type }}
         env:
           # Database credentials
