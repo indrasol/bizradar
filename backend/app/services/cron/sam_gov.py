@@ -344,17 +344,17 @@ async def fetch_opportunities() -> Dict[str, Any]:
                 # Import indexing function and run indexing for ALL data
                 logger.info("Running Pinecone indexing for ALL records...")
                 try:
-                    from utils.index_to_pinecone import index_sam_gov_to_pinecone, cleanup_orphaned_sam_gov_vectors
+                    from utils.index_to_pinecone import index_sam_gov_to_pinecone, cleanup_to_only_sam_gov_vectors
                 except ModuleNotFoundError:
-                    from app.utils.index_to_pinecone import index_sam_gov_to_pinecone, cleanup_orphaned_sam_gov_vectors
+                    from app.utils.index_to_pinecone import index_sam_gov_to_pinecone, cleanup_to_only_sam_gov_vectors
                 # Run indexing for ALL SAM.gov records
                 index_result = index_sam_gov_to_pinecone(incremental=False)
                 db_results["indexed_count"] = index_result
                 logger.info(f"Successfully indexed {index_result} records to Pinecone")
-                # Run orphaned vector cleanup
-                logger.info("Running Pinecone orphaned vector cleanup...")
-                deleted_count = cleanup_orphaned_sam_gov_vectors()
-                logger.info(f"Deleted {deleted_count} orphaned Pinecone vectors.")
+                # Run full vector cleanup (remove non-sam_gov and orphaned sam_gov vectors)
+                logger.info("Running Pinecone full cleanup (keep only valid sam_gov vectors)...")
+                deleted_count = cleanup_to_only_sam_gov_vectors()
+                logger.info(f"Deleted {deleted_count} Pinecone vectors (non-sam_gov and orphaned sam_gov).")
             except ImportError as e:
                 logger.warning(f"Could not import utils.index_to_pinecone module: {e}")
                 logger.warning("Pinecone indexing will be skipped for this run")
