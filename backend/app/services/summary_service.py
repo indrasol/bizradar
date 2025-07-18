@@ -109,6 +109,56 @@ async def generate_description_summary(description_text, max_length=300):
         logger.error(f"Summary generation error: {str(e)}")
         return "Unable to generate a summary. Direct review of the description is recommended."
 
+async def generate_title_and_summary(opportunity_title, description_text, max_length=400):
+    """
+    Generates an improved title (based on the original title and description) and a summary for a contract opportunity.
+    Returns a dict: {"title": ..., "summary": ...}
+    """
+    try:
+        if not description_text or description_text.strip() == "":
+            return {"title": opportunity_title or "Untitled Opportunity", "summary": "No description available."}
+        # Truncate very long descriptions
+        if len(description_text) > 6000:
+            description_text = description_text[:6000] + "..."
+        client = get_openai_client()
+        response = client.chat.completions.create(
+            model="gpt-4.1-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are an expert government contract analyst. For each contract opportunity, return a JSON object with two fields:\n"
+                        "1. 'title': Improve or clarify the provided title for a business audience. If the title is missing or unclear, generate a concise, clear, and engaging title (max 12 words) using the description for context.\n"
+                        "2. 'summary': A concise summary (max 5 sentences) highlighting the main goal, who is offering it, what makes it unique, any special requirements or deadlines, and why a business should consider applying.\n"
+                        "Do not include any extra text, only the JSON object."
+                    )
+                },
+                {
+                    "role": "user",
+                    "content": (
+                        f"Original Title: {opportunity_title or 'N/A'}\n\n"
+                        f"Description: {description_text}\n\n"
+                        "Return the improved title and summary as a JSON object."
+                    )
+                }
+            ],
+            temperature=0.2,
+            max_tokens=max_length
+        )
+        import json
+        content = response.choices[0].message.content.strip()
+        # Extract JSON if wrapped in markdown
+        if content.startswith("```json"):
+            content = content.split("```json")[1].split("```", 1)[0].strip()
+        result = json.loads(content)
+        # Fallbacks
+        title = result.get("title", opportunity_title or "Untitled Opportunity")
+        summary = result.get("summary", "No description available.")
+        return {"title": title, "summary": summary}
+    except Exception as e:
+        logger.error(f"Title/Summary generation error: {str(e)}")
+        return {"title": opportunity_title or "Untitled Opportunity", "summary": "No description available."}
+
 # CSV_URL = "https://s3.amazonaws.com/falextracts/Contract%20Opportunities/datagov/ContractOpportunitiesFullCSV.csv"
 NOTICE_ID_COL = "NoticeId"
 DESCRIPTION_COL = "Description"
@@ -221,20 +271,25 @@ DEFAULT_SUMMARY = (
 
 async def process_opportunity_summaries(opportunities):
     """
-    Processes a list of opportunities to generate summaries for their descriptions.
+    Processes a list of opportunities to generate summaries and improved titles for their descriptions.
     """
     try:
-        logger.info(f"Processing {len(opportunities)} opportunities for summary generation")
+        logger.info(f"Processing {len(opportunities)} opportunities for summary and title generation")
 
         async def summarize_opportunity(opp):
             description = opp.get("additional_description")
+            orig_title = opp.get("title") or opp.get("opportunity_title") or ""
             if description:
                 try:
-                    opp["summary"] = await generate_description_summary(description)
+                    result = await generate_title_and_summary(orig_title, description)
+                    opp["title"] = result["title"]
+                    opp["summary"] = result["summary"]
                 except Exception as e:
-                    logger.warning(f"Failed to summarize description for Notice ID {opp.get('noticeid')}: {e}")
+                    logger.warning(f"Failed to generate title/summary for Notice ID {opp.get('noticeid')}: {e}")
+                    opp["title"] = orig_title or "Untitled Opportunity"
                     opp["summary"] = DEFAULT_SUMMARY
             else:
+                opp["title"] = orig_title or "Untitled Opportunity"
                 opp["summary"] = DEFAULT_SUMMARY
 
         await asyncio.gather(*(summarize_opportunity(opp) for opp in opportunities))
