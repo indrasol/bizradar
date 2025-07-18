@@ -321,7 +321,8 @@ async def fetch_opportunities() -> Dict[str, Any]:
                 "response_date": parse_date(opp.get("responseDeadLine")),
                 "description": opp.get("description", ""),
                 "url": f"https://sam.gov/opp/{notice_id}/view" if notice_id else None,
-                "active": opp.get("active", True)
+                # Normalize 'active' to boolean: True if 'Yes', False otherwise
+                "active": True if str(opp.get("active", "Yes")).strip().lower() == "yes" else False
             }
             rows.append(row)
         

@@ -1210,6 +1210,9 @@ async def summarize_descriptions(request: Request):
                     if "id" in opp and "summary" in opp:
                         summary_key = f"summary:{opp['id']}"
                         redis_client.set_json(summary_key, opp["summary"], expiry=86400) # 24 hours
+                    if "id" in opp and "title" in opp:
+                        title_key = f"title:{opp['id']}"
+                        redis_client.set_json(title_key, opp["title"], expiry=86400) # 24 hours
         
         # Return the complete list of opportunities with summaries
         return {

@@ -329,7 +329,8 @@ def search_jobs(
                                naics_code, published_date, response_date, description,
                                additional_description, url, active
                           FROM sam_gov
-                         WHERE id IN ({placeholders})
+                         WHERE notice_id IN ({placeholders})
+                           AND active = TRUE
                     """
                     params = sam_gov_ids.copy()
 
@@ -380,7 +381,7 @@ def search_jobs(
                                price_budget AS value, job_url AS external_url,
                                published_date
                           FROM freelancer_data_table
-                         WHERE id IN ({ph})
+                         WHERE job_url IN ({ph})
                     """
                     cur.execute(fq, freelancer_ids)
                     fcols = ["id", "title", "description", "agency", "platform", "value", "external_url", "published_date", "response_date"]

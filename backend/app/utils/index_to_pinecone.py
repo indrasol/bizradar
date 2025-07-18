@@ -358,6 +358,16 @@ def prepare_metadata(record: Dict, source: str) -> Dict:
             "indexed_at": int(datetime.utcnow().timestamp())
         }
 
+def get_vector_id(record, source):
+    """
+    Generate a composite vector ID for Pinecone based on the source and unique business identifier.
+    """
+    if source == "sam_gov":
+        return f"sam_gov_{record['notice_id']}"
+    elif source == "freelancer":
+        return f"freelancer_{record['job_url']}"
+    return f"{source}_{record.get('notice_id', record.get('job_url', record.get('id', 'unknown')))}"
+
 def index_records_to_pinecone(records: List[Dict], source: str, incremental: bool = True) -> int:
     """
     Common function to index records to Pinecone.
@@ -401,8 +411,8 @@ def index_records_to_pinecone(records: List[Dict], source: str, incremental: boo
     
     for record in tqdm(records, desc=f"Processing {source} records"):
         try:
-            # Create the Pinecone ID
-            record_id = f"{source}_{record['id']}"
+            # Create the Pinecone ID using the unique business identifier
+            record_id = get_vector_id(record, source)
             
             # Check if vector exists and get its metadata
             existing_vector = None
@@ -685,7 +695,7 @@ def cleanup_orphaned_sam_gov_vectors():
 
 def cleanup_to_only_sam_gov_vectors():
     """
-    Delete all Pinecone vectors that are not valid sam_gov notice_ids (i.e., not a hex string with no prefix),
+    Delete all Pinecone vectors that are not valid sam_gov vectors (ID does not start with 'sam_gov_'),
     and also delete orphaned sam_gov vectors (those not present in the sam_gov table).
     Returns the total number of vectors deleted.
     """
@@ -701,56 +711,49 @@ def cleanup_to_only_sam_gov_vectors():
         logger.error(f"Error listing Pinecone vectors: {e}")
         return 0
     logger.info(f"Found {len(pinecone_ids)} total vectors in Pinecone.")
-
-    # Regex for valid sam_gov notice_id (hex string, no prefix)
-    sam_gov_pattern = re.compile(r"^[a-fA-F0-9]+$")
-    sam_gov_ids = set([vid for vid in pinecone_ids if sam_gov_pattern.match(vid)])
-    non_sam_gov_ids = list(pinecone_ids - sam_gov_ids)
-
+    # Separate sam_gov and non-sam_gov vectors
+    sam_gov_ids = set()
+    non_sam_gov_ids = set()
+    for vid in pinecone_ids:
+        if vid.startswith("sam_gov_"):
+            sam_gov_ids.add(vid)
+        else:
+            non_sam_gov_ids.add(vid)
     # Delete all non-sam_gov vectors
-    deleted_non_sam_gov = 0
-    batch_size = 1000
+    total_deleted = 0
     if non_sam_gov_ids:
-        try:
-            for i in range(0, len(non_sam_gov_ids), batch_size):
-                batch = non_sam_gov_ids[i:i+batch_size]
-                index.delete(ids=batch)
-                deleted_non_sam_gov += len(batch)
-                logger.info(f"Deleted batch {i//batch_size+1}: {len(batch)} non-sam_gov vectors.")
-            logger.info(f"Deleted {deleted_non_sam_gov} non-sam_gov vectors from Pinecone.")
-        except Exception as e:
-            logger.error(f"Error deleting non-sam_gov vectors: {e}")
-
-    # Now, get all notice_ids in sam_gov table
-    connection = get_db_connection()
-    db_ids = set()
+        non_sam_gov_ids = list(non_sam_gov_ids)
+        for i in range(0, len(non_sam_gov_ids), 1000):
+            batch_ids = non_sam_gov_ids[i:i+1000]
+            index.delete(ids=batch_ids)
+            logger.info(f"Deleted batch {i//1000+1}: {len(batch_ids)} non-sam_gov vectors.")
+            total_deleted += len(batch_ids)
+        logger.info(f"Deleted {len(non_sam_gov_ids)} non-sam_gov vectors from Pinecone.")
+    # Get all notice_ids in sam_gov table
+    from utils.db_utils import get_db_connection
+    conn = get_db_connection()
+    db_notice_ids = set()
     try:
-        with connection.cursor() as cursor:
-            cursor.execute("SELECT notice_id FROM sam_gov")
-            db_ids = set(str(row[0]) for row in cursor.fetchall())
-    except Exception as e:
-        logger.error(f"Error fetching notice_ids from sam_gov: {e}")
-        return deleted_non_sam_gov
+        with conn.cursor() as cur:
+            cur.execute("SELECT notice_id FROM sam_gov")
+            db_notice_ids = set(str(row[0]) for row in cur.fetchall())
     finally:
-        connection.close()
-    logger.info(f"Found {len(db_ids)} notice_ids in sam_gov table.")
-
-    # Find orphaned sam_gov vectors (in Pinecone but not in DB)
-    orphaned_ids = list(sam_gov_ids - db_ids)
-    deleted_orphaned = 0
+        conn.close()
+    logger.info(f"Found {len(db_notice_ids)} notice_ids in sam_gov table.")
+    # Delete orphaned sam_gov vectors
+    orphaned_ids = []
+    for vid in sam_gov_ids:
+        notice_id = vid[len("sam_gov_"):]
+        if notice_id not in db_notice_ids:
+            orphaned_ids.append(vid)
     if orphaned_ids:
-        try:
-            for i in range(0, len(orphaned_ids), batch_size):
-                batch = orphaned_ids[i:i+batch_size]
-                index.delete(ids=batch)
-                deleted_orphaned += len(batch)
-                logger.info(f"Deleted batch {i//batch_size+1}: {len(batch)} orphaned sam_gov vectors.")
-            logger.info(f"Deleted {deleted_orphaned} orphaned sam_gov vectors from Pinecone.")
-        except Exception as e:
-            logger.error(f"Error deleting orphaned sam_gov vectors: {e}")
-
-    total_deleted = deleted_non_sam_gov + deleted_orphaned
-    logger.info(f"Total vectors deleted: {total_deleted} (non-sam_gov: {deleted_non_sam_gov}, orphaned sam_gov: {deleted_orphaned})")
+        for i in range(0, len(orphaned_ids), 1000):
+            batch_ids = orphaned_ids[i:i+1000]
+            index.delete(ids=batch_ids)
+            logger.info(f"Deleted batch {i//1000+1}: {len(batch_ids)} orphaned sam_gov vectors.")
+            total_deleted += len(batch_ids)
+        logger.info(f"Deleted {len(orphaned_ids)} orphaned sam_gov vectors from Pinecone.")
+    logger.info(f"Total vectors deleted: {total_deleted} (non-sam_gov: {len(non_sam_gov_ids)}, orphaned sam_gov: {len(orphaned_ids)})")
     return total_deleted
 
 if __name__ == "__main__":
