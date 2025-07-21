@@ -1,8 +1,8 @@
 {
   "company_logo": "Path to the company's logo image (preferably PNG format) if available else put <company logo>",
   "company_website": "Official website of the company",
-  "proposal_class": "Type or title of the proposal (e.g., Cybersecurity Assessment, AI Assessment, etc). It should be the topic under assessment for the proposal",
-  "proposal_bid": "Bid or contract reference number issued by the client",
+  "proposal_class": "Type of proposal (e.g., Cybersecurity Assessment, AI Assessment, etc). It should be the topic under assessment for the proposal",
+  "proposal_bid": "Bid or contract reference number issued by the client (proposal_bid) from proposal data below",
   "date_today": "The date today in USA in the format of Month Day, Year",
   "company_ceo": "Name of the company's CEO or signing authority if available else put <company ceo>",
   "company_street": "Street address of the company headquarters if available else put <company street>",
