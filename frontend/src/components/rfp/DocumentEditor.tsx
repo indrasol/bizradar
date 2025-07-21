@@ -11,12 +11,13 @@ import Underline from '@tiptap/extension-underline';
 import { FontFamily } from '@tiptap/extension-font-family';
 import { FontSize } from './extensions/FontSize';
 import { EditorToolbar } from './EditorToolbar';
-import { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useImperativeHandle, forwardRef } from 'react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { Document, Packer, Paragraph, TextRun, Table as DocxTable, TableRow as DocxTableRow, TableCell as DocxTableCell, HeadingLevel, AlignmentType } from 'docx';
 import { toast } from 'sonner';
 import mammoth from "mammoth";
+import TextAlign from '@tiptap/extension-text-align';
 
 interface DocumentEditorProps {
   value?: string;
@@ -26,13 +27,13 @@ interface DocumentEditorProps {
   className?: string;
 }
 
-const DocumentEditor = ({ 
+const DocumentEditor = forwardRef(({ 
   value = '', 
   onChange, 
   disabled = false,
   placeholder = 'Start writing your document here...',
   className = ''
-}: DocumentEditorProps) => {
+}: DocumentEditorProps, ref) => {
   const [isExporting, setIsExporting] = useState(false);
   const [showInstructions, setShowInstructions] = useState(true);
 
@@ -66,6 +67,10 @@ const DocumentEditor = ({
         allowBase64: true,
       }),
       ImageResize,
+      // Remove TextAlign extension for now due to type incompatibility
+      // TextAlign.configure({
+      //   types: ['heading', 'paragraph'],
+      // }),
     ],
     content: value || `<p>${placeholder}</p>`,
     editorProps: {
@@ -84,7 +89,30 @@ const DocumentEditor = ({
   // Update editor content when value prop changes
   useEffect(() => {
     if (editor && value !== editor.getHTML()) {
-      editor.commands.setContent(value || `<p>${placeholder}</p>`);
+      // Check if the value contains images
+      if (value && /<img\s/i.test(value)) {
+        // Parse HTML and extract images
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(value, 'text/html');
+        const images = Array.from(doc.querySelectorAll('img'));
+        
+        // Remove images from the HTML content
+        images.forEach(img => img.parentNode?.removeChild(img));
+        const htmlWithoutImages = doc.body.innerHTML;
+        
+        // Set HTML content without images first
+        editor.commands.setContent(htmlWithoutImages || `<p>${placeholder}</p>`);
+        
+        // Insert images at the end of the content
+        images.forEach(img => {
+          if (img.src) {
+            editor.chain().focus().setImage({ src: img.src, alt: img.alt || undefined }).run();
+          }
+        });
+      } else {
+        // No images found, set content normally
+        editor.commands.setContent(value || `<p>${placeholder}</p>`);
+      }
     }
   }, [editor, value, placeholder]);
 
@@ -95,6 +123,24 @@ const DocumentEditor = ({
     }
   }, [editor, disabled]);
 
+  
+  // Fix: Remove extraneous parenthesis and ensure correct function signature
+  const insertImageHtmlString = useCallback((imgHtmlString: string) => {
+    if (disabled || !editor) return;
+
+    // Create a DOM parser to extract the src and alt from the HTML string
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(imgHtmlString, 'text/html');
+    const img = doc.querySelector('img');
+    if (img && img.src) {
+      editor.chain().focus().setImage({ src: img.src, alt: img.alt || undefined }).run();
+      console.log('Image inserted:', img.src);
+    } else {
+      toast('Invalid image HTML string.');
+    }
+  }, [editor, disabled]);
+
+  // The original image upload function
   const handleImageUpload = useCallback((file: File) => {
     if (disabled) return;
     
@@ -112,8 +158,32 @@ const DocumentEditor = ({
       toast('Processing Word document...');
       const arrayBuffer = await file.arrayBuffer();
       const { value: html } = await mammoth.convertToHtml({ arrayBuffer });
-      if (editor) {
-        editor.commands.setContent(html);
+      
+      if (editor && html) {
+        // Check if the HTML contains images
+        if (/<img\s/i.test(html)) {
+          // Parse HTML and extract images
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(html, 'text/html');
+          const images = Array.from(doc.querySelectorAll('img'));
+          
+          // Remove images from the HTML content
+          images.forEach(img => img.parentNode?.removeChild(img));
+          const htmlWithoutImages = doc.body.innerHTML;
+          
+          // Set HTML content without images first
+          editor.commands.setContent(htmlWithoutImages);
+          
+          // Insert images at the end of the content
+          images.forEach(img => {
+            if (img.src) {
+              editor.chain().focus().setImage({ src: img.src, alt: img.alt || undefined }).run();
+            }
+          });
+        } else {
+          // No images found, set content normally
+          editor.commands.setContent(html);
+        }
         toast('Word document uploaded successfully!');
       }
     } catch (error) {
@@ -364,6 +434,12 @@ const DocumentEditor = ({
     }
   };
 
+  // Expose editor and insertImageHtmlString via ref
+  useImperativeHandle(ref, () => ({
+    editor,
+    insertImageHtmlString,
+  }), [editor, insertImageHtmlString]);
+
   if (!editor) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -505,6 +581,6 @@ const DocumentEditor = ({
       </div>
     </div>
   );
-};
+});
 
 export default DocumentEditor;

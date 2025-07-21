@@ -3,20 +3,28 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
-import { 
-  Bold, 
-  Italic, 
-  Underline, 
-  Image as ImageIcon, 
-  Table, 
+import {
+  Bold,
+  Italic,
+  Underline,
+  Image as ImageIcon,
+  Table,
   Download,
   FileText,
   Loader2,
   Upload,
-  Info
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  PlusSquare,
+  MinusSquare,
+  Trash2,
+  Rows,
+  Columns,
 } from 'lucide-react';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 interface EditorToolbarProps {
   editor: Editor;
@@ -30,6 +38,7 @@ interface EditorToolbarProps {
 export const EditorToolbar = ({ editor, onImageUpload, onDocumentUpload, onExportPDF, onExportWord, isExporting }: EditorToolbarProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const documentInputRef = useRef<HTMLInputElement>(null);
+  const [tablePopoverOpen, setTablePopoverOpen] = useState(false);
 
   const handleImageClick = () => {
     fileInputRef.current?.click();
@@ -44,7 +53,6 @@ export const EditorToolbar = ({ editor, onImageUpload, onDocumentUpload, onExpor
     if (file && file.type.startsWith('image/')) {
       onImageUpload(file);
     }
-    // Reset the input
     event.target.value = '';
   };
 
@@ -53,7 +61,6 @@ export const EditorToolbar = ({ editor, onImageUpload, onDocumentUpload, onExpor
     if (file && file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
       onDocumentUpload(file);
     }
-    // Reset the input
     event.target.value = '';
   };
 
@@ -85,286 +92,389 @@ export const EditorToolbar = ({ editor, onImageUpload, onDocumentUpload, onExpor
   ];
 
   return (
-    <div className="flex flex-wrap items-center gap-2 p-3 bg-gray-50 border rounded-lg">
-      {/* Upload Document */}
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={handleDocumentClick}
-        disabled={isExporting}
-        className="bg-purple-50 hover:bg-purple-100 border-purple-200"
-      >
-        <Upload className="h-4 w-4 mr-1" />
-        Upload Word
-      </Button>
+    <div className="flex flex-col w-full">
+      <div className="flex flex-col gap-y-2 p-3 bg-white border border-gray-200 rounded-xl shadow-sm">
+        {/* Row 1: Upload/Export */}
+        <div className="flex flex-row items-center gap-2 h-8 min-h-[32px]">
+          {/* All icon buttons use h-8 w-8 for consistent alignment */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 flex items-center justify-center text-purple-700 hover:bg-purple-50 border border-transparent hover:border-purple-200"
+                  onClick={handleDocumentClick}
+                  disabled={isExporting}
+                  aria-label="Upload Word Document"
+                >
+                  <Upload className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Upload Word Document</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <Separator orientation="vertical" className="h-6 mx-1" />
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={onExportWord}
+                  disabled={isExporting}
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 flex items-center justify-center text-green-700 hover:bg-green-50 border border-transparent hover:border-green-200"
+                  aria-label="Export as Word"
+                >
+                  {isExporting ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <FileText className="h-5 w-5" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Export as Word</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={onExportPDF}
+                  disabled={isExporting}
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 flex items-center justify-center text-blue-700 hover:bg-blue-50 border border-transparent hover:border-blue-200"
+                  aria-label="Export as PDF"
+                >
+                  {isExporting ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <Download className="h-5 w-5" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Export as PDF</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
 
-      <Separator orientation="vertical" className="h-6" />
+        {/* Row 2: Formatting & Insert + Table Controls */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Font Family & Size */}
+          <Select
+            value={editor.getAttributes('textStyle').fontFamily || 'Arial'}
+            onValueChange={(value) => {
+              if (value === 'default') {
+                editor.chain().focus().unsetFontFamily().run();
+              } else {
+                editor.chain().focus().setFontFamily(value).run();
+              }
+            }}
+          >
+            <SelectTrigger className="w-[120px] h-8 text-xs border-gray-200">
+              <SelectValue placeholder="Font" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="default">Default</SelectItem>
+              {fontFamilies.map((font) => (
+                <SelectItem key={font.value} value={font.value} className="text-xs">
+                  {font.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={editor.getAttributes('textStyle').fontSize || '16px'}
+            onValueChange={(value) => {
+              if (value === 'default') {
+                editor.chain().focus().unsetFontSize().run();
+              } else {
+                editor.chain().focus().setFontSize(value).run();
+              }
+            }}
+          >
+            <SelectTrigger className="w-[70px] h-8 text-xs border-gray-200">
+              <SelectValue placeholder="Size" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="default">Default</SelectItem>
+              {fontSizes.map((size) => (
+                <SelectItem key={size.value} value={size.value} className="text-xs">
+                  {size.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Separator orientation="vertical" className="h-6 mx-1" />
+          {/* Formatting */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={editor.isActive('bold') ? 'default' : 'ghost'}
+                  size="icon"
+                  onClick={() => editor.chain().focus().toggleBold().run()}
+                  aria-label="Bold"
+                  className="hover:bg-gray-100"
+                >
+                  <Bold className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Bold</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={editor.isActive('italic') ? 'default' : 'ghost'}
+                  size="icon"
+                  onClick={() => editor.chain().focus().toggleItalic().run()}
+                  aria-label="Italic"
+                  className="hover:bg-gray-100"
+                >
+                  <Italic className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Italic</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={editor.isActive('underline') ? 'default' : 'ghost'}
+                  size="icon"
+                  onClick={() => editor.chain().focus().toggleUnderline().run()}
+                  aria-label="Underline"
+                  className="hover:bg-gray-100"
+                >
+                  <Underline className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Underline</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <Separator orientation="vertical" className="h-6 mx-1" />
+          {/* Headings */}
+          <Select
+            value={
+              editor.isActive('heading', { level: 1 }) ? 'h1' :
+              editor.isActive('heading', { level: 2 }) ? 'h2' :
+              editor.isActive('heading', { level: 3 }) ? 'h3' :
+              'paragraph'
+            }
+            onValueChange={(value) => {
+              if (value === 'paragraph') {
+                editor.chain().focus().setParagraph().run();
+              } else {
+                const level = parseInt(value.replace('h', '')) as 1 | 2 | 3 | 4 | 5 | 6;
+                editor.chain().focus().toggleHeading({ level }).run();
+              }
+            }}
+          >
+            <SelectTrigger className="w-[90px] h-8 text-xs border-gray-200">
+              <SelectValue placeholder="Style" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="paragraph">Paragraph</SelectItem>
+              <SelectItem value="h1">Heading 1</SelectItem>
+              <SelectItem value="h2">Heading 2</SelectItem>
+              <SelectItem value="h3">Heading 3</SelectItem>
+            </SelectContent>
+          </Select>
+          <Separator orientation="vertical" className="h-6 mx-1" />
+          {/* Lists */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={editor.isActive('bulletList') ? 'default' : 'ghost'}
+                  size="icon"
+                  onClick={() => editor.chain().focus().toggleBulletList().run()}
+                  aria-label="Bullet List"
+                  className="hover:bg-gray-100 font-bold"
+                >
+                  •
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Bullet List</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={editor.isActive('orderedList') ? 'default' : 'ghost'}
+                  size="icon"
+                  onClick={() => editor.chain().focus().toggleOrderedList().run()}
+                  aria-label="Numbered List"
+                  className="hover:bg-gray-100 font-bold"
+                >
+                  1.
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Numbered List</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          {/* Alignment Buttons */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={editor.isActive({ textAlign: 'left' }) ? 'default' : 'ghost'}
+                  size="icon"
+                  onClick={() => (editor.chain() as any).focus().setTextAlign('left').run()}
+                  aria-label="Align Left"
+                  className="hover:bg-gray-100"
+                >
+                  <AlignLeft className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Align Left</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={editor.isActive({ textAlign: 'center' }) ? 'default' : 'ghost'}
+                  size="icon"
+                  onClick={() => (editor.chain() as any).focus().setTextAlign('center').run()}
+                  aria-label="Align Center"
+                  className="hover:bg-gray-100"
+                >
+                  <AlignCenter className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Align Center</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={editor.isActive({ textAlign: 'right' }) ? 'default' : 'ghost'}
+                  size="icon"
+                  onClick={() => (editor.chain() as any).focus().setTextAlign('right').run()}
+                  aria-label="Align Right"
+                  className="hover:bg-gray-100"
+                >
+                  <AlignRight className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Align Right</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <Separator orientation="vertical" className="h-6 mx-1" />
+          {/* Insert Options */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleImageClick}
+                  aria-label="Insert Image"
+                  className="hover:bg-gray-100"
+                >
+                  <ImageIcon className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Insert Image</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          {/* Table Controls - icon buttons with tooltips */}
+          <Separator orientation="vertical" className="h-6 mx-1" />
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().addColumnBefore().run()} aria-label="Add Column Left" className="hover:bg-gray-100">
+                  <Columns className="h-5 w-5 rotate-180" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Add Column Left</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().addColumnAfter().run()} aria-label="Add Column Right" className="hover:bg-gray-100">
+                  <Columns className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Add Column Right</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().deleteColumn().run()} aria-label="Delete Column" className="hover:bg-gray-100">
+                  <MinusSquare className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Delete Column</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().addRowBefore().run()} aria-label="Add Row Above" className="hover:bg-gray-100">
+                  <Rows className="h-5 w-5 rotate-180" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Add Row Above</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().addRowAfter().run()} aria-label="Add Row Below" className="hover:bg-gray-100">
+                  <Rows className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Add Row Below</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={() => editor.chain().focus().deleteRow().run()} aria-label="Delete Row" className="hover:bg-gray-100">
+                  <MinusSquare className="h-5 w-5 rotate-90" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Delete Row</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="destructive" size="icon" onClick={() => editor.chain().focus().deleteTable().run()} aria-label="Delete Table" className="hover:bg-red-100">
+                  <Trash2 className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Delete Table</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
 
-      {/* Font Family */}
-      <Select
-        value={editor.getAttributes('textStyle').fontFamily || 'Arial'}
-        onValueChange={(value) => {
-          if (value === 'default') {
-            editor.chain().focus().unsetFontFamily().run();
-          } else {
-            editor.chain().focus().setFontFamily(value).run();
-          }
-        }}
-      >
-        <SelectTrigger className="w-[140px]">
-          <SelectValue placeholder="Font" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="default">Default</SelectItem>
-          {fontFamilies.map((font) => (
-            <SelectItem key={font.value} value={font.value}>
-              {font.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
-      <Separator orientation="vertical" className="h-6" />
-
-      {/* Font Size */}
-      <Select
-        value={editor.getAttributes('textStyle').fontSize || '16px'}
-        onValueChange={(value) => {
-          if (value === 'default') {
-            editor.chain().focus().unsetFontSize().run();
-          } else {
-            editor.chain().focus().setFontSize(value).run();
-          }
-        }}
-      >
-        <SelectTrigger className="w-[100px]">
-          <SelectValue placeholder="Size" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="default">Default</SelectItem>
-          {fontSizes.map((size) => (
-            <SelectItem key={size.value} value={size.value}>
-              {size.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
-      <Separator orientation="vertical" className="h-6" />
-
-      {/* Text Formatting */}
-      <Button
-        variant={editor.isActive('bold') ? 'default' : 'outline'}
-        size="sm"
-        onClick={() => editor.chain().focus().toggleBold().run()}
-      >
-        <Bold className="h-4 w-4" />
-      </Button>
-
-      <Button
-        variant={editor.isActive('italic') ? 'default' : 'outline'}
-        size="sm"
-        onClick={() => editor.chain().focus().toggleItalic().run()}
-      >
-        <Italic className="h-4 w-4" />
-      </Button>
-
-      <Button
-        variant={editor.isActive('underline') ? 'default' : 'outline'}
-        size="sm"
-        onClick={() => editor.chain().focus().toggleUnderline().run()}
-      >
-        <Underline className="h-4 w-4" />
-      </Button>
-
-      <Separator orientation="vertical" className="h-6" />
-
-      {/* Headings */}
-      <Select
-        value={
-          editor.isActive('heading', { level: 1 }) ? 'h1' :
-          editor.isActive('heading', { level: 2 }) ? 'h2' :
-          editor.isActive('heading', { level: 3 }) ? 'h3' :
-          'paragraph'
-        }
-        onValueChange={(value) => {
-          if (value === 'paragraph') {
-            editor.chain().focus().setParagraph().run();
-          } else {
-            const level = parseInt(value.replace('h', '')) as 1 | 2 | 3 | 4 | 5 | 6;
-            editor.chain().focus().toggleHeading({ level }).run();
-          }
-        }}
-      >
-        <SelectTrigger className="w-[120px]">
-          <SelectValue placeholder="Style" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="paragraph">Paragraph</SelectItem>
-          <SelectItem value="h1">Heading 1</SelectItem>
-          <SelectItem value="h2">Heading 2</SelectItem>
-          <SelectItem value="h3">Heading 3</SelectItem>
-        </SelectContent>
-      </Select>
-
-      <Separator orientation="vertical" className="h-6" />
-
-      {/* Lists */}
-      <Button
-        variant={editor.isActive('bulletList') ? 'default' : 'outline'}
-        size="sm"
-        onClick={() => editor.chain().focus().toggleBulletList().run()}
-      >
-        • List
-      </Button>
-
-      <Button
-        variant={editor.isActive('orderedList') ? 'default' : 'outline'}
-        size="sm"
-        onClick={() => editor.chain().focus().toggleOrderedList().run()}
-      >
-        1. List
-      </Button>
-
-      <Separator orientation="vertical" className="h-6" />
-
-      {/* Insert Options */}
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleImageClick}
-            >
-              <ImageIcon className="h-4 w-4 mr-1" />
-              Image
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Upload an image. You can resize it by dragging the handles.</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={insertTable}
-            >
-              <Table className="h-4 w-4 mr-1" />
-              Table
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Insert a table. Drag column borders to resize.</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-
-      <Separator orientation="vertical" className="h-6" />
-
-      {/* Table Controls */}
-      <div className="flex items-center gap-1">
-        <span className="text-xs text-gray-500 mr-2">Table:</span>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => editor.chain().focus().addColumnBefore().run()}
-        >
-          +Col Left
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => editor.chain().focus().addColumnAfter().run()}
-        >
-          +Col Right
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => editor.chain().focus().deleteColumn().run()}
-        >
-          -Col
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => editor.chain().focus().addRowBefore().run()}
-        >
-          +Row Above
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => editor.chain().focus().addRowAfter().run()}
-        >
-          +Row Below
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => editor.chain().focus().deleteRow().run()}
-        >
-          -Row
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => editor.chain().focus().deleteTable().run()}
-        >
-          Delete Table
-        </Button>
+        {/* Hidden Inputs */}
+        <Input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFileChange}
+          className="hidden"
+        />
+        <Input
+          ref={documentInputRef}
+          type="file"
+          accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          onChange={handleDocumentChange}
+          className="hidden"
+        />
       </div>
-
-      <Separator orientation="vertical" className="h-6" />
-
-      {/* Export Options */}
-      <Button
-        onClick={onExportWord}
-        disabled={isExporting}
-        className="bg-green-600 hover:bg-green-700"
-      >
-        {isExporting ? (
-          <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-        ) : (
-          <FileText className="h-4 w-4 mr-1" />
-        )}
-        Word
-      </Button>
-
-      <Button
-        onClick={onExportPDF}
-        disabled={isExporting}
-        className="bg-blue-600 hover:bg-blue-700"
-      >
-        {isExporting ? (
-          <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-        ) : (
-          <Download className="h-4 w-4 mr-1" />
-        )}
-        PDF
-      </Button>
-
-      <Input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        onChange={handleFileChange}
-        className="hidden"
-      />
-
-      <Input
-        ref={documentInputRef}
-        type="file"
-        accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        onChange={handleDocumentChange}
-        className="hidden"
-      />
     </div>
   );
 };

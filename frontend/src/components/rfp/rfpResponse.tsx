@@ -40,6 +40,10 @@ import { Worker, Viewer } from '@react-pdf-viewer/core';
 import { defaultLayoutPlugin } from '@react-pdf-viewer/default-layout';
 
 
+const cleanEmptyParagraphs = (html: string): string => {
+  return html.replace(/<p><br(?: class="[^"]*")?\s*\/?><\/p>/g, '');
+};
+
 const renderTemplate = (template: string, data: any): string => {
   // First handle for loops
   template = processForLoops(template, data);
@@ -48,39 +52,84 @@ const renderTemplate = (template: string, data: any): string => {
   template = processConditionals(template, data);
   
   // Finally handle simple variable substitution
-  return template.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
+  let rendered = template.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
     const value = key.split('.').reduce((obj, k) => obj?.[k.trim()], data);
     return value !== undefined ? String(value) : match;
   });
+  // Clean empty paragraphs
+  rendered = cleanEmptyParagraphs(rendered);
+  return rendered;
 };
 
 const processForLoops = (template: string, data: any): string => {
-  // Match {% for item in array %} ... {% endfor %}
-  const forLoopRegex = /\{%\s*for\s+(\w+)\s+in\s+(\w+)\s*%\}([\s\S]*?)\{%\s*endfor\s*%\}/g;
-  
-  return template.replace(forLoopRegex, (match, itemName, arrayName, loopContent) => {
-    const array = arrayName.split('.').reduce((obj, k) => obj?.[k.trim()], data);
-    
-    if (!Array.isArray(array)) {
-      console.warn(`Template: Array '${arrayName}' not found or not an array`);
-      return '';
+  const forStartTag = /{%\s*for\s+(\w+)\s+in\s+([\w.]+)\s*%}/;
+  const endTag = /{%\s*endfor\s*%}/;
+
+  let result = '';
+  let remaining = template;
+
+  while (true) {
+    const startMatch = forStartTag.exec(remaining);
+    if (!startMatch) {
+      result += remaining;
+      break;
     }
-    
-    return array.map(item => {
-      // Create a new context with the current item
-      const itemContext = { ...data, [itemName]: item };
-      
-      // Process nested loops and conditionals within this loop
-      let processedContent = processForLoops(loopContent, itemContext);
-      processedContent = processConditionals(processedContent, itemContext);
-      
-      // Handle variable substitution within the loop
-      return processedContent.replace(/\{\{([^}]+)\}\}/g, (varMatch, key) => {
-        const value = key.split('.').reduce((obj, k) => obj?.[k.trim()], itemContext);
+
+    const [startTag, itemName, arrayPath] = startMatch;
+    const startIndex = startMatch.index;
+    result += remaining.slice(0, startIndex);
+
+    let cursor = startIndex + startTag.length;
+    let openCount = 1;
+    let endIndex = -1;
+
+    // Find the matching endfor by counting nested loops
+    while (cursor < remaining.length) {
+      const nextStart = remaining.slice(cursor).search(forStartTag);
+      const nextEnd = remaining.slice(cursor).search(endTag);
+
+      if (nextEnd === -1) break;
+
+      if (nextStart !== -1 && nextStart < nextEnd) {
+        openCount++;
+        cursor += nextStart + startTag.length;
+      } else {
+        openCount--;
+        if (openCount === 0) {
+          endIndex = cursor + nextEnd;
+          break;
+        }
+        cursor += nextEnd + 1;
+      }
+    }
+
+    if (endIndex === -1) {
+      console.error("Unmatched {% for %} tag");
+      break;
+    }
+
+    const loopBody = remaining.slice(startMatch.index + startTag.length, endIndex);
+    remaining = remaining.slice(endIndex + remaining.slice(endIndex).match(endTag)[0].length);
+
+    const array = arrayPath.split('.').reduce((obj, k) => obj?.[k.trim()], data);
+    if (!Array.isArray(array)) {
+      console.warn(`Expected array for '${arrayPath}', got`, array);
+      continue;
+    }
+
+    for (const item of array) {
+      const loopContext = { ...data, [itemName]: item };
+      let processed = processForLoops(loopBody, loopContext);
+      processed = processConditionals(processed, loopContext);
+      processed = processed.replace(/\{\{([^}]+)\}\}/g, (varMatch, key) => {
+        const value = key.trim().split('.').reduce((obj, k) => obj?.[k.trim()], loopContext);
         return value !== undefined ? String(value) : varMatch;
       });
-    }).join('');
-  });
+      result += processed;
+    }
+  }
+
+  return result;
 };
 
 const processConditionals = (template: string, data: any): string => {
@@ -258,6 +307,15 @@ const RfpResponse = ({ contract, pursuitId }) => {
       // Use mammoth to convert the ArrayBuffer to HTML
       // @ts-ignore
       const { value: html } = await mammoth.convertToHtml({ arrayBuffer });
+      if (/<img\s/i.test(html)) {
+        const imgMatch = html.match(/<img[^>]*>/i);
+        if (imgMatch) {
+          const imgTag = imgMatch[0];
+          console.log(`Image detected in HTML from docx: ${docxUrl}. First 50 chars: ${imgTag.substring(0, 50)}`);
+        } else {
+          console.log(`Image detected in HTML from docx: ${docxUrl}, but could not extract <img> tag.`);
+        }
+      }
       return html;
     } catch (error) {
       console.error('Error converting docx to HTML:', error);
@@ -265,26 +323,27 @@ const RfpResponse = ({ contract, pursuitId }) => {
     }
   }
 
+  // Reusable function to load docx templates and set as HTML in sections
+  const resetSectionsWithDocxHtml = async () => {
+    const templateSections = defaultTemplate(exampleJob);
+    const sectionsWithHtml = await Promise.all(
+      templateSections.map(async (section, idx) => {
+        if (typeof section.content === 'string' && section.content.endsWith('.docx')) {
+          const html = await docxToHtml(section.content);
+          // We'll set the content in the DocumentEditor after mount using useEffect
+          return { ...section, content: html };
+        }
+        return section;
+      })
+    );
+    setSections(sectionsWithHtml);
+  };
+
   const [sections, setSections] = useState<any[]>([]);
 
   useEffect(() => {
-    // Helper to load all docx files and replace content with HTML
-    const loadSectionsWithHtml = async () => {
-      const templateSections = defaultTemplate(exampleJob);
-      const sectionsWithHtml = await Promise.all(
-        templateSections.map(async (section) => {
-          // If content is a .docx path, convert to HTML
-          if (typeof section.content === 'string' && section.content.endsWith('.docx')) {
-            const html = await docxToHtml(section.content);
-            return { ...section, content: html };
-          }
-          return section;
-        })
-      );
-      setSections(sectionsWithHtml);
-    };
-
-    loadSectionsWithHtml();
+    // On mount, load docx templates as HTML for DocumentEditors
+    resetSectionsWithDocxHtml();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1424,6 +1483,49 @@ const RfpResponse = ({ contract, pursuitId }) => {
     pdf.save('proposal-preview.pdf');
   };
 
+  // Add a ref to store DocumentEditor refs for each section
+  const editorRefs = useRef([]);
+
+  // Utility to set docx HTML in DocumentEditor with image compatibility
+  function setDocxHtmlInEditor(html, editorRef) {
+    console.log('html after fn call', html);
+    if (!editorRef?.current) return;
+    const { editor, insertImageHtmlString } = editorRef.current;
+    if (!editor) return;
+
+    // Parse HTML and extract images
+    const parser = new window.DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const images = Array.from(doc.querySelectorAll('img'));
+    images.forEach(img => img.parentNode?.removeChild(img));
+    const htmlWithoutImages = doc.body.innerHTML;
+
+    // Set HTML without images
+    editor.commands.setContent(htmlWithoutImages);
+    console.log('htmlWithoutImages', htmlWithoutImages);
+    // Insert images at the end
+    images.forEach(img => {
+      insertImageHtmlString(img.outerHTML);
+    });
+    console.log('images', images);
+  }
+
+  useEffect(() => {
+    console.log("Sections being enhanced");
+    sections.forEach((section, idx) => {
+      console.log("Section:", section);
+      if (typeof section.content === 'string' && /<img/i.test(section.content)) {
+        const editorRef = editorRefs.current[idx];
+        console.log("Editor ref:", editorRef);
+        if (editorRef && editorRef.current) {
+          setDocxHtmlInEditor(section.content, editorRef);
+          console.log("Set docx HTML in editor for section:", section.id);
+        }
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sections, expandedSection]);
+
   return (
     <div className="fixed inset-0 bg-gray-50 overflow-y-auto">
       <div className="min-h-full w-full">
@@ -1733,14 +1835,29 @@ const RfpResponse = ({ contract, pursuitId }) => {
                   </div>
                   Proposal Sections
                 </h2>
-                {!isSubmitted && (
+                <div className="flex gap-2">
+                  {!isSubmitted && (
+                    <button
+                      onClick={() => addSectionBelow(sections.length - 1)}
+                      className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow transition-all hover:from-blue-700 hover:to-blue-800"
+                    >
+                      <Plus className="w-4 h-4" /> Add Section
+                    </button>
+                  )}
+                  {/* Reset Button */}
                   <button
-                    onClick={() => addSectionBelow(sections.length - 1)}
-                    className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow transition-all hover:from-blue-700 hover:to-blue-800"
+                    onClick={async () => {
+                      if (isSubmitted) return;
+                      if (window.confirm('Are you sure you want to reset all Proposal Sections to the default template? This will erase all current section content.')) {
+                        await resetSectionsWithDocxHtml();
+                      }
+                    }}
+                    disabled={isSubmitted}
+                    className={`inline-flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-3 py-2 rounded-lg shadow-sm hover:bg-gray-50 hover:border-gray-400 transition-all ${isSubmitted ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
-                    <Plus className="w-4 h-4" /> Add Section
+                    <Trash2 className="w-4 h-4" /> Reset Sections
                   </button>
-                )}
+                </div>
               </div>
 
               <div className="space-y-4">
@@ -1851,6 +1968,7 @@ const RfpResponse = ({ contract, pursuitId }) => {
                     {expandedSection === section.id && (
                       <div className="p-5 border-t border-gray-200 bg-white">
                         <DocumentEditor
+                          ref={el => editorRefs.current[index] = el}
                           value={section.content}
                           onChange={(value) => updateField(index, 'content', value)}
                           disabled={isSubmitted}
@@ -1968,7 +2086,8 @@ const RfpResponse = ({ contract, pursuitId }) => {
               onClick={() => setShowMergedPreview(false)}
             >
               <div
-                className="bg-white rounded-xl shadow-xl p-6 w-full max-w-4xl relative"
+                className="bg-white rounded-xl shadow-xl p-6 w-full max-w-4xl max-h-[90vh] relative flex flex-col"
+                style={{ width: '95vw' }}
                 onClick={e => e.stopPropagation()}
               >
                 <button
@@ -1979,15 +2098,9 @@ const RfpResponse = ({ contract, pursuitId }) => {
                   <X className="w-6 h-6" />
                 </button>
                 <h2 className="text-lg font-bold mb-4">Proposal Preview</h2>
-                <div className="w-full mb-4">
+                <div className="w-full mb-4 flex-1 overflow-y-auto">
                   <DocumentEditor value={mergedPreviewContent} onChange={setMergedPreviewContent} disabled={false} />
                 </div>
-                <button
-                  onClick={handleDownloadPreviewPDF}
-                  className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-2 rounded-lg shadow-sm hover:shadow hover:from-blue-700 hover:to-blue-800"
-                >
-                  <Download className="w-5 h-5" /> Download as PDF
-                </button>
               </div>
             </div>
           )}
