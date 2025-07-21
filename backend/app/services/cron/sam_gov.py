@@ -104,17 +104,31 @@ def upsert_with_history(cursor, row, archived_by="upsert_script"):
     # 1. Check if record exists
     cursor.execute("SELECT * FROM sam_gov WHERE notice_id = %s", (row["notice_id"],))
     existing = cursor.fetchone()
-    if existing:
-        # Get column names
+
+    # By default, we don't insert. We only insert if the record is new,
+    # or if it has changed and the old version has been deleted.
+    should_insert = False
+
+    if not existing:
+        # Case 1: Record is new. We should insert it.
+        should_insert = True
+    else:
+        # Case 2: Record exists. Check for changes.
         colnames = [desc[0] for desc in cursor.description]
-        # 2. If any field has changed, move to history
         changed = False
         for idx, colname in enumerate(colnames):
-            if colname in row and row[colname] != existing[idx]:
+            api_val = row.get(colname)
+            db_val = existing[idx]
+            
+            # psycopg2 returns date objects for date columns.
+            # Our `parse_date` also creates date objects, so types should match.
+            if colname in row and api_val != db_val:
+                logger.info(f"Change detected for notice_id {row['notice_id']} in field '{colname}'. DB: '{db_val}', API: '{api_val}'")
                 changed = True
                 break
+        
         if changed:
-            # Move to history
+            # If changed, move old record to history...
             insert_history_query = """
                 INSERT INTO sam_gov_history (
                     id, notice_id, solicitation_number, title, department,
@@ -130,27 +144,33 @@ def upsert_with_history(cursor, row, archived_by="upsert_script"):
                 FROM sam_gov WHERE notice_id = %s
             """
             cursor.execute(insert_history_query, (archived_by, row["notice_id"]))
-            # Delete old record
+            
+            # ...delete the old record...
             cursor.execute("DELETE FROM sam_gov WHERE notice_id = %s", (row["notice_id"],))
-    # 3. Insert new record
-    insert_query = """
-        INSERT INTO sam_gov
-        (title, department, published_date, response_date, naics_code, description,
-         notice_id, solicitation_number, url, active)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-    """
-    cursor.execute(insert_query, (
-        row["title"],
-        row["department"],
-        row["published_date"],
-        row["response_date"],
-        row["naics_code"],
-        row["description"],
-        row["notice_id"],
-        row["solicitation_number"],
-        row["url"],
-        row["active"]
-    ))
+            
+            # ...and flag that the new version should be inserted.
+            should_insert = True
+    
+    # 3. Insert new/updated record ONLY if it's new or has changed.
+    if should_insert:
+        insert_query = """
+            INSERT INTO sam_gov
+            (title, department, published_date, response_date, naics_code, description,
+             notice_id, solicitation_number, url, active)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """
+        cursor.execute(insert_query, (
+            row["title"],
+            row["department"],
+            row["published_date"],
+            row["response_date"],
+            row["naics_code"],
+            row["description"],
+            row["notice_id"],
+            row["solicitation_number"],
+            row["url"],
+            row["active"]
+        ))
 
 
 def insert_data(rows):
