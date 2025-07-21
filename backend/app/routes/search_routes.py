@@ -262,6 +262,15 @@ async def search_job_opportunities(request: Request):
                     
                     # Extract just the paginated portion for this response
                     all_results = cached_data.get('results', [])   
+
+                    # --- Inject improved title from Redis if available ---
+                    for opp in all_results:
+                        if 'id' in opp:
+                            title_key = f"title:{opp['id']}"
+                            cached_title = redis_client.get_json(title_key)
+                            if cached_title:
+                                opp['title'] = cached_title
+                    # --- End inject ---
                     
                     progress['stage'] = 'sort'
                     progress['message'] = 'Sorting Results'
@@ -1010,6 +1019,17 @@ async def filter_cached_results(request: Request):
             # Extract the results from cached data
             all_results = cached_data.get('results', [])
             refined_query = cached_data.get('refined_query', '')
+
+            # --- Inject improved title from Redis if available ---
+            for i, opp in enumerate(all_results):
+                if 'id' in opp:
+                    title_key = f"title:{opp['id']}"
+                    cached_title = redis_client.get_json(title_key)
+                    if cached_title:
+                        opp['title'] = cached_title
+                        # Also update in cached_data['results'] to ensure consistency
+                        cached_data['results'][i]['title'] = cached_title
+            # --- End inject ---
             
             # Apply filters to the cached results - using the imported functions
             filtered_results = apply_filters_to_results(all_results, filters)
@@ -1196,6 +1216,12 @@ async def summarize_descriptions(request: Request):
                     if cached_summary:
                         logger.info(f"Using cached summary for opportunity {opp['id']}")
                         opp["summary"] = cached_summary
+                    # Also check for cached title
+                    title_key = f"title:{opp['id']}"
+                    cached_title = redis_client.get_json(title_key)
+                    if cached_title:
+                        logger.info(f"Using cached title for opportunity {opp['id']}")
+                        opp["title"] = cached_title
         
         # Process only opportunities without cached summaries
         opportunities_to_process = [opp for opp in opportunities if "summary" not in opp]
@@ -1203,16 +1229,21 @@ async def summarize_descriptions(request: Request):
         if opportunities_to_process:
             logger.info(f"Generating summaries for {len(opportunities_to_process)} opportunities")
             processed_opps = await process_opportunity_descriptions(opportunities_to_process)
-            
-            # Cache the new summaries
+            # Cache the new summaries and update the main opportunities list
             if redis_client.get_client():
-                for opp in processed_opps:
-                    if "id" in opp and "summary" in opp:
-                        summary_key = f"summary:{opp['id']}"
-                        redis_client.set_json(summary_key, opp["summary"], expiry=86400) # 24 hours
-                    if "id" in opp and "title" in opp:
-                        title_key = f"title:{opp['id']}"
-                        redis_client.set_json(title_key, opp["title"], expiry=86400) # 24 hours
+                for processed_opp in processed_opps:
+                    for opp in opportunities:
+                        if opp.get("id") == processed_opp.get("id"):
+                            if "summary" in processed_opp:
+                                opp["summary"] = processed_opp["summary"]
+                            if "title" in processed_opp:
+                                opp["title"] = processed_opp["title"]
+                    if "id" in processed_opp and "summary" in processed_opp:
+                        summary_key = f"summary:{processed_opp['id']}"
+                        redis_client.set_json(summary_key, processed_opp["summary"], expiry=86400) # 24 hours
+                    if "id" in processed_opp and "title" in processed_opp:
+                        title_key = f"title:{processed_opp['id']}"
+                        redis_client.set_json(title_key, processed_opp["title"], expiry=86400) # 24 hours
         
         # Return the complete list of opportunities with summaries
         return {
