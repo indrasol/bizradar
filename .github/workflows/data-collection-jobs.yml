@@ -221,18 +221,12 @@ jobs:
         id: run-api
         working-directory: ./backend
         run: |
-          # Pass the ETL record ID and trigger type
-          python -m app.services.cron.sam_gov --record-id ${{ needs.setup-etl-history.outputs.record_id }} --trigger-type ${{ needs.setup-etl-history.outputs.trigger_type }}
-          
-          # Extract results for workflow outputs
           result=$(python -m app.services.cron.sam_gov --record-id ${{ needs.setup-etl-history.outputs.record_id }} --trigger-type ${{ needs.setup-etl-history.outputs.trigger_type }})
           echo "SAM.gov API fetcher result: $result"
-          
           # Extract key values from the result
           count=$(echo "$result" | grep -o '"count": [0-9]*' | sed 's/"count": //')
           new_count=$(echo "$result" | grep -o '"new_count": [0-9]*' | sed 's/"new_count": //')
           status=$(echo "$result" | grep -o '"status": "[^"]*"' | sed 's/"status": "//' | sed 's/"$//')
-          
           # Set outputs
           echo "record_count=$count" >> $GITHUB_OUTPUT
           echo "new_record_count=$new_count" >> $GITHUB_OUTPUT
