@@ -249,9 +249,9 @@ async def fetch_opportunities() -> Dict[str, Any]:
 
     base_url = "https://api.sam.gov/prod/opportunities/v2/search"
     
-    # Fetch a full year window
+    # Format dates as required by the API
     posted_to = datetime.now().strftime('%m/%d/%Y')
-    posted_from = (datetime.now() - timedelta(days=180)).strftime('%m/%d/%Y')
+    posted_from = (datetime.now() - timedelta(days=30)).strftime('%m/%d/%Y')
     
     logger.info(f"Searching for opportunities from {posted_from} to {posted_to}")
 
@@ -260,68 +260,61 @@ async def fetch_opportunities() -> Dict[str, Any]:
     
     all_opportunities = []  # Store all collected opportunities here
     total_fetched = 0
-    records_per_naics = 1000  # Number of records per API call (max allowed)
+    records_per_naics = 1000  # Number of records per NAICS code to fetch
 
     for i, naics in enumerate(naics_list, 1):
-        offset = 0
-        fetched_for_naics = 0
-        while True:
-            params = {
-                "api_key": api_key,
-                "ncode": naics,
-                "postedFrom": posted_from,
-                "postedTo": posted_to,
-                "limit": records_per_naics,  # Only request what we need
-                "offset": offset,
-                "ptype": "o,k,p,r,s" # Only contract opportunity types
-            }
-            
-            log_params = params.copy()
-            log_params["api_key"] = "***REDACTED***"
-            log_url = f"{base_url}?{urllib.parse.urlencode(log_params, safe='/')}"
-            logger.info(f"Call {i}/{len(naics_list)} (offset {offset}): Fetching for NAICS {naics} from {log_url}")
+        # Make a single API call per NAICS code
+        params = {
+            "api_key": api_key,
+            "ncode": naics,
+            "postedFrom": posted_from,
+            "postedTo": posted_to,
+            "limit": records_per_naics,  # Only request what we need
+            "noticeType": "o,k,p,r,s" #"o,p,k,r,s,i,a,u"  # Only contract opportunity types
+        }
+        
+        log_params = params.copy()
+        log_params["api_key"] = "***REDACTED***"
+        log_url = f"{base_url}?{urllib.parse.urlencode(log_params, safe='/')}"
+        logger.info(f"Call {i}/{len(naics_list)}: Fetching for NAICS {naics} from {log_url}")
 
-            ssl_context = ssl.create_default_context(cafile=certifi.where())
-            try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(base_url, params=params, ssl=ssl_context, timeout=60) as response:
-                        response_text = await response.text()
-                        if response.status == 200:
-                            try:
-                                data = await response.json()
-                                current_opps = data.get("opportunitiesData", [])
-                                
-                                if not current_opps:
-                                    logger.info(f"No more contract opportunities found for NAICS {naics} at offset {offset}")
-                                    break
-                                
-                                # Add NAICS code to each opportunity for reference
-                                for opp in current_opps:
-                                    opp['naics_code'] = naics
-                                
-                                all_opportunities.extend(current_opps)
-                                fetched_for_naics += len(current_opps)
-                                total_fetched += len(current_opps)
-                                logger.info(f"Fetched {len(current_opps)} opportunities for NAICS {naics} (offset {offset}), Total for NAICS: {fetched_for_naics}, Grand Total: {total_fetched}")
-                                
-                                # If less than limit, this is the last page
-                                if len(current_opps) < records_per_naics:
-                                    break
-                                else:
-                                    offset += records_per_naics
-                                
-                            except Exception as json_error:
-                                logger.error(f"Error parsing JSON response: {json_error}")
-                                logger.error(f"Response text: {response_text[:500]}")
-                                break
-                        else:
-                            logger.error(f"Error fetching for NAICS {naics} (offset {offset}): HTTP {response.status} - {response_text}")
-                            break
-                # Add a delay between requests to respect rate limits
+        ssl_context = ssl.create_default_context(cafile=certifi.where())
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(base_url, params=params, ssl=ssl_context, timeout=60) as response:
+                    response_text = await response.text()
+                    if response.status == 200:
+                        try:
+                            data = await response.json()
+                            current_opps = data.get("opportunitiesData", [])
+                            
+                            if not current_opps:
+                                logger.info(f"No contract opportunities found for NAICS {naics}")
+                                continue
+                            
+                            # Add NAICS code to each opportunity for reference
+                            for opp in current_opps:
+                                opp['naics_code'] = naics
+                            
+                            # Only take up to records_per_naics
+                            naics_opportunities = current_opps[:records_per_naics]
+                            all_opportunities.extend(naics_opportunities)
+                            
+                            total_fetched += len(naics_opportunities)
+                            logger.info(f"Fetched {len(naics_opportunities)} opportunities for NAICS {naics}, Total: {total_fetched}")
+                            
+                        except Exception as json_error:
+                            logger.error(f"Error parsing JSON response: {json_error}")
+                            logger.error(f"Response text: {response_text[:500]}")
+                    else:
+                        logger.error(f"Error fetching for NAICS {naics}: HTTP {response.status} - {response_text}")
+            
+            # Add a delay between requests to respect rate limits
+            if i < len(naics_list):  # No need to delay after the last request
                 await asyncio.sleep(1)
-            except Exception as e:
-                logger.error(f"Exception for NAICS {naics} (offset {offset}): {str(e)}")
-                break
+                
+        except Exception as e:
+            logger.error(f"Exception for NAICS {naics}: {str(e)}")
 
     # Format data for database insertion
     if all_opportunities:
