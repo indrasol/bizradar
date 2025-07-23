@@ -391,6 +391,36 @@ async def fetch_opportunities() -> Dict[str, Any]:
             except Exception as e:
                 logger.error(f"Error during Pinecone indexing: {e}")
                 db_results["indexing_error"] = str(e)
+
+            # --- Post-ETL: Mark records as inactive if not in latest API fetch ---
+            try:
+                latest_notice_ids = set(row["notice_id"] for row in rows if row.get("notice_id"))
+                connection = get_db_connection()
+                if connection and latest_notice_ids:
+                    with connection.cursor() as cursor:
+                        # Use tuple for SQL IN clause
+                        notice_id_tuple = tuple(latest_notice_ids)
+                        # If only one element, add a trailing comma for SQL syntax
+                        if len(notice_id_tuple) == 1:
+                            notice_id_tuple = (notice_id_tuple[0], "dummy")
+                        sql = f"""
+                            UPDATE sam_gov
+                            SET active = FALSE
+                            WHERE active = TRUE
+                              AND notice_id NOT IN %s
+                        """
+                        cursor.execute(sql, (notice_id_tuple,))
+                        marked_inactive = cursor.rowcount
+                    connection.commit()
+                    logger.info(f"Marked {marked_inactive} records as inactive (not present in latest API fetch)")
+                    db_results["marked_inactive"] = marked_inactive
+                elif not latest_notice_ids:
+                    logger.warning("No notice_ids found in latest API fetch for inactive marking step.")
+                else:
+                    logger.error("Could not connect to database for inactive marking step.")
+            except Exception as e:
+                logger.error(f"Error during post-ETL inactive marking step: {e}")
+                db_results["inactive_marking_error"] = str(e)
                 
             return db_results
     
