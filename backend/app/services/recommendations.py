@@ -145,13 +145,15 @@ async def generate_recommendations(company_url: str, company_description: str, o
         messages = build_prompt(company_url, company_description, full_markdown, opp_to_use, include_match_reason)
         try:
             openai_client = get_openai_client()
+            logger.info("OpenAI client initialized successfully")
             res = openai_client.chat.completions.create(
                 model="gpt-4",
                 messages=messages,
                 temperature=0.4,
-                max_tokens=1000
+                max_tokens=1000,
+                n=1
             )
-                    
+            logger.info("OpenAI response received")
             if not res or not res.choices:
                 logger.warning(f"No response received for opportunity {i}")
                 recommendations.append({

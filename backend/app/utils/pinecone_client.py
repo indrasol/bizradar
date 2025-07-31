@@ -1,6 +1,7 @@
 
 import os
 from dotenv import load_dotenv
+from pinecone import Pinecone
 
 # Load environment variables
 load_dotenv()
@@ -15,7 +16,6 @@ def get_index():
     global _index
     if _index is None:
         try:
-            from pinecone import Pinecone
             logger.info("Initializing Pinecone index...")
 
             # api_key = os.getenv("PINECONE_API_KEY")
@@ -59,6 +59,7 @@ def get_index():
 def describe_index_stats():
     try:
         index = get_index()
+        logger.info("Pinecone index initialized successfully")
         stats = index.describe_index_stats()
         logger.info(f"Index dimension: {stats.dimension}")
         logger.info(f"Total vectors: {stats.total_vector_count}")
@@ -74,7 +75,9 @@ def check_vector_exists(record_id):
     """
     try:
         index = get_index()
+        logger.info("Pinecone index initialized successfully")
         result = index.fetch(ids=[record_id])
+        logger.info("Pinecone index fetch successful")
         return bool(result.vectors)
     except Exception as e:
         logger.error(f"Error checking if vector exists: {str(e)}")

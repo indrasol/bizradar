@@ -1326,7 +1326,13 @@ const RfpResponse = ({ contract, pursuitId }) => {
   const handlePreview = () => {
     // Merge all section contents with a horizontal rule or page break
     const merged = sections.map(s => s.content).join('<hr style="page-break-after:always; margin:32px 0;"/>');
-    setMergedPreviewContent(merged);
+    
+    // Use the preview editor ref to set content with image handling
+    if (previewEditorRef.current) {
+      setDocxHtmlInEditor(merged, previewEditorRef);
+    } else {
+      setMergedPreviewContent(merged);
+    }
     setShowMergedPreview(true);
   };
 
@@ -2099,7 +2105,14 @@ const RfpResponse = ({ contract, pursuitId }) => {
                 </button>
                 <h2 className="text-lg font-bold mb-4">Proposal Preview</h2>
                 <div className="w-full mb-4 flex-1 overflow-y-auto">
-                  <DocumentEditor value={mergedPreviewContent} onChange={setMergedPreviewContent} disabled={false} />
+                  <DocumentEditor 
+                    ref={previewEditorRef}
+                    value={mergedPreviewContent} 
+                    onChange={setMergedPreviewContent} 
+                    disabled={false} 
+                    className="preview-editor" 
+                    data-component-content="preview"
+                  />
                 </div>
               </div>
             </div>
