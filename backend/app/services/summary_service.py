@@ -64,6 +64,7 @@ async def generate_description_summary(description_text, max_length=300):
             description_text = description_text[:6000] + "..."
 
         client = get_openai_client()   
+        logger.info("OpenAI client initialized successfully")
         response = client.chat.completions.create(
             model="gpt-4.1-mini",
             messages=[
@@ -93,9 +94,10 @@ async def generate_description_summary(description_text, max_length=300):
                 }
             ],
             temperature=0.2, 
-            max_tokens=max_length
+            max_tokens=max_length,
+            n=1
         )
-        
+        logger.info("OpenAI response received")
         summary = response.choices[0].message.content.strip()
         
         # Ensure meaningful summary
@@ -121,6 +123,7 @@ async def generate_title_and_summary(opportunity_title, description_text, max_le
         if len(description_text) > 6000:
             description_text = description_text[:6000] + "..."
         client = get_openai_client()
+        logger.info("OpenAI client initialized successfully")
         response = client.chat.completions.create(
             model="gpt-4.1-mini",
             messages=[
@@ -143,9 +146,10 @@ async def generate_title_and_summary(opportunity_title, description_text, max_le
                 }
             ],
             temperature=0.2,
-            max_tokens=max_length
+            max_tokens=max_length,
+            n=1
         )
-        import json
+        logger.info("OpenAI response received")
         content = response.choices[0].message.content.strip()
         # Extract JSON if wrapped in markdown
         if content.startswith("```json"):

@@ -121,9 +121,10 @@ Return ONLY the refined query string, with no extra explanations.
                 "content": prompt
             }],
             max_tokens=200,
-            temperature=0.2
+            temperature=0.2,
+            n=1
         )
-        
+        logger.info("OpenAI response received")
         refined_query = response.choices[0].message.content.strip()
         logger.info(f"Original query: '{query}' -> Refined: '{refined_query}'")
         
