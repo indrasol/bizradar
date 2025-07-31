@@ -37,6 +37,9 @@ const DocumentEditor = forwardRef(({
   const [isExporting, setIsExporting] = useState(false);
   const [showInstructions, setShowInstructions] = useState(true);
 
+  // Generate a unique identifier for this editor instance
+  const [uniqueId] = useState(() => `document-editor-${Math.random().toString(36).substr(2, 9)}-${Date.now()}`);
+
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -96,8 +99,7 @@ const DocumentEditor = forwardRef(({
         const doc = parser.parseFromString(value, 'text/html');
         const images = Array.from(doc.querySelectorAll('img'));
         
-        // Remove images from the HTML content
-        images.forEach(img => img.parentNode?.removeChild(img));
+        // Create a copy of the HTML without modifying the original
         const htmlWithoutImages = doc.body.innerHTML;
         
         // Set HTML content without images first
@@ -326,7 +328,9 @@ const DocumentEditor = forwardRef(({
     toast('Generating PDF...');
     
     try {
-      const editorElement = document.querySelector('.ProseMirror') as HTMLElement;
+      // Get the editor element using the unique identifier
+      const editorContainer = document.querySelector(`[data-unique-editor-id='${uniqueId}']`) as HTMLElement;
+      const editorElement = editorContainer?.querySelector('.ProseMirror') as HTMLElement;
       if (!editorElement) throw new Error('Editor content not found');
 
       // Create a temporary container that matches the editor styling exactly
@@ -449,7 +453,7 @@ const DocumentEditor = forwardRef(({
   }
 
   return (
-    <div className="flex flex-col bg-white border border-gray-200 rounded-lg overflow-hidden">
+    <div className="flex flex-col bg-white border border-gray-200 rounded-lg overflow-hidden" data-unique-editor-id={uniqueId}>
       <style dangerouslySetInnerHTML={{
         __html: `
           .ProseMirror table {

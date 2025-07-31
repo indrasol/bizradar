@@ -344,7 +344,8 @@ Answer the user's question concisely and professionally.{details_snippet}
                         {"role": "user", "content": user_query}
                     ],
                     temperature=0.0,      # no randomness
-                    max_tokens=500
+                    max_tokens=500,
+                    n=1
                 )
                 
                 # Extract the AI's response

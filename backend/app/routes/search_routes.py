@@ -885,6 +885,7 @@ async def ask_ai(request: Request):
 Please provide clear, concise, and professional responses focused on helping users understand and work with RFP documents."""
 
         client = get_openai_client()
+        logger.info("OpenAI client initialized successfully")
         response = client.chat.completions.create(
             model="gpt-4-turbo-preview",
             messages=[
@@ -892,9 +893,10 @@ Please provide clear, concise, and professional responses focused on helping use
                 *messages
             ],
             temperature=0.7,
-            max_tokens=500
+            max_tokens=500,
+            n=1
         )
-
+        logger.info("OpenAI response received")
         return {
             "response": response.choices[0].message.content,
             "tokens_used": response.usage.total_tokens if response.usage else None
@@ -918,6 +920,7 @@ async def process_document(request: Request):
         
         # Use OpenAI to process document with enhanced validation
         client = get_openai_client()
+        logger.info("OpenAI client initialized successfully")
         response = client.chat.completions.create(
             model="gpt-4-turbo-preview",
             messages=[
@@ -931,9 +934,10 @@ async def process_document(request: Request):
                 {"role": "user", "content": f"Validate and regenerate this HTML document:\n\n{html_content}"}
             ],
             temperature=0.0,  # Maximum determinism
-            max_tokens=4000
+            max_tokens=4000,
+            n=1
         )
-        
+        logger.info("OpenAI response received")
         processed_content = response.choices[0].message.content
         
         # Strip any potential markdown code blocks
@@ -1463,7 +1467,7 @@ async def enhance_rfp_with_ai(request: Request):
         - Improving the overall proposal structure
         
         Return the enhanced data in the same JSON format."""
-        
+        logger.info("OpenAI client initialized successfully")
         response = client.chat.completions.create(
             model="gpt-4-turbo-preview",
             messages=[
@@ -1471,8 +1475,10 @@ async def enhance_rfp_with_ai(request: Request):
                 {"role": "user", "content": user_prompt}
             ],
             temperature=0.7,
-            max_tokens=4000
+            max_tokens=4000,
+            n=1
         )
+        logger.info("OpenAI response received")
         enhanced_content = response.choices[0].message.content
         print("--------------------------------")
         print(enhanced_content)
