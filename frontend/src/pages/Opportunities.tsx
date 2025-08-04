@@ -10,6 +10,7 @@ import NotificationToast from "@/components/opportunities/NotificationToast";
 import { toast } from "sonner";
 import { FilterValues, Opportunity, SearchParams } from "@/models/opportunities";
 import Header from "@/components/opportunities/Header";
+import * as Toast from '@radix-ui/react-toast';
 
 const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 const API_BASE_URL = isDevelopment ? 'http://localhost:5000' : import.meta.env.VITE_API_BASE_URL;
@@ -31,7 +32,7 @@ const OpportunitiesPage: React.FC = () => {
   });
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalResults, setTotalResults] = useState<number>(0);
-  const [totalPages, setTotalPages] = useState<number>(0);
+  const [totalPages, setTotalPages] = useState<number>(1);
   const [isSearching, setIsSearching] = useState<boolean>(false);
   const [hasSearched, setHasSearched] = useState<boolean>(false);
   const [pursuitCount, setPursuitCount] = useState<number>(0);
@@ -45,6 +46,7 @@ const OpportunitiesPage: React.FC = () => {
   const [showScrollToTop, setShowScrollToTop] = useState(false);
   const resultsListRef = useRef<HTMLDivElement>(null);
   const [userProfile, setUserProfile] = useState<{ companyUrl?: string; companyDescription?: string }>({});
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     const fetchPursuitCount = async () => {
@@ -246,23 +248,23 @@ const OpportunitiesPage: React.FC = () => {
   // };
 
   type SearchResult = {
-    opportunities: any[];
+    opportunities: Opportunity[];
     total: number;
     total_pages: number;
     page: number;
     refined_query?: string;
   };
 
+  // Generator function to handle search with streaming results
   const executeSearch = async (
     params: Partial<SearchParams>
   ): Promise<SearchResult> => {
-
     console.log({
       user_id: tokenService.getUserIdFromToken(),
       page_size: 7,
       ...params,
-    })
-
+    });
+  
     const response = await fetch(`${API_BASE_URL}/search-opportunities`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -272,29 +274,60 @@ const OpportunitiesPage: React.FC = () => {
         ...params,
       } as SearchParams),
     });
-
+  
     const data = await response.json();
-
+  
     if (!data.success) {
       throw new Error(data.message || "Search failed");
     }
     if (!Array.isArray(data.results)) {
       throw new Error("Invalid data format received");
     }
-
+  
     // Save all_results to sessionStorage for export
     if (Array.isArray(data.all_results)) {
       sessionStorage.setItem("allOpportunitiesForExport", JSON.stringify(data.all_results));
     }
-
+  
     // Process results
     const processedResults = processSearchResults(data.results);
-
-    // Always generate summaries
-    const resultsWithSummaries = await getSummariesForOpportunities(processedResults);
-
+  
+    // // Yield the complete search results with summaries
+    // yield {
+    //   opportunities: await Promise.all(
+    //     processedResults.map(opp => getSummaryForOpportunity(opp))
+    //   ),
+    //   total: data.total || 0,
+    //   total_pages: data.total_pages || 1,
+    //   page: data.page || 1,
+    //   refined_query: data.refined_query,
+    // };
+    
+    // If you want to yield results one by one, you can use this instead:
+    const summarized_results = []
+    let tot = 0
+    for (const opportunity of processedResults) {
+      const summary = await getSummaryForOpportunity(opportunity);
+      summarized_results.push(summary)
+      setOpportunities(summarized_results)
+      tot = tot+1;
+      setTotalResults(tot);
+      setOpen(true);
+      
+      setTotalPages(data.total_pages || 1);
+      setCurrentPage(data.page || 1);
+      setHasSearched(true);
+      // saveSearchStateToSession(
+      //   data.query,
+      //   summarized_results,
+      //   tot,
+      //   data.total_pages,
+      //   refinedQuery || ""
+      // );
+      console.log("Adding results")
+    }
     return {
-      opportunities: resultsWithSummaries,
+      opportunities: summarized_results,
       total: data.total || 0,
       total_pages: data.total_pages || 1,
       page: data.page || 1,
@@ -329,13 +362,11 @@ const OpportunitiesPage: React.FC = () => {
 
       // 2. Now search using the expanded query
       const result = await executeSearch({ ...params, query: refinedQuery });
-
       setOpportunities(result.opportunities);
       setTotalResults(result.total);
       setTotalPages(result.total_pages);
       setCurrentPage(result.page);
       setHasSearched(true);
-
       saveSearchStateToSession(
         query,
         result.opportunities,
@@ -546,6 +577,25 @@ const OpportunitiesPage: React.FC = () => {
     }
   };
 
+  const getSummaryForOpportunity = async (opportunity: Opportunity): Promise<Opportunity> => {
+    if (!opportunity) return opportunity;
+    try {
+      const response = await fetch(`${API_BASE_URL}/summarize-description`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ opportunity: opportunity }),
+        });
+        const data = await response.json();
+        if (data.success && data.opportunity) {
+          opportunity.summary_ai = data.opportunity.summary || data.opportunity.additional_description;
+          return opportunity;
+        }
+    } catch (error) {
+      console.error("Error getting summaries for opportunity:", error);
+      return opportunity;
+    }
+  };
+
   const saveSearchStateToSession = (query: string, results: Opportunity[], total: number, totalPages: number, refinedQuery: string) => {
     const searchState = {
       query,
@@ -613,6 +663,23 @@ const OpportunitiesPage: React.FC = () => {
           />
         </div>
       </div>
+      <Toast.Provider>
+        <Toast.Root 
+          className="bg-white rounded-md shadow-[hsl(206_22%_7%_/_35%)_0px_10px_38px_-10px,_hsl(206_22%_7%_/_20%)_0px_10px_20px_-15px] p-4 grid [grid-template-areas:_'title_action'_'description_action'] grid-cols-[auto_max-content] gap-x-4 items-center data-[state=open]:animate-slideIn data-[state=closed]:animate-hide data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)] data-[swipe=cancel]:translate-x-0 data-[swipe=cancel]:transition-[transform_200ms_ease-out] data-[swipe=end]:animate-swipeOut"
+          open={open} 
+          onOpenChange={setOpen}
+        >
+          <Toast.Title className="[grid-area:_title] mb-1 font-medium text-slate12 text-lg">
+            Searching...
+          </Toast.Title>
+          <Toast.Description asChild>
+            <div className="[grid-area:_description] text-sm text-slate11">
+              Found {totalResults} result{totalResults !== 1 ? 's' : ''}
+            </div>
+          </Toast.Description>
+        </Toast.Root>
+        <Toast.Viewport className="[--viewport-padding:_25px] fixed bottom-0 right-0 flex flex-col p-[var(--viewport-padding)] gap-2.5 w-[390px] max-w-[100vw] m-0 list-none z-[2147483647] outline-none" />
+      </Toast.Provider>
       <ScrollToTopButton isVisible={showScrollToTop} scrollToTop={handleScrollToTop} />
       <NotificationToast show={showNotification} />
     </div>

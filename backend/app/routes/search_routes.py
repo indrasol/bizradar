@@ -1193,24 +1193,22 @@ async def ask_bizradar_ai(request: Request):
 
 from services.summary_service import process_opportunity_descriptions
 
-@search_router.post("/summarize-descriptions")
-async def summarize_descriptions(request: Request):
+
+async def summarize_descriptions_for_stream(opportunities: list):
     """
     Endpoint that takes a list of opportunities and generates summaries for their descriptions.
     Also caches summaries in Redis for future use.
     """
+    if not opportunities:
+        yield json.dumps({
+            "success": False,
+            "message": "No opportunities provided",
+            "opportunities": []
+        }) + "\n"
+        return
+    
+    # First, check Redis for already cached summaries
     try:
-        data = await request.json()
-        opportunities = data.get("opportunities", [])
-        
-        if not opportunities:
-            return {
-                "success": False,
-                "message": "No opportunities provided",
-                "opportunities": []
-            }
-            
-        # First, check Redis for already cached summaries
         if redis_client.get_client():
             for opp in opportunities:
                 if "id" in opp:
@@ -1226,38 +1224,122 @@ async def summarize_descriptions(request: Request):
                     if cached_title:
                         logger.info(f"Using cached title for opportunity {opp['id']}")
                         opp["title"] = cached_title
+    except Exception as e:
+        logger.error(f"Error checking Redis cache: {str(e)}")
+    
+    # Process opportunities
+    logger.info(f"Generating summaries for {len(opportunities)} opportunities")
+    for opp in opportunities:
+        try:
+            if "summary" not in opp:
+                processed_opp = await process_opportunity_descriptions(opp)
+                if processed_opp:
+                    opp["summary"] = processed_opp.get("summary", "")
+                    opp["title"] = processed_opp.get("title", opp.get("title", ""))
+                    
+                    # Cache the results
+                    try:
+                        if redis_client.get_client() and "id" in opp:
+                            if "summary" in opp:
+                                summary_key = f"summary:{opp['id']}"
+                                redis_client.set_json(summary_key, opp["summary"], expiry=86400)  # 24 hours
+                            if "title" in opp:
+                                title_key = f"title:{opp['id']}"
+                                redis_client.set_json(title_key, opp["title"], expiry=86400)  # 24 hours
+                    except Exception as cache_error:
+                        logger.error(f"Error caching results: {str(cache_error)}")
+            
+            # Yield the processed opportunity
+            yield json.dumps({
+                "success": True,
+                "opportunity": opp
+            }) + "\n"
+            
+        except Exception as opp_error:
+            logger.error(f"Error processing opportunity {opp.get('id', 'unknown')}: {str(opp_error)}")
+            yield json.dumps({
+                "success": False,
+                "message": str(opp_error),
+                "opportunities": opp
+            }) + "\n"
+
+@search_router.post("/summarize-descriptions")
+async def summarize_descriptions(request: Request):
+    data = await request.json()
+    opportunities = data.get("opportunities", [])
+    return StreamingResponse(
+        summarize_descriptions_for_stream(opportunities),
+        media_type="application/json"
+    )
+
+@search_router.post("/summarize-description")
+async def summarize_descriptions(request: Request):
+    """
+    Endpoint that takes a list of opportunities and generates summaries for their descriptions.
+    Also caches summaries in Redis for future use.
+    """
+    try:
+        data = await request.json()
+        opportunity = data.get("opportunity", [])
         
-        # Process only opportunities without cached summaries
-        opportunities_to_process = [opp for opp in opportunities if "summary" not in opp]
+        if not opportunity:
+            return {
+                "success": False,
+                "message": "No opportunities provided",
+                "opportunities": []
+            }
+            
+        # First, check Redis for already cached summaries
+        if redis_client.get_client():
+            if "id" in opportunity:
+                summary_key = f"summary:{opportunity['id']}"
+                cached_summary = redis_client.get_json(summary_key)
+                
+                if cached_summary:
+                    logger.info(f"Using cached summary for opportunity {opportunity['id']}")
+                    opportunity["summary"] = cached_summary
+                # Also check for cached title
+                title_key = f"title:{opportunity['id']}"
+                cached_title = redis_client.get_json(title_key)
+                if cached_title:
+                    logger.info(f"Using cached title for opportunity {opportunity['id']}")
+                    opportunity["title"] = cached_title
         
-        if opportunities_to_process:
-            logger.info(f"Generating summaries for {len(opportunities_to_process)} opportunities")
-            processed_opps = await process_opportunity_descriptions(opportunities_to_process)
-            # Cache the new summaries and update the main opportunities list
-            if redis_client.get_client():
-                for processed_opp in processed_opps:
-                    for opp in opportunities:
-                        if opp.get("id") == processed_opp.get("id"):
-                            if "summary" in processed_opp:
-                                opp["summary"] = processed_opp["summary"]
-                            if "title" in processed_opp:
-                                opp["title"] = processed_opp["title"]
-                    if "id" in processed_opp and "summary" in processed_opp:
-                        summary_key = f"summary:{processed_opp['id']}"
-                        redis_client.set_json(summary_key, processed_opp["summary"], expiry=86400) # 24 hours
-                    if "id" in processed_opp and "title" in processed_opp:
-                        title_key = f"title:{processed_opp['id']}"
-                        redis_client.set_json(title_key, processed_opp["title"], expiry=86400) # 24 hours
+        if opportunity.get("summary", None) is None:
+            try:
+                processed_opp = await process_opportunity_descriptions(opportunity)
+                if processed_opp:
+                    opportunity["summary"] = processed_opp.get("summary", "")
+                    opportunity["title"] = processed_opp.get("title", opportunity.get("title", ""))
+                    
+                    # Cache the results
+                    try:
+                        if redis_client.get_client() and "id" in opportunity:
+                            if "summary" in opportunity:
+                                summary_key = f"summary:{opportunity['id']}"
+                                redis_client.set_json(summary_key, opportunity["summary"], expiry=86400)  # 24 hours
+                            if "title" in opportunity:
+                                title_key = f"title:{opportunity['id']}"
+                                redis_client.set_json(title_key, opportunity["title"], expiry=86400)  # 24 hours
+                    except Exception as cache_error:
+                        logger.error(f"Error caching results: {str(cache_error)}")
+            except Exception as opp_error:
+                logger.error(f"Error processing opportunity {opportunity.get('id', 'unknown')}: {str(opp_error)}")
+                return {
+                    "success": False,
+                    "message": str(opp_error),
+                    "opportunities": opportunity
+                }
         
         # Return the complete list of opportunities with summaries
         return {
             "success": True,
-            "opportunities": opportunities
+            "opportunity": opportunity
         }
         
     except Exception as e:
         logger.error(f"Error summarizing descriptions: {str(e)}")
-        return {"success": False, "error": str(e), "opportunities": opportunities}
+        return {"success": False, "error": str(e), "opportunity": opportunity}
 
 @search_router.get("/opportunities")
 async def get_opportunities(page: int = Query(1), limit: int = Query(10)):
