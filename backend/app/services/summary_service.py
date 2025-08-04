@@ -6,6 +6,7 @@ import aiohttp
 from typing import List
 import psycopg2
 from utils.openai_client import get_openai_client
+import json
 
 # Configure logging
 logger = get_logger(__name__)
@@ -238,32 +239,23 @@ def find_descriptions_by_notice_ids(notice_ids: List[str], chunksize: int = 5000
         logger.error(f"Unexpected error while fetching descriptions: {str(e)}")
         return [{NOTICE_ID_COL: nid, DESCRIPTION_COL: ""} for nid in notice_ids]
 
-async def process_opportunity_descriptions(opportunities):
+async def process_opportunity_descriptions(opportunity: dict):
     """
     Processes a list of opportunities to generate summaries for their descriptions.
     """
     try:
-        logger.info(f"Processing {len(opportunities)} opportunities for summary generation")
-
-        # Get missing notice IDs that need additional descriptions
-        missing_notice_ids = [opp["notice_id"] for opp in opportunities
-                              if opp.get("notice_id") and not opp.get("additional_description")]
-
-        # Fetch missing descriptions
-        found_descriptions = find_descriptions_by_notice_ids(missing_notice_ids)
-        desc_map = {item[NOTICE_ID_COL]: item[DESCRIPTION_COL] for item in found_descriptions}
+        logger.info(f"Processing opportunity for summary generation")
 
         # Attach additional descriptions
-        for opp in opportunities:
-            nid = opp.get("notice_id")
-            if nid and not opp.get("additional_description"):
-                opp["additional_description"] = desc_map.get(nid, "")
-
-        return await process_opportunity_summaries(opportunities)
+        nid = opportunity.get("notice_id")
+        if nid and not opportunity.get("additional_description"):
+            opportunity["additional_description"] = find_descriptions_by_notice_ids([nid])[0][DESCRIPTION_COL] 
+        opportunity = await process_opportunity_summaries(opportunity)
+        return opportunity
 
     except Exception as e:
-        logger.error(f"Error processing opportunity descriptions: {str(e)}")
-        return opportunities
+        logger.error(f"Error processing opportunity description: {str(e)}")
+        return opportunity
     
 DEFAULT_SUMMARY = (
     "This opportunity currently lacks a detailed description, so specific information "
@@ -273,12 +265,12 @@ DEFAULT_SUMMARY = (
     "directly. Alternatively, check back on this page for updates as more details become available."
 )
 
-async def process_opportunity_summaries(opportunities):
+async def process_opportunity_summaries(opportunity):
     """
     Processes a list of opportunities to generate summaries and improved titles for their descriptions.
     """
     try:
-        logger.info(f"Processing {len(opportunities)} opportunities for summary and title generation")
+        logger.info(f"Processing opportunity for summary and title generation")
 
         async def summarize_opportunity(opp):
             description = opp.get("additional_description")
@@ -296,9 +288,11 @@ async def process_opportunity_summaries(opportunities):
                 opp["title"] = orig_title or "Untitled Opportunity"
                 opp["summary"] = DEFAULT_SUMMARY
 
-        await asyncio.gather(*(summarize_opportunity(opp) for opp in opportunities))
-        return opportunities
+        # async for opp in asyncio.as_completed((summarize_opportunity(opp) for opp in opportunities)):
+        #     yield opp
+        await summarize_opportunity(opportunity)
+        return opportunity
 
     except Exception as e:
         logger.error(f"Error processing opportunity summaries: {str(e)}")
-        return opportunities # Return original opportunities if there's an error
+        return opportunity
