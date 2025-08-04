@@ -3,6 +3,8 @@ import { X, Check } from 'lucide-react';
 import { subscriptionApi } from '@/api/subscription';
 import { SubscriptionPlan, Subscription } from '@/models/subscription';
 
+type BillingCycle = 'monthly' | 'annual';
+
 interface UpgradeModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -18,6 +20,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
 }) => {
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+  const [billingCycle, setBillingCycle] = useState<BillingCycle>('monthly');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentSubscription, setCurrentSubscription] = useState<Subscription | null>(null);
@@ -67,7 +70,8 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
     setError(null);
 
     try {
-      await subscriptionApi.createSubscription(selectedPlan);
+      const planType = billingCycle === 'annual' ? `${selectedPlan}_annual` : selectedPlan;
+      await subscriptionApi.createSubscription(planType);
       onSuccess();
     } catch (err) {
       console.error('Error upgrading subscription:', err);
@@ -75,6 +79,14 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
     } finally {
       setLoading(false);
     }
+  };
+
+  const getPlanPrice = (basePrice: number) => {
+    return billingCycle === 'annual' ? basePrice * 12 * 0.8 : basePrice; // 20% discount for annual
+  };
+
+  const getPlanSuffix = (type: string) => {
+    return type.endsWith('_annual') ? ' (Annual)' : '';
   };
 
   if (!isOpen) return null;
@@ -111,44 +123,85 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {plans.map((plan) => (
-              <div
-                key={plan.type}
-                className={`border rounded-lg p-6 cursor-pointer transition-all ${
-                  selectedPlan === plan.type
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-gray-200 hover:border-blue-300'
-                } ${currentSubscription && currentSubscription.plan_type === plan.type ? 'ring-2 ring-blue-400' : ''}`}
-                onClick={() => setSelectedPlan(plan.type)}
-              >
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="text-xl font-semibold">{plan.name}</h3>
-                    <p className="text-gray-600 mt-1">{plan.description}</p>
-                  </div>
-                  {selectedPlan === plan.type && (
-                    <div className="bg-blue-500 text-white p-1 rounded-full">
-                      <Check size={16} />
-                    </div>
-                  )}
-                </div>
-
-                <div className="mb-4">
-                  <span className="text-3xl font-bold">${plan.price}</span>
-                  <span className="text-gray-600">/month</span>
-                </div>
-
-                <ul className="space-y-2">
-                  {plan.features.map((feature, index) => (
-                    <li key={index} className="flex items-center text-gray-600">
-                      <Check size={16} className="text-green-500 mr-2" />
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
+          <div className="mb-6">
+            <div className="flex justify-center mb-6">
+              <div className="inline-flex rounded-md shadow-sm" role="group">
+                <button
+                  type="button"
+                  onClick={() => setBillingCycle('monthly')}
+                  className={`px-4 py-2 text-sm font-medium rounded-l-lg ${
+                    billingCycle === 'monthly'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  Monthly Billing
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBillingCycle('annual')}
+                  className={`px-4 py-2 text-sm font-medium rounded-r-lg ${
+                    billingCycle === 'annual'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  Annual Billing (20% off)
+                </button>
               </div>
-            ))}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {plans.map((plan) => {
+                const isAnnual = billingCycle === 'annual';
+                const displayPrice = isAnnual ? getPlanPrice(plan.price) : plan.price;
+                const displaySuffix = isAnnual ? 'year' : 'month';
+                const displayName = isAnnual ? `${plan.name} (Annual)` : plan.name;
+
+                return (
+                  <div
+                    key={`${plan.type}_${billingCycle}`}
+                    className={`border rounded-lg p-6 cursor-pointer transition-all ${
+                      selectedPlan === plan.type
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 hover:border-blue-300'
+                    } ${currentSubscription && currentSubscription.plan_type === plan.type ? 'ring-2 ring-blue-400' : ''}`}
+                    onClick={() => setSelectedPlan(plan.type)}
+                  >
+                    <div className="flex justify-between items-start mb-4">
+                      <div>
+                        <h3 className="text-xl font-semibold">{displayName}</h3>
+                        <p className="text-gray-600 mt-1">{plan.description}</p>
+                      </div>
+                      {selectedPlan === plan.type && (
+                        <div className="bg-blue-500 text-white p-1 rounded-full">
+                          <Check size={16} />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="mb-4">
+                      <span className="text-3xl font-bold">${displayPrice}</span>
+                      <span className="text-gray-600">/{displaySuffix}</span>
+                      {isAnnual && (
+                        <div className="text-sm text-green-600 mt-1">
+                          Save 20% with annual billing
+                        </div>
+                      )}
+                    </div>
+
+                    <ul className="space-y-2">
+                      {plan.features.map((feature, index) => (
+                        <li key={index} className="flex items-center text-gray-600">
+                          <Check size={16} className="text-green-500 mr-2" />
+                          {feature}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           <div className="mt-8 flex justify-end">
