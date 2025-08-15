@@ -2,29 +2,44 @@ import { supabase } from '@/utils/supabase';
 import { Subscription, SubscriptionPlan } from '@/models/subscription';
 import { useToast } from '@/components/ui/use-toast';
 
+// Define API base URL
+const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const API_BASE_URL = isDevelopment ? 'http://localhost:5000' : import.meta.env.VITE_API_BASE_URL;
 
+// Stripe price IDs
+const STRIPE_PRICES = {
+  basic_monthly: 'price_1RqIaWFKTK8ICUprZJJh44Hc',
+  basic_annual: 'price_1RqIcWFKTK8ICUprtagiVbzf',
+  premium_monthly: 'price_1RqIdGFKTK8ICUprDEo5P7AB',
+  premium_annual: 'price_1RqIdxFKTK8ICUprSgy50avW',
+  enterprise_monthly: 'price_1RqIebFKTK8ICUpr6QN0hZ9a',
+  enterprise_annual: 'price_1RqIewFKTK8ICUprSvBvDwvg',
+};
 
 export const subscriptionApi = {
 
-
-  
   async getCurrentSubscription(): Promise<Subscription | null> {
     const { data: { user } } = await supabase.auth.getUser();
-        
-        if (!user) {
-          console.log("No user logged in");
-          return;
-        }
+    
+    if (!user) {
+      console.log("No user logged in");
+      return null;
+    }
+    
     const { data, error } = await supabase
-    .from('user_subscriptions')
-    .select('*')
-    .eq('user_id', user.id)
-    .eq('status', 'active')
-    .order('created_at', { ascending: false }) // if you want the latest
-    .limit(1)
-    .single();
+      .from('user_subscriptions')
+      .select('*')
+      .eq('user_id', user.id)
+      .in('status', ['active', 'trialing', 'past_due']) // Include active-like statuses
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-    if (error && error.code !== 'PGRST116') throw error; // PGRST116 is "no rows returned"
+    if (error) {
+      console.error('Error fetching subscription:', error);
+      throw error;
+    }
+    
     return data;
   },
 
@@ -79,6 +94,41 @@ export const subscriptionApi = {
         description: 'For large organizations with complex needs'
       }
     ];
+  },
+
+  async createCheckoutSession(planType: string, billingCycle: 'monthly' | 'annual' = 'monthly'): Promise<{ sessionId: string }> {
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      throw new Error('User must be logged in to create a checkout session.');
+    }
+
+    // Get the price ID based on plan and billing cycle
+    const priceId = STRIPE_PRICES[`${planType}_${billingCycle}` as keyof typeof STRIPE_PRICES];
+    if (!priceId) {
+      throw new Error('Invalid plan type or billing cycle');
+    }
+
+    // Call our backend to create a checkout session
+    const response = await fetch(`${API_BASE_URL}/api/create-checkout-session`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+      },
+      body: JSON.stringify({
+        priceId: priceId,
+        planType: planType
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to create checkout session');
+    }
+
+    const { sessionId } = await response.json();
+    return { sessionId };
   },
 
   async createSubscription(planType: string): Promise<Subscription> {
