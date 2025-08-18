@@ -18,6 +18,7 @@ import Logout from "./pages/Logout";
 import CompanySetup from "./pages/CompanySetup";
 import Contracts from "./pages/Contracts";
 import ComingSoon from "./pages/ComingSoon";
+import Analytics from "./pages/Analytics";
 
 // Lazily loaded (heavier)
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -51,6 +52,7 @@ const App = () => (
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/contracts" element={<Contracts />} />
+              <Route path="/analytics" element={<Analytics />} />
 
               {/* Protected routes */}
               <Route path="/dashboard" element={

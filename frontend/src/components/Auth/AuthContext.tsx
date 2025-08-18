@@ -3,6 +3,9 @@ import { Session, User, AuthError, Provider } from '@supabase/supabase-js';
 import { supabase } from '../../utils/supabase';
 import tokenService from "../../utils/tokenService";
 import * as UAParser from 'ua-parser-js';
+import { subscriptionApi } from '@/api/subscription';
+import TrialStatusModal from '@/components/subscription/TrialStatusModal';
+import UpgradeBlocker from '@/components/subscription/UpgradeBlocker';
 
 // Define your API base URL
 const isDevelopment = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
@@ -25,6 +28,8 @@ interface AuthContextType {
   sendPhoneOtp: (phone: string) => Promise<void>;
   verifyPhoneOtp: (phone: string, otp: string) => Promise<void>;
   updatePhoneNumber: (phone: string) => Promise<void>;
+  trialInfo?: { remainingDays: number; isTrial: boolean; expired: boolean } | null;
+  refreshTrialStatus?: () => Promise<void>;
 }
 
 // Create the context with a default value
@@ -42,7 +47,9 @@ const AuthContext = createContext<AuthContextType>({
   updateProfile: async () => { },
   sendPhoneOtp: async () => { },
   verifyPhoneOtp: async () => { },
-  updatePhoneNumber: async () => { }
+  updatePhoneNumber: async () => { },
+  trialInfo: null,
+  refreshTrialStatus: async () => { }
 });
 
 interface AuthProviderProps {
@@ -53,6 +60,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [trialInfo, setTrialInfo] = useState<{ remainingDays: number; isTrial: boolean; expired: boolean } | null>(null);
+  const [showTrialModal, setShowTrialModal] = useState(false);
+  const [showBlocker, setShowBlocker] = useState(false);
 
   // Initialize the auth state on component mount
   useEffect(() => {
@@ -79,6 +89,22 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
         // Set session marker for browser close detection
         sessionStorage.setItem("userActiveSession", "true");
+
+        // Fetch subscription/trial status and show modal/blocker as needed
+        try {
+          const status = await subscriptionApi.getStatus(session.user.id);
+          const info = {
+            remainingDays: status.remaining_days ?? 0,
+            isTrial: status.is_trial ?? false,
+            expired: status.expired ?? false
+          };
+          setTrialInfo(info);
+          const alreadyShown = sessionStorage.getItem('trialModalShown') === 'true';
+          setShowTrialModal(info.isTrial && !info.expired && !alreadyShown);
+          setShowBlocker(info.expired);
+        } catch (e) {
+          // ignore
+        }
       }
 
       setLoading(false);
@@ -101,9 +127,25 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
           // Update session marker
           sessionStorage.setItem("userActiveSession", "true");
+
+          // Refresh status on auth change
+          subscriptionApi.getStatus(newSession.user.id).then(status => {
+            const info = {
+              remainingDays: status.remaining_days ?? 0,
+              isTrial: status.is_trial ?? false,
+              expired: status.expired ?? false
+            };
+            setTrialInfo(info);
+            const alreadyShown = sessionStorage.getItem('trialModalShown') === 'true';
+            setShowTrialModal(info.isTrial && !info.expired && !alreadyShown);
+            setShowBlocker(info.expired);
+          }).catch(() => {});
         } else {
           tokenService.clearTokens();
           sessionStorage.removeItem("userActiveSession");
+          setTrialInfo(null);
+          setShowTrialModal(false);
+          setShowBlocker(false);
         }
       }
     );
@@ -359,6 +401,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             data.session.refresh_token
           );
         }
+
+        // Create trial immediately on signup
+        try {
+          await subscriptionApi.getStatus(data.user.id);
+        } catch (e) {
+          // ignore – will also run on auth init
+        }
       }
     } catch (error) {
       const authError = error as AuthError;
@@ -595,10 +644,54 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     updateProfile,
     sendPhoneOtp,
     verifyPhoneOtp,
-    updatePhoneNumber
+    updatePhoneNumber,
+    trialInfo,
+    refreshTrialStatus: async () => {
+      if (!user) return;
+      try {
+        const status = await subscriptionApi.getStatus(user.id);
+        const info = {
+          remainingDays: status.remaining_days ?? 0,
+          isTrial: status.is_trial ?? false,
+          expired: status.expired ?? false
+        };
+        setTrialInfo(info);
+        const alreadyShown = sessionStorage.getItem('trialModalShown') === 'true';
+        setShowTrialModal(info.isTrial && !info.expired && !alreadyShown);
+        setShowBlocker(info.expired);
+      } catch (e) {
+        // ignore
+      }
+    }
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  const handleUpgrade = () => {
+    // Route to dashboard and open the existing Upgrade modal there
+    try {
+      window.dispatchEvent(new CustomEvent('openUpgradeModal'));
+    } catch {}
+    window.location.href = '/dashboard?upgrade=1';
+  };
+
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+      <TrialStatusModal
+        open={showTrialModal}
+        remainingDays={trialInfo?.remainingDays ?? 0}
+        isTrial={!!trialInfo?.isTrial}
+        onUpgrade={handleUpgrade}
+        onClose={() => {
+          setShowTrialModal(false);
+          sessionStorage.setItem('trialModalShown', 'true');
+        }}
+      />
+      <UpgradeBlocker
+        open={showBlocker}
+        onUpgrade={handleUpgrade}
+      />
+    </AuthContext.Provider>
+  );
 };
 
 export default AuthContext;
