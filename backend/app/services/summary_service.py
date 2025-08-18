@@ -11,6 +11,67 @@ import json
 # Configure logging
 logger = get_logger(__name__)
 
+def normalize_bulleted_summary(text: str) -> str:
+    """
+    Normalize a summary into exactly three newline-separated bullets.
+    If normalization fails, return DEFAULT_SUMMARY.
+    """
+    try:
+        if not text or not isinstance(text, str):
+            return DEFAULT_SUMMARY
+        summary = text.strip()
+        # Try split by lines first
+        bullets = [line for line in summary.splitlines() if line.strip()]
+        if len(bullets) < 3:
+            # Attempt to split inline bullets like "- one - two - three"
+            inline = summary
+            if inline.startswith("- "):
+                inline = inline[2:]
+            parts = [p.strip() for p in inline.split(" - ") if p.strip()]
+            if len(parts) >= 3:
+                summary = "- " + "\n- ".join(parts[:3])
+                bullets = [line for line in summary.splitlines() if line.strip()]
+        # Strip common labels and semicolons, ensure exactly three bullets, each starting with "- ";
+        # replace vague "Not specified" outputs with neutral, useful guidance.
+        cleaned = []
+        for line in bullets:
+            l = line.strip()
+            # Remove common label prefixes if present
+            for label in (
+                "Overview:", "Main:", "Budget:", "Funding:", "Budget/Funding:",
+                "Commercials:", "Commercials/Eligibility:", "Eligibility:",
+                "Timeline:", "Timeline/Key Info:", "Dates:", "Key Info:"
+            ):
+                if l.lower().startswith(label.lower()):
+                    l = l[len(label):].strip()
+            # Replace semicolons with commas to avoid run-on feel
+            l = l.replace(";", ",")
+            if not l.startswith("-"):
+                l = "- " + l.lstrip("-").strip()
+            elif not l.startswith("- "):
+                l = "- " + l[1:].strip()
+            cleaned.append(l)
+            if len(cleaned) == 3:
+                break
+        if len(cleaned) == 3:
+            adjusted = []
+            for idx, l in enumerate(cleaned):
+                core = l[2:].strip() if l.startswith("- ") else l
+                lower_core = core.lower()
+                if lower_core == "not specified" or lower_core.startswith("not specified") or "not specified in detail" in lower_core:
+                    if idx == 0:
+                        core = "Review the opportunity notice for scope and the offering agency."
+                    elif idx == 1:
+                        core = "Refer to the solicitation for financial terms, contract structure, and eligibility specifics."
+                    else:
+                        core = "Check the notice for submission deadlines and other key requirements."
+                    l = "- " + core
+                adjusted.append(l)
+            return "\n".join(adjusted)
+        return DEFAULT_SUMMARY
+    except Exception:
+        return DEFAULT_SUMMARY
+
 async def fetch_description_from_sam(description_url):
     """
     Fetches the description from SAM.gov API.
@@ -72,18 +133,18 @@ async def generate_description_summary(description_text, max_length=300):
                 {
                     "role": "system",
                     "content": (
-                        "You are an expert government contract analyst. Your job is to write a summary that is:\n"
-                        "- Clear, concise, and easy to understand for a business audience\n"
-                        "- Free of jargon and technical language\n"
-                        "- Focused on the most important details for a potential bidder\n"
-                        "- No longer than 5 sentences\n"
-                        "Highlight:\n"
-                        "• The main goal of the contract\n"
-                        "• Who is offering it\n"
-                        "• What makes this opportunity unique or important\n"
-                        "• Any special requirements or deadlines\n"
-                        "• Why a business should consider applying\n"
-                        "Do not include formal headers or restate the prompt. Write in plain, direct language."
+                        "You are an expert government contract analyst. Write a concise summary as EXACTLY three bullet points for a business audience.\n"
+                        "Formatting requirements:\n"
+                        "- Use simple, plain language that is easy to understand at a glance.\n"
+                        "- Output must be exactly three lines, each beginning with '- ' (dash + space).\n"
+                        "- Each bullet MUST be on its own line separated by a newline. Do not place multiple bullets on a single line.\n"
+                        "- Keep each bullet to a single sentence (aim for \u2264 25 words).\n"
+                        "- Do NOT include labels like 'Overview:', 'Budget:', or 'Timeline:'. Write natural sentences without prefixes.\n"
+                        "Content requirements (in order):\n"
+                        "1) Overview: What the opportunity is and who is offering it (and who it's for if relevant).\n"
+                        "2) Commercials/Eligibility or Key Facts: Include budget/funding/ceiling/pricing model, contract type/vehicle, eligibility/set-aside/NAICS, agency, or place of performance if present. If not, include another concrete, verifiable detail from the description (e.g., scope, deliverables, performance locations). Do not write 'Not specified'.\n"
+                        "3) Timeline/Key Info: Due/submission date, performance period, anticipated award, site visit, or other critical requirements. If no dates are given, include another concrete requirement or write a neutral guidance such as 'See the notice for submission details and key requirements.'\n"
+                        "Do not include headings or extra commentary."
                     )
                 },
                 {
@@ -101,9 +162,8 @@ async def generate_description_summary(description_text, max_length=300):
         logger.info("OpenAI response received")
         summary = response.choices[0].message.content.strip()
         
-        # Ensure meaningful summary
-        if not summary or len(summary.split()) < 40:
-            summary = "Key details of this opportunity require a closer look. Recommended: review the full description."
+        # Ensure bullet list formatting
+        summary = normalize_bulleted_summary(summary)
         
         logger.info(f"Generated concise summary of {len(summary)} chars")
         return summary
@@ -119,7 +179,14 @@ async def generate_title_and_summary(opportunity_title, description_text, max_le
     """
     try:
         if not description_text or description_text.strip() == "":
-            return {"title": opportunity_title or "Untitled Opportunity", "summary": "No description available."}
+            return {
+                "title": opportunity_title or "Untitled Opportunity",
+                "summary": (
+                    "- Limited public details are available; please review the full notice for specifics.\n"
+                    "- Refer to the solicitation for financial terms, contract structure, and eligibility specifics.\n"
+                    "- Check the notice for submission deadlines and other key requirements."
+                )
+            }
         # Truncate very long descriptions
         if len(description_text) > 6000:
             description_text = description_text[:6000] + "..."
@@ -131,10 +198,13 @@ async def generate_title_and_summary(opportunity_title, description_text, max_le
                 {
                     "role": "system",
                     "content": (
-                        "You are an expert government contract analyst. For each contract opportunity, return a JSON object with two fields:\n"
-                        "1. 'title': Improve or clarify the provided title for a business audience. If the title is missing or unclear, generate a concise, clear, and engaging title (max 12 words) using the description for context.\n"
-                        "2. 'summary': A concise summary (max 5 sentences) highlighting the main goal, who is offering it, what makes it unique, any special requirements or deadlines, and why a business should consider applying.\n"
-                        "Do not include any extra text, only the JSON object."
+                        "You are an expert government contract analyst. Return ONLY a JSON object with two fields: 'title' and 'summary'.\n"
+                        "- title: A clear, glanceable title (6–12 words), easy to understand without jargon. If the provided title is unclear or missing, generate one from the description. Focus on what it is and for whom.\n"
+                        "- summary: A single string formatted as EXACTLY three bullet points, each on its own line beginning with '- '. Each bullet MUST be on its own line separated by a newline; do not combine bullets on one line. Avoid labels like 'Overview:'; write natural sentences.\n"
+                        "  Bullet 1 (Overview): What the opportunity is and who is offering it (and who it's for if relevant).\n"
+                        "  Bullet 2 (Commercials/Eligibility or Key Facts): Include budget/funding/ceiling/pricing model, contract type/vehicle, eligibility/set-aside/NAICS, agency, or place of performance if present. If not, include another concrete, verifiable detail from the description (e.g., scope, deliverables, performance locations). Do not write 'Not specified'.\n"
+                        "  Bullet 3 (Timeline/Key Info): Due/submission date, performance period, anticipated award, site visit, or other critical requirements (certifications, compliance, contact method). If no dates are given, include another concrete requirement or write a neutral guidance such as 'See the notice for submission details and key requirements.'\n"
+                        "Do not include any extra text besides the JSON object."
                     )
                 },
                 {
@@ -142,7 +212,7 @@ async def generate_title_and_summary(opportunity_title, description_text, max_le
                     "content": (
                         f"Original Title: {opportunity_title or 'N/A'}\n\n"
                         f"Description: {description_text}\n\n"
-                        "Return the improved title and summary as a JSON object."
+                        "Return ONLY the JSON object with 'title' and 'summary' (3 bullets)."
                     )
                 }
             ],
@@ -158,11 +228,26 @@ async def generate_title_and_summary(opportunity_title, description_text, max_le
         result = json.loads(content)
         # Fallbacks
         title = result.get("title", opportunity_title or "Untitled Opportunity")
-        summary = result.get("summary", "No description available.")
+        summary = result.get(
+            "summary",
+            "- Limited public details are available; please review the full notice for specifics.\n"
+            "- Refer to the solicitation for financial terms, contract structure, and eligibility specifics.\n"
+            "- Check the notice for submission deadlines and other key requirements."
+        )
+        # Normalize possible inline bullets into separate lines
+        if isinstance(summary, str):
+            summary = normalize_bulleted_summary(summary)
         return {"title": title, "summary": summary}
     except Exception as e:
         logger.error(f"Title/Summary generation error: {str(e)}")
-        return {"title": opportunity_title or "Untitled Opportunity", "summary": "No description available."}
+        return {
+            "title": opportunity_title or "Untitled Opportunity",
+            "summary": (
+                "- Limited public details are available; please review the full notice for specifics.\n"
+                "- Refer to the solicitation for financial terms, contract structure, and eligibility specifics.\n"
+                "- Check the notice for submission deadlines and other key requirements."
+            )
+        }
 
 # CSV_URL = "https://s3.amazonaws.com/falextracts/Contract%20Opportunities/datagov/ContractOpportunitiesFullCSV.csv"
 NOTICE_ID_COL = "NoticeId"
@@ -258,11 +343,9 @@ async def process_opportunity_descriptions(opportunity: dict):
         return opportunity
     
 DEFAULT_SUMMARY = (
-    "This opportunity currently lacks a detailed description, so specific information "
-    "about its objectives, eligibility criteria, and potential benefits is not yet available. "
-    "To learn more about what this opportunity entails, including its purpose, requirements, "
-    "and how it can impact you or your organization, please contact the opportunity provider "
-    "directly. Alternatively, check back on this page for updates as more details become available."
+    "- Limited public details are available; please review the full notice for specifics.\n"
+    "- Refer to the solicitation for financial terms, contract structure, and eligibility specifics.\n"
+    "- Check the notice for submission deadlines and other key requirements."
 )
 
 async def process_opportunity_summaries(opportunity):

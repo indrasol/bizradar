@@ -1,5 +1,5 @@
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from routes.search_routes import search_router
 # Import our new admin routes
@@ -7,6 +7,7 @@ from routes.admin_routes import router as admin_router
 from routes.email_routes import router as email_router
 from utils.rec_queue import start_consumer_loop
 from routes.payment_methods import router as payment_methods_router
+from utils.subscription import get_subscription_status
 
 app = FastAPI()
 
@@ -42,6 +43,11 @@ app.include_router(search_router)
 app.include_router(admin_router)
 app.include_router(email_router, prefix="/api", tags=["email"])
 app.include_router(payment_methods_router, prefix="/api")
+
+# Fallback/direct status route to ensure availability
+@app.get("/api/subscription/status")
+def subscription_status(user_id: str = Query(...)):
+    return get_subscription_status(user_id, create_if_missing=True)
 
 if __name__ == "__main__":
     import uvicorn

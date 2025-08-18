@@ -147,25 +147,25 @@ const BizradarAIModal: React.FC<BizradarAIModalProps> = ({ onClose }) => {
           {/* Action Buttons */}
           <div className="flex justify-between items-center gap-4 mt-6">
             <div className="flex-1">
-              <button className="w-full flex flex-col items-center justify-center p-3 bg-gray-50 rounded-md border border-gray-200 hover:bg-gray-100 transition-colors">
+              <div className="w-full flex flex-col items-center justify-center p-3 bg-gray-50 rounded-md border border-gray-200 hover:bg-gray-100 transition-colors">
                 <Upload className="w-5 h-5 text-green-600 mb-1" />
                 <span className="text-xs text-gray-600">Upload PDFs</span>
-              </button>
+              </div>
             </div>
             <div className="flex-1">
-              <button className="w-full flex flex-col items-center justify-center p-3 bg-gray-50 rounded-md border border-gray-200 hover:bg-gray-100 transition-colors">
+              <div className="w-full flex flex-col items-center justify-center p-3 bg-gray-50 rounded-md border border-gray-200 hover:bg-gray-100 transition-colors">
                 <ExternalLink className="w-5 h-5 text-blue-600 mb-1" />
                 <span className="text-xs text-gray-600">Access SAM.gov</span>
-              </button>
+              </div>
             </div>
             <div className="flex-1">
-              <button className="w-full flex flex-col items-center justify-center p-3 bg-gray-50 rounded-md border border-gray-200 hover:bg-gray-100 transition-colors">
+              <div className="w-full flex flex-col items-center justify-center p-3 bg-gray-50 rounded-md border border-gray-200 hover:bg-gray-100 transition-colors">
                 <div className="flex mb-1">
                   <span className="text-lg">👍</span>
                   <span className="text-lg">👎</span>
                 </div>
                 <span className="text-xs text-gray-600">Rate Responses</span>
-              </button>
+              </div>
             </div>
           </div>
           

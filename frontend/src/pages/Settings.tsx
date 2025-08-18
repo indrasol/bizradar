@@ -54,6 +54,7 @@ import { paymentApi } from '@/api/payment';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import PaymentMethodManager from "@/components/payment/PaymentMethodManager";
+import StripePaymentVerifier from '@/components/ui/StripePaymentVerifier';
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
@@ -795,6 +796,7 @@ export const Settings = () => {
 
   return (
     <div className="h-screen flex flex-col bg-gray-50 text-gray-800">
+      <StripePaymentVerifier />
       {/* Main Content */}
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar Component */}
