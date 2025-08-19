@@ -6,6 +6,9 @@ import re
 import numpy as np
 from typing import List, Dict, Optional
 from datetime import datetime
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import lru_cache
 
 # Initialize logging
 logger = get_logger(__name__)
@@ -238,8 +241,11 @@ def search_jobs(
 ) -> List[Dict]:
     """
     Enhanced search with re-ranking for relevance, ending soon, or newest sorting.
+    Adds detailed timing logs for each step.
     """
     try:
+        import time
+        total_start = time.time()
         # query = query.replaceAll('OR', ' ').replaceAll('AND', ' ').replaceAll('site:sam.gov', '').split()
         query = re.sub(r'OR|AND|site:sam.gov|government contract|"', ' ', query)
         # Prepare query terms
@@ -248,14 +254,18 @@ def search_jobs(
             for term in query
         )
 
-        # Generate and normalize embedding
+        # Embedding generation
+        embed_start = time.time()
         model = get_model()
         embedding = model.encode(query).tolist()
         norm = np.linalg.norm(embedding)
         if norm > 0:
             embedding = (np.array(embedding) / norm).tolist()
+        embed_end = time.time()
+        logger.info(f"Embedding generation took {embed_end - embed_start:.3f} seconds")
 
         # Pinecone query
+        pinecone_start = time.time()
         try:
             filters = build_filters(
                 contract_type,        # Example: contract type filter
@@ -268,12 +278,16 @@ def search_jobs(
             index = get_index()
             results = index.query(
                 vector=embedding,
-                top_k=50,
+                top_k=15,  # Reduced from 50 to 15 for lower latency
                 include_metadata=True,
                 namespace="",
                 filter=filters
             )
             if not results.matches:
+                pinecone_end = time.time()
+                logger.info(f"Pinecone query took {pinecone_end - pinecone_start:.3f} seconds (no matches)")
+                total_end = time.time()
+                logger.info(f"Total search_jobs time: {total_end - total_start:.3f} seconds")
                 return []
 
             scores = [m.score for m in results.matches]
@@ -286,13 +300,18 @@ def search_jobs(
                 thr = min_thr
 
             filtered = [m for m in results.matches if m.score >= thr]
+            pinecone_end = time.time()
+            logger.info(f"Pinecone query took {pinecone_end - pinecone_start:.3f} seconds")
         except Exception as e:
+            pinecone_end = time.time()
+            logger.info(f"Pinecone query took {pinecone_end - pinecone_start:.3f} seconds (error)")
             logger.error(f"Pinecone query error: {e}")
+            total_end = time.time()
+            logger.info(f"Total search_jobs time: {total_end - total_start:.3f} seconds")
             return []
 
         # Extract SAM.gov notice_ids
         sam_gov_ids = []
-        freelancer_ids = []
         for match in filtered:
             try:
                 src = match.metadata.get('source')
@@ -303,152 +322,98 @@ def search_jobs(
                 if original_id:
                     if src == 'sam_gov':
                         sam_gov_ids.append(original_id)
-                    elif src == 'freelancer':
-                        freelancer_ids.append(original_id)
             except Exception:
                 continue
 
-        if not sam_gov_ids and not freelancer_ids:
+        if not sam_gov_ids:
+            total_end = time.time()
+            logger.info(f"Total search_jobs time: {total_end - total_start:.3f} seconds (no SAM.gov IDs)")
             return []
 
-        # Fetch from Postgres
-        conn = get_db_connection()
-        if not conn:
-            logger.error("DB connection failed")
-            return []
+        # DB fetch
+        db_start = time.time()
+        all_results = []
+        if sam_gov_ids and (not opportunity_type or opportunity_type.lower() in ["all", "federal"]):
+            records = fetch_sam_gov_records(tuple(sam_gov_ids), naics_code)
+            for rec in records:
+                # Enrich records as before
+                nid = rec.get('notice_id')
+                rec['external_url'] = f"https://sam.gov/opp/{nid}/view" if nid else None
+                rec['platform'] = 'sam.gov'
+                rec['agency'] = rec.get('department')
+                description = rec.get('description', '')
+                additional_description = rec.get('additional_description', '')
+                budget = extract_budget_mentions(description) or extract_budget_mentions(additional_description)
+                if budget:
+                    rec['budget'] = budget
+                all_results.append(rec)
+        db_end = time.time()
+        logger.info(f"SAM.gov DB fetch took {db_end - db_start:.3f} seconds")
 
-        try:
-            with conn.cursor() as cur:
-                all_results = []
+        # Enrichment/scoring
+        enrich_start = time.time()
+        for res in all_results:
+            title = res.get('title', '').lower()
+            eq = 1 if query.lower() in title else 0
+            tm = sum(1 for t in query_terms if t in title)
+            agency_text = (res.get('agency') or res.get('department') or '').lower()
+            am = sum(1 for t in query_terms if t in agency_text)
+            ad = res.get('additional_description', '')
+            adm = 0
+            if ad and is_valid_additional_description(ad):
+                adm = sum(1 for t in query_terms if t in ad.lower())
 
-                # SAM.gov records
-                if sam_gov_ids and (not opportunity_type or opportunity_type.lower() in ["all", "federal"]):
-                    placeholders = ','.join(['%s'] * len(sam_gov_ids))
-                    sql = f"""
-                        SELECT id, notice_id, solicitation_number, title, department,
-                               naics_code, published_date, response_date, description,
-                               additional_description, url, active
-                          FROM sam_gov
-                         WHERE notice_id IN ({placeholders})
-                           AND active = TRUE
-                    """
-                    params = sam_gov_ids.copy()
+            tmr = tm / len(query_terms) if query_terms else 0
+            words = [w for w in query.lower().split() if w]
+            bigrams = [f"{words[i]} {words[i+1]}" for i in range(len(words)-1)]
+            bgm = sum(1 for bg in bigrams if bg in title)
 
-                    # Optional filters
-                    if naics_code:
-                        sql += " AND naics_code::text LIKE %s"
-                        params.append(f"%{naics_code}%")
-                    if posted_date_filter and posted_date_filter != 'all':
-                        # add posted_date_filter logic
-                        pass
-                    if due_date_filter:
-                        # add due_date_filter logic
-                        pass
-                    
-                    # Add condition to filter out past due opportunities
-                    # sql += " AND (response_date IS NULL OR response_date >= CURRENT_DATE)"
-                    # sql += " AND active = true"
+            d_str = res.get('response_date')
+            days_due = float('inf')
+            if d_str:
+                try:
+                    dd = datetime.strptime(str(d_str).split('T')[0], '%Y-%m-%d')
+                    today = datetime.now().replace(hour=0,minute=0,second=0,microsecond=0)
+                    diff = (dd - today).days
+                    if diff >= 0 and res.get('active') is not False:
+                        days_due = diff
+                    else:
+                        days_due = float('inf')  # Set to inf for past due or inactive opportunities
+                except Exception:
+                    days_due = float('inf')  # Set to inf for invalid dates
 
-                    cur.execute(sql, params)
-                    rows = cur.fetchall()
-                    cols = [
-                        "id", "notice_id", "solicitation_number", "title", "department",
-                        "naics_code", "published_date", "response_date", "description",
-                        "additional_description", "url", "active"
-                    ]
-                    for r in rows:
-                        rec = dict(zip(cols, r))
-                        nid = rec.get('notice_id')
-                        rec['external_url'] = f"https://sam.gov/opp/{nid}/view" if nid else None
-                        rec['platform'] = 'sam.gov'
-                        rec['agency'] = rec.get('department')
-                        
-                        # Extract budget mentions from description and additional_description
-                        description = rec.get('description', '')
-                        additional_description = rec.get('additional_description', '')
-                        budget = extract_budget_mentions(description) or extract_budget_mentions(additional_description)
-                        if budget:
-                            rec['budget'] = budget
-                            
-                        all_results.append(rec)
+            comps = {
+                'title_exact_match': eq * 0.5,
+                'title_matches': tm * 0.25,
+                'agency_matches': am * 0.05,
+                'term_match_ratio': tmr * 0.1,
+                'bigram_matches': bgm * 0.15,
+                'additional_desc_matches': adm * 0.2,
+                'days_until_due': days_due
+            }
+            res['relevance_components'] = comps
+            res['relevance_score'] = (
+                0.4 +
+                comps['title_exact_match'] +
+                comps['title_matches'] +
+                comps['agency_matches'] +
+                comps['term_match_ratio'] +
+                comps['bigram_matches'] +
+                comps['additional_desc_matches']
+            )
+        enrich_end = time.time()
+        logger.info(f"Enrichment/scoring took {enrich_end - enrich_start:.3f} seconds")
 
-                # Freelancer records
-                if freelancer_ids and (not opportunity_type or opportunity_type.lower() in ["all", "freelancer"]):
-                    ph = ','.join(['%s'] * len(freelancer_ids))
-                    fq = f"""
-                        SELECT id, title, additional_details AS description,
-                               skills_required AS agency, 'freelancer' AS platform,
-                               price_budget AS value, job_url AS external_url,
-                               published_date
-                          FROM freelancer_data_table
-                         WHERE job_url IN ({ph})
-                    """
-                    cur.execute(fq, freelancer_ids)
-                    fcols = ["id", "title", "description", "agency", "platform", "value", "external_url", "published_date", "response_date"]
-                    for r in cur.fetchall():
-                        rec = dict(zip(fcols, r))
-                        # Extract budget mentions from description
-                        budget = extract_budget_mentions(rec.get('description', ''))
-                        if budget:
-                            rec['budget'] = budget
-                        all_results.append(rec)
+        # Sorting
+        sort_start = time.time()
+        # all_results = sort_results(all_results,sort_by)
+        sort_job_results(all_results, sort_by)
+        sort_end = time.time()
+        logger.info(f"Sorting took {sort_end - sort_start:.3f} seconds")
 
-                # Ranking & sorting
-                for res in all_results:
-                    title = res.get('title', '').lower()
-                    eq = 1 if query.lower() in title else 0
-                    tm = sum(1 for t in query_terms if t in title)
-                    agency_text = (res.get('agency') or res.get('department') or '').lower()
-                    am = sum(1 for t in query_terms if t in agency_text)
-                    ad = res.get('additional_description', '')
-                    adm = 0
-                    if ad and is_valid_additional_description(ad):
-                        adm = sum(1 for t in query_terms if t in ad.lower())
-
-                    tmr = tm / len(query_terms) if query_terms else 0
-                    words = [w for w in query.lower().split() if w]
-                    bigrams = [f"{words[i]} {words[i+1]}" for i in range(len(words)-1)]
-                    bgm = sum(1 for bg in bigrams if bg in title)
-
-                    d_str = res.get('response_date')
-                    days_due = float('inf')
-                    if d_str:
-                        try:
-                            dd = datetime.strptime(str(d_str).split('T')[0], '%Y-%m-%d')
-                            today = datetime.now().replace(hour=0,minute=0,second=0,microsecond=0)
-                            diff = (dd - today).days
-                            if diff >= 0 and res.get('active') is not False:
-                                days_due = diff
-                            else:
-                                days_due = float('inf')  # Set to inf for past due or inactive opportunities
-                        except Exception:
-                            days_due = float('inf')  # Set to inf for invalid dates
-
-                    comps = {
-                        'title_exact_match': eq * 0.5,
-                        'title_matches': tm * 0.25,
-                        'agency_matches': am * 0.05,
-                        'term_match_ratio': tmr * 0.1,
-                        'bigram_matches': bgm * 0.15,
-                        'additional_desc_matches': adm * 0.2,
-                        'days_until_due': days_due
-                    }
-                    res['relevance_components'] = comps
-                    res['relevance_score'] = (
-                        0.4 +
-                        comps['title_exact_match'] +
-                        comps['title_matches'] +
-                        comps['agency_matches'] +
-                        comps['term_match_ratio'] +
-                        comps['bigram_matches'] +
-                        comps['additional_desc_matches']
-                    )
-                    
-                # all_results = sort_results(all_results,sort_by)    
-
-                return all_results
-        finally:
-            conn.close()
+        total_end = time.time()
+        logger.info(f"Total search_jobs time: {total_end - total_start:.3f} seconds")
+        return all_results
     except Exception as e:
         logger.error(f"Search error: {e}")
         return []
@@ -527,3 +492,36 @@ def sort_job_results(all_results:List[Dict], sort_by: Optional[str] = "relevance
     except Exception as e:
         logger.error(f"Sort error: {e}")
         return []
+
+# In-memory LRU cache for DB results (for repeated queries within process lifetime)
+@lru_cache(maxsize=512)
+def fetch_sam_gov_records(ids_tuple, naics_code=None):
+    conn = get_db_connection()
+    if not conn:
+        logger.error("DB connection failed (sam_gov)")
+        return []
+    try:
+        with conn.cursor() as cur:
+            placeholders = ','.join(['%s'] * len(ids_tuple))
+            sql = f"""
+                SELECT id, notice_id, solicitation_number, title, department,
+                       naics_code, published_date, response_date, description,
+                       additional_description, url, active
+                  FROM sam_gov
+                 WHERE notice_id IN ({placeholders})
+                   AND active = TRUE
+            """
+            params = list(ids_tuple)
+            if naics_code:
+                sql += " AND naics_code::text LIKE %s"
+                params.append(f"%{naics_code}%")
+            cur.execute(sql, params)
+            rows = cur.fetchall()
+            cols = [
+                "id", "notice_id", "solicitation_number", "title", "department",
+                "naics_code", "published_date", "response_date", "description",
+                "additional_description", "url", "active"
+            ]
+            return [dict(zip(cols, r)) for r in rows]
+    finally:
+        conn.close()

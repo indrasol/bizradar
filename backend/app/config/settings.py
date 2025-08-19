@@ -88,5 +88,12 @@ STRIPE_SECRET_KEY=os.getenv("STRIPESECRETKEYBIZ")
 STRIPE_PUBLISHABLE_KEY=os.getenv("STRIPEPUBLISHABLEKEYBIZ")
 
 
+# Trial duration config (minutes)
+# Default: 5 minutes in development, 15 days in production (21600 minutes)
+TRIAL_DURATION_MINUTES = int(os.getenv(
+    "TRIAL_DURATION_MINUTES",
+    "5" if env == "development" else "21600"
+))
+
 
 

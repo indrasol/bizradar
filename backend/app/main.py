@@ -1,5 +1,5 @@
 import os
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from routes.search_routes import search_router
 # Import our new admin routes
@@ -8,6 +8,7 @@ from routes.email_routes import router as email_router
 from routes.webhooks import router as webhook_router
 from utils.rec_queue import start_consumer_loop
 from routes.payment_methods import router as payment_methods_router
+from utils.subscription import get_subscription_status
 from routes.checkout import router as checkout_router
 
 app = FastAPI()
@@ -54,6 +55,11 @@ app.include_router(payment_methods_router, prefix="/api", tags=["payment-methods
 
 # Webhook endpoint - no /api prefix since it's called directly by Stripe
 app.include_router(webhook_router, prefix="")
+
+# Fallback/direct status route to ensure availability
+@app.get("/api/subscription/status")
+def subscription_status(user_id: str = Query(...)):
+    return get_subscription_status(user_id, create_if_missing=True)
 
 if __name__ == "__main__":
     import uvicorn

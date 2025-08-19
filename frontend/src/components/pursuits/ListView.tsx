@@ -76,7 +76,7 @@ export const ListView: React.FC<ListViewProps> = ({
           e.stopPropagation();
           onRfpAction(pursuit);
         }}
-        className="ml-2 px-3 py-1 text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-full transition-colors flex items-center gap-1"
+        className="px-3 py-1 text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-full transition-colors flex items-center gap-1 whitespace-nowrap"
       >
         {icon} {buttonText}
       </button>
@@ -101,10 +101,10 @@ export const ListView: React.FC<ListViewProps> = ({
               <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Due Date
               </th>
-              <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-28">
                 Submitted
               </th>
-              <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-64">
                 Actions
               </th>
             </tr>
@@ -134,7 +134,7 @@ export const ListView: React.FC<ListViewProps> = ({
                     {formatDate(pursuit.dueDate)}
                   </div>
                 </td>
-                <td className="px-4 py-4 whitespace-nowrap text-sm text-center">
+                <td className="px-4 py-4 whitespace-nowrap text-sm text-center w-28">
                   {pursuit.is_submitted ? (
                     <CheckSquare className="w-5 h-5 text-green-600 mx-auto" />
                   ) : pursuit.stage === "RFP Response Completed" ? (
@@ -159,8 +159,9 @@ export const ListView: React.FC<ListViewProps> = ({
                     </div>
                   )}
                 </td>
-                <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
+                <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium w-64">
                   <div className="flex items-center justify-end space-x-2">
+                    {renderRfpActionButton(pursuit)}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -171,9 +172,6 @@ export const ListView: React.FC<ListViewProps> = ({
                     >
                       <Bot size={18} />
                     </button>
-                    
-                    {renderRfpActionButton(pursuit)}
-                    
                     <button
                       onClick={(e) => {
                         e.stopPropagation();

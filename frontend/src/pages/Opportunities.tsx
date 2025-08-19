@@ -47,6 +47,67 @@ const OpportunitiesPage: React.FC = () => {
   const resultsListRef = useRef<HTMLDivElement>(null);
   const [userProfile, setUserProfile] = useState<{ companyUrl?: string; companyDescription?: string }>({});
   const [open, setOpen] = useState(false);
+  const isRestoringRef = useRef<boolean>(true);
+  const hasRunInitialFilterEffectRef = useRef<boolean>(false);
+  const hasRunInitialSortEffectRef = useRef<boolean>(false);
+
+  // Restore last search state on mount without refetching
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem("lastOpportunitiesSearchState");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Set filters and sort first while searchQuery is still empty to avoid auto-fetch
+        if (parsed.filters) {
+          setFilterValues((prev) => ({
+            ...prev,
+            ...parsed.filters,
+          }));
+        }
+        if (parsed.sortBy) {
+          setSortBy(parsed.sortBy);
+        }
+        // Now set query and results
+        setSearchQuery(parsed.query || "");
+        if (Array.isArray(parsed.results)) {
+          setOpportunities(parsed.results);
+          setHasSearched(parsed.results.length > 0);
+        }
+        setTotalResults(parsed.total || 0);
+        setTotalPages(parsed.totalPages || 1);
+        setCurrentPage(1);
+        setRefinedQuery(parsed.refinedQuery || "");
+        setShowRefinedQuery(!!parsed.refinedQuery);
+      }
+    } catch (e) {
+      // Ignore corrupted saved state
+      console.warn("Failed to restore last opportunities search state", e);
+    } finally {
+      // Defer releasing the guard to the next tick to ensure effects triggered by
+      // the above state updates do not auto-fetch.
+      setTimeout(() => {
+        isRestoringRef.current = false;
+      }, 0);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!hasRunInitialFilterEffectRef.current) {
+      hasRunInitialFilterEffectRef.current = true;
+      return;
+    }
+    if (isRestoringRef.current) return;
+    applyFilters();
+  }, [filterValues.opportunityType, filterValues.dueDate, filterValues.postedDate, filterValues.naicsCode]);
+
+  useEffect(() => {
+    if (!hasRunInitialSortEffectRef.current) {
+      hasRunInitialSortEffectRef.current = true;
+      return;
+    }
+    if (isRestoringRef.current) return;
+    applySort();
+  }, [sortBy]);
 
   useEffect(() => {
     const fetchPursuitCount = async () => {
@@ -65,14 +126,6 @@ const OpportunitiesPage: React.FC = () => {
     };
     fetchPursuitCount();
   }, []);
-
-  useEffect(() => {
-    applyFilters();
-  }, [filterValues.opportunityType, filterValues.dueDate, filterValues.postedDate, filterValues.naicsCode]);
-
-  useEffect(() => {
-    applySort();
-  }, [sortBy]);
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -340,7 +393,7 @@ const OpportunitiesPage: React.FC = () => {
     const response = await fetch(`${API_BASE_URL}/refine-query`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query, contract_type: contractType, platform }),
+      body: JSON.stringify({ query, contract_type: contractType, platform, user_id: tokenService.getUserIdFromToken() }),
     });
     const data = await response.json();
     if (data.success) return data.refined_query;
@@ -351,6 +404,9 @@ const OpportunitiesPage: React.FC = () => {
     params: Partial<SearchParams>,
     query: string
   ) => {
+    if (isRestoringRef.current) {
+      return;
+    }
     setIsSearching(true);
     setHasSearched(false);
 
@@ -557,20 +613,49 @@ const OpportunitiesPage: React.FC = () => {
 
   const getSummariesForOpportunities = async (opps: Opportunity[]): Promise<Opportunity[]> => {
     if (!opps.length) return opps;
+    
     try {
       const response = await fetch(`${API_BASE_URL}/summarize-descriptions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ opportunities: opps }),
+        body: JSON.stringify({ opportunities: opps, user_id: tokenService.getUserIdFromToken() }),
       });
-      const data = await response.json();
-      if (data.success && data.opportunities) {
-        return data.opportunities.map((opp: any) => ({
-          ...opp,
-          summary_ai: opp.summary || opp.additional_description,
-        }));
+
+      if (!response.body) {
+        console.error("No response body for streaming");
+        return opps;
       }
-      return opps;
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      const processedOpps: Opportunity[] = [];
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n').filter(line => line.trim());
+
+        for (const line of lines) {
+          try {
+            const data = JSON.parse(line);
+            if (data.success && data.opportunity) {
+              const opp = {
+                ...data.opportunity,
+                summary_ai: data.opportunity.summary || data.opportunity.additional_description,
+                // Use enhanced title if available
+                title: data.opportunity.title,
+              };
+              processedOpps.push(opp);
+            }
+          } catch (parseError) {
+            console.error("Error parsing streaming response line:", parseError);
+          }
+        }
+      }
+
+      return processedOpps.length > 0 ? processedOpps : opps;
     } catch (error) {
       console.error("Error getting summaries:", error);
       return opps;
@@ -583,11 +668,15 @@ const OpportunitiesPage: React.FC = () => {
       const response = await fetch(`${API_BASE_URL}/summarize-description`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ opportunity: opportunity }),
+          body: JSON.stringify({ opportunity: opportunity, user_id: tokenService.getUserIdFromToken() }),
         });
         const data = await response.json();
         if (data.success && data.opportunity) {
           opportunity.summary_ai = data.opportunity.summary || data.opportunity.additional_description;
+          // Use enhanced title if available
+          if (data.opportunity.title) {
+            opportunity.title = data.opportunity.title;
+          }
           return opportunity;
         }
     } catch (error) {

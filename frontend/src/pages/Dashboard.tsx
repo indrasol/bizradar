@@ -34,6 +34,7 @@ import { supabase } from "../utils/supabase";
 import { toast } from "sonner";
 import { UpgradeModal } from "@/components/subscription/UpgradeModal";
 import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
+import StripePaymentVerifier from '@/components/ui/StripePaymentVerifier';
 
 
 // const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -51,7 +52,7 @@ const BizRadarDashboard = () => {
   // State for monthly pursuit data
   const [monthlyPursuits, setMonthlyPursuits] = useState({
     count: 0,
-    month: "April",
+    month: "Apr",
     year: 2025,
   });
 
@@ -115,10 +116,22 @@ const BizRadarDashboard = () => {
   const [followUpNotes, setFollowUpNotes] = useState([]);
   const [newFollowUpNote, setNewFollowUpNote] = useState("");
 
+  // Add these new state variables for the modal and opportunities
+  const [showMonthOpportunitiesModal, setShowMonthOpportunitiesModal] = useState(false);
+  const [monthOpportunities, setMonthOpportunities] = useState([]);
+  const [oppsLoading, setOppsLoading] = useState(false);
+  const [oppsFilter, setOppsFilter] = useState("");
+  const [oppsSort, setOppsSort] = useState({ key: "published_date", direction: "desc" });
+
+  // Add state for pagination
+  const [oppsPerPage, setOppsPerPage] = useState(10);
+  const [oppsPage, setOppsPage] = useState(1);
+
   // Function to navigate to previous month
   const navigateToPreviousMonth = () => {
     // Get previous month data using proper Date object handling
-    const currentMonthNum = parseInt(getMonthNumber(monthlyPursuits.month)) - 1; // Convert to 0-based index
+    const fullMonthName = getFullMonthName(monthlyPursuits.month);
+    const currentMonthNum = parseInt(getMonthNumber(fullMonthName)) - 1; // Convert to 0-based index
     const previousMonthDate = new Date(monthlyPursuits.year, currentMonthNum - 1, 1);
 
     const monthName = previousMonthDate.toLocaleString('default', { month: 'long' });
@@ -135,7 +148,8 @@ const BizRadarDashboard = () => {
     const currentRealYear = today.getFullYear();
 
     // Get next month data
-    const currentMonthNum = parseInt(getMonthNumber(monthlyPursuits.month)) - 1; // Convert to 0-based index
+    const fullMonthName = getFullMonthName(monthlyPursuits.month);
+    const currentMonthNum = parseInt(getMonthNumber(fullMonthName)) - 1; // Convert to 0-based index
     const nextMonthDate = new Date(monthlyPursuits.year, currentMonthNum + 1, 1);
 
     // Don't allow navigation past current real month/year
@@ -180,14 +194,15 @@ const BizRadarDashboard = () => {
         .from('sam_gov')
         .select('id')
         .gte('published_date', startDateStr)
-        .lte('published_date', endDateStr);
+        .lte('published_date', endDateStr)
+        .eq('active', true);
 
       if (error) throw error;
 
       // Update state with the calculated data
       setMonthlyPursuits({
         count: monthPursuits?.length || 0,
-        month: monthName,
+        month: getShortMonthName(monthName),
         year: year
       });
 
@@ -207,6 +222,26 @@ const BizRadarDashboard = () => {
       'September': '09', 'October': '10', 'November': '11', 'December': '12'
     };
     return months[monthName] || '01';
+  };
+
+  // Helper function to convert full month name to short form
+  const getShortMonthName = (fullMonthName) => {
+    const shortMonths = {
+      'January': 'Jan', 'February': 'Feb', 'March': 'Mar', 'April': 'Apr',
+      'May': 'May', 'June': 'Jun', 'July': 'Jul', 'August': 'Aug',
+      'September': 'Sep', 'October': 'Oct', 'November': 'Nov', 'December': 'Dec'
+    };
+    return shortMonths[fullMonthName] || fullMonthName;
+  };
+
+  // Helper function to convert short month name back to full name
+  const getFullMonthName = (shortMonthName) => {
+    const fullMonths = {
+      'Jan': 'January', 'Feb': 'February', 'Mar': 'March', 'Apr': 'April',
+      'May': 'May', 'Jun': 'June', 'Jul': 'July', 'Aug': 'August',
+      'Sep': 'September', 'Oct': 'October', 'Nov': 'November', 'Dec': 'December'
+    };
+    return fullMonths[shortMonthName] || shortMonthName;
   };
 
   // Fetch current month's pursuit data on component mount
@@ -532,6 +567,17 @@ const BizRadarDashboard = () => {
 
   const [upgradeOpen, setUpgradeOpen] = useState(false);
 
+  // Allow other parts of the app (e.g., trial modal) to trigger the Upgrade modal here
+  useEffect(() => {
+    const openFromEvent = () => setUpgradeOpen(true);
+    window.addEventListener('openUpgradeModal', openFromEvent as EventListener);
+    // Support query param trigger e.g. /dashboard?upgrade=1
+    if (new URLSearchParams(window.location.search).get('upgrade') === '1') {
+      setUpgradeOpen(true);
+    }
+    return () => window.removeEventListener('openUpgradeModal', openFromEvent as EventListener);
+  }, []);
+
   const handleUpgradeSuccess = () => {
     setUpgradeOpen(false);
     toast.success('Your subscription has been upgraded successfully!');
@@ -560,7 +606,8 @@ const BizRadarDashboard = () => {
       } catch (e) {}
 
       // 2. Generate searchQuery
-      const searchQuery = `${companyUrl || ""}|${companyDescription || ""}|${userId || ""}`;
+      // const searchQuery = `${companyUrl || ""}|${companyDescription || ""}|${userId || ""}`;
+      const searchQuery = "";
 
       // 3. Check cache first
       const cache = sessionStorage.getItem('dashboardAiRecommendations');
@@ -589,7 +636,7 @@ const BizRadarDashboard = () => {
         body: JSON.stringify({
           page: 1,
           page_size: 10,
-          user_id: null,
+          user_id: userId,
           query: "",
           is_new_search: true,
         }),
@@ -692,8 +739,74 @@ const BizRadarDashboard = () => {
     }
   };
 
+  // Fetch all active opportunities for the selected month
+  const fetchMonthOpportunities = async (monthName, year) => {
+    setOppsLoading(true);
+    try {
+      const monthNum = getMonthNumber(monthName);
+      // Always use the 1st as the start date
+      const startDate = new Date(year, parseInt(monthNum) - 1, 1);
+      // End date is the last day of the month
+      const endDate = new Date(year, parseInt(monthNum), 0);
+      const today = new Date();
+      const isCurrentMonth = startDate.getMonth() === today.getMonth() && startDate.getFullYear() === today.getFullYear();
+      const queryEndDate = isCurrentMonth ? today : endDate;
+      const startDateStr = startDate.toISOString().split('T')[0];
+      const endDateStr = queryEndDate.toISOString().split('T')[0];
+      // Fetch all fields needed for the table
+      const { data: opps, error } = await supabase
+        .from('sam_gov')
+        .select('id, title, published_date, response_date, active')
+        .gte('published_date', startDateStr)
+        .lte('published_date', endDateStr)
+        .eq('active', true);
+      if (error) throw error;
+      setMonthOpportunities(opps || []);
+    } catch (error) {
+      toast.error("Failed to load opportunities for this month");
+      setMonthOpportunities([]);
+    } finally {
+      setOppsLoading(false);
+    }
+  };
+
+  // Handler for clicking the monthly count
+  const handleMonthlyCountClick = () => {
+    fetchMonthOpportunities(getFullMonthName(monthlyPursuits.month), monthlyPursuits.year);
+    setShowMonthOpportunitiesModal(true);
+  };
+
+  // Sorting and filtering logic for the table
+  const filteredAndSortedOpportunities = monthOpportunities
+    .filter(opp =>
+      opp.title.toLowerCase().includes(oppsFilter.toLowerCase()) ||
+      (opp.status && opp.status.toLowerCase().includes(oppsFilter.toLowerCase()))
+    )
+    .sort((a, b) => {
+      const { key, direction } = oppsSort;
+      let valA = a[key] || '';
+      let valB = b[key] || '';
+      if (key.includes('date')) {
+        valA = new Date(valA);
+        valB = new Date(valB);
+      }
+      if (valA < valB) return direction === 'asc' ? -1 : 1;
+      if (valA > valB) return direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+  // Update filteredAndSortedOpportunities to be paginated
+  const paginatedOpportunities = filteredAndSortedOpportunities.slice((oppsPage - 1) * oppsPerPage, oppsPage * oppsPerPage);
+  const totalPages = Math.ceil(filteredAndSortedOpportunities.length / oppsPerPage) || 1;
+
+  // Reset to page 1 when filter, sort, or perPage changes
+  useEffect(() => {
+    setOppsPage(1);
+  }, [oppsFilter, oppsSort, oppsPerPage, showMonthOpportunitiesModal]);
+
   return (
     <div className="flex flex-col h-screen bg-gray-50">
+      <StripePaymentVerifier />
       {/* Create Pursuit Dialog */}
       {isDialogOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
@@ -892,6 +1005,127 @@ const BizRadarDashboard = () => {
         </div>
       )}
 
+      {showMonthOpportunitiesModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-5xl relative">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-800 flex-1 min-w-0">
+                <span className="block truncate">
+                  Opportunities in {monthlyPursuits.month} {monthlyPursuits.year}
+                </span>
+              </h3>
+              <button
+                onClick={() => setShowMonthOpportunitiesModal(false)}
+                className="text-gray-400 hover:text-gray-500 flex-shrink-0 ml-3"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-6">
+              <div className="mb-4 flex items-center justify-between">
+                <input
+                  type="text"
+                  className="border border-gray-300 rounded px-3 py-2 w-1/2 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  placeholder="Filter by title or status..."
+                  value={oppsFilter}
+                  onChange={e => setOppsFilter(e.target.value)}
+                />
+                <div className="flex gap-4 items-center min-w-[320px]">
+                  <label htmlFor="oppsPerPage" className="text-xs text-gray-600">Show</label>
+                  <select
+                    id="oppsPerPage"
+                    className="border border-gray-300 rounded px-6 py-1 text-xs focus:outline-none min-w-[80px]"
+                    value={oppsPerPage}
+                    onChange={e => setOppsPerPage(Number(e.target.value))}
+                  >
+                    {[5, 10, 20, 50, 100].map(n => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </select>
+                  <span className="text-xs text-gray-600">per page</span>
+                  <button
+                    className={`text-xs px-2 py-1 rounded border ${oppsSort.key === 'published_date' ? 'bg-blue-100 border-blue-400' : 'bg-gray-100 border-gray-300'}`}
+                    onClick={() => setOppsSort({ key: 'published_date', direction: oppsSort.direction === 'asc' ? 'desc' : 'asc' })}
+                  >
+                    Published {oppsSort.key === 'published_date' ? (oppsSort.direction === 'asc' ? '↑' : '↓') : ''}
+                  </button>
+                  <button
+                    className={`text-xs px-2 py-1 rounded border ${oppsSort.key === 'response_date' ? 'bg-blue-100 border-blue-400' : 'bg-gray-100 border-gray-300'}`}
+                    onClick={() => setOppsSort({ key: 'response_date', direction: oppsSort.direction === 'asc' ? 'desc' : 'asc' })}
+                  >
+                    Deadline {oppsSort.key === 'response_date' ? (oppsSort.direction === 'asc' ? '↑' : '↓') : ''}
+                  </button>
+                  <button
+                    className={`text-xs px-2 py-1 rounded border ${oppsSort.key === 'title' ? 'bg-blue-100 border-blue-400' : 'bg-gray-100 border-gray-300'}`}
+                    onClick={() => setOppsSort({ key: 'title', direction: oppsSort.direction === 'asc' ? 'desc' : 'asc' })}
+                  >
+                    Title {oppsSort.key === 'title' ? (oppsSort.direction === 'asc' ? '↑' : '↓') : ''}
+                  </button>
+                </div>
+              </div>
+              {oppsLoading ? (
+                <div className="flex items-center justify-center h-32">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                </div>
+              ) : (
+                <>
+                  <div className="mb-2 text-sm text-gray-600">
+                    Showing {paginatedOpportunities.length} of {filteredAndSortedOpportunities.length} opportunity{filteredAndSortedOpportunities.length === 1 ? '' : 'ies'}
+                  </div>
+                  <div className="overflow-x-auto max-h-[400px]">
+                    <table className="min-w-full text-sm text-left border">
+                      <thead className="bg-gray-100">
+                        <tr>
+                          <th className="px-4 py-2 border-b cursor-pointer" onClick={() => setOppsSort({ key: 'title', direction: oppsSort.direction === 'asc' ? 'desc' : 'asc' })}>Title</th>
+                          <th className="px-4 py-2 border-b cursor-pointer" onClick={() => setOppsSort({ key: 'published_date', direction: oppsSort.direction === 'asc' ? 'desc' : 'asc' })}>Published</th>
+                          <th className="px-4 py-2 border-b cursor-pointer" onClick={() => setOppsSort({ key: 'response_date', direction: oppsSort.direction === 'asc' ? 'desc' : 'asc' })}>Deadline</th>
+                          <th className="px-4 py-2 border-b cursor-pointer" onClick={() => setOppsSort({ key: 'active', direction: oppsSort.direction === 'asc' ? 'desc' : 'asc' })}>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {paginatedOpportunities.length === 0 ? (
+                          <tr>
+                            <td colSpan={4} className="text-center py-6 text-gray-400">No opportunities found.</td>
+                          </tr>
+                        ) : (
+                          paginatedOpportunities.map(opp => (
+                            <tr key={opp.id} className="hover:bg-blue-50 transition-colors">
+                              <td className="px-4 py-2 border-b font-medium">{opp.title}</td>
+                              <td className="px-4 py-2 border-b">{opp.published_date ? new Date(opp.published_date).toLocaleDateString() : '-'}</td>
+                              <td className="px-4 py-2 border-b">{opp.response_date ? new Date(opp.response_date).toLocaleDateString() : '-'}</td>
+                              <td className="px-4 py-2 border-b capitalize">{opp.active ? 'Active' : 'Inactive'}</td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+              <div className="flex justify-between items-center mt-4">
+                <button
+                  className="px-3 py-1 rounded border border-gray-300 text-xs bg-white hover:bg-gray-100 disabled:opacity-50"
+                  onClick={() => setOppsPage(p => Math.max(1, p - 1))}
+                  disabled={oppsPage === 1}
+                >
+                  Prev
+                </button>
+                <span className="text-xs text-gray-600">
+                  Page {oppsPage} of {totalPages}
+                </span>
+                <button
+                  className="px-3 py-1 rounded border border-gray-300 text-xs bg-white hover:bg-gray-100 disabled:opacity-50"
+                  onClick={() => setOppsPage(p => Math.min(totalPages, p + 1))}
+                  disabled={oppsPage === totalPages}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar - Now imported as a component */}
         <SideBar />
@@ -977,9 +1211,9 @@ const BizRadarDashboard = () => {
               </div>
 
               {/* Dashboard layout - 2 columns */}
-              <div className="grid grid-cols-3 gap-6">
-                {/* Main column - 2/3 width */}
-                <div className="col-span-2 space-y-6">
+              <div className="grid grid-cols-4 gap-6">
+                {/* Main column - 3/4 width */}
+                <div className="col-span-3 space-y-6">
                   {/* Metrics */}
                   <div className="grid grid-cols-2 gap-6">
                     <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200 transition-all hover:shadow-lg relative">
@@ -994,7 +1228,7 @@ const BizRadarDashboard = () => {
                           </button>
                           <h2 className="text-lg font-semibold text-gray-700 flex items-center">
                             <FileText className="h-5 w-5 mr-2 text-blue-500" />
-                            <span className="mr-1">Pursuits in</span>
+                            <span className="mr-1">Opportunities in</span>
                             <span className="text-blue-600">{monthlyPursuits.month} {monthlyPursuits.year}</span>
                           </h2>
                           <button
@@ -1026,7 +1260,7 @@ const BizRadarDashboard = () => {
                       ) : (
                         <div className="flex flex-col items-center my-4">
                           <div className="relative">
-                            <div className="text-6xl font-bold text-gray-800 transition-all">
+                            <div className="text-6xl font-bold text-gray-800 transition-all cursor-pointer" onClick={handleMonthlyCountClick} title="View opportunities">
                               {monthlyPursuits.count}
                             </div>
                             <div className="absolute -top-3 -right-3 bg-blue-500 text-white text-xs font-bold rounded-full h-6 w-6 flex items-center justify-center">
@@ -1034,7 +1268,7 @@ const BizRadarDashboard = () => {
                             </div>
                           </div>
                           <div className="mt-2 text-gray-500 font-medium">
-                            New Pursuits Added
+                            New Opportunities Added
                           </div>
                         </div>
                       )}
@@ -1059,14 +1293,17 @@ const BizRadarDashboard = () => {
                                 </div>
                                 <div className="absolute bottom-full mb-2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                                   <div className="font-bold">{month.month} {month.year}</div>
-                                  <div>{month.count} {month.count === 1 ? 'Pursuit' : 'Pursuits'}</div>
+                                  <div>{month.count} {month.count === 1 ? 'Opportunity' : 'Opportunities'}</div>
                                 </div>
                               </div>
                             ))}
                           </div>
-                          <div className="text-center text-xs text-blue-600 mt-2 hover:underline cursor-pointer">
+                          <Link
+                            to="/analytics"
+                            className="text-center text-xs text-blue-600 mt-2 hover:underline cursor-pointer block"
+                          >
                             View detailed analytics
-                          </div>
+                          </Link>
                         </div>
                       )}
                     </div>
@@ -1076,7 +1313,7 @@ const BizRadarDashboard = () => {
                       <div className="flex justify-between items-center mb-6">
                         <h2 className="text-lg font-semibold text-gray-700 flex items-center">
                           <Clock className="h-5 w-5 mr-2 text-blue-500" />
-                          Action Items
+                          Pursuits Summary
                         </h2>
                         {actionItems.dueToday > 0 ? (
                           <div className="p-2 bg-red-100 text-red-800 rounded-lg">
@@ -1318,84 +1555,16 @@ const BizRadarDashboard = () => {
                   </div>
                 </div>
 
-                {/* Right sidebar - 1/3 width */}
-                <div className="space-y-6">
-                  {/* Recently Viewed Pursuits */}
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                    <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100">
-                      <div className="flex items-center space-x-3">
-                        <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
-                          <FileText className="h-5 w-5" />
-                        </div>
-                        <h2 className="text-lg font-semibold text-gray-700">
-                          Recently Viewed
-                        </h2>
-                      </div>
-                      <Link
-                        to="/pursuits"
-                        className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center"
-                      >
-                        View All
-                        <ChevronRight className="h-4 w-4 ml-1" />
-                      </Link>
-                    </div>
-
-                    <div>
-                      <div className="p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors group">
-                        <h3 className="text-md font-medium text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
-                          ROC Programmers
-                        </h3>
-                        <div className="flex items-center space-x-4 text-xs">
-                          <div className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full font-medium">
-                            Assessment
-                          </div>
-                          <div className="flex items-center text-gray-500">
-                            <Clock className="h-3 w-3 mr-1" />
-                            Due in 14 days
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors group">
-                        <h3 className="text-md font-medium text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
-                          Light Poles, Fixtures and Globes
-                        </h3>
-                        <div className="flex items-center space-x-4 text-xs">
-                          <div className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full font-medium">
-                            Assessment
-                          </div>
-                          <div className="flex items-center text-gray-500">
-                            <Clock className="h-3 w-3 mr-1" />
-                            Due in 21 days
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="p-4 hover:bg-gray-50 transition-colors group">
-                        <h3 className="text-md font-medium text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
-                          DHS-FEMA Risk Mapping, Assessment, and Planni...
-                        </h3>
-                        <div className="flex items-center space-x-4 text-xs">
-                          <div className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full font-medium">
-                            Assessment
-                          </div>
-                          <div className="flex items-center text-gray-500">
-                            <Clock className="h-3 w-3 mr-1" />
-                            Due about 1 year ago
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
+                {/* Right sidebar - 1/4 width */}
+                <div className="space-y-4">
                   {/* Submission Status */}
                   <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                    <div className="px-6 py-4 border-b border-gray-100">
-                      <div className="flex items-center space-x-3">
-                        <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
-                          <CheckCircle2 className="h-5 w-5" />
+                    <div className="px-4 py-3 border-b border-gray-100">
+                      <div className="flex items-center space-x-2">
+                        <div className="p-1.5 bg-blue-100 text-blue-600 rounded-lg">
+                          <CheckCircle2 className="h-4 w-4" />
                         </div>
-                        <h2 className="text-lg font-semibold text-gray-700">
+                        <h2 className="text-base font-semibold text-gray-700">
                           Submission Status
                         </h2>
                         <div className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
@@ -1404,7 +1573,7 @@ const BizRadarDashboard = () => {
                       </div>
                     </div>
 
-                    <div className="h-[400px] overflow-y-auto">
+                    <div className="h-[300px] overflow-y-auto">
                       <div className="p-4 space-y-3">
                         {submittedPursuits.map((pursuit) => (
                           <div key={pursuit.id} className="rounded-lg border border-gray-200 p-4 hover:shadow-sm transition-all group">

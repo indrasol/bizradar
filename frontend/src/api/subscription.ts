@@ -179,5 +179,34 @@ export const subscriptionApi = {
       .eq('id', subscriptionId);
 
     if (error) throw error;
+  },
+
+  // async createCheckoutSession(planType: string, userId: string): Promise<string> {
+  //   const res = await fetch(`${API_BASE_URL}/api/subscription/checkout-session`, {
+  //     method: 'POST',
+  //     headers: { 'Content-Type': 'application/json' },
+  //     body: JSON.stringify({ plan_type: planType, user_id: userId })
+  //   });
+  //   if (!res.ok) throw new Error('Failed to create Stripe Checkout session');
+  //   const data = await res.json();
+  //   return data.url;
+  // },
+
+  async createSubscriptionPaymentIntent(planType: string, userId: string): Promise<string> {
+    const res = await fetch(`${API_BASE_URL}/api/subscription/payment-intent`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ plan_type: planType, user_id: userId })
+    });
+    if (!res.ok) throw new Error('Failed to create Stripe PaymentIntent');
+    const data = await res.json();
+    return data.client_secret;
+  }
+  ,
+
+  async getStatus(userId: string) {
+    const res = await fetch(`${API_BASE_URL}/api/subscription/status?user_id=${encodeURIComponent(userId)}`);
+    if (!res.ok) throw new Error('Failed to fetch subscription status');
+    return res.json();
   }
 }; 

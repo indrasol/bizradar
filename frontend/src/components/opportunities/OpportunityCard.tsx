@@ -36,7 +36,7 @@ const OpportunityCard: React.FC<OpportunityCardProps> = ({
           <BarChart2 size={22} className="text-blue-500" />
           <div className="flex-1">
             <h2 className="text-lg font-semibold text-gray-800 hover:text-blue-600 transition-colors">
-              <strong dangerouslySetInnerHTML={{ __html: highlightSearchTerms(opportunity.title) }} />
+              <strong dangerouslySetInnerHTML={{ __html: highlightSearchTerms(opportunity.title || 'Untitled Opportunity') }} />
             </h2>
             <div className="flex items-center text-sm text-gray-500 mt-1">{opportunity.agency}</div>
           </div>
@@ -130,6 +130,33 @@ const OpportunityCard: React.FC<OpportunityCardProps> = ({
               <div className="relative">
                 <div className="absolute top-0 left-0 w-1 bg-gradient-to-b from-blue-600 to-blue-700 h-full rounded-full mr-3"></div>
                 {(() => {
+                  const lines = (opportunity.summary_ai || "")
+                    .split("\n")
+                    .map(l => l.trim())
+                    .filter(l => l.length > 0);
+                  const bulletLines = lines.every(l => l.startsWith("- ")) ? lines : null;
+                  if (bulletLines) {
+                    const half = Math.ceil(bulletLines.length / 2);
+                    const firstHalf = bulletLines.slice(0, half);
+                    const secondHalf = bulletLines.slice(half);
+                    return (
+                      <div>
+                        <ul className={`list-disc pl-8 text-gray-700 overflow-hidden transition-all duration-300 ${isExpandedAI ? "" : "line-clamp-4"}`}>
+                          {firstHalf.map((l, idx) => (
+                            <li key={`ai-b1-${idx}`} dangerouslySetInnerHTML={{ __html: highlightSearchTerms(l.replace(/^\-\s*/, "")) }} />
+                          ))}
+                        </ul>
+                        {isExpandedAI && (
+                          <ul className="list-disc pl-8 text-gray-700 mt-2">
+                            {secondHalf.map((l, idx) => (
+                              <li key={`ai-b2-${idx}`} dangerouslySetInnerHTML={{ __html: highlightSearchTerms(l.replace(/^\-\s*/, "")) }} />
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    );
+                  }
+                  // Fallback to paragraph split if not bullets
                   const paragraphs = opportunity.summary_ai.split("\n\n");
                   const firstHalf = paragraphs.slice(0, Math.ceil(paragraphs.length / 2)).join("\n\n");
                   const secondHalf = paragraphs.slice(Math.ceil(paragraphs.length / 2)).join("\n\n");
