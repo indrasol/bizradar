@@ -245,7 +245,7 @@ const RecommendationsPanel = ({
 
   return (
     <div
-      className={`mb-2 bg-gradient-to-r from-blue-50 to-white backdrop-blur-lg border border-blue-200 rounded-xl 
+      className={`m-2 bg-gradient-to-r from-blue-50 to-white backdrop-blur-lg border border-blue-200 rounded-xl 
                   shadow-lg transition-all duration-300 overflow-hidden
                   ${isExpanded ? "fixed inset-8 z-50 overflow-auto" : ""}`}
     >
@@ -256,7 +256,7 @@ const RecommendationsPanel = ({
           </div>
           <div>
             <h2 className="font-semibold text-lg text-gray-800">
-              BizradarAI Assistant
+              BizradarAI Recommendations
             </h2>
             <p className="text-xs text-gray-500">Personalized recommendations based on your profile</p>
           </div>

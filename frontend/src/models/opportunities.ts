@@ -143,6 +143,7 @@ export interface Opportunity {
   active?: boolean;
   type?: string;
   additional_description?: string;
+  summary?: string | Record<string, string>;
   summary_ai?:string;
 }
 
