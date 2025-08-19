@@ -36,14 +36,14 @@ const Header: React.FC<HeaderProps> = ({ logout, pursuitCount }) => {
               <span>Upgrade</span>
               <Star size={14} className="ml-1" />
             </button>
-            <NotificationDropdown />
+            {/* <NotificationDropdown />
             <button 
               onClick={() => setShowSupportForm(true)}
               className="bg-blue-50 text-blue-600 hover:bg-blue-100 px-4 py-1.5 rounded-lg text-sm flex items-center gap-1 border border-blue-100 transition-colors"
             >
               <MessageCircle size={16} />
               <span className="font-medium">Live Support</span>
-            </button>
+            </button> */}
             <button
               onClick={logout}
               className="bg-blue-50 text-blue-600 hover:bg-blue-100 px-4 py-2 rounded-lg text-sm flex items-center gap-2 border border-blue-100 transition-colors"
