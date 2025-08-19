@@ -1,0 +1,40 @@
+name: Proactive Cache Refresh
+
+on:
+  schedule:
+    - cron: '0 * * * *'  # Every hour, on the hour (UTC)
+  workflow_dispatch:
+
+jobs:
+  proactive-cache-refresh:
+    name: Proactive Cache Refresh
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+
+      - name: Run proactive cache refresh
+        run: |
+          python -c "from backend.app.routes.search_routes import proactive_refresh_popular_queries; proactive_refresh_popular_queries()"
+        env:
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          REDIS_URL: ${{ secrets.REDISHOSTBIZ }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PINECONEAPIKEYBIZ: ${{ secrets.PINECONE_API_KEY }}
+          PINECONEENVBIZ: ${{ secrets.PINECONE_ENV }}
+          PINECONEINDEXNAMEBIZ: ${{ secrets.PINECONEINDEXNAMEBIZ }} 

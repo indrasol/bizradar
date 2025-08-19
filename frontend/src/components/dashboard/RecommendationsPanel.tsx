@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { 
   Sparkles,
   X,
@@ -18,6 +19,7 @@ import {
   Eye
 } from "lucide-react";
 import tokenService from "../../utils/tokenService";
+import { UpgradeModal } from "../subscription/UpgradeModal";
 
 interface RecommendationsPanelProps { 
   opportunities: any[]; 
@@ -44,6 +46,7 @@ const RecommendationsPanel = ({
   const [aiComponentCollapsed, setAiComponentCollapsed] = useState(true);
   const [cancelRequested, setCancelRequested] = useState(false);
   const [showDetailedReason, setShowDetailedReason] = useState({});
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const API_BASE_URL = window.location.hostname === "localhost" ? "http://localhost:5000" : import.meta.env.VITE_API_BASE_URL;
   const abortCtrlRef = useRef<AbortController | null>(null);
 
@@ -242,7 +245,7 @@ const RecommendationsPanel = ({
 
   return (
     <div
-      className={`mb-2 bg-gradient-to-r from-blue-50 to-white backdrop-blur-lg border border-blue-200 rounded-xl 
+      className={`m-2 bg-gradient-to-r from-blue-50 to-white backdrop-blur-lg border border-blue-200 rounded-xl 
                   shadow-lg transition-all duration-300 overflow-hidden
                   ${isExpanded ? "fixed inset-8 z-50 overflow-auto" : ""}`}
     >
@@ -253,7 +256,7 @@ const RecommendationsPanel = ({
           </div>
           <div>
             <h2 className="font-semibold text-lg text-gray-800">
-              BizradarAI Assistant
+              BizradarAI Recommendations
             </h2>
             <p className="text-xs text-gray-500">Personalized recommendations based on your profile</p>
           </div>
@@ -482,7 +485,10 @@ const RecommendationsPanel = ({
                       </div>
                       <h3 className="text-xl font-bold text-gray-800 mb-2">Unlock More Recommendations</h3>
                       <p className="text-gray-600 mb-4">Subscribe to Pro plan to access unlimited AI-powered opportunity recommendations.</p>
-                      <button className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-medium rounded-lg shadow-md hover:shadow-lg transition-all flex items-center gap-2 mx-auto">
+                      <button
+                        onClick={() => setShowUpgradeModal(true)}
+                        className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-medium rounded-lg shadow-md hover:shadow-lg transition-all flex items-center gap-2 mx-auto"
+                      >
                         <Star className="h-4 w-4" />
                         <span>Upgrade to Pro</span>
                       </button>
@@ -600,6 +606,14 @@ const RecommendationsPanel = ({
             </div>
           )}
         </div>
+      )}
+      {showUpgradeModal && createPortal(
+        <UpgradeModal
+          isOpen={showUpgradeModal}
+          onClose={() => setShowUpgradeModal(false)}
+          onSuccess={() => setShowUpgradeModal(false)}
+        />,
+        document.body
       )}
     </div>
   );

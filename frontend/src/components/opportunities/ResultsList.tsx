@@ -101,7 +101,7 @@ const ResultsList: React.FC<ResultsListProps & { onScroll?: (scrollTop: number) 
             <div className="py-1 px-3 bg-blue-100 text-blue-700 text-sm font-medium rounded-full">
               {totalResults} {totalResults === 1 ? "result" : "results"}
             </div>
-            <div className="flex items-center gap-2">
+            {/* <div className="flex items-center gap-2">
               <button
                 className="bg-white border border-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-sm flex items-center gap-1.5 shadow-sm hover:bg-gray-50 transition-colors"
                 onClick={() => {
@@ -158,7 +158,7 @@ const ResultsList: React.FC<ResultsListProps & { onScroll?: (scrollTop: number) 
                 <Bell size={14} />
                 <span>Notify Me Daily</span>
               </button>
-            </div>
+            </div> */}
           </div>
         )}
       </div>

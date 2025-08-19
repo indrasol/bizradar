@@ -1,7 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { X, Check } from 'lucide-react';
+import { X, Check, Loader2 } from 'lucide-react';
 import { subscriptionApi } from '@/api/subscription';
 import { SubscriptionPlan, Subscription } from '@/models/subscription';
+import { useToast } from '@/components/ui/use-toast';
+// Remove next/navigation import as we're not using it
+import { loadStripe } from '@stripe/stripe-js';
+import { useSubscription } from '@/hooks/useSubscription';
 
 type BillingCycle = 'monthly' | 'annual';
 
@@ -18,21 +22,20 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
   onSuccess,
   refreshKey
 }) => {
+  const { toast } = useToast();
+  const { subscription: currentSubscription, loading: subLoading, refreshSubscription } = useSubscription();
+  
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [billingCycle, setBillingCycle] = useState<BillingCycle>('monthly');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [currentSubscription, setCurrentSubscription] = useState<Subscription | null>(null);
-  const [subLoading, setSubLoading] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       loadPlans();
-      loadCurrentSubscription();
+      refreshSubscription();
     }
-    // Also reload when refreshKey changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, refreshKey]);
 
   const loadPlans = async () => {
@@ -45,40 +48,73 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
     }
   };
 
-  const loadCurrentSubscription = async () => {
-    setSubLoading(true);
-    try {
-      const sub = await subscriptionApi.getCurrentSubscription();
-      setCurrentSubscription(sub);
-      if (sub) {
-        setSelectedPlan(sub.plan_type);
+  // Update selected plan when current subscription changes
+  useEffect(() => {
+    if (currentSubscription) {
+      // Extract base plan type (remove _monthly or _annual suffix)
+      const basePlan = currentSubscription.plan_type.split('_')[0];
+      setSelectedPlan(basePlan);
+      
+      // Set billing cycle based on current subscription
+      if (currentSubscription.plan_type.endsWith('_annual')) {
+        setBillingCycle('annual');
       } else {
-        setSelectedPlan(null);
+        setBillingCycle('monthly');
       }
-    } catch (err) {
-      console.error('Failed to load current subscription:', err);
+    } else {
       setSelectedPlan(null);
+    }
+  }, [currentSubscription]);
+
+  const handleCheckout = async (plan: string) => {
+    if (!plan) return;
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      // Create a checkout session
+      const { sessionId } = await subscriptionApi.createCheckoutSession(plan, billingCycle);
+      
+      // Redirect to Stripe Checkout
+      const stripe = await loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+      if (!stripe) {
+        throw new Error('Failed to load Stripe');
+      }
+      
+      const { error } = await stripe.redirectToCheckout({
+        sessionId,
+      });
+      
+      if (error) {
+        throw error;
+      }
+      
+      // Close the modal on success
+      onClose();
+      
+      // Show success message
+      toast({
+        title: 'Redirecting to checkout',
+        description: 'You are being redirected to complete your subscription.',
+      });
+      
+    } catch (err) {
+      console.error('Error during checkout:', err);
+      setError('Failed to start checkout. Please try again.');
+      toast({
+        title: 'Checkout Error',
+        description: 'There was an error starting the checkout process.',
+        variant: 'destructive',
+      });
     } finally {
-      setSubLoading(false);
+      setLoading(false);
     }
   };
 
   const handleUpgrade = async () => {
     if (!selectedPlan) return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const planType = billingCycle === 'annual' ? `${selectedPlan}_annual` : selectedPlan;
-      await subscriptionApi.createSubscription(planType);
-      onSuccess();
-    } catch (err) {
-      console.error('Error upgrading subscription:', err);
-      setError('Failed to upgrade subscription. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+    await handleCheckout(selectedPlan);
   };
 
   const getPlanPrice = (basePrice: number) => {
@@ -204,17 +240,34 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
             </div>
           </div>
 
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-md">
+              {error}
+            </div>
+          )}
+
           <div className="mt-8 flex justify-end">
             <button
               onClick={handleUpgrade}
               disabled={!selectedPlan || loading}
-              className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+              className={`w-full py-3 px-6 rounded-lg font-medium text-white transition-colors flex items-center justify-center ${
+                !selectedPlan || loading
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-blue-600 hover:bg-blue-700'
+              }`}
             >
-              {loading ? 'Processing...' : 'Upgrade Now'}
+              {loading ? (
+                <>
+                  <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" />
+                  Processing...
+                </>
+              ) : (
+                'Upgrade Now'
+              )}
             </button>
           </div>
         </div>
       </div>
     </div>
   );
-}; 
+};
