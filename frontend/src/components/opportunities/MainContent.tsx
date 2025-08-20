@@ -96,6 +96,7 @@ const MainContent: React.FC<MainContentProps & { userProfile: { companyUrl?: str
           handleSuggestedQueryClick={handleSuggestedQueryClick}
           onScroll={onResultsScroll}
           scrollContainerRef={resultsListRef}
+          searchQuery={searchQuery}
         />
       </div>
     </div>

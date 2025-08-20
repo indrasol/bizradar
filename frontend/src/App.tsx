@@ -23,6 +23,7 @@ import Analytics from "./pages/Analytics";
 // Lazily loaded (heavier)
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Opportunities = lazy(() => import("./pages/Opportunities"));
+const OpportunityDetails = lazy(() => import("./pages/OpportunityDetails"));
 const Pursuits = lazy(() => import("./pages/Pursuits"));
 const Admin = lazy(() => import("./pages/Admin"));
 const Settings = lazy(() => import("./pages/Settings"));
@@ -63,6 +64,11 @@ const App = () => (
               <Route path="/opportunities" element={
                 <ProtectedRoute>
                   <Opportunities />
+                </ProtectedRoute>
+              } />
+              <Route path="/opportunities/:id/details" element={
+                <ProtectedRoute>
+                  <OpportunityDetails />
                 </ProtectedRoute>
               } />
               <Route path="/pursuits" element={

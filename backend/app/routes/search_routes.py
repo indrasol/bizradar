@@ -1,7 +1,7 @@
 import os
 import json
 import hashlib
-from utils.logger import get_logger
+from app.utils.logger import get_logger
 import math
 
 from datetime import datetime, date
@@ -9,19 +9,19 @@ from fastapi import APIRouter, Request, HTTPException, BackgroundTasks, Query, R
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from services.open_ai_refiner import refine_query
-from utils.subscription import ensure_active_access
-from services.job_search import search_jobs, sort_job_results
-from services.pdf_service import generate_rfp_pdf
-from services.recommendations import generate_recommendations
-from services.company_scraper import generate_company_markdown
-from services.helper import json_serializable
-from utils.openai_client import get_openai_client
-from services.summary_service import process_opportunity_descriptions, fetch_description_from_sam, normalize_bulleted_summary
-from utils.redis_connection import RedisClient
-from utils.database import fetch_opportunities_from_db
+from app.services.open_ai_refiner import refine_query
+from app.utils.subscription import ensure_active_access
+from app.services.job_search import search_jobs, sort_job_results
+from app.services.pdf_service import generate_rfp_pdf
+from app.services.recommendations import generate_recommendations
+from app.services.company_scraper import generate_company_markdown
+from app.services.helper import json_serializable
+from app.utils.openai_client import get_openai_client
+from app.services.summary_service import process_opportunity_descriptions, fetch_description_from_sam, normalize_bulleted_summary
+from app.utils.redis_connection import RedisClient
+from app.utils.database import fetch_opportunities_from_db
 from collections import deque
-from services.filter_service import apply_filters_to_results, sort_results
+from app.services.filter_service import apply_filters_to_results, sort_results
 import asyncio
 from typing import List
 # from utils.doc_generation import generate_merge_and_convert_report
@@ -1318,6 +1318,7 @@ async def summarize_descriptions(request: Request):
     user_id = data.get("user_id") or data.get("userId")
     ensure_active_access(user_id)
     opportunities = data.get("opportunities", [])
+    logger.info(f"Summarizing descriptions for {len(opportunities)} opportunities")
     return StreamingResponse(
         summarize_descriptions_for_stream(opportunities),
         media_type="application/json"

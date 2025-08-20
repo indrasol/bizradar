@@ -3,12 +3,13 @@ import { Download, Bell, Shield, Search, Zap, Database, Code } from "lucide-reac
 import OpportunityCard from "./OpportunityCard";
 import Pagination from "./Pagination";
 import SuggestedSearches from "./SuggestedSearches";
+import InlineSearchLoader from "./InlineSearchLoader";
 import * as XLSX from "xlsx";
 import { toast } from "@/hooks/use-toast";
 
 import { ResultsListProps, SuggestedQuery } from "../../models/opportunities"
 
-const ResultsList: React.FC<ResultsListProps & { onScroll?: (scrollTop: number) => void, scrollContainerRef?: React.RefObject<HTMLDivElement> }> = ({
+const ResultsList: React.FC<ResultsListProps & { onScroll?: (scrollTop: number) => void, scrollContainerRef?: React.RefObject<HTMLDivElement>, searchQuery?: string }> = ({
   opportunities,
   isSearching,
   hasSearched,
@@ -27,6 +28,7 @@ const ResultsList: React.FC<ResultsListProps & { onScroll?: (scrollTop: number) 
   handleSuggestedQueryClick,
   onScroll,
   scrollContainerRef,
+  searchQuery = "",
 }) => {
   const suggestedQueries: SuggestedQuery[] = [
     {
@@ -96,7 +98,7 @@ const ResultsList: React.FC<ResultsListProps & { onScroll?: (scrollTop: number) 
             Ending Soon
           </div>
         </div>
-        {hasSearched && (
+        {hasSearched && !isSearching && (
           <div className="flex items-center gap-3">
             <div className="py-1 px-3 bg-blue-100 text-blue-700 text-sm font-medium rounded-full">
               {totalResults} {totalResults === 1 ? "result" : "results"}
@@ -163,12 +165,11 @@ const ResultsList: React.FC<ResultsListProps & { onScroll?: (scrollTop: number) 
         )}
       </div>
       {isSearching ? (
-        <div className="p-2 mx-auto my-2 bg-white border border-gray-200 rounded-xl shadow-sm max-w-8xl">
-          <div className="flex flex-col items-center justify-center py-1">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500"></div>
-            <p className="mb-8 text-gray-600 font-medium">Searching opportunities...</p>
-          </div>
-        </div>
+        <InlineSearchLoader 
+          searchQuery={searchQuery}
+          resultCount={totalResults}
+          isSearching={true}
+        />
       ) : hasSearched ? (
         opportunities.length > 0 ? (
           <div className="space-y-5 max-w-8xl mx-auto">

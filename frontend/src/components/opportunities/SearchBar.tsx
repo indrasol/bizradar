@@ -1,10 +1,8 @@
 import React from "react";
-import { useNavigate } from "react-router-dom";
-import { Search, X, ArrowRight, Settings } from "lucide-react";
+import { Search, X, ArrowRight } from "lucide-react";
 import { SearchBarProps } from "@/models/opportunities";
 
 const SearchBar: React.FC<SearchBarProps> = ({ searchQuery, setSearchQuery, handleSearch, clearSearch }) => {
-  const navigate = useNavigate();
 
   return (
     <div className="p-2 border-b border-gray-200 bg-white sticky top-0 z-20">
@@ -40,13 +38,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ searchQuery, setSearchQuery, hand
             </button>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => navigate("/settings")}
-          className="p-3 rounded-xl border border-gray-200 text-gray-600 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-colors shadow-sm"
-        >
-          <Settings size={18} />
-        </button>
+
       </form>
     </div>
   );
