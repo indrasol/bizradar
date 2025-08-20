@@ -15,6 +15,100 @@ import Header from "@/components/opportunities/Header";
 const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 const API_BASE_URL = isDevelopment ? 'http://localhost:5000' : import.meta.env.VITE_API_BASE_URL;
 
+// Mock data for testing - remove when backend is ready
+const MOCK_OPPORTUNITIES = [
+  {
+    title: "Cybersecurity Support Services for Department of Energy",
+    description: {
+      sponsor: "U.S. Department of Energy (DOE)",
+      objective: "To acquire cybersecurity support services to enhance the security posture of DOE's internal networks and infrastructure.",
+      expected_outcome: "Award of a performance-based contract to a qualified vendor capable of delivering risk assessment, incident response, and compliance reporting for federal cybersecurity standards.",
+      point_of_contact: {
+        name: "John A. Keller",
+        contact: "john.keller@hq.doe.gov | (202) 586-0000"
+      }
+    },
+    timelines: {
+      published_date: "2025-08-15",
+      due_date: "2025-09-20",
+      response_in_days: "36"
+    },
+    details: {
+      naics_code: "541512",
+      solicitation: "DOE-CYBER-OPS-RFI-2025",
+      funding: "Estimated contract value is $5 million over 3 years"
+    }
+  },
+  {
+    title: "Construction of Military Housing Units - Fort Bragg",
+    description: {
+      sponsor: "U.S. Army Corps of Engineers",
+      objective: "To construct 120 residential housing units for military personnel and families stationed at Fort Bragg, NC.",
+      expected_outcome: "Award of a construction contract to a certified small business construction firm.",
+      point_of_contact: {
+        name: "Lisa M. Harris",
+        contact: "lisa.harris@usace.army.mil | (910) 251-4000"
+      }
+    },
+    timelines: {
+      published_date: "2025-07-30",
+      due_date: "2025-09-10",
+      response_in_days: "42"
+    },
+    details: {
+      naics_code: "236220",
+      solicitation: "W912HN25R0045",
+      funding: "Projected budget of $28 million"
+    }
+  },
+  {
+    title: "Food Services for Federal Correctional Institution",
+    description: {
+      sponsor: "Federal Bureau of Prisons",
+      objective: "To provide food preparation and delivery services to meet the daily dietary requirements of inmates at FCI Phoenix.",
+      expected_outcome: "Award of a 1-year renewable food services contract to a qualified vendor.",
+      point_of_contact: {
+        name: "Mark J. Stevenson",
+        contact: "mstevenson@bop.gov | (602) 555-1289"
+      }
+    },
+    timelines: {
+      published_date: "2025-08-10",
+      due_date: "2025-08-31",
+      response_in_days: "21"
+    },
+    details: {
+      naics_code: "722310",
+      solicitation: "RFQ-FCI-PHX-2025-09",
+      funding: "Annual budget allocation of $2.1 million"
+    }
+  },
+  {
+    title: "Cloud Migration Services for SSA",
+    description: {
+      sponsor: "Social Security Administration (SSA)",
+      objective: "To migrate legacy IT systems to a secure, scalable cloud platform.",
+      expected_outcome: "Partnership with a cloud solutions provider with FedRAMP authorization to migrate and maintain core SSA applications.",
+      point_of_contact: {
+        name: "Angela Rowe",
+        contact: "angela.rowe@ssa.gov | (410) 965-8000"
+      }
+    },
+    timelines: {
+      published_date: "2025-08-05",
+      due_date: "2025-09-15",
+      response_in_days: "41"
+    },
+    details: {
+      naics_code: "541519",
+      solicitation: "SSA-CLOUD-RFP-2025",
+      funding: "Contract ceiling of $12 million over 5 years"
+    }
+  }
+];
+
+
+
 const OpportunitiesPage: React.FC = () => {
   const { logout } = useAuth();
   const navigate = useNavigate();
@@ -53,31 +147,49 @@ const OpportunitiesPage: React.FC = () => {
 
   // Restore last search state on mount without refetching
   useEffect(() => {
+    // Check if this is a page reload (not navigation)
+    const isPageReload = !window.performance.getEntriesByType('navigation')[0] || 
+      (window.performance.getEntriesByType('navigation')[0] as any).type === 'reload';
+    
+    if (isPageReload) {
+      // Clear search state on page reload
+      sessionStorage.removeItem("lastOpportunitiesSearchState");
+      sessionStorage.removeItem("aiRecommendations");
+      sessionStorage.removeItem("allOpportunitiesForExport");
+      return;
+    }
+    
     try {
       const saved = sessionStorage.getItem("lastOpportunitiesSearchState");
       if (saved) {
         const parsed = JSON.parse(saved);
-        // Set filters and sort first while searchQuery is still empty to avoid auto-fetch
-        if (parsed.filters) {
-          setFilterValues((prev) => ({
-            ...prev,
-            ...parsed.filters,
-          }));
+        // Only restore if the saved state belongs to the current user
+        const currentUserId = tokenService.getUserIdFromToken();
+        if (!currentUserId || parsed.userId !== currentUserId) {
+          sessionStorage.removeItem("lastOpportunitiesSearchState");
+        } else {
+          // Set filters and sort first while searchQuery is still empty to avoid auto-fetch
+          if (parsed.filters) {
+            setFilterValues((prev) => ({
+              ...prev,
+              ...parsed.filters,
+            }));
+          }
+          if (parsed.sortBy) {
+            setSortBy(parsed.sortBy);
+          }
+          // Now set query and results
+          setSearchQuery(parsed.query || "");
+          if (Array.isArray(parsed.results)) {
+            setOpportunities(parsed.results);
+            setHasSearched(parsed.results.length > 0);
+          }
+          setTotalResults(parsed.total || 0);
+          setTotalPages(parsed.totalPages || 1);
+          setCurrentPage(1);
+          setRefinedQuery(parsed.refinedQuery || "");
+          setShowRefinedQuery(!!parsed.refinedQuery);
         }
-        if (parsed.sortBy) {
-          setSortBy(parsed.sortBy);
-        }
-        // Now set query and results
-        setSearchQuery(parsed.query || "");
-        if (Array.isArray(parsed.results)) {
-          setOpportunities(parsed.results);
-          setHasSearched(parsed.results.length > 0);
-        }
-        setTotalResults(parsed.total || 0);
-        setTotalPages(parsed.totalPages || 1);
-        setCurrentPage(1);
-        setRefinedQuery(parsed.refinedQuery || "");
-        setShowRefinedQuery(!!parsed.refinedQuery);
       }
     } catch (e) {
       // Ignore corrupted saved state
@@ -328,22 +440,22 @@ const OpportunitiesPage: React.FC = () => {
       } as SearchParams),
     });
   
-    const data = await response.json();
-  
-    if (!data.success) {
-      throw new Error(data.message || "Search failed");
-    }
-    if (!Array.isArray(data.results)) {
-      throw new Error("Invalid data format received");
-    }
-  
-    // Save all_results to sessionStorage for export
-    if (Array.isArray(data.all_results)) {
-      sessionStorage.setItem("allOpportunitiesForExport", JSON.stringify(data.all_results));
-    }
-  
-    // Process results
-    const processedResults = processSearchResults(data.results);
+                 const data = await response.json();
+
+     if (!data.success) {
+       throw new Error(data.message || "Search failed");
+     }
+     if (!Array.isArray(data.results)) {
+       throw new Error("Invalid data format received");
+     }
+
+     // Save all_results to sessionStorage for export
+     if (Array.isArray(data.all_results)) {
+       sessionStorage.setItem("allOpportunitiesForExport", JSON.stringify(data.all_results));
+     }
+
+     // Process results
+     const processedResults = processSearchResults(data.results);
   
     // // Yield the complete search results with summaries
     // yield {
@@ -367,8 +479,8 @@ const OpportunitiesPage: React.FC = () => {
       setTotalResults(tot);
       setOpen(true);
       
-      setTotalPages(data.total_pages || 1);
-      setCurrentPage(data.page || 1);
+             setTotalPages(data.total_pages || 1);
+       setCurrentPage(data.page || 1);
       setHasSearched(true);
       // saveSearchStateToSession(
       //   data.query,
@@ -379,13 +491,13 @@ const OpportunitiesPage: React.FC = () => {
       // );
       console.log("Adding results")
     }
-    return {
-      opportunities: summarized_results,
-      total: data.total || 0,
-      total_pages: data.total_pages || 1,
-      page: data.page || 1,
-      refined_query: data.refined_query,
-    };
+         return {
+       opportunities: summarized_results,
+       total: data.total || 0,
+       total_pages: data.total_pages || 1,
+       page: data.page || 1,
+       refined_query: data.refined_query,
+     };
   };
 
   // Helper to get refined/expanded query from backend
@@ -446,6 +558,25 @@ const OpportunitiesPage: React.FC = () => {
     const query = suggestedQuery ?? searchQuery;
     if (!query.trim()) return;
 
+    // For testing: use mock data instead of API call
+    if (isDevelopment) {
+      setIsSearching(true);
+      setHasSearched(false);
+      
+      // Simulate API delay
+      setTimeout(() => {
+        const processedResults = processSearchResults(MOCK_OPPORTUNITIES);
+        setOpportunities(processedResults);
+        setTotalResults(processedResults.length);
+        setTotalPages(1);
+        setCurrentPage(1);
+        setHasSearched(true);
+        setIsSearching(false);
+      }, 1000);
+      return;
+    }
+
+    // Production: use real API
     await performAndSetSearch(
       {
         query,
@@ -597,18 +728,50 @@ const OpportunitiesPage: React.FC = () => {
 
   const processSearchResults = (results: any[]): Opportunity[] => {
     if (!Array.isArray(results)) return [];
-    return results.map((result) => ({
-      id: result.id || `temp-${Math.random().toString(36).substring(2, 9)}`,
-      title: result.title || "Untitled Opportunity",
-      agency: result.agency || result.department || "Unknown Agency",
-      description: result.description || result.additional_description || "No description available",
-      platform: result.platform || "unknown",
-      external_url: result.external_url || result.url || "#",
-      naics_code: result.naics_code || result.naicsCode || "N/A",
-      published_date: result.published_date || result.posted || new Date().toISOString(),
-      response_date: result.response_date || result.dueDate || null,
-      ...result,
-    }));
+    return results.map((result, index) => {
+      // Check if this is the new JSON format
+      if (result.description && result.timelines && result.details) {
+        return {
+          id: result.id || `auto-${index + 1}`,
+          title: result.title || "Untitled Opportunity",
+          agency: result.description.sponsor || "Unknown Agency",
+          description: result.description.objective || result.description.expected_outcome || "",
+          platform: result.platform || "unknown",
+          external_url: result.external_url || result.url || "#",
+          naics_code: result.details.naics_code || "N/A",
+          published_date: result.timelines.published_date || new Date().toISOString(),
+          response_date: result.timelines.due_date || null,
+          budget: result.details.funding || "Not specified",
+          solicitation_number: result.details.solicitation || "N/A",
+          summary: [
+            result.description.sponsor ? `- **Sponsor**: ${result.description.sponsor}` : null,
+            result.description.objective ? `- **Objective**: ${result.description.objective}` : null,
+            result.description.expected_outcome ? `- **Expected Outcome**: ${result.description.expected_outcome}` : null,
+            result.description.point_of_contact?.name && result.description.point_of_contact?.contact ? 
+              `- **Contact information**: ${result.description.point_of_contact.name} — ${result.description.point_of_contact.contact}` : null,
+            result.timelines.due_date ? `- **Due Date**: ${result.timelines.due_date}` : null,
+          ].filter(Boolean).join("\n"),
+          active: true,
+          type: "RFP",
+        } as Opportunity;
+      }
+      
+      // Fallback to existing format
+      return {
+        id: result.id || `temp-${Math.random().toString(36).substring(2, 9)}`,
+        title: result.title || "Untitled Opportunity",
+        agency: result.agency || result.department || "Unknown Agency",
+        description: result.description || result.additional_description || "No description available",
+        platform: result.platform || "unknown",
+        external_url: result.external_url || result.url || "#",
+        naics_code: result.naics_code || result.naicsCode || "N/A",
+        published_date: result.published_date || result.posted || new Date().toISOString(),
+        response_date: result.response_date || result.dueDate || null,
+        budget: result.budget || "Not specified",
+        solicitation_number: result.solicitation_number || "N/A",
+        ...result,
+      } as Opportunity;
+    });
   };
 
   const getSummariesForOpportunities = async (opps: Opportunity[]): Promise<Opportunity[]> => {
@@ -695,6 +858,7 @@ const OpportunitiesPage: React.FC = () => {
       filters: filterValues,
       sortBy,
       lastUpdated: new Date().toISOString(),
+      userId: tokenService.getUserIdFromToken(),
     };
     sessionStorage.setItem("lastOpportunitiesSearchState", JSON.stringify(searchState));
   };

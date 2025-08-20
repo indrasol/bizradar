@@ -452,7 +452,16 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       // Clear tokens and session marker
       tokenService.clearTokens();
       sessionStorage.removeItem("userActiveSession");
+      // Clear search/session related data
       sessionStorage.removeItem("lastOpportunitiesSearchState");
+      sessionStorage.removeItem("aiRecommendations");
+      sessionStorage.removeItem("allOpportunitiesForExport");
+      sessionStorage.removeItem("userProfile");
+      sessionStorage.removeItem("currentContract");
+      sessionStorage.removeItem("selectedOpportunity");
+      sessionStorage.removeItem("trialModalShown");
+      // Optional related localStorage keys that shouldn't persist across accounts
+      localStorage.removeItem("auth_user");
     } catch (error) {
       console.error('Logout error:', error);
       throw new Error('Failed to logout');
