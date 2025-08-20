@@ -7,10 +7,10 @@ import SideBar from "@/components/layout/SideBar";
 import MainContent from "@/components/opportunities/MainContent";
 import ScrollToTopButton from "@/components/opportunities/ScrollToTopButton";
 import NotificationToast from "@/components/opportunities/NotificationToast";
+
 import { toast } from "sonner";
 import { FilterValues, Opportunity, SearchParams } from "@/models/opportunities";
 import Header from "@/components/opportunities/Header";
-import * as Toast from '@radix-ui/react-toast';
 
 const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 const API_BASE_URL = isDevelopment ? 'http://localhost:5000' : import.meta.env.VITE_API_BASE_URL;
@@ -752,23 +752,6 @@ const OpportunitiesPage: React.FC = () => {
           />
         </div>
       </div>
-      <Toast.Provider>
-        <Toast.Root 
-          className="bg-white rounded-md shadow-[hsl(206_22%_7%_/_35%)_0px_10px_38px_-10px,_hsl(206_22%_7%_/_20%)_0px_10px_20px_-15px] p-4 grid [grid-template-areas:_'title_action'_'description_action'] grid-cols-[auto_max-content] gap-x-4 items-center data-[state=open]:animate-slideIn data-[state=closed]:animate-hide data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)] data-[swipe=cancel]:translate-x-0 data-[swipe=cancel]:transition-[transform_200ms_ease-out] data-[swipe=end]:animate-swipeOut"
-          open={open} 
-          onOpenChange={setOpen}
-        >
-          <Toast.Title className="[grid-area:_title] mb-1 font-medium text-slate12 text-lg">
-            Searching...
-          </Toast.Title>
-          <Toast.Description asChild>
-            <div className="[grid-area:_description] text-sm text-slate11">
-              Found {totalResults} result{totalResults !== 1 ? 's' : ''}
-            </div>
-          </Toast.Description>
-        </Toast.Root>
-        <Toast.Viewport className="[--viewport-padding:_25px] fixed bottom-0 right-0 flex flex-col p-[var(--viewport-padding)] gap-2.5 w-[390px] max-w-[100vw] m-0 list-none z-[2147483647] outline-none" />
-      </Toast.Provider>
       <ScrollToTopButton isVisible={showScrollToTop} scrollToTop={handleScrollToTop} />
       <NotificationToast show={showNotification} />
     </div>

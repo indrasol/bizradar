@@ -3,8 +3,8 @@ from typing import Optional, Dict, Any
 
 from fastapi import HTTPException
 
-from utils.db_utils import get_db_connection
-from config.settings import TRIAL_DURATION_MINUTES
+from app.utils.db_utils import get_db_connection
+from app.config.settings import TRIAL_DURATION_MINUTES
 
 
 def _ensure_subscription_table_exists() -> None:

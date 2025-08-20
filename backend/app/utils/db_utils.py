@@ -3,7 +3,7 @@ import os
 import sys
 import psycopg2
 from dotenv import load_dotenv
-from config.settings import DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
+from app.config.settings import DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
 # Load environment variables
 load_dotenv()
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))

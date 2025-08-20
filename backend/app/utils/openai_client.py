@@ -1,8 +1,8 @@
 import os
 from dotenv import load_dotenv
 load_dotenv()
-from config.settings import OPENAI_API_KEY as api_key
-from utils.logger import get_logger
+from app.config.settings import OPENAI_API_KEY as api_key
+from app.utils.logger import get_logger
 from openai import OpenAI
 
 logger = get_logger(__name__)

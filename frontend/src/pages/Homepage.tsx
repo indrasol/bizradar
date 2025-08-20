@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Radar, Search, User, ArrowRight, Star, ChevronDown, Activity, Zap, Lock } from "lucide-react";
+import { Radar, Search, User, ArrowRight, Activity, Zap, Lock } from "lucide-react";
 import { motion, useScroll, useTransform, useInView } from "framer-motion";
 // import { FaLinkedin, FaYoutube } from "react-icons/fa";
 import { FaXTwitter, FaLinkedin, FaYoutube } from "react-icons/fa6";
@@ -9,7 +9,6 @@ import { Toaster } from "@/components/ui/toaster";
 import { emailService } from "@/utils/emailService";
 
 const Layout = ({ children }) => {
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [email, setEmail] = useState("");
   const [isSubscribing, setIsSubscribing] = useState(false);
   const { toast } = useToast();
@@ -22,30 +21,18 @@ const Layout = ({ children }) => {
   const scrollProgressScale = useTransform(scrollYProgress, [0, 1], ["0%", "100%"]);
 
   // For section in-view detection
-  const heroInView = useInView(heroRef, { once: false, amount: 0.3 });
-  const featuresInView = useInView(featuresRef, { once: false, amount: 0.3 });
-  const solutionsInView = useInView(solutionsRef, { once: false, amount: 0.3 });
+  const heroInView = useInView(heroRef, { once: true, amount: 0.2 });
+  const featuresInView = useInView(featuresRef, { once: true, amount: 0.2 });
+  const solutionsInView = useInView(solutionsRef, { once: true, amount: 0.2 });
 
-  useEffect(() => {
-    const handleMouseMove = (e) => {
-      setMousePosition({ x: e.clientX, y: e.clientY });
-    };
-
-    window.addEventListener("mousemove", handleMouseMove);
-
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-    };
-  }, []);
-
-  // Enhanced animation variants
+  // Simplified animation variants for better performance
   const fadeIn = {
-    hidden: { opacity: 0, y: 20 },
+    hidden: { opacity: 0, y: 10 },
     visible: {
       opacity: 1,
       y: 0,
       transition: {
-        duration: 0.6,
+        duration: 0.4,
         ease: "easeOut"
       }
     }
@@ -56,28 +43,21 @@ const Layout = ({ children }) => {
     visible: {
       opacity: 1,
       transition: {
-        staggerChildren: 0.1
+        staggerChildren: 0.08
       }
     }
   };
 
   const itemFadeIn = {
-    hidden: { opacity: 0, y: 10 },
+    hidden: { opacity: 0, y: 8 },
     visible: {
       opacity: 1,
       y: 0,
-      transition: { duration: 0.4 }
+      transition: { duration: 0.3 }
     }
   };
 
-  // Subtle cursor follower effect
-  const cursorVariants = {
-    default: {
-      x: mousePosition.x - 16,
-      y: mousePosition.y - 16,
-      opacity: 0.15
-    }
-  };
+  // Simplified animations
 
   const handleSubscribe = async (e) => {
     e.preventDefault();
@@ -137,23 +117,18 @@ const Layout = ({ children }) => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-white overflow-x-hidden">
-      {/* Subtle cursor follower */}
-      <motion.div
-        className="fixed w-32 h-32 rounded-full bg-gradient-to-r from-blue-400 to-emerald-400 filter blur-3xl pointer-events-none mix-blend-overlay z-0"
-        variants={cursorVariants}
-        animate="default"
-      />
+    <div className="flex flex-col min-h-screen w-full bg-white overflow-x-hidden">
+      {/* Clean design without cursor follower */}
 
-      {/* Improved Scroll Progress Indicator with gradient */}
+      {/* Simple Scroll Progress Indicator */}
       <motion.div
-        className="fixed top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-emerald-400 to-blue-500 z-50"
+        className="fixed top-0 left-0 right-0 h-0.5 bg-blue-600 z-50"
         style={{ transform: `scaleX(${scrollProgressScale})`, transformOrigin: "0%" }}
       />
 
       {/* Modern Glass Header with subtle shadow */}
-      <header className="sticky top-0 backdrop-blur-md bg-white/90 py-4 z-40 border-b border-gray-100 shadow-sm">
-        <div className="container mx-auto px-6 md:px-8 flex items-center justify-between">
+      <header className="sticky top-0 backdrop-blur-md bg-white/90 py-3 md:py-4 z-40 border-b border-gray-100 shadow-sm w-full">
+        <div className="container mx-auto px-4 sm:px-6 md:px-8 w-full flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3 group">
             <div className="relative">
               <div className="absolute inset-0 bg-blue-100 rounded-full blur-md transform group-hover:scale-110 transition-transform duration-300"></div>
@@ -162,7 +137,7 @@ const Layout = ({ children }) => {
             <span className="text-2xl font-semibold text-blue-600">Bizradar</span>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-8">
+          <nav className="hidden md:flex items-center gap-6 lg:gap-8">
             <Link to="/contracts" className="text-gray-700 hover:text-blue-600 relative after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-0 after:bg-blue-600 hover:after:w-full after:transition-all after:duration-300">Features</Link>
             <Link to="/pricing" className="text-gray-700 hover:text-blue-600 relative after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-0 after:bg-blue-600 hover:after:w-full after:transition-all after:duration-300">Pricing</Link>
             <Link to="/dashboard" className="text-gray-700 hover:text-blue-600 relative after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-0 after:bg-blue-600 hover:after:w-full after:transition-all after:duration-300">About</Link>
@@ -196,158 +171,92 @@ const Layout = ({ children }) => {
         {/* Hero Section with Enhanced Visual Elements */}
         <section
           ref={heroRef}
-          className="relative py-20 md:py-32 overflow-hidden"
+          className="relative py-16 md:py-24 lg:py-32 overflow-hidden w-full"
         >
-          {/* Enhanced Background elements */}
-          <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-bl from-blue-50 to-blue-100/50 rounded-bl-[100px] z-0"></div>
-          <div className="absolute -bottom-16 -left-16 w-64 h-64 bg-gradient-to-tr from-emerald-50 to-emerald-100/50 rounded-full z-0"></div>
-          <div className="absolute top-40 right-20 w-20 h-20 bg-yellow-100 rounded-full opacity-60 animate-pulse"></div>
+          {/* Clean background with subtle gradient */}
+          <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-br from-white via-blue-50/30 to-white z-0"></div>
+          <div className="absolute top-1/3 left-0 w-full h-1/3 bg-gradient-to-r from-blue-50/20 via-transparent to-emerald-50/20 transform -skew-y-3 z-0"></div>
 
-          <div className="container mx-auto px-6 md:px-8 relative z-10">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
+          <div className="container mx-auto px-4 sm:px-6 md:px-8 relative z-10 w-full">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
               {/* Text content - enhanced with staggered animation */}
               <motion.div
-                className="col-span-1 md:col-span-5 md:col-start-2"
+                className="px-2 sm:px-0"
                 initial="hidden"
                 animate={heroInView ? "visible" : "hidden"}
                 variants={staggerChildren}
               >
                 <motion.h1
-                  className="text-5xl md:text-7xl font-extrabold leading-tight mb-6"
+                  className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold leading-tight mb-3 md:mb-4"
                   variants={itemFadeIn}
                 >
-                  <span className="bg-blue-600 bg-clip-text text-transparent">Discover</span> <span className="bg-emerald-500 bg-clip-text text-transparent">Contract</span> <span className="text-gray-800">Opportunities</span>
+                  <span className="bg-blue-600 bg-clip-text text-transparent">Win Government </span>
+                  <span className="bg-emerald-500 bg-clip-text text-transparent">Contracts </span>
+                  <span className="text-gray-800">with AI</span>
                 </motion.h1>
+
+                {/* Tagline */}
                 <motion.p
-                  className="text-lg md:text-xl text-gray-600 mb-8"
+                  className="text-lg md:text-xl text-gray-600 mb-6 md:mb-8 font-medium max-w-xl"
                   variants={itemFadeIn}
                 >
-                  AI-driven contract tracking dashboard that automates discovery and analysis for modern businesses.
+                  Smarter contracts. Faster submissions. More wins.<br/>Turn RFP chaos into clarity.
                 </motion.p>
                 <motion.div
                   className="flex flex-col sm:flex-row gap-4"
                   variants={itemFadeIn}
                 >
-                  <Link to="/signup" className="bg-emerald-500 hover:emerald-600 text-white px-8 py-3 rounded-lg font-medium text-center transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5">
-                    Get Started
+                  <Link to="/signup" className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 sm:px-6 md:px-8 py-3 md:py-4 rounded-lg font-semibold text-center transition-all duration-300 shadow-md hover:shadow-xl flex items-center justify-center text-sm sm:text-base relative overflow-hidden group">
+                    <span className="relative z-10 flex items-center">Start Finding Contracts <ArrowRight className="ml-2 w-4 h-4 sm:w-5 sm:h-5 transition-transform group-hover:translate-x-1" /></span>
+                    <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-emerald-600 transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
                   </Link>
-                  <Link to="/demo" className="border border-blue-600 text-blue-600 hover:bg-blue-50 px-8 py-3 rounded-lg font-medium text-center transition-all duration-300 hover:shadow-md">
-                    See Demo
+                  <Link to="/demo" className="border-2 border-blue-600 text-blue-700 bg-white hover:bg-blue-50 px-4 sm:px-6 md:px-8 py-3 md:py-4 rounded-lg font-medium text-center transition-all duration-300 hover:shadow-md flex items-center justify-center text-sm sm:text-base relative overflow-hidden group">
+                    <span className="relative z-10">Watch Demo Video</span>
+                    <div className="absolute inset-0 bg-blue-50 transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
                   </Link>
                 </motion.div>
               </motion.div>
 
-              {/* Visual element - with enhanced animations and details */}
+              {/* Hero illustrative mockup */}
               <motion.div
-                className="col-span-1 md:col-span-6 md:col-start-7 mt-12 md:mt-0"
+                className="hidden lg:block"
                 initial="hidden"
-                animate={heroInView ? "visible" : "hidden"}
+                animate={heroInView ? 'visible' : 'hidden'}
                 variants={fadeIn}
               >
-                {/* SVG Illustration with enhanced styling */}
-                <div className="relative">
-                  {/* Enhanced main illustration with glass effect and better shadows */}
-                  <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow-xl p-8 relative z-10 border border-gray-100">
-                    {/* Floating elements with subtle animations */}
-                    <div className="absolute -top-8 -right-16 w-32 h-32 bg-blue-100 rounded-full opacity-60 z-0 animate-pulse"></div>
-                    <div className="absolute top-20 -left-12 w-24 h-24 bg-emerald-100 rounded-full opacity-60 z-0 animate-pulse" style={{ animationDelay: '1s' }}></div>
-                    <div className="absolute -bottom-6 right-12 w-20 h-20 bg-blue-50 rounded-full opacity-60 z-0 animate-pulse" style={{ animationDelay: '2s' }}></div>
-
-                    {/* Header with enhanced icon and gradient text */}
-                    <div className="flex items-center justify-between mb-8">
-                      <div className="flex items-center">
-                        <div className="bg-gradient-to-r from-blue-600 to-blue-700 w-12 h-12 rounded-lg flex items-center justify-center shadow-md">
-                          <Activity className="w-6 h-6 text-white" />
-                        </div>
-                        <div className="ml-4">
-                          <h3 className="text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-900 bg-clip-text text-transparent">Contract Analytics</h3>
-                          <p className="text-sm text-gray-500">Real-time insights</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center">
-                        <span className="text-emerald-500 text-sm font-semibold mr-2">+24%</span>
-                        <div className="bg-emerald-50 rounded-full p-1 shadow-sm">
-                          <ArrowRight className="w-4 h-4 text-emerald-500" />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Chart visualization - enhanced with better gradient */}
-                    <div className="h-40 w-full mb-8 relative">
-                      <div className="absolute inset-0 bg-gradient-to-b from-blue-50/70 to-white rounded"></div>
-                      <div className="h-full w-full flex items-end justify-between relative z-10">
-                        {[35, 58, 45, 65, 40, 75, 90, 85].map((height, i) => (
-                          <div key={i} className="w-1/8 px-1">
-                            <div
-                              className={`rounded-t-sm mx-auto ${i % 2 === 0
-                                  ? 'bg-gradient-to-t from-emerald-400 to-emerald-500'
-                                  : 'bg-gradient-to-t from-blue-500 to-blue-600'
-                                } shadow-sm`}
-                              style={{
-                                height: `${height}%`,
-                                width: '100%',
-                                transition: 'all 0.5s ease',
-                                transform: `scaleY(${heroInView ? 1 : 0})`,
-                                transformOrigin: 'bottom'
-                              }}
-                            ></div>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Chart indicators with improved styling */}
-                      <div className="absolute -right-4 top-10 bg-white p-2 rounded-lg shadow-md border border-gray-100">
-                        <div className="flex items-center space-x-2">
-                          <div className="w-3 h-3 bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-sm"></div>
-                          <span className="text-xs text-gray-600 font-medium">Current</span>
-                        </div>
-                      </div>
-                      <div className="absolute -left-4 top-24 bg-white p-2 rounded-lg shadow-md border border-gray-100">
-                        <div className="flex items-center space-x-2">
-                          <div className="w-3 h-3 bg-gradient-to-r from-blue-500 to-blue-600 rounded-sm"></div>
-                          <span className="text-xs text-gray-600 font-medium">Previous</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Enhanced Contract Items with hover effects */}
-                    <div className="space-y-4 relative">
-                      <div className="absolute -right-16 top-12 w-20 h-28 bg-emerald-400/10 rounded-r-full z-0"></div>
-
-                      {[
-                        { title: "City Development Contract", value: "$1.2M", status: "active", growth: "+5.2%" },
-                        { title: "Infrastructure Service", value: "$860K", status: "pending", growth: "+2.8%" },
-                        { title: "Educational Services", value: "$540K", status: "review", growth: "+1.5%" }
-                      ].map((item, i) => (
-                        <div
-                          key={i}
-                          className="flex items-center justify-between py-3 px-4 border-b border-gray-100 bg-white rounded-lg hover:shadow-md transition-all duration-300 transform hover:-translate-y-0.5 relative z-10"
-                        >
-                          <div className="flex items-center">
-                            <div className={`w-3 h-3 rounded-full ${item.status === 'active' ? 'bg-gradient-to-r from-emerald-400 to-emerald-500' :
-                                item.status === 'pending' ? 'bg-gradient-to-r from-yellow-400 to-yellow-500' :
-                                  'bg-gradient-to-r from-blue-400 to-blue-500'
-                              }`}></div>
-                            <span className="ml-3 text-gray-800 font-medium">{item.title}</span>
-                          </div>
-                          <div className="flex items-center">
-                            <span className="font-medium text-gray-900 mr-3">{item.value}</span>
-                            <span className="text-xs text-emerald-500 font-semibold">{item.growth}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Floating action button with pulse animation */}
-                    <div className="absolute -right-5 -bottom-5 bg-gradient-to-r from-blue-500 to-blue-600 text-white w-14 h-14 rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 group">
-                      <ChevronDown className="w-6 h-6 group-hover:animate-bounce" />
+                <div className="w-full max-w-lg mx-auto bg-white border border-gray-100 rounded-2xl shadow-lg overflow-hidden">
+                  {/* Top bar */}
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50">
+                    <div className="w-24 h-4 bg-gray-200 rounded"></div>
+                    <div className="space-x-1 flex">
+                      <span className="w-2 h-2 bg-red-400 rounded-full"></span>
+                      <span className="w-2 h-2 bg-yellow-400 rounded-full"></span>
+                      <span className="w-2 h-2 bg-green-400 rounded-full"></span>
                     </div>
                   </div>
-
-                  {/* Enhanced decorative elements with animations */}
-                  <div className="absolute -top-12 -right-12 w-24 h-24 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full z-0 animate-pulse"></div>
-                  <div className="absolute -bottom-12 -left-12 w-32 h-32 bg-gradient-to-tr from-emerald-100 to-emerald-200 rounded-full z-0 opacity-70 animate-pulse" style={{ animationDelay: '2s' }}></div>
-                  <div className="absolute top-1/2 -right-8 transform -translate-y-1/2 w-16 h-64 bg-gradient-to-b from-blue-600/10 to-emerald-500/10 rounded-full z-0 animate-pulse" style={{ animationDelay: '1.5s' }}></div>
+                  {/* Search bar */}
+                  <div className="px-6 py-4 bg-white">
+                    <div className="h-10 bg-gray-100 rounded-lg flex items-center px-3 space-x-2">
+                      <span className="w-4 h-4 bg-gray-300 rounded"></span>
+                      <span className="w-20 h-3 bg-gray-200 rounded"></span>
+                    </div>
+                  </div>
+                  {/* Opportunity list */}
+                  <div className="divide-y divide-gray-100">
+                    {["Infrastructure Upgrade", "Cybersecurity Support", "Facility Maintenance"].map((title, idx) => (
+                      <div key={idx} className="px-6 py-4 flex items-start hover:bg-gray-50 transition">
+                        <div className="mt-1 mr-4 w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
+                        <div className="flex-1">
+                          <div className="h-4 w-40 bg-gray-200 rounded mb-2"></div>
+                          <div className="h-3 w-24 bg-gray-100 rounded"></div>
+                        </div>
+                        <div className="text-right">
+                          <div className="h-4 w-12 bg-gray-100 rounded mb-2"></div>
+                          <div className="h-3 w-16 bg-gray-50 rounded"></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </motion.div>
             </div>
@@ -360,13 +269,13 @@ const Layout = ({ children }) => {
             animate={heroInView ? "visible" : "hidden"}
             variants={fadeIn}
           >
-            <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-xl py-8 px-6 md:px-10 ml-0 md:ml-16 border border-gray-100">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+            <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg py-6 sm:py-8 px-4 sm:px-6 md:px-10 mx-2 sm:mx-4 md:mx-0 md:ml-4 lg:ml-16 border border-gray-100">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6 lg:gap-8">
                 {[
-                  { label: "Active Contracts", value: "1,240+", icon: <Star className="w-6 h-6 text-yellow-500" />, bgColor: "bg-yellow-50" },
-                  { label: "Success Rate", value: "99.8%", icon: <Zap className="w-6 h-6 text-emerald-500" />, bgColor: "bg-emerald-50" },
-                  { label: "Secure Documents", value: "45,000+", icon: <Lock className="w-6 h-6 text-blue-500" />, bgColor: "bg-blue-50" },
-                  { label: "User Satisfaction", value: "4.9/5", icon: <User className="w-6 h-6 text-purple-500" />, bgColor: "bg-purple-50" }
+                  { label: "Contracts Found", value: "10,000+", icon: <Search className="w-6 h-6 text-yellow-500" />, bgColor: "bg-yellow-50" },
+                  { label: "Avg. Time Saved", value: "65%", icon: <Zap className="w-6 h-6 text-emerald-500" />, bgColor: "bg-emerald-50" },
+                  { label: "Proposal Templates", value: "25+", icon: <Lock className="w-6 h-6 text-blue-500" />, bgColor: "bg-blue-50" },
+                  { label: "Agency Coverage", value: "100%", icon: <User className="w-6 h-6 text-purple-500" />, bgColor: "bg-purple-50" }
                 ].map((stat, i) => (
                   <motion.div
                     key={i}
@@ -386,24 +295,22 @@ const Layout = ({ children }) => {
         </section>
 
         {/* Features Section with Enhanced Visual Elements */}
-        <section ref={featuresRef} className="py-20 md:py-32 relative overflow-hidden">
-          {/* Enhanced Background decorative elements */}
-          <div className="absolute top-0 left-0 w-full h-64 bg-gradient-to-r from-blue-50 to-transparent"></div>
-          <div className="absolute bottom-40 right-0 w-80 h-80 bg-gradient-to-l from-emerald-50 to-emerald-100/50 rounded-full opacity-60"></div>
-          <div className="absolute top-40 left-20 w-20 h-20 bg-gradient-to-r from-blue-100 to-blue-200 rounded-full animate-pulse"></div>
+        <section ref={featuresRef} className="py-16 md:py-24 lg:py-32 relative overflow-hidden">
+          {/* Clean background with subtle gradient */}
+          <div className="absolute inset-0 bg-gradient-to-b from-white via-blue-50/20 to-white z-0"></div>
 
-          <div className="container mx-auto px-6 md:px-8 relative z-10">
+          <div className="container mx-auto px-4 sm:px-6 md:px-8 relative z-10 w-full">
             <motion.div
               className="max-w-lg md:ml-16 mb-16"
               initial="hidden"
               animate={featuresInView ? "visible" : "hidden"}
               variants={fadeIn}
             >
-              <h2 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent mb-6">Powerful Features</h2>
-              <p className="text-lg text-gray-600">Our platform offers advanced tools designed to streamline your contract management process.</p>
+              <h2 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent mb-6">Built for Government Contractors</h2>
+              <p className="text-lg text-gray-600">Our platform offers specialized tools designed to help you find and win government contracts efficiently.</p>
             </motion.div>
 
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center mb-20">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-8 items-center mb-12 md:mb-16 lg:mb-20">
               {/* Left side illustration - enhanced with animations */}
               <motion.div
                 className="col-span-1 md:col-span-6 md:col-start-1 order-2 md:order-1"
@@ -427,10 +334,10 @@ const Layout = ({ children }) => {
                     <div className="relative h-64 mb-4">
                       {/* Document paths with pulse animations */}
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-48 h-48 rounded-full border-2 border-dashed border-gray-200 flex items-center justify-center animate-pulse" style={{ animationDuration: '6s' }}>
-                          <div className="w-32 h-32 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center animate-pulse" style={{ animationDuration: '4s', animationDelay: '1s' }}>
-                            <div className="w-16 h-16 rounded-full bg-gradient-to-r from-blue-50 to-blue-100 flex items-center justify-center shadow-inner">
-                              <Radar className="w-8 h-8 text-blue-600 animate-pulse" />
+                        <div className="w-36 sm:w-40 md:w-48 h-36 sm:h-40 md:h-48 rounded-full border-2 border-gray-200 flex items-center justify-center">
+                          <div className="w-24 sm:w-28 md:w-32 h-24 sm:h-28 md:h-32 rounded-full border-2 border-gray-300 flex items-center justify-center">
+                            <div className="w-12 sm:w-14 md:w-16 h-12 sm:h-14 md:h-16 rounded-full bg-gradient-to-r from-blue-50 to-blue-100 flex items-center justify-center shadow-sm">
+                              <Radar className="w-6 h-6 md:w-8 md:h-8 text-blue-600" />
                             </div>
                           </div>
                         </div>
@@ -477,9 +384,7 @@ const Layout = ({ children }) => {
                     </div>
                   </div>
 
-                  {/* Enhanced Decorative elements */}
-                  <div className="absolute -bottom-6 -right-6 w-20 h-20 bg-gradient-to-br from-emerald-100 to-emerald-200 rounded-lg z-0 animate-pulse" style={{ animationDuration: '4s' }}></div>
-                  <div className="absolute -top-6 -left-6 w-16 h-16 bg-gradient-to-tr from-blue-100 to-blue-200 rounded-lg z-0 animate-pulse" style={{ animationDuration: '5s', animationDelay: '1s' }}></div>
+                  {/* Clean design without decorative elements */}
                 </div>
               </motion.div>
 
@@ -494,23 +399,23 @@ const Layout = ({ children }) => {
                   className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent mb-4"
                   variants={itemFadeIn}
                 >
-                  Discover Relevant Opportunities
+                  Find Perfect-Fit Government Contracts
                 </motion.h3>
                 <motion.p
                   className="text-gray-600 mb-6"
                   variants={itemFadeIn}
                 >
-                  Our AI-powered system automatically scans thousands of sources to find the most relevant contract opportunities for your business.
+                  Our AI scans federal, state, and local government sources to identify contracts that match your company's capabilities and expertise.
                 </motion.p>
                 <motion.ul
                   className="space-y-4"
                   variants={staggerChildren}
                 >
                   {[
-                    "Intelligent matching based on your business profile",
-                    "Real-time notifications for new opportunities",
-                    "Customizable search parameters and filters",
-                    "Historical data analysis for better predictions"
+                    "Find contracts matching your company's expertise and capabilities",
+                    "Get alerts when new relevant government RFPs are posted",
+                    "Filter by agency, contract value, and industry requirements",
+                    "Access historical award data to optimize your proposals"
                   ].map((item, i) => (
                     <motion.li
                       key={i}
@@ -530,27 +435,26 @@ const Layout = ({ children }) => {
         </section>
 
         {/* Solutions Section with Enhanced Visual Elements */}
-        <section ref={solutionsRef} className="py-20 md:py-32 relative bg-gradient-to-b from-white to-gray-50">
-          {/* Enhanced Decorative elements */}
-          <div className="absolute top-20 right-10 w-64 h-64 bg-gradient-to-bl from-blue-50 to-blue-100 rounded-full animate-pulse" style={{ animationDuration: '6s' }}></div>
-          <div className="absolute bottom-40 left-0 w-80 h-80 bg-gradient-to-tr from-emerald-50 to-emerald-100 rounded-full opacity-40 animate-pulse" style={{ animationDuration: '8s', animationDelay: '2s' }}></div>
+        <section ref={solutionsRef} className="py-16 md:py-24 lg:py-32 relative bg-gradient-to-b from-white to-gray-50">
+          {/* Clean background with subtle gradient */}
+          <div className="absolute inset-0 bg-gradient-to-b from-white to-gray-50 z-0"></div>
 
-          <div className="container mx-auto px-6 md:px-8 relative z-10">
+          <div className="container mx-auto px-4 sm:px-6 md:px-8 relative z-10 w-full">
             <motion.div
-              className="md:max-w-lg md:mx-auto md:text-center mb-20"
+              className="md:max-w-lg md:mx-auto md:text-center mb-12 md:mb-16 lg:mb-20"
               initial="hidden"
               animate={solutionsInView ? "visible" : "hidden"}
               variants={fadeIn}
             >
-              <h2 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent mb-6">Complete Solution</h2>
+              <h2 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent mb-6">Win More Contracts</h2>
               <p className="text-lg text-gray-600">
-                Bizradar provides end-to-end contract management with powerful analytics and intelligent recommendations.
+                Bizradar provides the complete toolkit to discover opportunities, prepare winning proposals, and grow your government contracting business.
               </p>
             </motion.div>
 
             {/* Enhanced card grid with staggered animations */}
             <motion.div
-              className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-6 md:ml-16"
+              className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 md:gap-6 mx-4 md:ml-16"
               initial="hidden"
               animate={solutionsInView ? "visible" : "hidden"}
               variants={staggerChildren}
@@ -565,9 +469,9 @@ const Layout = ({ children }) => {
                   <div className="bg-gradient-to-r from-blue-100 to-blue-200 w-14 h-14 rounded-lg flex items-center justify-center mb-6 shadow-inner">
                     <Search className="w-7 h-7 text-blue-600" />
                   </div>
-                  <h3 className="text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-900 bg-clip-text text-transparent mb-4">Contract Discovery</h3>
+                  <h3 className="text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-900 bg-clip-text text-transparent mb-4">Smart Opportunity Discovery</h3>
                   <p className="text-gray-600">
-                    Automatically find and prioritize the most relevant contract opportunities.
+                    Automatically find and prioritize government contracts that match your company's strengths and capabilities.
                   </p>
                 </div>
               </motion.div>
@@ -582,9 +486,9 @@ const Layout = ({ children }) => {
                   <div className="bg-gradient-to-r from-emerald-100 to-emerald-200 w-14 h-14 rounded-lg flex items-center justify-center mb-6 shadow-inner">
                     <Activity className="w-7 h-7 text-emerald-600" />
                   </div>
-                  <h3 className="text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-900 bg-clip-text text-transparent mb-4">Performance Analytics</h3>
+                  <h3 className="text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-900 bg-clip-text text-transparent mb-4">AI-Powered RFP Generation</h3>
                   <p className="text-gray-600">
-                    Track performance metrics and gain insights to optimize your contract strategy.
+                    Create professional, tailored proposal responses in minutes with our advanced AI assistant that understands government requirements.
                   </p>
                 </div>
               </motion.div>
@@ -599,9 +503,9 @@ const Layout = ({ children }) => {
                   <div className="bg-gradient-to-r from-blue-100 to-blue-200 w-14 h-14 rounded-lg flex items-center justify-center mb-6 shadow-inner">
                     <Lock className="w-7 h-7 text-blue-600" />
                   </div>
-                  <h3 className="text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-900 bg-clip-text text-transparent mb-4">Secure Management</h3>
+                  <h3 className="text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-900 bg-clip-text text-transparent mb-4">Proposal Management</h3>
                   <p className="text-gray-600">
-                    Securely store, manage, and share contract documents with role-based access controls.
+                    Track your proposals, manage deadlines, and collaborate with your team to submit winning bids on time, every time.
                   </p>
                 </div>
               </motion.div>

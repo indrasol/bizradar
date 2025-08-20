@@ -1,15 +1,15 @@
 import os
 from fastapi import FastAPI, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from routes.search_routes import search_router
+from app.routes.search_routes import search_router
 # Import our new admin routes
-from routes.admin_routes import router as admin_router
-from routes.email_routes import router as email_router
-from routes.webhooks import router as webhook_router
-from utils.rec_queue import start_consumer_loop
-from routes.payment_methods import router as payment_methods_router
-from utils.subscription import get_subscription_status
-from routes.checkout import router as checkout_router
+from app.routes.admin_routes import router as admin_router
+from app.routes.email_routes import router as email_router
+from app.routes.webhooks import router as webhook_router
+from app.utils.rec_queue import start_consumer_loop
+from app.routes.payment_methods import router as payment_methods_router
+from app.utils.subscription import get_subscription_status
+from app.routes.checkout import router as checkout_router
 
 app = FastAPI()
 
