@@ -247,7 +247,6 @@ jobs:
           PINECONEINDEXNAMEBIZ: ${{ secrets.PINECONEINDEXNAMEBIZ }}
           EMBEDDINGMODELBIZ: ${{ secrets.EMBEDDINGMODELBIZ }}
 
-
   update-etl-history:
     name: Update ETL History
     needs: [setup-etl-history, freelancer-scraper, sam-gov-api]

@@ -51,7 +51,7 @@ const MainContent: React.FC<MainContentProps & { userProfile: { companyUrl?: str
           handleSearch={handleSearch}
           clearSearch={clearSearch}
         />
-        <AnimatePresence mode="wait">
+        {/* <AnimatePresence mode="wait">
         {showRefinedQuery && refinedQuery && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
@@ -67,7 +67,7 @@ const MainContent: React.FC<MainContentProps & { userProfile: { companyUrl?: str
           />
           </motion.div>
         )}
-        </AnimatePresence>
+        </AnimatePresence> */}
         {hasSearched && (
           <RecommendationsPanel
             opportunities={opportunities}
@@ -96,6 +96,7 @@ const MainContent: React.FC<MainContentProps & { userProfile: { companyUrl?: str
           handleSuggestedQueryClick={handleSuggestedQueryClick}
           onScroll={onResultsScroll}
           scrollContainerRef={resultsListRef}
+          searchQuery={searchQuery}
         />
       </div>
     </div>

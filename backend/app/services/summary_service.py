@@ -11,6 +11,25 @@ import json
 # Configure logging
 logger = get_logger(__name__)
 
+
+def normalize_bulleted_summary(summary: dict) -> str:
+    """
+    Normalize a summary into a structured format with specific fields.
+    If normalization fails, return DEFAULT_SUMMARY.
+    """
+    try:
+        if not summary or not isinstance(summary, dict):
+            return normalize_bulleted_summary(DEFAULT_SUMMARY)
+        headers = ["Sponsor", "Objective", "Goal", "Eligibility", "Key Facts", "Contact information", "Due Date"]
+        head_keys = ["sponsor", "objective", "goal", "eligibility", "key_facts", "contact_info", "due_date"]
+        bullets = []
+        for header, key in zip(headers, head_keys):
+            if key in summary:
+                bullets.append(f"*   **{header}**: {summary[key]}")
+        return "\n".join(bullets) if bullets else normalize_bulleted_summary(DEFAULT_SUMMARY)
+    except Exception:
+        return normalize_bulleted_summary(DEFAULT_SUMMARY)
+
 async def fetch_description_from_sam(description_url):
     """
     Fetches the description from SAM.gov API.
@@ -45,6 +64,18 @@ async def fetch_description_from_sam(description_url):
         logger.error(f"Error fetching description from SAM.gov: {str(e)}")
         return None
 
+SUMMARY_TEMPLATE = """
+   "summary":{
+  "sponsor": "Full precise complete name of the sponsoring organization",
+  "objective": "Main purpose or objective of the opportunity in 1 sentence",
+  "goal": "Primary goal or intended outcome in 1-2 sentences",
+  "eligibility": "Eligibility criteria for applicants",
+  "key_facts": "Important details like budget, timeline, or special requirements missed out in other fields",
+  "contact_info": "Contact information if available",
+  "due_date": "Application or submission deadline"
+}
+"""
+
 async def generate_description_summary(description_text, max_length=300):
     """
     Generates a clear, engaging summary of a contract description.
@@ -68,23 +99,18 @@ async def generate_description_summary(description_text, max_length=300):
         logger.info("OpenAI client initialized successfully")
         response = client.chat.completions.create(
             model="gpt-4.1-mini",
+            response_format={ "type": "json_object" },
             messages=[
                 {
                     "role": "system",
                     "content": (
-                        "You are an expert government contract analyst. Your job is to write a summary that is:\n"
-                        "- Clear, concise, and easy to understand for a business audience\n"
-                        "- Free of jargon and technical language\n"
-                        "- Focused on the most important details for a potential bidder\n"
-                        "- No longer than 5 sentences\n"
-                        "Highlight:\n"
-                        "• The main goal of the contract\n"
-                        "• Who is offering it\n"
-                        "• What makes this opportunity unique or important\n"
-                        "• Any special requirements or deadlines\n"
-                        "• Why a business should consider applying\n"
-                        "Do not include formal headers or restate the prompt. Write in plain, direct language."
-                    )
+                        "You are an expert government contract analyst. Write a concise summary for a business audience.\n"
+                    "Please analyze this opportunity and return a JSON object with the following structure:\n"
+                    "{\n"
+                    "   " + SUMMARY_TEMPLATE + "\n}\n"
+                    "If any information is not available in the description, use 'Not specified' as the value.\n"
+                    "For contact information and due date, leave as empty string if not specified."
+                )
                 },
                 {
                     "role": "user",
@@ -101,9 +127,8 @@ async def generate_description_summary(description_text, max_length=300):
         logger.info("OpenAI response received")
         summary = response.choices[0].message.content.strip()
         
-        # Ensure meaningful summary
-        if not summary or len(summary.split()) < 40:
-            summary = "Key details of this opportunity require a closer look. Recommended: review the full description."
+        # Ensure bullet list formatting
+        summary = normalize_bulleted_summary(summary)
         
         logger.info(f"Generated concise summary of {len(summary)} chars")
         return summary
@@ -119,37 +144,43 @@ async def generate_title_and_summary(opportunity_title, description_text, max_le
     """
     try:
         if not description_text or description_text.strip() == "":
-            return {"title": opportunity_title or "Untitled Opportunity", "summary": "No description available."}
-        # Truncate very long descriptions
-        if len(description_text) > 6000:
-            description_text = description_text[:6000] + "..."
+            return {
+                "title": opportunity_title or "Untitled Opportunity",
+                "summary": DEFAULT_SUMMARY
+            }
+            
+        # Truncate very long descriptions to avoid excessive token usage
+        truncated_desc = description_text #[:4000] if len(description_text) > 4000 else description_text
+        
         client = get_openai_client()
-        logger.info("OpenAI client initialized successfully")
+        
+        # Generate structured data in JSON format
         response = client.chat.completions.create(
             model="gpt-4.1-mini",
+            response_format={ "type": "json_object" },
             messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "You are an expert government contract analyst. For each contract opportunity, return a JSON object with two fields:\n"
-                        "1. 'title': Improve or clarify the provided title for a business audience. If the title is missing or unclear, generate a concise, clear, and engaging title (max 12 words) using the description for context.\n"
-                        "2. 'summary': A concise summary (max 5 sentences) highlighting the main goal, who is offering it, what makes it unique, any special requirements or deadlines, and why a business should consider applying.\n"
-                        "Do not include any extra text, only the JSON object."
-                    )
-                },
-                {
-                    "role": "user",
-                    "content": (
-                        f"Original Title: {opportunity_title or 'N/A'}\n\n"
-                        f"Description: {description_text}\n\n"
-                        "Return the improved title and summary as a JSON object."
-                    )
-                }
+                {"role": "system", "content": (
+                    "You are an expert at analyzing government contract opportunities. "
+                    "Generate a clear, engaging title and structured summary based on the provided description. "
+                    "Extract key details that would be most relevant to potential bidders and return them in a structured JSON format."
+                )},
+                {"role": "user", "content": (
+                    f"Original Title: {opportunity_title}\n\n"
+                    f"Description:\n{truncated_desc}\n\n"
+                    "Please analyze this opportunity and return a JSON object with the following structure:\n"
+                    "{\n"
+                    "  \"title\": \"Improved, concise title (max 120 chars)\",\n"
+                    "   " + SUMMARY_TEMPLATE + "\n}\n"
+                    "If any information is not available in the description, use 'Not specified' as the value.\n"
+                    "For contact information and due date, leave as empty string if not specified."
+                )}
             ],
             temperature=0.2,
             max_tokens=max_length,
             n=1
         )
+        
+        # Parse the JSON response
         logger.info("OpenAI response received")
         content = response.choices[0].message.content.strip()
         # Extract JSON if wrapped in markdown
@@ -158,11 +189,21 @@ async def generate_title_and_summary(opportunity_title, description_text, max_le
         result = json.loads(content)
         # Fallbacks
         title = result.get("title", opportunity_title or "Untitled Opportunity")
-        summary = result.get("summary", "No description available.")
+        summary = result.get("summary", DEFAULT_SUMMARY)
+        # Normalize possible inline bullets into separate lines
+        if isinstance(summary, dict):
+            summary = normalize_bulleted_summary(summary)
         return {"title": title, "summary": summary}
     except Exception as e:
         logger.error(f"Title/Summary generation error: {str(e)}")
-        return {"title": opportunity_title or "Untitled Opportunity", "summary": "No description available."}
+        return {
+            "title": opportunity_title or "Untitled Opportunity",
+            "summary": (
+                "- Limited public details are available; please review the full notice for specifics.\n"
+                "- Refer to the solicitation for financial terms, contract structure, and eligibility specifics.\n"
+                "- Check the notice for submission deadlines and other key requirements."
+            )
+        }
 
 # CSV_URL = "https://s3.amazonaws.com/falextracts/Contract%20Opportunities/datagov/ContractOpportunitiesFullCSV.csv"
 NOTICE_ID_COL = "NoticeId"
@@ -257,13 +298,15 @@ async def process_opportunity_descriptions(opportunity: dict):
         logger.error(f"Error processing opportunity description: {str(e)}")
         return opportunity
     
-DEFAULT_SUMMARY = (
-    "This opportunity currently lacks a detailed description, so specific information "
-    "about its objectives, eligibility criteria, and potential benefits is not yet available. "
-    "To learn more about what this opportunity entails, including its purpose, requirements, "
-    "and how it can impact you or your organization, please contact the opportunity provider "
-    "directly. Alternatively, check back on this page for updates as more details become available."
-)
+DEFAULT_SUMMARY = {
+    "sponsor": "Not specified\n",
+    "objective": "Not specified\n",
+    "goal": "Not specified\n",
+    "eligibility": "Not specified\n",
+    "key_facts": "Not specified\n",
+    "contact_info": "\n",
+    "due_date": "\n"
+}
 
 async def process_opportunity_summaries(opportunity):
     """

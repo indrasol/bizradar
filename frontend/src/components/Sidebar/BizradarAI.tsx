@@ -20,6 +20,7 @@ import {
   File
 } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { supabase } from '@/utils/supabase';
 
 const isDevelopment =
   window.location.hostname === "localhost" ||
@@ -227,13 +228,17 @@ const BizradarAI: React.FC = () => {
     );
 
     // Send to your FastAPI /process-documents
+    // Fallback to authenticated user if pursuitContext doesn't have userId
+    const { data: { user } } = await supabase.auth.getUser();
+    const userId = pursuitContext?.userId || user?.id;
+
     const resp = await fetch(`${API_BASE_URL}/process-documents`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         pursuitId: pursuitContext?.id,
         noticeId: pursuitContext?.noticeId,
-        userId: pursuitContext?.userId,
+        userId: userId,
         files: filePayloads
       })
     });
@@ -271,10 +276,12 @@ const BizradarAI: React.FC = () => {
     setIsTyping(true);
 
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = pursuitContext?.userId || user?.id;
       const requestData = {
         pursuitId: pursuitContext?.id,
         noticeId: pursuitContext?.noticeId,
-        userId: pursuitContext?.userId,
+        userId: userId,
         userQuery: userQuery,
         pursuitContext: pursuitContext,
         documents: documentsContext, // Include documents context here

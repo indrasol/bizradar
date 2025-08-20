@@ -1,7 +1,7 @@
 from typing import Optional
 from dotenv import load_dotenv
-from utils.logger import get_logger
-from utils.openai_client import get_openai_client
+from app.utils.logger import get_logger
+from app.utils.openai_client import get_openai_client
 
 # Load environment variables from .env
 load_dotenv()

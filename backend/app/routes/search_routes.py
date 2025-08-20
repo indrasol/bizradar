@@ -1,7 +1,7 @@
 import os
 import json
 import hashlib
-from utils.logger import get_logger
+from app.utils.logger import get_logger
 import math
 
 from datetime import datetime, date
@@ -9,18 +9,19 @@ from fastapi import APIRouter, Request, HTTPException, BackgroundTasks, Query, R
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from services.open_ai_refiner import refine_query
-from services.job_search import search_jobs, sort_job_results
-from services.pdf_service import generate_rfp_pdf
-from services.recommendations import generate_recommendations
-from services.company_scraper import generate_company_markdown
-from services.helper import json_serializable
-from utils.openai_client import get_openai_client
-from services.summary_service import process_opportunity_descriptions, fetch_description_from_sam
-from utils.redis_connection import RedisClient
-from utils.database import fetch_opportunities_from_db
+from app.services.open_ai_refiner import refine_query
+from app.utils.subscription import ensure_active_access
+from app.services.job_search import search_jobs, sort_job_results
+from app.services.pdf_service import generate_rfp_pdf
+from app.services.recommendations import generate_recommendations
+from app.services.company_scraper import generate_company_markdown
+from app.services.helper import json_serializable
+from app.utils.openai_client import get_openai_client
+from app.services.summary_service import process_opportunity_descriptions, fetch_description_from_sam, normalize_bulleted_summary
+from app.utils.redis_connection import RedisClient
+from app.utils.database import fetch_opportunities_from_db
 from collections import deque
-from services.filter_service import apply_filters_to_results, sort_results
+from app.services.filter_service import apply_filters_to_results, sort_results
 import asyncio
 from typing import List
 # from utils.doc_generation import generate_merge_and_convert_report
@@ -126,6 +127,9 @@ async def process_documents(request: Request):
         pursuit_context = data.get("pursuitContext", {})
         user_id = data.get("userId")
         files = data.get("files", [])
+
+        # Enforce subscription/trial access
+        ensure_active_access(user_id)
         
         if not files:
             return JSONResponse(
@@ -220,15 +224,16 @@ async def search_job_opportunities(request: Request):
         data = await request.json()
         query = data.get('query', '')
         user_id = data.get('user_id', 'anonymous')
+        # Generate a unique search ID early so it's always available in error paths
+        search_id = f"{user_id}_{int(datetime.now().timestamp())}"
+        # Enforce subscription/trial access
+        ensure_active_access(user_id)
         page = int(data.get('page', 1))
         page_size = int(data.get('page_size', 7))
         is_new_search = data.get('is_new_search', True)
         contract_type = data.get('contract_type')
         platform = data.get('platform')
         refined_query_param = data.get('refined_query')  # <-- Accept refined_query from frontend
-        
-        # Generate a unique search ID
-        search_id = f"{user_id}_{int(datetime.now().timestamp())}"
         
         # Initialize progress tracking
         progress = {
@@ -237,9 +242,6 @@ async def search_job_opportunities(request: Request):
             'percentage': 0,
             'search_id': search_id
         }
-        
-        # Initialize Redis client
-        redis_client = RedisClient()
         
         # Store initial progress
         redis_client.set_json(f"search_progress:{search_id}", progress, expiry=300)  # 5 minutes expiry
@@ -401,6 +403,22 @@ async def search_job_opportunities(request: Request):
             'search_id': search_id
         }
         
+    except HTTPException as he:
+        import traceback
+        traceback.print_exc()
+        # Best-effort progress update on auth/subscription errors
+        try:
+            error_progress = {
+                'stage': 'error',
+                'message': f'Error occurred: {str(he.detail) if hasattr(he, "detail") else str(he)}',
+                'percentage': 0,
+                'search_id': search_id
+            }
+            redis_client.set_json(f"search_progress:{search_id}", error_progress)
+        except Exception:
+            pass
+        # Re-raise to return proper HTTP status (e.g., 401/402)
+        raise he
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -410,19 +428,25 @@ async def search_job_opportunities(request: Request):
             'percentage': 0,
             'search_id': search_id
         }
-        redis_client.set_json(f"search_progress:{search_id}", error_progress)
-        
-        return {
-            'success': False,
-            'message': f"Error: {str(e)}",
-            'results': [],
-            'all_results': [],
-            'total': 0,
-            'total_pages': 0,
-            'page': 1,
-            'progress': error_progress,
-            'search_id': search_id
-        }
+        try:
+            redis_client.set_json(f"search_progress:{search_id}", error_progress)
+        except Exception:
+            pass
+        from fastapi.responses import JSONResponse
+        return JSONResponse(
+            status_code=500,
+            content={
+                'success': False,
+                'message': f"Error: {str(e)}",
+                'results': [],
+                'all_results': [],
+                'total': 0,
+                'total_pages': 0,
+                'page': 1,
+                'progress': error_progress,
+                'search_id': search_id
+            }
+        )
 
 @search_router.post("/generate-recommendations")
 async def generate_search_recommendations(request: Request):
@@ -433,6 +457,8 @@ async def generate_search_recommendations(request: Request):
     try:
         data = await request.json()
         user_id = data.get("user_id")
+        # Enforce subscription/trial access
+        ensure_active_access(user_id)
         query = data.get("query")
         refined_query = data.get("refined_query")
         opportunity_id = data.get("opportunity_id")
@@ -505,6 +531,8 @@ async def get_cached_recommendations(request: Request):
     try:
         data = await request.json()
         user_id = data.get("user_id")
+        # Enforce subscription/trial access
+        ensure_active_access(user_id)
         query = data.get("query")
         opportunity_ids = data.get("opportunity_ids", [])
         
@@ -552,6 +580,8 @@ async def get_opportunities_by_ids(request: Request):
         data = await request.json()
         ids = data.get("ids", [])
         user_id = data.get("user_id")
+        # Enforce subscription/trial access
+        ensure_active_access(user_id)
         prefix = f"user:{user_id}:" if user_id else ""
         results, missing = [], []
         
@@ -683,6 +713,9 @@ async def get_ai_recommendations(request: Request):
         opportunities = data.get("opportunities", [])[:2]
         search_query = data.get("searchQuery", "")
         user_id = data.get("userId")
+
+        # Enforce subscription/trial access
+        ensure_active_access(user_id)
 
         logger.info(f"Received AI recommendations request with {len(opportunities)} opportunities")
         if not company_description:
@@ -872,6 +905,10 @@ async def ask_ai(request: Request):
     """
     try:
         data = await request.json()
+        # Optional: enforce if user_id provided
+        user_id = data.get("user_id") or data.get("userId")
+        if user_id:
+            ensure_active_access(user_id)
         messages = data.get("messages", [])
         document_content = data.get("documentContent")
 
@@ -913,6 +950,10 @@ async def process_document(request: Request):
     """
     try:
         data = await request.json()
+        # Optional: enforce if user_id provided
+        user_id = data.get("user_id") or data.get("userId")
+        if user_id:
+            ensure_active_access(user_id)
         html_content = data.get("content", "")
         
         if not html_content:
@@ -970,6 +1011,10 @@ async def generate_company_markdown_endpoint(request: Request):
     """
     try:
         data = await request.json()
+        # Optional: enforce if user_id provided
+        user_id = data.get("user_id") or data.get("userId")
+        if user_id:
+            ensure_active_access(user_id)
         company_url = data.get("companyUrl", "")
 
         if not company_url:
@@ -994,6 +1039,8 @@ async def filter_cached_results(request: Request):
         data = await request.json()
         search_query = data.get('query', '')
         user_id = data.get('user_id', 'anonymous')
+        # Enforce subscription/trial access
+        ensure_active_access(user_id)
         filters = {
             'due_date_filter': data.get('due_date_filter'),
             'posted_date_filter': data.get('posted_date_filter'),
@@ -1107,6 +1154,8 @@ async def ask_bizradar_ai(request: Request):
         notice_id = data.get("noticeId") 
         pursuit_context = data.get("pursuitContext", {})
         user_id = data.get("userId")  # May be passed from the frontend
+        # Enforce subscription/trial access
+        ensure_active_access(user_id)
         user_query = data.get("userQuery")  # The user's question to the AI
         documents = data.get("documents", [])  # New: Extract documents from request
         
@@ -1217,7 +1266,7 @@ async def summarize_descriptions_for_stream(opportunities: list):
                     
                     if cached_summary:
                         logger.info(f"Using cached summary for opportunity {opp['id']}")
-                        opp["summary"] = cached_summary
+                        opp["summary"] = normalize_bulleted_summary(cached_summary)
                     # Also check for cached title
                     title_key = f"title:{opp['id']}"
                     cached_title = redis_client.get_json(title_key)
@@ -1266,7 +1315,10 @@ async def summarize_descriptions_for_stream(opportunities: list):
 @search_router.post("/summarize-descriptions")
 async def summarize_descriptions(request: Request):
     data = await request.json()
+    user_id = data.get("user_id") or data.get("userId")
+    ensure_active_access(user_id)
     opportunities = data.get("opportunities", [])
+    logger.info(f"Summarizing descriptions for {len(opportunities)} opportunities")
     return StreamingResponse(
         summarize_descriptions_for_stream(opportunities),
         media_type="application/json"
@@ -1280,6 +1332,8 @@ async def summarize_descriptions(request: Request):
     """
     try:
         data = await request.json()
+        user_id = data.get("user_id") or data.get("userId")
+        ensure_active_access(user_id)
         opportunity = data.get("opportunity", [])
         
         if not opportunity:
@@ -1297,7 +1351,7 @@ async def summarize_descriptions(request: Request):
                 
                 if cached_summary:
                     logger.info(f"Using cached summary for opportunity {opportunity['id']}")
-                    opportunity["summary"] = cached_summary
+                    opportunity["summary"] = normalize_bulleted_summary(cached_summary)
                 # Also check for cached title
                 title_key = f"title:{opportunity['id']}"
                 cached_title = redis_client.get_json(title_key)
@@ -1480,6 +1534,8 @@ async def enhance_rfp_with_ai(request: Request):
         
         pursuit_id = data.get("pursuitId")
         user_id = data.get("userId")
+        # Enforce subscription/trial access
+        ensure_active_access(user_id)
         
         if not company_context or not proposal_context:
             raise HTTPException(status_code=400, detail="Both company_context and proposal_context are required")
@@ -1599,6 +1655,8 @@ async def get_refined_query(request: Request):
     contract_type = data.get("contract_type")
     platform = data.get("platform")
     user_id = data.get("user_id", "anonymous")  # Extract user_id, default to 'anonymous'
+    # Enforce subscription/trial access
+    ensure_active_access(user_id)
     if not query:
         return {"success": False, "message": "Query required"}
     try:
