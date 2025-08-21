@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ArrowLeft, Calendar, Clock, Building, DollarSign, FileText, Globe, AlertTriangle, CheckCircle, Users, Info } from "lucide-react";
+import { ArrowLeft, Calendar, Clock, Building, DollarSign, FileText, Globe, AlertTriangle, CheckCircle, Users, Info, Plus, ExternalLink, NotepadText } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -73,12 +73,162 @@ const OpportunityDetails: React.FC = () => {
     return { eligibility: null, keyFacts: null };
   };
 
+  // Extract contact information from opportunity summary
+  const extractContactInfo = (opportunity: Opportunity) => {
+    try {
+      const summaryText = opportunity.summary || opportunity.summary_ai || "";
+      console.log('Raw summary text:', summaryText);
+      
+      if (typeof summaryText === 'string') {
+        // Split the text into lines and look for contact info
+        const lines = summaryText.split('\n');
+        console.log('Summary lines:', lines);
+        
+        for (const line of lines) {
+          // Look for the pattern: Name — email | phone
+          if (line.includes('—') && line.includes('@') && line.includes('|')) {
+            console.log('Found contact line with — @ |:', line);
+            
+            // Check if this line starts with markdown formatting like "- **Contact information**:"
+            if (line.includes('**Contact information**:')) {
+              // Extract the contact details from the same line after "**Contact information**:"
+              const contactInfoMatch = line.match(/\*\*Contact information\*\*:\s*(.+)/);
+              if (contactInfoMatch) {
+                const contactDetails = contactInfoMatch[1].trim();
+                console.log('Contact details extracted:', contactDetails);
+                
+                // Check if the contact details contain the format: Name — email | phone
+                if (contactDetails.includes('—') && contactDetails.includes('@') && contactDetails.includes('|')) {
+                  const parts = contactDetails.split('—');
+                  if (parts.length === 2) {
+                    const name = parts[0].trim();
+                    const contactPart = parts[1].trim();
+                    
+                    const contactParts = contactPart.split('|');
+                    if (contactParts.length === 2) {
+                      const email = contactParts[0].trim();
+                      const phone = contactParts[1].trim();
+                      
+                      console.log('Extracted contact info from markdown:', { name, email, phone });
+                      return {
+                        name: name,
+                        email: email,
+                        phone: phone
+                      };
+                    }
+                  }
+                }
+              }
+            } else {
+              // This is a standalone contact line without markdown header
+              const parts = line.split('—');
+              if (parts.length === 2) {
+                const name = parts[0].trim();
+                const contactPart = parts[1].trim();
+                
+                // Split the contact part by | to get email and phone
+                const contactParts = contactPart.split('|');
+                if (contactParts.length === 2) {
+                  const email = contactParts[0].trim();
+                  const phone = contactParts[1].trim();
+                  
+                  console.log('Extracted contact info:', { name, email, phone });
+                  return {
+                    name: name,
+                    email: email,
+                    phone: phone
+                  };
+                }
+              }
+            }
+          }
+        }
+        
+        // If no structured contact info found, just look for email
+        const emailMatch = summaryText.match(/([^\s]+@[^\s]+)/);
+        if (emailMatch) {
+          console.log('Found email only:', emailMatch[1]);
+          return {
+            name: null,
+            email: emailMatch[1].trim(),
+            phone: null
+          };
+        }
+      }
+    } catch (error) {
+      console.error('Error extracting contact info:', error);
+    }
+    
+    console.log('No contact info found');
+    return { name: null, email: null, phone: null };
+  };
+
+  // Filter out due date and contact information from summary content
+  const filterSummaryContent = (summary: unknown): string => {
+    if (!summary) return "";
+    
+    const summaryText = String(summary);
+    console.log('Filtering summary:', summaryText);
+    
+    // Remove lines containing due date information and contact info
+    const lines = summaryText.split('\n');
+    const filteredLines = [];
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const lowerLine = line.toLowerCase();
+      const trimmedLine = line.trim();
+      
+      console.log(`Processing line ${i}: "${trimmedLine}"`);
+      
+      // Remove due date lines
+      if (lowerLine.includes('due date') || 
+          lowerLine.includes('response date') || 
+          lowerLine.includes('deadline') ||
+          lowerLine.includes('closing date')) {
+        console.log(`Removing due date line: "${trimmedLine}"`);
+        continue;
+      }
+      
+      // Remove contact info lines (lines with — and @ and |)
+      if (trimmedLine.includes('—') && trimmedLine.includes('@') && trimmedLine.includes('|')) {
+        console.log(`Removing contact info line: "${trimmedLine}"`);
+        continue;
+      }
+      
+      // Remove lines that contain contact information patterns
+      if (trimmedLine.includes('**Contact information**:')) {
+        console.log(`Removing contact info header line: "${trimmedLine}"`);
+        continue;
+      }
+      
+      // Remove any line that contains "Contact Person" followed by contact info
+      if (trimmedLine.includes('Contact Person') && (trimmedLine.includes('—') || trimmedLine.includes('@'))) {
+        console.log(`Removing contact person line: "${trimmedLine}"`);
+        continue;
+      }
+      
+      // Remove any line that contains "Contact Information" as a header
+      if (trimmedLine.toLowerCase().includes('contact information')) {
+        console.log(`Removing contact information header: "${trimmedLine}"`);
+        continue;
+      }
+      
+      console.log(`Keeping line: "${trimmedLine}"`);
+      filteredLines.push(line);
+    }
+    
+    const result = filteredLines.join('\n').trim();
+    console.log('Filtered result:', result);
+    return result;
+  };
+
   if (!opportunity) {
     return (
       <div className="h-screen flex flex-col bg-gray-50">
         <div className="flex flex-1">
           <SideBar />
-          <div className="flex-1 flex flex-col">
+          <div className="flex flex-1 flex-col">
             <Header logout={logout} pursuitCount={pursuitCount} />
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center">
@@ -98,7 +248,7 @@ const OpportunityDetails: React.FC = () => {
     <div className="h-screen flex flex-col bg-gray-50 text-gray-800">
       <div className="flex flex-1 overflow-hidden">
         <SideBar />
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex flex-1 flex-col overflow-hidden">
           <Header logout={logout} pursuitCount={pursuitCount} />
           
           {/* Main Content */}
@@ -114,27 +264,34 @@ const OpportunityDetails: React.FC = () => {
                 Back to Opportunities
               </Button>
 
-              {/* Title Section */}
+              {/* Title Section with Action Buttons */}
               <div className="mb-8">
                 <div className="flex items-center justify-between mb-4">
                   <h1 className="text-3xl font-bold text-gray-900">
                     {opportunity.title}
                   </h1>
-                  {opportunity.response_date && (
-                    <div className="flex items-center gap-2">
-                      {isPastDue ? (
-                        <Badge variant="destructive" className="flex items-center gap-1">
-                          <AlertTriangle size={12} />
-                          Past Due Date
-                        </Badge>
-                      ) : (
-                        <Badge variant="secondary" className="flex items-center gap-1">
-                          <Clock size={12} />
-                          {days} day{days !== 1 ? 's' : ''} remaining
-                        </Badge>
-                      )}
-                    </div>
-                  )}
+                  <div className="flex items-center gap-3">
+                    <button
+                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium transition-colors shadow-sm flex items-center gap-1"
+                    >
+                      <Plus size={14} />
+                      <span>Add to Pursuits</span>
+                    </button>
+                    <button
+                      className="px-3 py-1.5 bg-green-50 text-green-600 hover:bg-green-100 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 border border-green-200"
+                    >
+                      <FileText size={14} />
+                      <span>Generate Response</span>
+                    </button>
+                    {opportunity.external_url && (
+                      <button
+                        className="px-3 py-1.5 bg-gray-50 text-gray-700 hover:bg-gray-100 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 border border-gray-200"
+                      >
+                        <Globe size={14} />
+                        <span>View Original Posting</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
                 
                 {opportunity.agency && (
@@ -153,7 +310,7 @@ const OpportunityDetails: React.FC = () => {
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
-                        <FileText size={20} />
+                        <Info size={20} />
                         Opportunity Summary
                       </CardTitle>
                     </CardHeader>
@@ -168,7 +325,7 @@ const OpportunityDetails: React.FC = () => {
                               strong: ({ children }) => <strong className="font-semibold text-gray-900">{children}</strong>
                             }}
                           >
-                            {String(opportunity.summary || opportunity.summary_ai)}
+                            {filterSummaryContent(opportunity.summary || opportunity.summary_ai)}
                           </ReactMarkdown>
                         </div>
                       ) : (
@@ -180,7 +337,10 @@ const OpportunityDetails: React.FC = () => {
                   {/* Description Card */}
                   <Card>
                     <CardHeader>
-                      <CardTitle>Full Description</CardTitle>
+                      <CardTitle className="flex items-center gap-2">
+                        <NotepadText size={20} />
+                        Full Description
+                      </CardTitle>
                     </CardHeader>
                     <CardContent>
                       {opportunity.description ? (
@@ -194,103 +354,50 @@ const OpportunityDetails: React.FC = () => {
                   </Card>
 
                   {/* Eligibility Card */}
-                  {(() => {
-                    const { eligibility } = extractSummaryFields(opportunity);
-                    return eligibility ? (
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="flex items-center gap-2">
-                            <Users size={20} />
-                            Eligibility Requirements
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="prose prose-sm max-w-none text-gray-700">
-                            <p>{String(eligibility)}</p>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ) : null;
-                  })()}
-
-                  {/* Key Facts Card */}
-                  {(() => {
-                    const { keyFacts } = extractSummaryFields(opportunity);
-                    return keyFacts ? (
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="flex items-center gap-2">
-                            <Info size={20} />
-                            Key Facts
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="prose prose-sm max-w-none text-gray-700">
-                            <p>{String(keyFacts)}</p>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ) : null;
-                  })()}
-
-                  {/* Requirements Card - Placeholder */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Requirements & Qualifications</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-gray-500 italic">Requirements information will be extracted and displayed here.</p>
-                      <div className="mt-4 space-y-2">
-                        <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                          <p className="text-sm text-blue-700">📋 Minimum qualifications</p>
-                        </div>
-                        <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-                          <p className="text-sm text-green-700">✅ Required certifications</p>
-                        </div>
-                        <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                          <p className="text-sm text-yellow-700">⚠️ Special requirements</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                {/* Right Column - Details */}
-                <div className="space-y-6">
-                  {/* Key Information Card */}
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
-                        <Calendar size={20} />
-                        Key Information
+                        <Users size={20} />
+                        Eligibility Requirements
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div>
-                        <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">Published Date</p>
-                        <p className="text-lg font-semibold text-gray-900">{opportunity.published_date || "Not specified"}</p>
-                      </div>
-                      
-                      {opportunity.response_date && (
-                        <div>
-                          <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">Response Due</p>
-                          <p className="text-lg font-semibold text-gray-900">{opportunity.response_date}</p>
-                        </div>
-                      )}
-
-                      <div>
-                        <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">Solicitation Number</p>
-                        <p className="text-lg font-semibold text-gray-900">{opportunity.solicitation_number || "Not specified"}</p>
-                      </div>
-
-                      <div>
-                        <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">NAICS Code</p>
-                        <p className="text-lg font-semibold text-gray-900">{opportunity.naics_code || "Not specified"}</p>
-                      </div>
+                    <CardContent>
+                      {(() => {
+                        const { eligibility } = extractSummaryFields(opportunity);
+                        return eligibility ? (
+                          <div className="prose prose-sm max-w-none text-gray-700">
+                            {String(eligibility)}
+                          </div>
+                        ) : (
+                          <p className="text-gray-500 italic">No eligibility requirements specified</p>
+                        );
+                      })()}
                     </CardContent>
                   </Card>
 
-                  {/* Financial Information Card */}
+                  {/* Key Facts Card */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <CheckCircle size={20} />
+                        Key Facts
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {(() => {
+                        const { keyFacts } = extractSummaryFields(opportunity);
+                        return keyFacts ? (
+                          <div className="prose prose-sm max-w-none text-gray-700">
+                            {String(keyFacts)}
+                          </div>
+                        ) : (
+                          <p className="text-gray-500 italic">No key facts available</p>
+                        );
+                      })()}
+                    </CardContent>
+                  </Card>
+
+                  {/* Financial Details Card */}
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
@@ -310,52 +417,91 @@ const OpportunityDetails: React.FC = () => {
                       </div>
                     </CardContent>
                   </Card>
+                </div>
 
-                  {/* Actions Card */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Actions</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <Button className="w-full" size="lg">
-                        Add to Pursuits
-                      </Button>
-                      <Button variant="outline" className="w-full" size="lg">
-                        Generate Response
-                      </Button>
-                      {opportunity.external_url && (
-                        <Button variant="outline" className="w-full" size="lg" asChild>
-                          <a href={opportunity.external_url} target="_blank" rel="noopener noreferrer">
-                            <Globe size={16} className="mr-2" />
-                            View Original Posting
-                          </a>
-                        </Button>
-                      )}
-                    </CardContent>
-                  </Card>
-
-                  {/* Status Card - Placeholder */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Status & History</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-2">
-                          <CheckCircle size={16} className="text-green-500" />
-                          <span className="text-sm">Opportunity identified</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="w-4 h-4 rounded-full border-2 border-gray-300"></div>
-                          <span className="text-sm text-gray-500">Analysis pending</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="w-4 h-4 rounded-full border-2 border-gray-300"></div>
-                          <span className="text-sm text-gray-500">Proposal preparation</span>
-                        </div>
+                {/* Right Column - Details */}
+                <div className="space-y-6">
+                  {/* Timeline Card - Replaces Key Information */}
+                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-6 border border-blue-200">
+                    <h3 className="text-base font-semibold text-blue-900 mb-4 flex items-center gap-2">
+                      <Clock size={18} />
+                      Timeline
+                    </h3>
+                    
+                    {/* Published Date */}
+                    <div className="mb-5">
+                      <div className="text-sm text-blue-600 uppercase tracking-wide mb-2">Published</div>
+                      <div className="font-medium text-blue-900 text-base">
+                        {opportunity.published_date || "Recent"}
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+
+                    {/* Due Date */}
+                    {opportunity.response_date && (
+                      <div className="mb-5">
+                        <div className="text-sm text-blue-600 uppercase tracking-wide mb-2">Due Date</div>
+                        <div className="font-medium text-blue-900 text-base mb-3">
+                          {opportunity.response_date}
+                        </div>
+                        
+                        {/* Response Needed Badge */}
+                        {isPastDue ? (
+                          <div className="inline-flex items-center gap-1 px-3 py-2 bg-red-100 text-red-700 rounded-lg text-sm font-medium border border-red-200 w-full">
+                            <AlertTriangle size={14} />
+                            <span>Past Due Date</span>
+                          </div>
+                        ) : (
+                          <div className="inline-flex items-center gap-1 px-3 py-2 bg-emerald-100 text-emerald-700 rounded-lg text-sm font-medium border border-emerald-200 w-full">
+                            <Clock size={14} />
+                            <span>{days} day{days !== 1 ? 's' : ''} to respond</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Solicitation and NAICS Code Badges - Below Timeline Card */}
+                  <div className="space-y-3">
+                    <div className="bg-gray-50 rounded-lg p-3 border border-gray-100 shadow-sm">
+                      <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Solicitation #</div>
+                      <div className="font-medium text-gray-900 truncate">{opportunity.solicitation_number || "N/A"}</div>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-3 border border-gray-100 shadow-sm">
+                      <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">NAICS Code</div>
+                      <div className="font-medium text-gray-900">{opportunity.naics_code || "000000"}</div>
+                    </div>
+                  </div>
+
+                  {/* Contact Info Card - Below NAICS Badges */}
+                  {(() => {
+                    const contactInfo = extractContactInfo(opportunity);
+                    if (contactInfo.name || contactInfo.email || contactInfo.phone) {
+                      return (
+                        <div className="bg-gray-50 rounded-lg p-3 border border-gray-100 shadow-sm">
+                          <div className="text-xs text-gray-500 uppercase tracking-wide mb-2">Contact Information</div>
+                          {contactInfo.name && (
+                            <div className="mb-2">
+                              <div className="text-xs text-gray-500 mb-1">Contact Person</div>
+                              <div className="font-medium text-gray-900">{contactInfo.name}</div>
+                            </div>
+                          )}
+                          {contactInfo.email && (
+                            <div className="mb-2">
+                              <div className="text-xs text-gray-500 mb-1">Email</div>
+                              <div className="font-medium text-gray-900 break-all">{contactInfo.email}</div>
+                            </div>
+                          )}
+                          {contactInfo.phone && (
+                            <div>
+                              <div className="text-xs text-gray-500 mb-1">Phone</div>
+                              <div className="font-medium text-gray-900">{contactInfo.phone}</div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
               </div>
             </div>

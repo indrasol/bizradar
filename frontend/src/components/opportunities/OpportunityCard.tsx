@@ -343,7 +343,7 @@ const OpportunityCard: React.FC<OpportunityCardProps> = ({
                     ) : (
                       <div className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-xs font-medium border border-emerald-200 w-full">
                         <Clock size={12} />
-                        <span>{days} day{days !== 1 ? 's' : ''} left</span>
+                        <span>{days} day{days !== 1 ? 's' : ''} to respond</span>
                       </div>
                     );
                   })()}
