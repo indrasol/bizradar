@@ -1,12 +1,153 @@
 import { Link } from "react-router-dom";
-import { Radar, Search, User, ArrowRight, Activity, Zap, Lock } from "lucide-react";
-import { motion, useScroll, useTransform, useInView } from "framer-motion";
+import { Radar, Search, User, ArrowRight, ArrowLeft, Activity, Zap, Lock, FileText, BarChart4, ChevronLeft, ChevronRight, PencilRuler } from "lucide-react";
+import { motion, useScroll, useTransform, useInView, AnimatePresence } from "framer-motion";
 // import { FaLinkedin, FaYoutube } from "react-icons/fa";
 import { FaXTwitter, FaLinkedin, FaYoutube } from "react-icons/fa6";
 import { useState, useRef, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Toaster } from "@/components/ui/toaster";
 import { emailService } from "@/utils/emailService";
+
+// Image Carousel Component
+const ImageCarousel = () => {
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [autoplay, setAutoplay] = useState(true);
+  const images = [
+    {
+      src: "/biz_opp.png",
+      alt: "Bizradar Opportunities Interface",
+      title: "Opportunity Discovery",
+      description: "Find perfect-fit government contracts tailored to your business capabilities"
+    },
+    {
+      src: "/biz_rfp.png",
+      alt: "RFP Generation Interface",
+      title: "AI-Powered RFP Response",
+      description: "Create winning proposals with our intelligent document editor"
+    },
+    {
+      src: "/biz_dash.png",
+      alt: "Contract Details Interface",
+      title: "Contract Intelligence",
+      description: "Get detailed insights and analytics on each opportunity"
+    }
+  ];
+  
+  // Auto advance slides
+  useEffect(() => {
+    let interval;
+    if (autoplay) {
+      interval = setInterval(() => {
+        setCurrentSlide((prev) => (prev + 1) % images.length);
+      }, 5000);
+    }
+    return () => clearInterval(interval);
+  }, [autoplay, images.length]);
+
+  const nextSlide = () => {
+    setAutoplay(false);
+    setCurrentSlide((prev) => (prev + 1) % images.length);
+  };
+
+  const prevSlide = () => {
+    setAutoplay(false);
+    setCurrentSlide((prev) => (prev - 1 + images.length) % images.length);
+  };
+
+  const goToSlide = (index) => {
+    setAutoplay(false);
+    setCurrentSlide(index);
+  };
+
+  // Animation variants
+  const slideVariants = {
+    hidden: (direction) => {
+      return {
+        x: direction > 0 ? 300 : -300,
+        opacity: 0
+      };
+    },
+    visible: {
+      x: 0,
+      opacity: 1,
+      transition: {
+        duration: 0.5,
+        ease: "easeOut"
+      }
+    },
+    exit: (direction) => {
+      return {
+        x: direction > 0 ? -300 : 300,
+        opacity: 0,
+        transition: {
+          duration: 0.5,
+          ease: "easeIn"
+        }
+      };
+    }
+  };
+  
+  // Direction tracking for animations
+  const [[slideDirection], setSlideDirection] = useState([0]);
+  
+  const updateSlide = (newSlide) => {
+    setSlideDirection([newSlide > currentSlide ? 1 : -1]);
+    setCurrentSlide(newSlide);
+  };
+  
+  return (
+    <div className="h-[500px] relative">
+      {/* Direct image slides */}
+      <AnimatePresence initial={false} custom={slideDirection}>
+        <motion.div
+          key={currentSlide}
+          custom={slideDirection}
+          variants={slideVariants}
+          initial="hidden"
+          animate="visible"
+          exit="exit"
+          className="absolute inset-0"
+        >
+          {/* Full-height image container */}
+          <div className="h-full w-full relative">
+            {/* Ensure all images are fully visible without cutoff */}
+            <div className="w-full h-full flex items-center justify-center">
+              <img 
+                src={images[currentSlide].src} 
+                alt={images[currentSlide].alt}
+                className="w-full h-full object-contain"
+              />
+            </div>
+            
+            {/* Glass morphism caption overlay */}
+            <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-blue-600 to-blue-500 text-white">
+              <h3 className="font-medium text-white mb-1">{images[currentSlide].title}</h3>
+              <p className="text-xs opacity-90">{images[currentSlide].description}</p>
+            </div>
+          </div>
+        </motion.div>
+      </AnimatePresence>
+      
+      {/* Navigation arrows removed as requested */}
+      
+      {/* Navigation dots with glass effect */}
+      <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center space-x-2 py-3 z-10">
+        {images.map((_, index) => (
+          <button
+            key={index}
+            onClick={() => goToSlide(index)}
+            className={`w-2 h-2 rounded-full transition-all ${
+              index === currentSlide ? 'bg-white w-6' : 'bg-white/60 hover:bg-white/80'
+            }`}
+            aria-label={`Go to slide ${index + 1}`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+
 
 const Layout = ({ children }) => {
   const [email, setEmail] = useState("");
@@ -134,13 +275,30 @@ const Layout = ({ children }) => {
               <div className="absolute inset-0 bg-blue-100 rounded-full blur-md transform group-hover:scale-110 transition-transform duration-300"></div>
               <Radar className="w-8 h-8 text-blue-600 relative z-10 transition-transform group-hover:rotate-12 duration-300" />
             </div>
-            <span className="text-2xl font-semibold text-blue-600">Bizradar</span>
+            <div className="flex items-end">
+              <span className="text-2xl font-semibold text-blue-600">Bizradar</span>
+              <a 
+                href="https://indrasol.com" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="text-xs text-gray-500 ml-1 mb-1 hover:text-blue-600 transition-colors duration-200"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  window.open("https://indrasol.com", "_blank");
+                }}
+              >
+                by Indrasol
+              </a>
+            </div>
           </Link>
 
           <nav className="hidden md:flex items-center gap-6 lg:gap-8">
+            {/* Hidden for now
             <Link to="/contracts" className="text-gray-700 hover:text-blue-600 relative after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-0 after:bg-blue-600 hover:after:w-full after:transition-all after:duration-300">Features</Link>
             <Link to="/pricing" className="text-gray-700 hover:text-blue-600 relative after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-0 after:bg-blue-600 hover:after:w-full after:transition-all after:duration-300">Pricing</Link>
             <Link to="/dashboard" className="text-gray-700 hover:text-blue-600 relative after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-0 after:bg-blue-600 hover:after:w-full after:transition-all after:duration-300">About</Link>
+            */}
             <div className="h-6 w-px bg-gradient-to-b from-gray-100 to-gray-300 mx-2"></div>
             <Link to="/login" className="text-blue-600 hover:text-blue-800 font-medium transition-colors">Login</Link>
             {/* <button className="bg-emerald-500 hover:from-blue-700 hover:to-emerald-600 text-white px-5 py-2 rounded-lg font-medium transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5">
@@ -173,12 +331,14 @@ const Layout = ({ children }) => {
           ref={heroRef}
           className="relative py-16 md:py-24 lg:py-32 overflow-hidden w-full"
         >
-          {/* Clean background with subtle gradient */}
-          <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-br from-white via-blue-50/30 to-white z-0"></div>
-          <div className="absolute top-1/3 left-0 w-full h-1/3 bg-gradient-to-r from-blue-50/20 via-transparent to-emerald-50/20 transform -skew-y-3 z-0"></div>
+          {/* Enhanced background with subtle gradients */}
+          <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-br from-blue-50/40 via-white to-emerald-50/30 z-0"></div>
+          <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-tr from-purple-50/20 via-transparent to-blue-50/20 z-0 opacity-70"></div>
+          <div className="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-blue-50/30 to-transparent z-0"></div>
+          <div className="absolute top-1/3 left-0 w-full h-1/3 bg-gradient-to-r from-blue-50/20 via-transparent to-emerald-50/30 transform -skew-y-3 z-0"></div>
 
           <div className="container mx-auto px-4 sm:px-6 md:px-8 relative z-10 w-full">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
               {/* Text content - enhanced with staggered animation */}
               <motion.div
                 className="px-2 sm:px-0"
@@ -187,12 +347,12 @@ const Layout = ({ children }) => {
                 variants={staggerChildren}
               >
                 <motion.h1
-                  className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold leading-tight mb-3 md:mb-4"
+                  className="text-3xl sm:text-4xl md:text-2xl lg:text-6xl font-extrabold leading-tight mb-3 md:mb-4"
                   variants={itemFadeIn}
                 >
-                  <span className="bg-blue-600 bg-clip-text text-transparent">Win Government </span>
-                  <span className="bg-emerald-500 bg-clip-text text-transparent">Contracts </span>
-                  <span className="text-gray-800">with AI</span>
+                  <span className="bg-blue-600 bg-clip-text text-transparent text-[95%]">Win Government </span>
+                  <span className="bg-emerald-500 bg-clip-text text-transparent text-[95%]">Contracts </span>
+                  <span className="text-gray-800 text-[95%]">with AI</span>
                 </motion.h1>
 
                 {/* Tagline */}
@@ -206,8 +366,8 @@ const Layout = ({ children }) => {
                   className="flex flex-col sm:flex-row gap-4"
                   variants={itemFadeIn}
                 >
-                  <Link to="/signup" className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 sm:px-6 md:px-8 py-3 md:py-4 rounded-lg font-semibold text-center transition-all duration-300 shadow-md hover:shadow-xl flex items-center justify-center text-sm sm:text-base relative overflow-hidden group">
-                    <span className="relative z-10 flex items-center">Start Finding Contracts <ArrowRight className="ml-2 w-4 h-4 sm:w-5 sm:h-5 transition-transform group-hover:translate-x-1" /></span>
+                  <Link to="/signup" className="bg-emerald-500 hover:bg-emerald-600 text-white px-3 sm:px-5 md:px-6 py-2 md:py-3 rounded-lg font-semibold text-center transition-all duration-300 shadow-md hover:shadow-xl flex items-center justify-center text-xs sm:text-sm relative overflow-hidden group">
+                    <span className="relative z-10 flex items-center">Start Finding Contracts for Free <ArrowRight className="ml-1.5 w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform group-hover:translate-x-1" /></span>
                     <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-emerald-600 transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
                   </Link>
                   <Link to="/demo" className="border-2 border-blue-600 text-blue-700 bg-white hover:bg-blue-50 px-4 sm:px-6 md:px-8 py-3 md:py-4 rounded-lg font-medium text-center transition-all duration-300 hover:shadow-md flex items-center justify-center text-sm sm:text-base relative overflow-hidden group">
@@ -217,46 +377,16 @@ const Layout = ({ children }) => {
                 </motion.div>
               </motion.div>
 
-              {/* Hero illustrative mockup */}
+              {/* Image Carousel Component */}
               <motion.div
-                className="hidden lg:block"
+                className="hidden lg:block lg:self-center"
                 initial="hidden"
                 animate={heroInView ? 'visible' : 'hidden'}
                 variants={fadeIn}
               >
-                <div className="w-full max-w-lg mx-auto bg-white border border-gray-100 rounded-2xl shadow-lg overflow-hidden">
-                  {/* Top bar */}
-                  <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50">
-                    <div className="w-24 h-4 bg-gray-200 rounded"></div>
-                    <div className="space-x-1 flex">
-                      <span className="w-2 h-2 bg-red-400 rounded-full"></span>
-                      <span className="w-2 h-2 bg-yellow-400 rounded-full"></span>
-                      <span className="w-2 h-2 bg-green-400 rounded-full"></span>
-                    </div>
-                  </div>
-                  {/* Search bar */}
-                  <div className="px-6 py-4 bg-white">
-                    <div className="h-10 bg-gray-100 rounded-lg flex items-center px-3 space-x-2">
-                      <span className="w-4 h-4 bg-gray-300 rounded"></span>
-                      <span className="w-20 h-3 bg-gray-200 rounded"></span>
-                    </div>
-                  </div>
-                  {/* Opportunity list */}
-                  <div className="divide-y divide-gray-100">
-                    {["Infrastructure Upgrade", "Cybersecurity Support", "Facility Maintenance"].map((title, idx) => (
-                      <div key={idx} className="px-6 py-4 flex items-start hover:bg-gray-50 transition">
-                        <div className="mt-1 mr-4 w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
-                        <div className="flex-1">
-                          <div className="h-4 w-40 bg-gray-200 rounded mb-2"></div>
-                          <div className="h-3 w-24 bg-gray-100 rounded"></div>
-                        </div>
-                        <div className="text-right">
-                          <div className="h-4 w-12 bg-gray-100 rounded mb-2"></div>
-                          <div className="h-3 w-16 bg-gray-50 rounded"></div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                {/* Carousel container */}
+                <div className="w-full max-w-xl mx-auto overflow-hidden rounded-lg -mt-20">
+                  <ImageCarousel />
                 </div>
               </motion.div>
             </div>
@@ -294,6 +424,111 @@ const Layout = ({ children }) => {
           </motion.div>
         </section>
 
+        {/* How it Works Section */}
+        <section className="py-16 md:py-24 lg:py-28 relative overflow-hidden">
+          {/* Enhanced subtle gradient background */}
+          <div className="absolute inset-0 bg-gradient-to-b from-white via-blue-50/20 to-white z-0"></div>
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-blue-100/20 via-transparent to-transparent z-0"></div>
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-blue-100/10 via-transparent to-transparent z-0"></div>
+          <div className="absolute top-40 -left-24 w-72 h-72 bg-blue-200/10 rounded-full filter blur-3xl z-0"></div>
+          <div className="absolute bottom-20 right-0 w-96 h-96 bg-blue-100/20 rounded-full filter blur-3xl z-0"></div>
+          
+          <div className="container mx-auto px-4 sm:px-6 md:px-8 relative z-10">
+            <motion.div
+              className="text-center mb-16"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+            >
+              <h2 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent mb-6">How it Works</h2>
+              <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+                Three simple steps to transform how you find and win government contracts
+              </p>
+            </motion.div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-8 md:gap-7">
+              {/* Step 1: Search */}
+              <motion.div
+                className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden border border-gray-100 flex flex-col"
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.4, delay: 0.1 }}
+                whileHover={{ y: -3 }}
+              >
+                <div className="p-6 md:p-7 flex-grow">
+                  <div className="flex items-center mb-5">
+                    <div className="bg-blue-50 h-12 w-12 rounded-lg flex items-center justify-center mr-4">
+                      <Search className="h-6 w-6 text-blue-600" />
+                    </div>
+                    <div className="text-blue-600 text-sm font-medium">Step 1</div>
+                  </div>
+                  <h3 className="text-xl font-bold mb-3 text-gray-800">Search.</h3>
+                  <p className="text-gray-600 text-sm">
+                    Leverage Bizradar's AI-Powered search engine to Turn keywords into contracts.
+                  </p>
+                </div>
+                <div className="h-1 bg-blue-500 mt-auto"></div>
+              </motion.div>
+
+              {/* Step 2: Ask */}
+              <motion.div
+                className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden border border-gray-100 flex flex-col"
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.4, delay: 0.2 }}
+                whileHover={{ y: -3 }}
+              >
+                <div className="p-6 md:p-7 flex-grow">
+                  <div className="flex items-center mb-5">
+                    <div className="bg-blue-50 h-12 w-12 rounded-lg flex items-center justify-center mr-4">
+                      <FileText className="h-6 w-6 text-blue-600" />
+                    </div>
+                    <div className="text-blue-600 text-sm font-medium">Step 2</div>
+                  </div>
+                  <h3 className="text-xl font-bold mb-3 text-gray-800">Ask.</h3>
+                  <p className="text-gray-600 text-sm">
+                    Make a quick bid/no-bid decision with our simplified Jargon free explanations of any grant opportunity or by asking Bizradar AI questions about the opportunity.
+                  </p>
+                </div>
+                <div className="h-1 bg-blue-500 mt-auto"></div>
+              </motion.div>
+
+              {/* Step 3: Respond */}
+              <motion.div
+                className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden border border-gray-100 flex flex-col"
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.4, delay: 0.3 }}
+                whileHover={{ y: -3 }}
+              >
+                <div className="p-6 md:p-7 flex-grow">
+                  <div className="flex items-center mb-5">
+                    <div className="bg-blue-50 h-12 w-12 rounded-lg flex items-center justify-center mr-4">
+                      <PencilRuler className="h-6 w-6 text-blue-600" />
+                    </div>
+                    <div className="text-blue-600 text-sm font-medium">Step 3</div>
+                  </div>
+                  <h3 className="text-xl font-bold mb-3 text-gray-800">Respond.</h3>
+                  <p className="text-gray-600 text-sm">
+                    Focus on the opportunity — Bizradar AI RFP Writer structures a win-ready, compelling, pursuit-specific response for you.
+                  </p>
+                </div>
+                <div className="h-1 bg-blue-500 mt-auto"></div>
+              </motion.div>
+            </div>
+
+            <div className="mt-12 text-center">
+              <Link to="/signup" className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300 shadow-md hover:shadow-xl">
+                Try Bizradar for Free <ArrowRight className="w-5 h-5" />
+              </Link>
+            </div>
+          </div>
+        </section>
+
         {/* Features Section with Enhanced Visual Elements */}
         <section ref={featuresRef} className="py-16 md:py-24 lg:py-32 relative overflow-hidden">
           {/* Clean background with subtle gradient */}
@@ -301,13 +536,13 @@ const Layout = ({ children }) => {
 
           <div className="container mx-auto px-4 sm:px-6 md:px-8 relative z-10 w-full">
             <motion.div
-              className="max-w-lg md:ml-16 mb-16"
+              className="max-w-3xl mx-auto text-center mb-16"
               initial="hidden"
               animate={featuresInView ? "visible" : "hidden"}
               variants={fadeIn}
             >
-              <h2 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent mb-6">Built for Government Contractors</h2>
-              <p className="text-lg text-gray-600">Our platform offers specialized tools designed to help you find and win government contracts efficiently.</p>
+              <h2 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent mb-6">Purpose-Built for Government Contractors</h2>
+              <p className="text-lg text-gray-600 max-w-2xl mx-auto">Find, evaluate, and act on the right public-sector opportunities—fast with our AI specialized tools that turn search time into win time.</p>
             </motion.div>
 
             <div className="grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-8 items-center mb-12 md:mb-16 lg:mb-20">
@@ -523,7 +758,22 @@ const Layout = ({ children }) => {
                     <div className="absolute inset-0 bg-blue-100 rounded-full blur-md transform group-hover:scale-110 transition-transform duration-300"></div>
                     <Radar className="w-8 h-8 text-blue-600 relative z-10 transition-transform group-hover:rotate-12 duration-300" />
                   </div>
-                  <span className="text-2xl font-semibold bg-gradient-to-r from-blue-600 to-emerald-500 bg-clip-text text-transparent">Bizradar</span>
+                  <div className="flex items-end">
+                    <span className="text-2xl font-semibold bg-gradient-to-r from-blue-600 to-emerald-500 bg-clip-text text-transparent">Bizradar</span>
+                    <a 
+                      href="https://indrasol.com" 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="text-xs text-gray-500 ml-1 mb-1 hover:text-blue-600 transition-colors duration-200"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        window.open("https://indrasol.com", "_blank");
+                      }}
+                    >
+                      by Indrasol
+                    </a>
+                  </div>
                 </Link>
                 <p className="text-gray-600 mb-6">
                   AI-driven contract tracking and business intelligence.
