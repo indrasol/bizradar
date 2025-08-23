@@ -1216,40 +1216,32 @@ const BizRadarDashboard = () => {
                 <div className="col-span-3 space-y-6">
                   {/* Metrics */}
                   <div className="grid grid-cols-2 gap-6">
-                    <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200 transition-all hover:shadow-lg relative">
+                    <div className="bg-white p-4 sm:p-6 rounded-xl shadow-md border border-gray-200 transition-all hover:shadow-lg relative overflow-hidden">
                       {/* Header with navigation */}
-                      <div className="flex justify-between items-center mb-6">
-                        <div className="flex items-center">
+                      <div className="flex flex-wrap gap-2 justify-between items-center mb-4 sm:mb-6">
+                        <div className="flex flex-wrap items-center gap-2">
                           <button
                             onClick={navigateToPreviousMonth}
-                            className="mr-3 p-2 rounded-full hover:bg-gray-100 text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                            className="p-1.5 sm:p-2 rounded-full hover:bg-gray-100 text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-300 flex-shrink-0"
                           >
-                            <ChevronLeft className="h-5 w-5" />
+                            <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
                           </button>
-                          <h2 className="text-lg font-semibold text-gray-700 flex items-center">
-                            <FileText className="h-5 w-5 mr-2 text-blue-500" />
-                            <span className="mr-1">Opportunities in</span>
-                            <span className="text-blue-600">{monthlyPursuits.month} {monthlyPursuits.year}</span>
+                          <h2 className="text-base sm:text-lg font-semibold text-gray-700 flex flex-wrap items-center">
+                            <FileText className="h-4 w-4 sm:h-5 sm:w-5 mr-2 text-blue-500 flex-shrink-0" />
+                            <div>
+                              <span className="mr-1">Opportunities in </span>
+                              <span className="text-blue-600">{monthlyPursuits.month} {monthlyPursuits.year}</span>
+                            </div>
                           </h2>
                           <button
                             onClick={navigateToNextMonth}
-                            className="ml-3 p-2 rounded-full hover:bg-gray-100 text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                            className="p-1.5 sm:p-2 rounded-full hover:bg-gray-100 text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-300 flex-shrink-0"
                           >
-                            <ChevronRight className="h-5 w-5" />
+                            <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
                           </button>
                         </div>
 
-                        <div className="flex items-center">
-                          <button
-                            className="p-2 rounded-full hover:bg-gray-100 text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-300 mr-2"
-                            onClick={() => setIsChartVisible(!isChartVisible)}
-                          >
-                            <TrendingUp className="h-5 w-5" />
-                          </button>
-                          <div className="p-2 bg-teal-100 text-teal-800 rounded-lg">
-                            <Info className="h-5 w-5" />
-                          </div>
-                        </div>
+                        {/* Removed the top-right icon container */}
                       </div>
 
                       {/* Count display */}
@@ -1258,40 +1250,56 @@ const BizRadarDashboard = () => {
                           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
                         </div>
                       ) : (
-                        <div className="flex flex-col items-center my-4">
-                          <div className="relative">
-                            <div className="text-6xl font-bold text-gray-800 transition-all cursor-pointer" onClick={handleMonthlyCountClick} title="View opportunities">
-                              {monthlyPursuits.count}
-                            </div>
-                            <div className="absolute -top-3 -right-3 bg-blue-500 text-white text-xs font-bold rounded-full h-6 w-6 flex items-center justify-center">
-                              <span>+</span>
-                            </div>
-                          </div>
-                          <div className="mt-2 text-gray-500 font-medium">
-                            New Opportunities Added
+                                            <div className="flex flex-col items-center my-3 sm:my-4">
+                      <div className="flex items-center">
+                        <div>
+                          <div 
+                            className="text-5xl sm:text-6xl font-bold text-gray-800 transition-all cursor-pointer hover:text-blue-600" 
+                            onClick={handleMonthlyCountClick} 
+                            title="View opportunities"
+                          >
+                            {monthlyPursuits.count}
                           </div>
                         </div>
+                        <div className="group relative ml-3 cursor-pointer">
+                          <button
+                            className="p-1.5 sm:p-2 rounded-full hover:bg-gray-100 text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                            onClick={() => setIsChartVisible(!isChartVisible)}
+                            aria-label="Toggle chart view"
+                          >
+                            <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5" />
+                          </button>
+                          <div className="absolute bottom-full right-0 mb-2 bg-gray-800 text-white text-xs rounded px-2 py-1 min-w-[120px] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                            <div className="font-medium">View Analytics</div>
+                            <div className="text-gray-300">Click to toggle chart</div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-2 text-sm sm:text-base text-gray-500 font-medium text-center">
+                        New Opportunities Added
+                      </div>
+                    </div>
                       )}
 
                       {/* Historical data chart */}
                       {isChartVisible && (
-                        <div className="mt-6 pt-4 border-t border-gray-100">
-                          <div className="flex justify-between items-end h-32 px-2">
+                        <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-gray-100">
+                          <div className="flex justify-between items-end h-24 sm:h-32 px-1 sm:px-2">
                             {monthlyStats.map((month, index) => (
                               <div
                                 key={index}
                                 className="flex flex-col items-center group cursor-pointer"
                               >
                                 <div
-                                  className="w-8 bg-blue-400 hover:bg-blue-600 rounded-t-sm transition-all"
+                                  className="w-6 sm:w-8 bg-blue-400 hover:bg-blue-600 rounded-t-sm transition-all"
                                   style={{
-                                    height: `${Math.max(10, (month.count / (Math.max(...monthlyStats.map(m => m.count)) || 1)) * 80)}px`
+                                    height: `${Math.max(8, (month.count / (Math.max(...monthlyStats.map(m => m.count)) || 1)) * 70)}px`
                                   }}
                                 ></div>
-                                <div className="text-xs font-medium text-gray-500 mt-1">
+                                <div className="text-xs font-medium text-gray-500 mt-1 whitespace-nowrap">
                                   {month.month}
                                 </div>
-                                <div className="absolute bottom-full mb-2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                                <div className="absolute bottom-full mb-2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
                                   <div className="font-bold">{month.month} {month.year}</div>
                                   <div>{month.count} {month.count === 1 ? 'Opportunity' : 'Opportunities'}</div>
                                 </div>
@@ -1300,7 +1308,7 @@ const BizRadarDashboard = () => {
                           </div>
                           <Link
                             to="/analytics"
-                            className="text-center text-xs text-blue-600 mt-2 hover:underline cursor-pointer block"
+                            className="text-center text-xs text-blue-600 mt-2 hover:underline cursor-pointer block font-medium"
                           >
                             View detailed analytics
                           </Link>

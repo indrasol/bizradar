@@ -139,7 +139,7 @@ const OpportunityCard: React.FC<OpportunityCardProps> = ({
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl shadow-md hover:shadow-lg hover:scale-[1.01] transition-all duration-300 overflow-hidden">
+    <div className="bg-white border border-gray-200 rounded-xl shadow-md overflow-hidden">
       {/* Title Section - Full Width */}
       <div className="bg-gradient-to-r from-blue-50 via-blue-100 to-blue-200 px-6 py-4 flex items-center gap-2">
         <BarChart2 size={18} className="text-blue-700" />
@@ -343,7 +343,7 @@ const OpportunityCard: React.FC<OpportunityCardProps> = ({
                     ) : (
                       <div className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-xs font-medium border border-emerald-200 w-full">
                         <Clock size={12} />
-                        <span>{days} day{days !== 1 ? 's' : ''} left</span>
+                        <span>{days} day{days !== 1 ? 's' : ''} to respond</span>
                       </div>
                     );
                   })()}

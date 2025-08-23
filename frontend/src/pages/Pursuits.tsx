@@ -824,7 +824,7 @@ export default function Pursuits(): JSX.Element {
             }}
           />
 
-          <div className="flex-1 overflow-auto p-5" ref={mainContentRef}>
+          <div className={`flex-1 p-5 ${view === 'kanban' ? '' : 'overflow-y-auto'}`} ref={mainContentRef}>
             {pursuits.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-[60vh]">
                 <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full mb-5">
