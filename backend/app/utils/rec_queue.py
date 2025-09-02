@@ -26,7 +26,7 @@ queue = asyncio.Queue()
 # Dummy value for backward compatibility
 active_search = None
 
-def start_consumer_loop():
+async def start_consumer_loop():
     """Backward compatibility method - does nothing in this implementation"""
     logger.info("Using new recommendation processing system - no consumer needed")
 
