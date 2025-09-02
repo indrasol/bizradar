@@ -2,8 +2,8 @@ name: Build and Deploy to bizradarv1 Azure Web App
 
 on:
   push:
-    branches:
-      - main
+    branches: [ dev, main ]
+  workflow_dispatch:
 
 env:
   # Match your ACR name and Azure Web App name
@@ -36,28 +36,47 @@ jobs:
       # - name: "Set up Docker Buildx"
       #   uses: docker/setup-buildx-action@v2
 
+      # 3) Setup buildx
+      - uses: docker/setup-buildx-action@v3
+
       # 4) Log in to ACR
       - name: "Log in to ACR"
         run: |
           az acr login --name ${{ env.ACR_NAME }}
 
-      # 5) Build the Docker image and push to ACR
-      - name: "Build and push Docker image to ACR"
+      - name: Fetch ACR loginServer
+        id: acr
         run: |
-          # Tag format: <loginServer>/<imageName>:<tag>
-          ACR_LOGIN_SERVER=$(az acr show --name ${{ env.ACR_NAME }} --query loginServer --output tsv)
-          IMAGE_TAG="$ACR_LOGIN_SERVER/${{ env.IMAGE_NAME }}:latest"
+          echo "LOGIN_SERVER=$(az acr show --name ${{ env.ACR_NAME }} \
+                            --query loginServer --output tsv)" >> $GITHUB_ENV
 
-          # Build the image (context is repo root)
-          docker build -f Dockerfile -t $IMAGE_TAG .
+      - name: Decide slot, tag and ENV
+        id: decide
+        run: |
+          if [ "${GITHUB_REF_NAME}" = "main" ]; then
+            echo "SLOT=" >> $GITHUB_OUTPUT
+            echo "TAG=prod-${GITHUB_SHA}" >> $GITHUB_OUTPUT
+          else
+            echo "SLOT=dev" >> $GITHUB_OUTPUT
+            echo "TAG=dev-${GITHUB_SHA}" >> $GITHUB_OUTPUT
+          fi
 
-          # Push to ACR
-          docker push $IMAGE_TAG
+      # 5) Build the Docker image and push to ACR
+      - name: Build & push amd64 image
+        run: |
+          docker buildx build \
+            --pull --no-cache \
+            --platform linux/amd64 \
+            --push \
+            --tag $LOGIN_SERVER/${{ env.IMAGE_NAME }}:${{ steps.decide.outputs.TAG }} \
+            --file Dockerfile \
+            .
 
       # 6) Deploy the new image to Azure Web App
-      - name: "Deploy to Azure Web App"
-        uses: azure/webapps-deploy@v2
+      - name: "Deploy to Azure Web App / slot"
+        uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ env.WEBAPP_NAME }}
-          # slot-name: production
-          images: ${{ env.ACR_NAME }}-dzc8a3deejhje7d4.azurecr.io/${{ env.IMAGE_NAME }}:latest
+          slot-name: ${{ steps.decide.outputs.SLOT }}
+          # images: ${{ env.ACR_NAME }}-dzc8a3deejhje7d4.azurecr.io/${{ env.IMAGE_NAME }}:latest
+          images: ${{ env.LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${{ steps.decide.outputs.TAG }}
