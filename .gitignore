@@ -18,7 +18,9 @@ dist-ssr/
 # Environment files
 *.local
 .env
-.env.*
+.env.development
+.env.production
+
 
 # Python cache & build
 __pycache__/
