@@ -6,16 +6,34 @@ from app.routes.search_routes import search_router
 from app.routes.admin_routes import router as admin_router
 from app.routes.email_routes import router as email_router
 from app.routes.webhooks import router as webhook_router
+from contextlib import asynccontextmanager
 from app.utils.rec_queue import start_consumer_loop
 from app.routes.payment_methods import router as payment_methods_router
 from app.utils.subscription import get_subscription_status
 from app.routes.checkout import router as checkout_router
+from app.config.settings import title, description, version
 
-app = FastAPI()
 
-@app.on_event("startup")
-async def on_startup_event():
-    start_consumer_loop()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    try:
+        await start_consumer_loop()
+        yield
+    finally:
+        # Cleanup resources in finally block to ensure they run even on errors
+        # await session_manager.disconnect()  # Disconnect from Redis
+        # log_info("disconnected redis session manager...")
+        pass
+
+
+app = FastAPI(
+    title=title,
+    description=description,
+    version=version,
+    lifespan=lifespan,
+    debug=True,
+    redirect_slashes=False
+)
 
 
 # Configure CORS - allow both local development and production frontend
@@ -25,9 +43,9 @@ origins = [
     "https://bizradar.netlify.app",  # Your production frontend domain
     "https://bizradar.netlify.app/",     # Include trailing slash version
     "http://bizradar.netlify.app",       # Include HTTP version
-    "https://bizradarv1.netlify.app",  # Your production frontend domain
-    "https://bizradarv1.netlify.app/",
-    "http://bizradarv1.netlify.app", 
+    "https://bizradar1.netlify.app",  # Your production frontend domain
+    "https://bizradar1.netlify.app/",
+    "http://bizradar1.netlify.app", 
     # "*"  # Temporarily allow all origins during development
 ]
 

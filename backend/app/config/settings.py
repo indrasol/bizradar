@@ -1,14 +1,40 @@
-import os 
+import os
 from dotenv import load_dotenv
+from pathlib import Path
 
-load_dotenv()
+# First get the environment from ENV variable or default to 'development'
+ENV = os.getenv('ENV_BIZ', 'development')
 
-env = os.getenv('ENV', 'development')
+# Get the base directory
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-# if env == 'development':
-#     load_dotenv('.env.dev')
-# elif env == 'production':
-#     load_dotenv('.env.prod')
+# Load the appropriate .env file based on environment
+def load_env_file():
+    # First try to load .env.{ENV} file
+    env_file = BASE_DIR / f".env.{ENV}"
+    if env_file.exists():
+        print(f"Loading environment from {env_file}")
+        # Force override existing environment variables
+        load_dotenv(dotenv_path=env_file, override=True)
+        return True
+    
+    # Fallback to the standard .env file
+    default_env_file = BASE_DIR / ".env"
+    if default_env_file.exists():
+        print(f"Loading environment from {default_env_file}")
+        # Force override existing environment variables
+        load_dotenv(dotenv_path=default_env_file, override=True)
+        return True
+    
+    # If no env file found
+    print(f"Warning: No .env.{ENV} or .env file found")
+    return False
+
+# Load environment variables
+load_env_file()
+
+# Print environment for debugging
+print(f"Running in {ENV} environment")
 
 # Main
 title = os.getenv("title")
@@ -92,7 +118,7 @@ STRIPE_PUBLISHABLE_KEY=os.getenv("STRIPEPUBLISHABLEKEYBIZ")
 # Default: 5 minutes in development, 15 days in production (21600 minutes)
 TRIAL_DURATION_MINUTES = int(os.getenv(
     "TRIAL_DURATION_MINUTES",
-    "5" if env == "development" else "21600"
+    "5" if ENV == "development" else "21600"
 ))
 
 
