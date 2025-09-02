@@ -20,7 +20,7 @@ jobs:
       POSTGRES_URL_POOLING_DEV: ${{ secrets.POSTGRES_URL_POOLING_DEV }}
     steps:
       - uses: actions/checkout@v4
-        with: { ref: development }
+        with: { ref: dev }
 
       - uses: supabase/setup-cli@v1
         with: { version: latest }
