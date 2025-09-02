@@ -16,7 +16,7 @@ stripe.api_key = settings.get_stripe_secret_key()
 logger.info(f"Stripe API key initialized (first 5 chars): {settings.get_stripe_secret_key()[:5]}...")
 
 # Import other settings after stripe is initialized
-from config.settings import JWT_SECRET, FRONTEND_URL
+from config.settings import JWT_SECRET, SUPABASE_URL, SUPABASE_ANON_KEY
 
 # Add a test endpoint to verify Stripe connection
 @router.get("/test-stripe")
@@ -80,8 +80,7 @@ async def get_current_user(authorization: Optional[str] = Header(None, descripti
         
         # Decode the JWT token with audience claim
         # Get your project reference from Supabase URL (e.g., 'abc123' from 'https://abc123.supabase.co')
-        supabase_url = os.getenv('SUPABASE_URL', '')
-        project_ref = supabase_url.split('//')[-1].split('.')[0] if '//' in supabase_url else 'your-project-ref'
+        project_ref = SUPABASE_URL.split('//')[-1].split('.')[0] if '//' in SUPABASE_URL else 'your-project-ref'
         
         # Decode with audience claim
         payload = jwt.decode(

@@ -70,10 +70,15 @@ GITHUB_OWNER=os.getenv("GITHUB_OWNER")
 
 # JWT - Using Supabase's default JWT secret
 # This should match the JWT_SECRET in your Supabase project settings
-JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET", os.getenv("JWT_SECRET", "your-supabase-jwt-secret"))
+JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET_BIZ", os.getenv("JWT_SECRET_BIZ", "your-supabase-jwt-secret"))
 JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days (matching Supabase's default)
 
+
+SUPABASE_JWT_SECRET_BIZ=os.getenv("SUPABASE_JWT_SECRET_BIZ")
+ 
+SUPABASE_URL=os.getenv("SUPABASE_URL_BIZ")
+SUPABASE_ANON_KEY=os.getenv("SUPABASE_ANON_KEY_BIZ")
 # Stripe
 # Print Stripe keys for debugging
 print(f"Loading Stripe keys - Secret: {'*' * 20}{os.getenv('STRIPE_SECRET_KEY', '')[-4:] if os.getenv('STRIPE_SECRET_KEY') else 'Not set'}")
