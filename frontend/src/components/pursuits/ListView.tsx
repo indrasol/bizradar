@@ -1,5 +1,5 @@
-import React from 'react';
-import { Bot, PenLine, CheckCircle, Trash2, CheckSquare } from 'lucide-react';
+import React, { useState } from 'react';
+import { Bot, PenLine, CheckCircle, Trash2, CheckSquare, Loader2 } from 'lucide-react';
 import { Pursuit } from './types';
 import { format, parseISO, isValid } from 'date-fns';
 
@@ -33,6 +33,7 @@ export const ListView: React.FC<ListViewProps> = ({
   onToggleSubmission,
 }) => {
   const internalRef = React.useRef<HTMLDivElement>(null);
+  const [loadingPursuit, setLoadingPursuit] = useState<Pursuit | null>(null);
 
   const getStageColor = (stage: string): string => {
     if (stage.includes("RFP Response Initiated")) {
@@ -82,6 +83,92 @@ export const ListView: React.FC<ListViewProps> = ({
       </button>
     );
   };
+
+  const handleAskAI = async (pursuit: Pursuit) => {
+    setLoadingPursuit(pursuit);
+    try {
+      await onAskAI(pursuit);
+    } finally {
+      setLoadingPursuit(null);
+    }
+  };
+
+  // Show loading overlay when Ask AI is clicked
+  if (loadingPursuit) {
+    return (
+      <div className="fixed inset-0 bg-white/95 backdrop-blur-sm z-50 flex items-center justify-center">
+        <div className="p-8 mx-auto bg-gradient-to-br from-white via-emerald-50/30 to-white border border-gray-200 rounded-2xl shadow-lg max-w-2xl relative overflow-hidden">
+          {/* Background decoration */}
+          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-emerald-100/50 to-transparent rounded-full -mr-16 -mt-16"></div>
+          <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-blue-100/40 to-transparent rounded-full -ml-12 -mb-12"></div>
+          
+          <div className="relative z-10">
+            <div className="flex flex-col items-center justify-center text-center">
+              {/* Animated AI Icon */}
+              <div className="relative mb-6">
+                <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg">
+                  <Loader2 size={28} className="text-white animate-spin" />
+                </div>
+                {/* Pulse rings */}
+                <div className="absolute inset-0 w-16 h-16 bg-emerald-400 rounded-2xl animate-ping opacity-20"></div>
+                <div className="absolute inset-0 w-16 h-16 bg-emerald-300 rounded-2xl animate-ping opacity-10" style={{ animationDelay: '0.5s' }}></div>
+              </div>
+
+              {/* Title with animated dots */}
+              <div className="mb-4">
+                <h3 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-900 bg-clip-text text-transparent flex items-center gap-2">
+                  Loading BizRadar AI
+                  <div className="flex gap-1">
+                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                  </div>
+                </h3>
+              </div>
+
+              {/* Pursuit title display */}
+              <div className="mb-6 px-4 py-2 bg-white/80 backdrop-blur-sm rounded-xl border border-gray-200 shadow-sm">
+                <p className="text-gray-600 text-sm font-medium">
+                  <span className="text-emerald-600">"</span>
+                  <span className="text-gray-800">{loadingPursuit.title}</span>
+                  <span className="text-emerald-600">"</span>
+                </p>
+              </div>
+
+              {/* Enhanced Progress bar with moving animation */}
+              <div className="w-full max-w-md">
+                <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden relative">
+                  {/* Base emerald gradient background */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-emerald-600 via-emerald-500 to-emerald-400 rounded-full"></div>
+                  {/* Moving shine effect */}
+                  <div 
+                    className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent rounded-full"
+                    style={{
+                      animation: 'shimmer 2.5s infinite',
+                      backgroundSize: '200% 100%'
+                    }}
+                  ></div>
+                  {/* Pulsing overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-emerald-300/40 via-emerald-200/40 to-emerald-300/40 rounded-full animate-pulse"></div>
+                </div>
+                <p className="text-xs text-gray-500 text-center mt-2">Preparing AI assistance...</p>
+              </div>
+              
+              {/* Add shimmer keyframe animation */}
+              <style dangerouslySetInnerHTML={{
+                __html: `
+                  @keyframes shimmer {
+                    0% { transform: translateX(-100%); }
+                    100% { transform: translateX(100%); }
+                  }
+                `
+              }} />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
@@ -165,7 +252,7 @@ export const ListView: React.FC<ListViewProps> = ({
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        onAskAI(pursuit);
+                        handleAskAI(pursuit);
                       }}
                       className="p-1.5 rounded-full text-emerald-600 hover:bg-emerald-100 transition-all"
                       title="Ask BizRadar AI"

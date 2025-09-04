@@ -1,7 +1,5 @@
+import { API_ENDPOINTS } from '@/config/apiEndpoints';
 import { supabase } from './supabase';
-
-const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-const API_BASE_URL = isDevelopment ? 'http://localhost:5000' : import.meta.env.VITE_API_BASE_URL;
 
 interface EmailResponse {
   success: boolean;
@@ -29,7 +27,7 @@ class EmailService {
       if (error) throw error;
 
       // Send welcome email using SendGrid
-      const response = await fetch(`${API_BASE_URL}/api/send-welcome-email`, {
+      const response = await fetch(API_ENDPOINTS.EMAIL_SERVICE, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

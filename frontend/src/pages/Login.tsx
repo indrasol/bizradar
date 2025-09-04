@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { toast } from "sonner";
 import AuthContext from "../components/Auth/AuthContext";
+import { supabase } from "../utils/supabase";
 
 // Login form schema validation
 const loginFormSchema = z.object({
@@ -73,9 +74,34 @@ const Login = ({ isOpen = true, onOpenChange = () => { }, onSwitchToRegister = (
       onOpenChange(false);
       loginForm.reset();
 
-      // Introduce a 1-second delay before navigating to "/dashboard"
-      setTimeout(() => {
-        navigate("/opportunities");
+      // Check if user needs to complete company setup
+      setTimeout(async () => {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            // Check if user has completed company setup
+            const { data: userCompanies } = await supabase
+              .from('user_companies')
+              .select('*')
+              .eq('user_id', session.user.id)
+              .eq('is_primary', true);
+            
+            if (userCompanies && userCompanies.length > 0) {
+              // User has completed company setup, go to opportunities
+              navigate("/opportunities");
+            } else {
+              // User needs to complete company setup
+              navigate("/company-setup");
+            }
+          } else {
+            // This shouldn't happen if login was successful
+            console.error('No session after successful login');
+            navigate("/login");
+          }
+        } catch (error) {
+          console.error('Error checking company setup:', error);
+          navigate("/opportunities");
+        }
       }, 1000); // 1000ms = 1 second delay
     } catch (err: any) {
       console.error("Login error:", err);

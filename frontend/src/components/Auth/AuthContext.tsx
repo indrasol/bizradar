@@ -6,12 +6,8 @@ import * as UAParser from 'ua-parser-js';
 import { subscriptionApi } from '@/api/subscription';
 import TrialStatusModal from '@/components/subscription/TrialStatusModal';
 import UpgradeBlocker from '@/components/subscription/UpgradeBlocker';
-
-// Define your API base URL
-const isDevelopment = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-const API_BASE_URL = isDevelopment
-  ? "http://localhost:5000"
-  : import.meta.env.VITE_API_BASE_URL;
+import { useUpgradeModal } from '../subscription/UpgradeModalContext';
+import { API_ENDPOINTS } from '@/config/apiEndpoints';
 
 interface AuthContextType {
   user: User | null;
@@ -63,6 +59,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [trialInfo, setTrialInfo] = useState<{ remainingDays: number; isTrial: boolean; expired: boolean } | null>(null);
   const [showTrialModal, setShowTrialModal] = useState(false);
   const [showBlocker, setShowBlocker] = useState(false);
+  const { isOpen: isUpgradeModalOpen, openModal, closeModal } = useUpgradeModal();
+
+  // Show blocker only when trial is expired AND upgrade modal is not open
+  const shouldShowBlocker = showBlocker && !isUpgradeModalOpen;
 
   // Initialize the auth state on component mount
   useEffect(() => {
@@ -103,7 +103,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           setShowTrialModal(info.isTrial && !info.expired && !alreadyShown);
           setShowBlocker(info.expired);
         } catch (e) {
-          // ignore
+          // ignore - subscription might not exist yet for new users
         }
       }
 
@@ -202,7 +202,19 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
       const { data, error } = response;
 
-      if (error) throw error;
+      if (error) {
+        // Check if error is due to unconfirmed email
+        if (error.message?.toLowerCase().includes('email not confirmed') || 
+            error.message?.toLowerCase().includes('confirm your email')) {
+          throw new Error('Please check your email and confirm your account before logging in.');
+        }
+        throw error;
+      }
+
+      // Check if user's email is confirmed
+      if (data.user && !data.user.email_confirmed_at) {
+        throw new Error('Please check your email and confirm your account before logging in.');
+      }
 
       setSession(data.session);
       setUser(data.user);
@@ -357,6 +369,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       }
 
       // Sign up the user with custom user_metadata
+      console.log('Attempting signup with:', { email, firstName, lastName });
+      
+      // Sign up the user with custom user_metadata
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -369,6 +384,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       });
 
       if (error) {
+        console.error('Detailed signup error:', {
+          message: error.message,
+          status: error.status,
+          details: error
+        });
+        
         // Duplicate email or any other auth error
         if (error.message.toLowerCase().includes('user already registered')) {
           throw new Error('An account with this email already exists. Please try logging in.');
@@ -377,7 +398,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       }
 
       if (data.user) {
-        // Optionally update profile fields (first_name/last_name) since the trigger only inserts email
+        // Update profile fields (first_name/last_name) since the trigger only inserts basic info
         const { error: updateError } = await supabase
           .from('profiles')
           .update({
@@ -390,24 +411,23 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           console.warn('Profile update failed:', updateError.message);
         }
 
-        // Set user and session
+        // Set user and session (session will be null since email confirmation is required)
         setUser(data.user);
         setSession(data.session);
 
-        // Store tokens
+        // Email confirmation is always required, so no session will be returned
         if (data.session) {
+          // This shouldn't happen with email confirmation enabled
           tokenService.setTokens(
             data.session.access_token,
             data.session.refresh_token
           );
+        } else {
+          // Expected behavior - email confirmation required
+          console.log('Email confirmation required - no session returned');
         }
 
-        // Create trial immediately on signup
-        try {
-          await subscriptionApi.getStatus(data.user.id);
-        } catch (e) {
-          // ignore – will also run on auth init
-        }
+        // Note: Subscription will be created after company setup is completed
       }
     } catch (error) {
       const authError = error as AuthError;
@@ -424,7 +444,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       // Clear cache if user exists - WITH BETTER ERROR HANDLING
       if (user) {
         try {
-          const response = await fetch(`${API_BASE_URL}/clear-cache`, {
+          const response = await fetch(API_ENDPOINTS.CLEAR_CACHE, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ user_id: user.id }),
@@ -675,11 +695,22 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   const handleUpgrade = () => {
-    // Route to dashboard and open the existing Upgrade modal there
+    // Open the upgrade modal directly using the global context
+    // The blocker will be hidden by the shouldShowBlocker logic when modal opens
+    openModal();
+  };
+
+  const handleLogout = async () => {
     try {
-      window.dispatchEvent(new CustomEvent('openUpgradeModal'));
-    } catch {}
-    window.location.href = '/dashboard?upgrade=1';
+      // Close the upgrade modal first if it's open
+      if (isUpgradeModalOpen) {
+        closeModal();
+      }
+      await logout();
+      setShowBlocker(false);
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
   };
 
   return (
@@ -696,8 +727,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         }}
       />
       <UpgradeBlocker
-        open={showBlocker}
+        open={shouldShowBlocker}
         onUpgrade={handleUpgrade}
+        onLogout={handleLogout}
       />
     </AuthContext.Provider>
   );

@@ -11,6 +11,7 @@ import NotificationToast from "@/components/opportunities/NotificationToast";
 import { toast } from "sonner";
 import { FilterValues, Opportunity, SearchParams } from "@/models/opportunities";
 import Header from "@/components/opportunities/Header";
+import { API_ENDPOINTS } from "@/config/apiEndpoints";
 
 const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 const API_BASE_URL = isDevelopment ? 'http://localhost:5000' : import.meta.env.VITE_API_BASE_URL;
@@ -430,7 +431,7 @@ const OpportunitiesPage: React.FC = () => {
       ...params,
     });
   
-    const response = await fetch(`${API_BASE_URL}/search-opportunities`, {
+    const response = await fetch(API_ENDPOINTS.SEARCH_OPPORTUNITIES, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -502,7 +503,7 @@ const OpportunitiesPage: React.FC = () => {
 
   // Helper to get refined/expanded query from backend
   const getRefinedQuery = async (query: string, contractType?: string | null, platform?: string | null) => {
-    const response = await fetch(`${API_BASE_URL}/refine-query`, {
+    const response = await fetch(API_ENDPOINTS.REFINE_QUERY, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ query, contract_type: contractType, platform, user_id: tokenService.getUserIdFromToken() }),
@@ -778,7 +779,7 @@ const OpportunitiesPage: React.FC = () => {
     if (!opps.length) return opps;
     
     try {
-      const response = await fetch(`${API_BASE_URL}/summarize-descriptions`, {
+      const response = await fetch(API_ENDPOINTS.SUMMARIZE_DESCRIPTIONS, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ opportunities: opps, user_id: tokenService.getUserIdFromToken() }),
@@ -828,7 +829,7 @@ const OpportunitiesPage: React.FC = () => {
   const getSummaryForOpportunity = async (opportunity: Opportunity): Promise<Opportunity> => {
     if (!opportunity) return opportunity;
     try {
-      const response = await fetch(`${API_BASE_URL}/summarize-description`, {
+      const response = await fetch(API_ENDPOINTS.SUMMARIZE_DESCRIPTION, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ opportunity: opportunity, user_id: tokenService.getUserIdFromToken() }),

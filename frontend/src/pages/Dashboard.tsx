@@ -35,6 +35,8 @@ import { toast } from "sonner";
 import { UpgradeModal } from "@/components/subscription/UpgradeModal";
 import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
 import StripePaymentVerifier from '@/components/ui/StripePaymentVerifier';
+import { useUpgradeModal } from "@/components/subscription/UpgradeModalContext";
+import { API_ENDPOINTS } from "@/config/apiEndpoints";
 
 
 // const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -565,21 +567,10 @@ const BizRadarDashboard = () => {
     }
   };
 
-  const [upgradeOpen, setUpgradeOpen] = useState(false);
-
-  // Allow other parts of the app (e.g., trial modal) to trigger the Upgrade modal here
-  useEffect(() => {
-    const openFromEvent = () => setUpgradeOpen(true);
-    window.addEventListener('openUpgradeModal', openFromEvent as EventListener);
-    // Support query param trigger e.g. /dashboard?upgrade=1
-    if (new URLSearchParams(window.location.search).get('upgrade') === '1') {
-      setUpgradeOpen(true);
-    }
-    return () => window.removeEventListener('openUpgradeModal', openFromEvent as EventListener);
-  }, []);
+  const { isOpen: upgradeOpen, openModal: setUpgradeOpen, closeModal } = useUpgradeModal();
 
   const handleUpgradeSuccess = () => {
-    setUpgradeOpen(false);
+    closeModal();
     toast.success('Your subscription has been upgraded successfully!');
   };
 
@@ -627,10 +618,7 @@ const BizRadarDashboard = () => {
       }
 
       // 4. If not cached, fetch opportunities and proceed as before
-      const API_BASE_URL = window.location.hostname === "localhost"
-        ? "http://localhost:5000"
-        : import.meta.env.VITE_API_BASE_URL;
-      const response = await fetch(`${API_BASE_URL}/search-opportunities`, {
+      const response = await fetch(API_ENDPOINTS.SEARCH_OPPORTUNITIES, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -659,7 +647,7 @@ const BizRadarDashboard = () => {
       setDashboardOpportunities(futureOpportunities);
 
       // 5. Call AI recommendations API
-      const recResponse = await fetch(`${API_BASE_URL}/ai-recommendations`, {
+      const recResponse = await fetch(API_ENDPOINTS.AI_RECOMMENDATIONS, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1143,18 +1131,18 @@ const BizRadarDashboard = () => {
             </div>
             <div className="flex items-center space-x-3">
               <button
-                onClick={() => setUpgradeOpen(true)}
+                onClick={() => setUpgradeOpen()}
                 className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 transition-all">
                 <span>Upgrade</span>
                 <Star size={14} className="ml-1" />
               </button>
-              <NotificationDropdown />
-              <div className="relative">
+              {/* <NotificationDropdown /> */}
+              {/* <div className="relative">
                 <button className="p-2 text-gray-500 hover:text-gray-600 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors">
                   <MessageSquare className="h-5 w-5" />
                 </button>
                 <div className="absolute top-0 right-0 w-2 h-2 bg-blue-500 rounded-full"></div>
-              </div>
+              </div> */}
               <button
                 onClick={handleLogout}
                 className="bg-blue-50 text-blue-600 hover:bg-blue-100 px-4 py-2 rounded-lg text-sm flex items-center gap-2 border border-blue-100 transition-colors"
@@ -1649,7 +1637,7 @@ const BizRadarDashboard = () => {
 
       <UpgradeModal
         isOpen={upgradeOpen}
-        onClose={() => setUpgradeOpen(false)}
+        onClose={closeModal}
         onSuccess={handleUpgradeSuccess}
       />
     </div>

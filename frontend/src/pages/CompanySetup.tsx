@@ -4,6 +4,7 @@ import { useAuth } from '../components/Auth/useAuth';
 import { Radar } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../utils/supabase';
+import { subscriptionApi } from '../api/subscription';
 
 const CompanySetup: React.FC = () => {
   const { user } = useAuth();
@@ -20,8 +21,8 @@ const CompanySetup: React.FC = () => {
   // Check if user is authenticated and if they already have a company setup
   useEffect(() => {
     const checkUserAndCompany = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+      // Since email confirmation is required, user should always have a session
+      if (!user) {
         navigate('/login');
         return;
       }
@@ -30,7 +31,7 @@ const CompanySetup: React.FC = () => {
       const { data: userCompanies } = await supabase
         .from('user_companies')
         .select('*')
-        .eq('user_id', session.user.id)
+        .eq('user_id', user.id)
         .eq('is_primary', true);
         
       if (userCompanies && userCompanies.length > 0) {
@@ -40,7 +41,7 @@ const CompanySetup: React.FC = () => {
     };
     
     checkUserAndCompany();
-  }, [navigate]);
+  }, [navigate, user]);
   
   // Handle input changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -54,6 +55,7 @@ const CompanySetup: React.FC = () => {
     setIsLoading(true);
     
     try {
+      // Since email confirmation is required, user should always be authenticated
       if (!user) {
         throw new Error('User not authenticated');
       }
@@ -91,6 +93,16 @@ const CompanySetup: React.FC = () => {
       if (relationError) {
         console.error('Error creating company relationship:', relationError);
         throw relationError;
+      }
+      
+      // Create trial subscription after company setup is complete
+      try {
+        const subscriptionStatus = await subscriptionApi.getStatus(user.id);
+        console.log('Trial subscription created successfully:', subscriptionStatus);
+      } catch (subscriptionError) {
+        console.error('Error creating trial subscription:', subscriptionError);
+        // Don't fail the entire flow if subscription creation fails
+        toast.error('Company saved but subscription creation failed. Please contact support.');
       }
       
       // Success notification

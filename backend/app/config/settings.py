@@ -100,6 +100,7 @@ REDIS_HOST = os.getenv("REDISHOSTBIZ")
 REDIS_PORT = os.getenv("REDISPORTBIZ")
 REDIS_USERNAME = os.getenv("REDISUSERNAMEBIZ")
 REDIS_PASSWORD = os.getenv("REDISPASSWORDBIZ")
+REDIS_DB = os.getenv("REDISDBBIZ", "0")
 
 # Stripe
 STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY")
@@ -120,10 +121,10 @@ STRIPE_PUBLISHABLE_KEY=os.getenv("STRIPEPUBLISHABLEKEYBIZ")
 
 
 # Trial duration config (minutes)
-# Default: 5 minutes in development, 15 days in production (21600 minutes)
+# Default: 15 days (21600 minutes) in all environments; override via TRIAL_DURATION_MINUTES.
 TRIAL_DURATION_MINUTES = int(os.getenv(
     "TRIAL_DURATION_MINUTES",
-    "5" if ENV == "development" else "21600"
+    "21600" if ENV == "development" else "21600"
 ))
 
 

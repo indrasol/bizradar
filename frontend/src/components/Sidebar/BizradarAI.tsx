@@ -21,13 +21,7 @@ import {
 } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/utils/supabase';
-
-const isDevelopment =
-  window.location.hostname === "localhost" ||
-  window.location.hostname === "127.0.0.1";
-const API_BASE_URL = isDevelopment
-  ? "http://localhost:5000"
-  : import.meta.env.VITE_API_BASE_URL;
+import { API_ENDPOINTS } from '@/config/apiEndpoints';
 
 // Define types
 interface Message {
@@ -232,7 +226,7 @@ const BizradarAI: React.FC = () => {
     const { data: { user } } = await supabase.auth.getUser();
     const userId = pursuitContext?.userId || user?.id;
 
-    const resp = await fetch(`${API_BASE_URL}/process-documents`, {
+    const resp = await fetch(API_ENDPOINTS.PROCESS_DOCUMENTS, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -287,7 +281,7 @@ const BizradarAI: React.FC = () => {
         documents: documentsContext, // Include documents context here
       };
       
-      const response = await fetch(`${API_BASE_URL}/ask-bizradar-ai`, {
+      const response = await fetch(API_ENDPOINTS.ASK_BIZRADAR_AI, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -3,3 +3,4 @@
 
 // Re-export environment variables and helpers
 export * from './env';
+export { API_ENDPOINTS } from '../../src/config/apiEndpoints';

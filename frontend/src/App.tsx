@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./components/Auth/AuthContext";
+import { UpgradeModalProvider } from "./components/subscription/UpgradeModalContext";
 import ProtectedRoute from "./components/Auth/ProtectedRoute";
 
 // Eagerly loaded (lightweight)
@@ -41,73 +42,75 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <AuthProvider>
-          <Suspense fallback={<div>Loading...</div>}>
-            <Routes>
-              {/* Public routes */}
-              <Route path="/" element={<Homepage children={null} />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/signup" element={<Signup />} />
-              <Route path="/company-setup" element={<CompanySetup />} />
-              <Route path="/logout" element={<Logout />} />
-              <Route path="/forgot-password" element={<ForgotPassword />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
-              <Route path="/contracts" element={<Contracts />} />
-              <Route path="/analytics" element={<Analytics />} />
+        <UpgradeModalProvider>
+          <AuthProvider>
+            <Suspense fallback={<div>Loading...</div>}>
+              <Routes>
+                {/* Public routes */}
+                <Route path="/" element={<Homepage children={null} />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/signup" element={<Signup />} />
+                <Route path="/company-setup" element={<CompanySetup />} />
+                <Route path="/logout" element={<Logout />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/contracts" element={<Contracts />} />
+                <Route path="/analytics" element={<Analytics />} />
 
-              {/* Protected routes */}
-              <Route path="/dashboard" element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              } />
-              <Route path="/opportunities" element={
-                <ProtectedRoute>
-                  <Opportunities />
-                </ProtectedRoute>
-              } />
-              <Route path="/opportunities/:id/details" element={
-                <ProtectedRoute>
-                  <OpportunityDetails />
-                </ProtectedRoute>
-              } />
-              <Route path="/pursuits" element={
-                <ProtectedRoute>
-                  <Pursuits />
-                </ProtectedRoute>
-              } />
-              <Route path="/admin" element={
-                <ProtectedRoute>
-                  <Admin />
-                </ProtectedRoute>
-              } />
-              <Route path="/settings" element={
-                <ProtectedRoute>
-                  <Settings />
-                </ProtectedRoute>
-              } />
-              <Route path="/contracts/rfp/:contractId" element={
-                <ProtectedRoute>
-                  <RfpWriter />
-                </ProtectedRoute>
-              } />
-              {/* Added both routes for BizradarAI for compatibility */}
-              <Route path="/ask-ai" element={
-                <ProtectedRoute>
-                  <BizradarAI />
-                </ProtectedRoute>
-              } />
-              <Route path="/bizradar-ai" element={
-                <ProtectedRoute>
-                  <BizradarAI />
-                </ProtectedRoute>
-              } />
+                {/* Protected routes */}
+                <Route path="/dashboard" element={
+                  <ProtectedRoute>
+                    <Dashboard />
+                  </ProtectedRoute>
+                } />
+                <Route path="/opportunities" element={
+                  <ProtectedRoute>
+                    <Opportunities />
+                  </ProtectedRoute>
+                } />
+                <Route path="/opportunities/:id/details" element={
+                  <ProtectedRoute>
+                    <OpportunityDetails />
+                  </ProtectedRoute>
+                } />
+                <Route path="/pursuits" element={
+                  <ProtectedRoute>
+                    <Pursuits />
+                  </ProtectedRoute>
+                } />
+                <Route path="/admin" element={
+                  <ProtectedRoute>
+                    <Admin />
+                  </ProtectedRoute>
+                } />
+                <Route path="/settings" element={
+                  <ProtectedRoute>
+                    <Settings />
+                  </ProtectedRoute>
+                } />
+                <Route path="/contracts/rfp/:contractId" element={
+                  <ProtectedRoute>
+                    <RfpWriter />
+                  </ProtectedRoute>
+                } />
+                {/* Added both routes for BizradarAI for compatibility */}
+                <Route path="/ask-ai" element={
+                  <ProtectedRoute>
+                    <BizradarAI />
+                  </ProtectedRoute>
+                } />
+                <Route path="/bizradar-ai" element={
+                  <ProtectedRoute>
+                    <BizradarAI />
+                  </ProtectedRoute>
+                } />
 
-              {/* 404 route */}
-              <Route path="*" element={<ComingSoon />} />
-            </Routes>
-          </Suspense>
-        </AuthProvider>
+                {/* 404 route */}
+                <Route path="*" element={<ComingSoon />} />
+              </Routes>
+            </Suspense>
+          </AuthProvider>
+        </UpgradeModalProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

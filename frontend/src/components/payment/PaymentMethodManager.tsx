@@ -7,10 +7,6 @@ import { toast } from 'sonner';
 import { useAuth } from '@/components/Auth/useAuth';
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
-const isDevelopment = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-const API_BASE_URL = isDevelopment
-  ? "http://localhost:5000"
-  : import.meta.env.VITE_API_BASE_URL;
 
 function PaymentMethodManager() {
   const { user } = useAuth();

@@ -819,7 +819,7 @@ export const Settings = () => {
                   <span>Upgrade</span>
                   <Star size={14} className="ml-1" />
                 </button>
-                <NotificationDropdown />
+                {/* <NotificationDropdown /> */}
                 <button
                   onClick={handleLogout}
                   className="bg-blue-50 text-blue-600 hover:bg-blue-100 px-4 py-2 rounded-lg text-sm flex items-center gap-2 border border-blue-100 transition-colors"
@@ -2617,8 +2617,8 @@ export const Settings = () => {
                     </div>
                   </div>
 
-                  {/* Billing History Section */}
-                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-6 transition-all hover:shadow-md">
+                  {/* Billing History Section--Hidden for now */}
+                  {/* <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-6 transition-all hover:shadow-md">
                     <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100">
                       <div className="flex items-center gap-3">
                         <div className="bg-blue-100 p-2 rounded-lg">
@@ -2736,7 +2736,7 @@ export const Settings = () => {
                         </table>
                       </div>
                     </div>
-                  </div>
+                  </div> */}
 
                   {/* Tax Information Section */}
                   <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-6 transition-all hover:shadow-md">
