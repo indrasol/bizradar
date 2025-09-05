@@ -107,11 +107,6 @@ const CompanySetup: React.FC = () => {
     }
   };
   
-  // Skip setup and continue to opportunities
-  const handleSkip = () => {
-    sessionStorage.setItem('showSettingsNotification', 'true');
-    navigate('/opportunities');
-  };
   
   return (
     <div className="flex justify-center items-center min-h-screen bg-gradient-to-b from-white to-gray-50 relative overflow-hidden">
@@ -159,7 +154,7 @@ const CompanySetup: React.FC = () => {
                 name="name"
                 value={formData.name}
                 onChange={handleChange}
-                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all"
+                className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-lg text-gray-800 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50 transition-all"
                 placeholder="Your Company"
                 required
               />
@@ -168,7 +163,7 @@ const CompanySetup: React.FC = () => {
             {/* Company URL */}
             <div>
               <label htmlFor="url" className="block text-sm font-medium text-gray-700 mb-1 ml-1">
-                Company Website URL
+                Company Website URL <span className="text-red-500">*</span>
               </label>
               <input
                 type="url"
@@ -176,8 +171,9 @@ const CompanySetup: React.FC = () => {
                 name="url"
                 value={formData.url}
                 onChange={handleChange}
-                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all"
+                className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-lg text-gray-800 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50 transition-all"
                 placeholder="https://www.example.com"
+                required
               />
             </div>
             
@@ -192,33 +188,22 @@ const CompanySetup: React.FC = () => {
                 value={formData.description}
                 onChange={handleChange}
                 rows={4}
-                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all"
+                className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-lg text-gray-800 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50 transition-all"
                 placeholder="Brief description of your company..."
               ></textarea>
             </div>
             
-            {/* Action Buttons */}
-            <div className="flex gap-4 pt-4">
-              <button
-                type="button"
-                onClick={handleSkip}
-                className="flex-1 py-3 px-4 border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors"
-              >
-                Skip for now
-              </button>
+            {/* Action Button */}
+            <div className="pt-4">
               <button
                 type="submit"
-                className="flex-1 py-3 px-4 bg-blue-600 hover:bg-blue-700 rounded-lg text-white font-medium transition-colors disabled:opacity-70"
+                className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 rounded-lg text-white font-medium transition-colors disabled:opacity-70"
                 disabled={isLoading}
               >
                 {isLoading ? 'Saving...' : 'Save & Continue'}
               </button>
             </div>
           </form>
-          
-          <div className="text-center mt-6 text-sm text-gray-500">
-            You can always update this information later from your Settings page.
-          </div>
         </div>
       </div>
     </div>
