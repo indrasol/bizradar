@@ -496,7 +496,7 @@ const Signup = ({
             <div className="text-center mt-6 text-gray-700">
               Already have an account?{" "}
               <Link
-                to="/login"
+                to="/register"
                 className="text-blue-600 font-medium hover:underline"
               >
                 Log In
