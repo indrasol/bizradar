@@ -304,7 +304,7 @@ const Login = ({ isOpen = true, onOpenChange = () => { }, onSwitchToRegister = (
               >
                 Sign up
               </button> */}
-              <Link to="/signup" className="text-blue-600 font-medium hover:underline">
+              <Link to="/register" className="text-blue-600 font-medium hover:underline">
                 Sign up
               </Link>
             </div>

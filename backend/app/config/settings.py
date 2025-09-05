@@ -37,9 +37,9 @@ load_env_file()
 print(f"Running in {ENV} environment")
 
 # Main
-title = os.getenv("title")
-description = os.getenv("description")
-version = os.getenv("version")
+title = os.getenv("title_BIZ")
+description = os.getenv("description_BIZ")
+version = os.getenv("version_BIZ")
 
 print(f"title: {title}, description: {description}, version: {version}")
 

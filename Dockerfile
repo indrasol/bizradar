@@ -1,27 +1,41 @@
 # ────────── build image ──────────
 FROM python:3.11-slim
+
+# Minimal, safe defaults
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PORT=8000
+
 WORKDIR /src
 
-# Install system dependencies that might be needed
-RUN apt-get update && apt-get install -y \
+# System deps (curl for healthcheck); keep it slim
+RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
-    && rm -rf /var/lib/apt/lists/*
+ && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first to leverage Docker cache
-COPY backend/app/requirements.txt app/
-RUN pip install --no-cache-dir -r app/requirements.txt
+# Copy requirements first to leverage cache
+COPY backend/app/requirements.txt ./app/requirements.txt
+RUN pip install --no-cache-dir -r ./app/requirements.txt
 
-# Copy the actual application code
-COPY backend/app/ app/
+# Copy application code
+COPY backend/app/ ./app/
 
-# Create a non-root user for security
+# Non-root user
 RUN useradd --create-home --shell /bin/bash appuser \
-    && chown -R appuser:appuser /src
+ && chown -R appuser:appuser /src
 USER appuser
 
-# gunicorn will listen on 8000 inside the container
+# App Service probes default to this; still useful for docs
 EXPOSE 8000
 
-# Simplified startup command with better error handling
-# CMD ["gunicorn", "--workers", "2", "--worker-class", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-", "--log-level", "info", "main:app"]
-CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2", "--access-log", "--log-level", "info"]
+# Healthcheck — expects a fast endpoint; change /healthz if needed
+HEALTHCHECK --interval=30s --timeout=3s --retries=5 \
+  CMD curl --fail --silent --max-time 2 http://127.0.0.1:${PORT}/healthz || exit 1
+
+# Start: bind to $PORT set by Azure; sh -c allows env expansion
+CMD ["sh","-c","python -m uvicorn app.main:app \
+  --host 0.0.0.0 \
+  --port ${PORT:-8000} \
+  --workers ${UVICORN_WORKERS:-2} \
+  --log-level ${LOG_LEVEL:-info}"]

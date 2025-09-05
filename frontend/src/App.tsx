@@ -13,6 +13,7 @@ import ProtectedRoute from "./components/Auth/ProtectedRoute";
 import Homepage from "./pages/Homepage";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import Logout from "./pages/Logout";
@@ -50,7 +51,8 @@ const App = () => (
                 <Route path="/" element={<Homepage children={null} />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
-                <Route path="/company-setup" element={<CompanySetup />} />
+                <Route path="/register" element={<Register />} />
+              <Route path="/company-setup" element={<CompanySetup />} />
                 <Route path="/logout" element={<Logout />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/reset-password" element={<ResetPassword />} />

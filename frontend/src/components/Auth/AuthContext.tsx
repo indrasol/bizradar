@@ -24,6 +24,9 @@ interface AuthContextType {
   sendPhoneOtp: (phone: string) => Promise<void>;
   verifyPhoneOtp: (phone: string, otp: string) => Promise<void>;
   updatePhoneNumber: (phone: string) => Promise<void>;
+  sendEmailOtp: (email: string) => Promise<void>;
+  verifyEmailOtp: (email: string, otp: string, firstName?: string, lastName?: string) => Promise<void>;
+  signupWithOtp: (firstName: string, lastName: string, email: string) => Promise<void>;
   trialInfo?: { remainingDays: number; isTrial: boolean; expired: boolean } | null;
   refreshTrialStatus?: () => Promise<void>;
 }
@@ -44,6 +47,9 @@ const AuthContext = createContext<AuthContextType>({
   sendPhoneOtp: async () => { },
   verifyPhoneOtp: async () => { },
   updatePhoneNumber: async () => { },
+  sendEmailOtp: async () => { },
+  verifyEmailOtp: async () => { },
+  signupWithOtp: async () => { },
   trialInfo: null,
   refreshTrialStatus: async () => { }
 });
@@ -658,6 +664,152 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   };
 
+  // Email OTP functions
+  const sendEmailOtp = async (email: string) => {
+    try {
+      const { error } = await supabase.auth.signInWithOtp({ 
+        email,
+        options: {
+          shouldCreateUser: false, // For login, don't create new users
+        }
+      });
+      
+      if (error) {
+        console.error("Failed to send email OTP:", error);
+        throw new Error(error.message);
+      }
+    } catch (error) {
+      throw new Error((error as AuthError).message || 'Failed to send OTP');
+    }
+  };
+
+  const verifyEmailOtp = async (email: string, otp: string, firstName?: string, lastName?: string) => {
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        email,
+        token: otp,
+        type: 'email',
+      });
+
+      if (error) {
+        console.error("Email OTP verification error:", error);
+        throw new Error(error.message);
+      }
+
+      // After successful verification, Supabase signs in user with a session
+      if (data.session && data.user) {
+        // If this is a new signup (firstName and lastName provided), update profile
+        if (firstName && lastName) {
+          try {
+            const { error: updateError } = await supabase
+              .from('profiles')
+              .update({
+                first_name: firstName,
+                last_name: lastName,
+              })
+              .eq('id', data.user.id);
+
+            if (updateError) {
+              console.warn('Profile update failed:', updateError.message);
+            }
+          } catch (profileError) {
+            console.warn('Profile update error:', profileError);
+          }
+        }
+
+        setSession(data.session);
+        setUser(data.user);
+        tokenService.setTokens(data.session.access_token, data.session.refresh_token);
+        sessionStorage.setItem("userActiveSession", "true");
+
+        // Device tracking logic for OTP login
+        let deviceId = localStorage.getItem('bizradar_device_id');
+        if (!deviceId) {
+          deviceId = crypto.randomUUID();
+          localStorage.setItem('bizradar_device_id', deviceId);
+        }
+        
+        const parser = new UAParser.UAParser();
+        const uaResult = parser.getResult();
+        const deviceName = `${uaResult.os.name || 'Unknown OS'} (${uaResult.browser.name || 'Unknown Browser'})`;
+        const location = 'Unknown';
+        
+        const deviceObj = {
+          device_id: deviceId,
+          name: deviceName,
+          last_active: new Date().toISOString(),
+          location,
+          current: true
+        };
+
+        try {
+          const { data: secData } = await supabase
+            .from('user_security')
+            .select('recent_devices')
+            .eq('user_id', data.user.id)
+            .single();
+          
+          let devices = secData?.recent_devices || [];
+          devices = devices.filter((d: any) => d.device_id !== deviceId);
+          devices = devices.map((d: any) => ({ ...d, current: false }));
+          devices.push(deviceObj);
+          
+          await supabase
+            .from('user_security')
+            .update({ recent_devices: devices })
+            .eq('user_id', data.user.id);
+        } catch (secError) {
+          console.warn('Device tracking update failed:', secError);
+        }
+
+        // Create trial subscription for new signups
+        if (firstName && lastName) {
+          try {
+            await subscriptionApi.getStatus(data.user.id);
+          } catch (e) {
+            // ignore – will also run on auth init
+          }
+        }
+      }
+    } catch (error) {
+      throw new Error((error as AuthError).message || 'Failed to verify OTP');
+    }
+  };
+
+  const signupWithOtp = async (firstName: string, lastName: string, email: string) => {
+    try {
+      // First, check if user already exists
+      const { data: existingUser } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', email)
+        .maybeSingle();
+
+      if (existingUser) {
+        throw new Error('An account with this email already exists. Please log in instead.');
+      }
+
+      // Send OTP for signup - this will create the user if they don't exist
+      const { error } = await supabase.auth.signInWithOtp({ 
+        email,
+        options: {
+          shouldCreateUser: true, // Allow user creation for signup
+          data: {
+            first_name: firstName,
+            last_name: lastName,
+          }
+        }
+      });
+      
+      if (error) {
+        console.error("Failed to send signup OTP:", error);
+        throw new Error(error.message);
+      }
+    } catch (error) {
+      throw new Error((error as AuthError).message || 'Failed to send signup OTP');
+    }
+  };
+
   // The value to be provided to consumers
   const value = {
     user,
@@ -674,6 +826,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     sendPhoneOtp,
     verifyPhoneOtp,
     updatePhoneNumber,
+    sendEmailOtp,
+    verifyEmailOtp,
+    signupWithOtp,
     trialInfo,
     refreshTrialStatus: async () => {
       if (!user) return;

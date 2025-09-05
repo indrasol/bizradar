@@ -100,7 +100,7 @@ export const SearchBar = ({
           className="w-full"
         />
         <Link 
-          to="/Login"
+          to="/register"
           // onClick={handleSearch} 
           // disabled={isLoading}
           className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm hover:shadow transition-all flex items-center gap-1"
