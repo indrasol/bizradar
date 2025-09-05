@@ -9,8 +9,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { emailService } from "@/utils/emailService";
 
 // Image Carousel Component
-const ImageCarousel = () => {
-  const [currentSlide, setCurrentSlide] = useState(0);
+const ImageCarousel = ({ currentSlide, setCurrentSlide }) => {
   const [autoplay, setAutoplay] = useState(true);
   const images = [
     {
@@ -96,7 +95,7 @@ const ImageCarousel = () => {
   };
   
   return (
-    <div className="h-[500px] relative">
+    <div className="h-full relative">
       {/* Direct image slides */}
       <AnimatePresence initial={false} custom={slideDirection}>
         <motion.div
@@ -111,38 +110,25 @@ const ImageCarousel = () => {
           {/* Full-height image container */}
           <div className="h-full w-full relative">
             {/* Ensure all images are fully visible without cutoff */}
-            <div className="w-full h-full flex items-center justify-center">
+            <div className="w-full h-full flex items-center justify-center p-4">
               <img 
                 src={images[currentSlide].src} 
                 alt={images[currentSlide].alt}
-                className="w-full h-full object-contain"
+                className="w-full h-full object-contain rounded-lg"
               />
             </div>
             
-            {/* Glass morphism caption overlay */}
-            <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-blue-600 to-blue-500 text-white">
-              <h3 className="font-medium text-white mb-1">{images[currentSlide].title}</h3>
-              <p className="text-xs opacity-90">{images[currentSlide].description}</p>
+            {/* Compact glass-effect blue badge */}
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-r from-blue-600/95 via-blue-700/95 to-blue-600/95 backdrop-blur-md border-t border-white/20 shadow-xl">
+              <div className="px-4 py-3 text-center">
+                <h3 className="font-bold text-white mb-1 text-base md:text-lg">{images[currentSlide].title}</h3>
+                <p className="text-white/90 text-xs md:text-sm font-medium leading-snug max-w-4xl mx-auto">{images[currentSlide].description}</p>
+              </div>
             </div>
           </div>
         </motion.div>
       </AnimatePresence>
       
-      {/* Navigation arrows removed as requested */}
-      
-      {/* Navigation dots with glass effect */}
-      <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center space-x-2 py-3 z-10">
-        {images.map((_, index) => (
-          <button
-            key={index}
-            onClick={() => goToSlide(index)}
-            className={`w-2 h-2 rounded-full transition-all ${
-              index === currentSlide ? 'bg-white w-6' : 'bg-white/60 hover:bg-white/80'
-            }`}
-            aria-label={`Go to slide ${index + 1}`}
-          />
-        ))}
-      </div>
     </div>
   );
 };
@@ -152,6 +138,7 @@ const ImageCarousel = () => {
 const Layout = ({ children }) => {
   const [email, setEmail] = useState("");
   const [isSubscribing, setIsSubscribing] = useState(false);
+  const [currentSlide, setCurrentSlide] = useState(0);
   const { toast } = useToast();
   const heroRef = useRef(null);
   const featuresRef = useRef(null);
@@ -326,102 +313,187 @@ const Layout = ({ children }) => {
       <main className="flex-1 bg-white">
         {children}
 
-        {/* Hero Section with Enhanced Visual Elements */}
+        {/* Hero Section with Modern Glassy Layout */}
         <section
           ref={heroRef}
-          className="relative py-16 md:py-24 lg:py-32 overflow-hidden w-full"
+          className="relative py-8 md:py-16 lg:py-20 overflow-hidden w-full min-h-[85vh] flex flex-col justify-center"
         >
-          {/* Enhanced background with subtle gradients */}
-          <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-br from-blue-50/40 via-white to-emerald-50/30 z-0"></div>
-          <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-tr from-purple-50/20 via-transparent to-blue-50/20 z-0 opacity-70"></div>
-          <div className="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-blue-50/30 to-transparent z-0"></div>
-          <div className="absolute top-1/3 left-0 w-full h-1/3 bg-gradient-to-r from-blue-50/20 via-transparent to-emerald-50/30 transform -skew-y-3 z-0"></div>
+          {/* Sophisticated Glassy Background Design */}
+          <div className="absolute inset-0 bg-gradient-to-br from-gray-50/80 via-blue-50/60 to-indigo-50/70 z-0"></div>
+          
+          {/* Layered Glass Effects */}
+          <div className="absolute inset-0 z-0">
+            {/* Primary glass layer */}
+            <div className="absolute inset-0 bg-gradient-to-tr from-white/40 via-blue-50/30 to-purple-50/25 backdrop-blur-[1px]"></div>
+            
+            {/* Secondary frosted layer */}
+            <div className="absolute inset-0 bg-gradient-to-bl from-transparent via-white/20 to-emerald-50/30 backdrop-blur-[0.5px]"></div>
+          </div>
+          
+          {/* Enhanced Geometric Background Elements */}
+          <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0">
+            {/* Large glass orbs with enhanced depth */}
+            <div className="absolute -top-40 -right-40 w-[500px] h-[500px] bg-gradient-to-br from-blue-200/15 via-blue-100/10 to-transparent rounded-full blur-3xl backdrop-blur-sm"></div>
+            <div className="absolute -top-32 -right-32 w-96 h-96 bg-gradient-to-br from-white/20 via-blue-50/15 to-transparent rounded-full blur-2xl backdrop-blur-[2px] border border-white/10"></div>
+            
+            {/* Bottom left glass cluster */}
+            <div className="absolute -bottom-32 -left-32 w-80 h-80 bg-gradient-to-tr from-emerald-200/12 via-emerald-100/8 to-transparent rounded-full blur-3xl backdrop-blur-sm"></div>
+            <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-gradient-to-tr from-white/15 via-emerald-50/10 to-transparent rounded-full blur-xl backdrop-blur-[1px] border border-white/8"></div>
+            
+            {/* Mid-section glass elements */}
+            <div className="absolute top-1/4 left-1/5 w-40 h-40 bg-gradient-to-r from-purple-100/20 via-white/10 to-blue-100/15 rounded-full blur-2xl backdrop-blur-[1px]"></div>
+            <div className="absolute bottom-1/3 right-1/5 w-32 h-32 bg-gradient-to-l from-emerald-100/18 via-white/12 to-blue-100/10 rounded-full blur-xl backdrop-blur-[0.5px]"></div>
+            
+            {/* Center accent glass */}
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-r from-transparent via-white/5 to-transparent rounded-full blur-3xl"></div>
+            
+            {/* Refined grid pattern with glass effect */}
+            <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.1)_1px,transparent_1px)] bg-[size:40px_40px] opacity-30"></div>
+            
+            
+            {/* Additional depth layers */}
+            <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-white/10 via-transparent to-white/5 backdrop-blur-[0.5px]"></div>
+            <div className="absolute inset-0" style={{background: 'radial-gradient(ellipse at center, transparent 0%, rgba(255,255,255,0.03) 50%, transparent 100%)'}}></div>
+          </div>
+          
+          {/* Subtle glass overlay for content area */}
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/5 to-transparent z-5 backdrop-blur-[0.5px]"></div>
 
           <div className="container mx-auto px-4 sm:px-6 md:px-8 relative z-10 w-full">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-              {/* Text content - enhanced with staggered animation */}
-              <motion.div
-                className="px-2 sm:px-0"
-                initial="hidden"
-                animate={heroInView ? "visible" : "hidden"}
-                variants={staggerChildren}
-              >
-                <motion.h1
-                  className="text-3xl sm:text-4xl md:text-2xl lg:text-6xl font-extrabold leading-tight mb-3 md:mb-4"
-                  variants={itemFadeIn}
-                >
-                  <span className="bg-blue-600 bg-clip-text text-transparent text-[95%]">Win Government </span>
-                  <span className="bg-emerald-500 bg-clip-text text-transparent text-[95%]">Contracts </span>
-                  <span className="text-gray-800 text-[95%]">with AI</span>
-                </motion.h1>
+            {/* Content Section - Adjusted Position */}
+            <motion.div
+              className="text-center mb-12 md:mb-20 mt-8 md:mt-0"
+              initial="hidden"
+              animate={heroInView ? "visible" : "hidden"}
+              variants={staggerChildren}
+            >
 
-                {/* Tagline */}
-                <motion.p
-                  className="text-lg md:text-xl text-gray-600 mb-6 md:mb-8 font-medium max-w-xl"
-                  variants={itemFadeIn}
-                >
-                  Smarter contracts. Faster submissions. More wins.<br/>Turn RFP chaos into clarity.
-                </motion.p>
-                <motion.div
-                  className="flex flex-col sm:flex-row gap-4"
-                  variants={itemFadeIn}
-                >
-                  <Link to="/signup" className="bg-emerald-500 hover:bg-emerald-600 text-white px-3 sm:px-5 md:px-6 py-2 md:py-3 rounded-lg font-semibold text-center transition-all duration-300 shadow-md hover:shadow-xl flex items-center justify-center text-xs sm:text-sm relative overflow-hidden group">
-                    <span className="relative z-10 flex items-center">Start Finding Contracts for Free <ArrowRight className="ml-1.5 w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform group-hover:translate-x-1" /></span>
-                    <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-emerald-600 transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
-                  </Link>
-                  <Link to="/demo" className="border-2 border-blue-600 text-blue-700 bg-white hover:bg-blue-50 px-4 sm:px-6 md:px-8 py-3 md:py-4 rounded-lg font-medium text-center transition-all duration-300 hover:shadow-md flex items-center justify-center text-sm sm:text-base relative overflow-hidden group">
-                    <span className="relative z-10">Watch Demo Video</span>
-                    <div className="absolute inset-0 bg-blue-50 transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
-                  </Link>
-                </motion.div>
+              <motion.h1
+                className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold leading-tight mb-8 md:mb-10 max-w-5xl mx-auto"
+                variants={itemFadeIn}
+              >
+                <span className="bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent">Win Government </span>
+                <span className="bg-gradient-to-r from-emerald-500 to-emerald-600 bg-clip-text text-transparent">Contracts </span>
+                <span className="bg-gradient-to-r from-gray-800 to-gray-900 bg-clip-text text-transparent">with AI</span>
+              </motion.h1>
+
+              {/* Enhanced Tagline - All on One Line */}
+              <motion.p
+                className="text-xl md:text-2xl lg:text-3xl text-gray-600 mb-10 md:mb-14 font-medium max-w-5xl mx-auto leading-relaxed"
+                variants={itemFadeIn}
+              >
+                Smarter contracts. Faster submissions. Turn RFP chaos into clarity. More wins.
+              </motion.p>
+
+              {/* CTA Buttons */}
+              <motion.div
+                className="flex flex-col sm:flex-row gap-5 sm:gap-8 justify-center items-center"
+                variants={itemFadeIn}
+              >
+                <Link to="/signup" className="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white px-10 py-5 rounded-xl font-bold text-xl transition-all duration-300 shadow-xl hover:shadow-2xl flex items-center justify-center relative overflow-hidden group transform hover:-translate-y-1">
+                  <span className="relative z-10 flex items-center">
+                    Start Finding Contracts for Free 
+                    <ArrowRight className="ml-3 w-6 h-6 transition-transform group-hover:translate-x-2" />
+                  </span>
+                  <div className="absolute inset-0 bg-gradient-to-r from-emerald-600 to-emerald-700 transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
+                </Link>
+                
+                <Link to="/demo" className="border-2 border-blue-600 text-blue-700 bg-white/80 backdrop-blur-sm hover:bg-blue-50 px-10 py-5 rounded-xl font-bold text-xl transition-all duration-300 hover:shadow-xl flex items-center justify-center relative overflow-hidden group">
+                  <span className="relative z-10 flex items-center">
+                    Watch Demo Video
+                    <ArrowRight className="ml-3 w-6 h-6 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-x-0 group-hover:translate-x-2" />
+                  </span>
+                  <div className="absolute inset-0 bg-blue-50 transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
+                </Link>
               </motion.div>
+            </motion.div>
 
-              {/* Image Carousel Component */}
-              <motion.div
-                className="hidden lg:block lg:self-center"
-                initial="hidden"
-                animate={heroInView ? 'visible' : 'hidden'}
-                variants={fadeIn}
-              >
-                {/* Carousel container */}
-                <div className="w-full max-w-xl mx-auto overflow-hidden rounded-lg -mt-20">
-                  <ImageCarousel />
+            {/* Image Carousel Section - Now at Bottom */}
+            <motion.div
+              className="max-w-6xl mx-auto"
+              initial="hidden"
+              animate={heroInView ? 'visible' : 'hidden'}
+              variants={fadeIn}
+            >
+              {/* Carousel container with enhanced glassy styling */}
+              <div className="relative bg-white/70 backdrop-blur-md rounded-3xl shadow-2xl border border-white/30 overflow-hidden">
+                {/* Enhanced glass glow effect */}
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/8 via-white/5 to-emerald-500/8 rounded-3xl"></div>
+                <div className="absolute inset-0 bg-gradient-to-b from-white/10 via-transparent to-white/5 rounded-3xl"></div>
+                
+                {/* Inner glass border */}
+                <div className="absolute inset-[1px] rounded-3xl border border-white/20"></div>
+                
+                {/* Carousel with improved height */}
+                <div className="relative h-[400px] md:h-[500px] lg:h-[600px]">
+                  <ImageCarousel currentSlide={currentSlide} setCurrentSlide={setCurrentSlide} />
                 </div>
-              </motion.div>
-            </div>
-          </div>
-
-          {/* Stats bar - enhanced with gradient backgrounds and animations */}
-          <motion.div
-            className="container mx-auto px-6 md:px-8 mt-24"
-            initial="hidden"
-            animate={heroInView ? "visible" : "hidden"}
-            variants={fadeIn}
-          >
-            <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg py-6 sm:py-8 px-4 sm:px-6 md:px-10 mx-2 sm:mx-4 md:mx-0 md:ml-4 lg:ml-16 border border-gray-100">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6 lg:gap-8">
-                {[
-                  { label: "Contracts Found", value: "10,000+", icon: <Search className="w-6 h-6 text-yellow-500" />, bgColor: "bg-yellow-50" },
-                  { label: "Avg. Time Saved", value: "65%", icon: <Zap className="w-6 h-6 text-emerald-500" />, bgColor: "bg-emerald-50" },
-                  { label: "Proposal Templates", value: "25+", icon: <Lock className="w-6 h-6 text-blue-500" />, bgColor: "bg-blue-50" },
-                  { label: "Agency Coverage", value: "100%", icon: <User className="w-6 h-6 text-purple-500" />, bgColor: "bg-purple-50" }
-                ].map((stat, i) => (
-                  <motion.div
-                    key={i}
-                    className="flex flex-col items-center text-center group"
-                    variants={itemFadeIn}
-                  >
-                    <div className={`mb-4 w-14 h-14 ${stat.bgColor} rounded-full flex items-center justify-center shadow-sm group-hover:shadow-md transition-all duration-300 transform group-hover:scale-110`}>
-                      {stat.icon}
-                    </div>
-                    <p className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-900 bg-clip-text text-transparent">{stat.value}</p>
-                    <p className="text-sm text-gray-500">{stat.label}</p>
-                  </motion.div>
+              </div>
+              
+              {/* Navigation dots outside carousel */}
+              <div className="flex items-center justify-center space-x-3 mt-6">
+                {[0, 1, 2].map((index) => (
+                  <button
+                    key={index}
+                    onClick={() => setCurrentSlide(index)}
+                    className={`h-3 rounded-full transition-all duration-300 shadow-lg ${
+                      index === currentSlide
+                        ? 'bg-blue-600 w-10' 
+                        : 'bg-gray-300 hover:bg-gray-400 w-3'
+                    }`}
+                    aria-label={`Go to slide ${index + 1}`}
+                  />
                 ))}
               </div>
-            </div>
-          </motion.div>
+            </motion.div>
+          </div>
+
+        </section>
+
+        {/* Stats Section */}
+        <section className="py-16 md:py-20 bg-gradient-to-b from-gray-50/30 via-white/50 to-blue-50/20 relative overflow-hidden">
+          {/* Subtle background elements */}
+          <div className="absolute inset-0 overflow-hidden">
+            <div className="absolute top-10 right-20 w-32 h-32 bg-blue-100/10 rounded-full blur-2xl"></div>
+            <div className="absolute bottom-10 left-20 w-40 h-40 bg-emerald-100/8 rounded-full blur-3xl"></div>
+          </div>
+          
+          <div className="container mx-auto px-4 sm:px-6 md:px-8 relative z-10">
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              variants={fadeIn}
+            >
+              <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl py-8 sm:py-12 px-6 sm:px-8 md:px-12 border border-white/40 max-w-6xl mx-auto relative overflow-hidden">
+                {/* Glass overlay effects */}
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-50/20 via-white/10 to-emerald-50/20 rounded-3xl"></div>
+                <div className="absolute inset-[1px] rounded-3xl border border-white/30"></div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8 lg:gap-12 relative z-10">
+                  {[
+                    { label: "Contracts Found", value: "10,000+", icon: <Search className="w-7 h-7 text-yellow-500" />, bgColor: "bg-yellow-50/80", accentColor: "border-yellow-200/60" },
+                    { label: "Avg. Time Saved", value: "65%", icon: <Zap className="w-7 h-7 text-emerald-500" />, bgColor: "bg-emerald-50/80", accentColor: "border-emerald-200/60" },
+                    { label: "Proposal Templates", value: "25+", icon: <FileText className="w-7 h-7 text-blue-500" />, bgColor: "bg-blue-50/80", accentColor: "border-blue-200/60" },
+                    { label: "Agency Coverage", value: "100%", icon: <BarChart4 className="w-7 h-7 text-purple-500" />, bgColor: "bg-purple-50/80", accentColor: "border-purple-200/60" }
+                  ].map((stat, i) => (
+                    <motion.div
+                      key={i}
+                      className="flex flex-col items-center text-center group"
+                      variants={itemFadeIn}
+                      whileHover={{ y: -5 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <div className={`mb-4 w-16 h-16 ${stat.bgColor} backdrop-blur-sm rounded-2xl border-2 ${stat.accentColor} flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 transform group-hover:scale-110`}>
+                        {stat.icon}
+                      </div>
+                      <p className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-gray-800 to-gray-900 bg-clip-text text-transparent mb-1">{stat.value}</p>
+                      <p className="text-sm md:text-base text-gray-600 font-medium">{stat.label}</p>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          </div>
         </section>
 
         {/* How it Works Section */}
@@ -759,7 +831,7 @@ const Layout = ({ children }) => {
                     <Radar className="w-8 h-8 text-blue-600 relative z-10 transition-transform group-hover:rotate-12 duration-300" />
                   </div>
                   <div className="flex items-end">
-                    <span className="text-2xl font-semibold bg-gradient-to-r from-blue-600 to-emerald-500 bg-clip-text text-transparent">Bizradar</span>
+                    <span className="text-2xl font-semibold text-blue-600">Bizradar</span>
                     <a 
                       href="https://indrasol.com" 
                       target="_blank" 
