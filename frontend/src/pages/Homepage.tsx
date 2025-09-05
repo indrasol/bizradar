@@ -287,11 +287,11 @@ const Layout = ({ children }) => {
             <Link to="/dashboard" className="text-gray-700 hover:text-blue-600 relative after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-0 after:bg-blue-600 hover:after:w-full after:transition-all after:duration-300">About</Link>
             */}
             <div className="h-6 w-px bg-gradient-to-b from-gray-100 to-gray-300 mx-2"></div>
-            <Link to="/login" className="text-blue-600 hover:text-blue-800 font-medium transition-colors">Login</Link>
+            <Link to="/register" className="text-blue-600 hover:text-blue-800 font-medium transition-colors">Login</Link>
             {/* <button className="bg-emerald-500 hover:from-blue-700 hover:to-emerald-600 text-white px-5 py-2 rounded-lg font-medium transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5">
               Get Started
             </button> */}
-            <Link to="/signup" className="bg-emerald-500 hover:from-blue-700 hover:to-emerald-600 text-white px-5 py-2 rounded-lg font-medium transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5">
+            <Link to="/register" className="bg-emerald-500 hover:from-blue-700 hover:to-emerald-600 text-white px-5 py-2 rounded-lg font-medium transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5">
               Get Started
             </Link>
           </nav>
@@ -390,7 +390,7 @@ const Layout = ({ children }) => {
                 className="flex flex-col sm:flex-row gap-5 sm:gap-8 justify-center items-center"
                 variants={itemFadeIn}
               >
-                <Link to="/signup" className="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white px-10 py-5 rounded-xl font-bold text-xl transition-all duration-300 shadow-xl hover:shadow-2xl flex items-center justify-center relative overflow-hidden group transform hover:-translate-y-1">
+                <Link to="/register" className="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white px-10 py-5 rounded-xl font-bold text-xl transition-all duration-300 shadow-xl hover:shadow-2xl flex items-center justify-center relative overflow-hidden group transform hover:-translate-y-1">
                   <span className="relative z-10 flex items-center">
                     Start Finding Contracts for Free 
                     <ArrowRight className="ml-3 w-6 h-6 transition-transform group-hover:translate-x-2" />
@@ -594,7 +594,7 @@ const Layout = ({ children }) => {
             </div>
 
             <div className="mt-12 text-center">
-              <Link to="/signup" className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300 shadow-md hover:shadow-xl">
+              <Link to="/register" className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300 shadow-md hover:shadow-xl">
                 Try Bizradar for Free <ArrowRight className="w-5 h-5" />
               </Link>
             </div>
