@@ -13,7 +13,7 @@ interface ProtectedRouteProps {
  */
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ 
   children, 
-  redirectTo = '/login' 
+  redirectTo = '/register' 
 }) => {
   const { isAuthenticated, loading } = useContext(AuthContext);
   const location = useLocation();
@@ -27,7 +27,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     );
   }
 
-  // Redirect to login if not authenticated
+  // Redirect to register if not authenticated
   if (!isAuthenticated) {
     // Save the attempted URL for redirection after login
     const currentPath = location.pathname + location.search + location.hash;
