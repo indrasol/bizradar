@@ -71,8 +71,9 @@ const SuggestedSearches: React.FC<SuggestedSearchesProps> = ({ suggestedQueries,
         <div className="flex items-center gap-2">
           <HelpCircle size={18} className="text-blue-500" />
           <span className="text-sm text-gray-600">
-            Need help finding opportunities? Try our <a href="#" className="text-blue-600 font-medium">guided search wizard</a> or{" "}
-            <a href="#" className="text-blue-600 font-medium">contact support</a>.
+            Need help finding opportunities? Try our <a href="#" className="text-blue-600 font-medium">guided search wizard</a> 
+            {/* or{" "}
+            <a href="#" className="text-blue-600 font-medium">contact support</a>. */}
           </span>
         </div>
       </div>

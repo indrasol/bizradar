@@ -1,10 +1,6 @@
 import { useEffect, useState, useContext } from "react";
 import AuthContext from '@/components/Auth/AuthContext';
-
-const isDevelopment = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-const API_BASE_URL = isDevelopment
-  ? "http://localhost:5000"
-  : import.meta.env.VITE_API_BASE_URL;
+import { API_ENDPOINTS } from "@/config/apiEndpoints";
 
 interface StripePaymentVerifierProps {
   onSuccess?: () => void;
@@ -23,7 +19,7 @@ const StripePaymentVerifier: React.FC<StripePaymentVerifierProps> = ({ onSuccess
 
     if (payment === "success" && sessionId) {
       setPaymentStatus("pending");
-      fetch(`${API_BASE_URL}/api/stripe/verify-session?session_id=${sessionId}`)
+      fetch(API_ENDPOINTS.STRIPE_VERIFY_SESSION + `?session_id=${sessionId}`)
         .then(res => res.json())
         .then(data => {
           if (data.success) {

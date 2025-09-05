@@ -1,10 +1,7 @@
 import { supabase } from '@/utils/supabase';
 import { Subscription, SubscriptionPlan } from '@/models/subscription';
 import { useToast } from '@/components/ui/use-toast';
-
-// Define API base URL
-const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-const API_BASE_URL = isDevelopment ? 'http://localhost:5000' : import.meta.env.VITE_API_BASE_URL;
+import { API_ENDPOINTS } from '@/config/apiEndpoints';
 
 // Stripe price IDs
 const STRIPE_PRICES = {
@@ -110,7 +107,7 @@ export const subscriptionApi = {
     }
 
     // Call our backend to create a checkout session
-    const response = await fetch(`${API_BASE_URL}/api/create-checkout-session`, {
+    const response = await fetch(API_ENDPOINTS.CREATE_CHECKOUT_SESSION, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -193,7 +190,7 @@ export const subscriptionApi = {
   // },
 
   async createSubscriptionPaymentIntent(planType: string, userId: string): Promise<string> {
-    const res = await fetch(`${API_BASE_URL}/api/subscription/payment-intent`, {
+    const res = await fetch(API_ENDPOINTS.SUBSCRIPTION_PAYMENT_INTENT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ plan_type: planType, user_id: userId })
@@ -205,7 +202,7 @@ export const subscriptionApi = {
   ,
 
   async getStatus(userId: string) {
-    const res = await fetch(`${API_BASE_URL}/api/subscription/status?user_id=${encodeURIComponent(userId)}`);
+    const res = await fetch(API_ENDPOINTS.SUBSCRIPTION_STATUS + `?user_id=${encodeURIComponent(userId)}`);
     if (!res.ok) throw new Error('Failed to fetch subscription status');
     return res.json();
   }

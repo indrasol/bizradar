@@ -5,10 +5,11 @@ import { HeaderProps } from "@/models/opportunities";
 import { NotificationDropdown } from "../notifications/NotificationDropdown";
 import { SupportTicketForm } from "../support/SupportTicketForm";
 import { UpgradeModal } from "../subscription/UpgradeModal";
+import { useUpgradeModal } from "../subscription/UpgradeModalContext";
 
 const Header: React.FC<HeaderProps> = ({ logout, pursuitCount }) => {
   const [showSupportForm, setShowSupportForm] = useState(false);
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const { isOpen: showUpgradeModal, openModal: setShowUpgradeModal, closeModal } = useUpgradeModal();
 
   return (
     <>
@@ -30,7 +31,7 @@ const Header: React.FC<HeaderProps> = ({ logout, pursuitCount }) => {
               )}
             </Link>
             <button 
-              onClick={() => setShowUpgradeModal(true)}
+              onClick={() => setShowUpgradeModal()}
               className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm hover:shadow transition-all flex items-center gap-1"
             >
               <span>Upgrade</span>
@@ -65,8 +66,8 @@ const Header: React.FC<HeaderProps> = ({ logout, pursuitCount }) => {
 
       <UpgradeModal
         isOpen={showUpgradeModal}
-        onClose={() => setShowUpgradeModal(false)}
-        onSuccess={() => setShowUpgradeModal(false)}
+        onClose={closeModal}
+        onSuccess={closeModal}
       />
     </>
   );

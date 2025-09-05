@@ -1,15 +1,13 @@
+import { API_ENDPOINTS } from "@/config/apiEndpoints";
+
 interface ChatMessage {
   role: "user" | "assistant";
   content: string;
 }
 
-// Use a constant for the base API URL
-const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-const API_BASE_URL = isDevelopment ? 'http://localhost:5000' : import.meta.env.VITE_API_BASE_URL;
-
 export async function getAIResponse(messages: ChatMessage[], documentContent?: string) {
   try {
-    const response = await fetch(`${API_BASE_URL}/ask-ai`, {
+    const response = await fetch(API_ENDPOINTS.ASK_AI, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -34,7 +32,7 @@ export async function getAIResponse(messages: ChatMessage[], documentContent?: s
 
 // Example API function
 export const fetchOpportunities = async (query, page, pageSize) => {
-    const response = await fetch(`${API_BASE_URL}/search-opportunities`, {
+    const response = await fetch(API_ENDPOINTS.SEARCH_OPPORTUNITIES, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

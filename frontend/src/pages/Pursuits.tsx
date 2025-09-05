@@ -15,11 +15,7 @@ import { ListView } from "@/components/pursuits/ListView";
 import { CreatePursuitDialog } from "@/components/pursuits/CreatePursuitDialog";
 import { Pursuit, Opportunity, RfpSaveEventDetail } from "@/components/pursuits/types";
 import ScrollToTopButton from "../components/opportunities/ScrollToTopButton";
-
-const isDevelopment = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-const API_BASE_URL = isDevelopment
-  ? "http://localhost:5000"
-  : import.meta.env.VITE_API_BASE_URL;
+import { API_ENDPOINTS } from "@/config/apiEndpoints";
 
 export default function Pursuits(): JSX.Element {
   const { logout } = useAuth();
@@ -81,7 +77,7 @@ export default function Pursuits(): JSX.Element {
       // Call the backend endpoint directly with the correct port
       try {
         
-        const backendResponse = await fetch(`${API_BASE_URL}/ask-bizradar-ai`, {
+        const backendResponse = await fetch(API_ENDPOINTS.ASK_BIZRADAR_AI, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -635,8 +631,7 @@ export default function Pursuits(): JSX.Element {
   );
 
   const handleViewAnalytics = () => {
-    // Implement analytics view
-    toast.info("Analytics view coming soon!");
+    navigate('/analytics');
   };
 
   const handleNewPursuit = () => {
@@ -670,7 +665,7 @@ export default function Pursuits(): JSX.Element {
       const noticeId = data ? data.notice_id : null;
 
       try {
-        const backendResponse = await fetch(`${API_BASE_URL}/ask-bizradar-ai`, {
+        const backendResponse = await fetch(API_ENDPOINTS.ASK_BIZRADAR_AI, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

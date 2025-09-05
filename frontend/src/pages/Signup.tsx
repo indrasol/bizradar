@@ -123,8 +123,12 @@ const Signup = ({
       onOpenChange(false);
       signupForm.reset();
 
-      // Redirect to company setup instead of dashboard
-      navigate("/company-setup");
+      // Email confirmation is always required - no immediate login
+      toast.success("Account created! Please check your email and confirm your account to continue.");
+      toast.info("You will be redirected to login after email confirmation.");
+      
+      // Always redirect to login since email confirmation is required
+      navigate("/login");
     } catch (err: any) {
       console.error("Signup error:", err);
       // Check for specific error messages from Supabase
