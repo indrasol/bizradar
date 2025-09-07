@@ -9,8 +9,13 @@ from app.routes.webhooks import router as webhook_router
 from contextlib import asynccontextmanager
 from app.utils.rec_queue import start_consumer_loop
 from app.routes.payment_methods import router as payment_methods_router
-from app.utils.subscription import get_subscription_status
+from app.utils.supabase_subscription import subscription_manager
 from app.routes.checkout import router as checkout_router
+from app.routes.subscription_routes import router as subscription_router
+from app.routes.company_routes import router as company_router
+from app.routes.pursuit_routes import router as pursuit_router
+from app.routes.tracker_routes import router as tracker_router
+from app.routes.profile_routes import router as profile_router
 from app.config.settings import title, description, version
 
 
@@ -69,14 +74,16 @@ app.include_router(admin_router, prefix="/api", tags=["admin"])
 app.include_router(email_router, prefix="/api", tags=["email"])
 app.include_router(checkout_router, prefix="/api", tags=["checkout"])
 app.include_router(payment_methods_router, prefix="/api", tags=["payment-methods"])
+app.include_router(subscription_router, prefix="/api/subscription", tags=["subscription"])
+app.include_router(company_router, prefix="/api/company", tags=["company"])
+app.include_router(pursuit_router, prefix="/api/pursuits", tags=["pursuits"])
+app.include_router(tracker_router, prefix="/api/trackers", tags=["trackers"])
+app.include_router(profile_router, prefix="/api/profile", tags=["profile"])
 
 # Webhook endpoint - no /api prefix since it's called directly by Stripe
 app.include_router(webhook_router, prefix="")
 
-# Fallback/direct status route to ensure availability
-@app.get("/api/subscription/status")
-def subscription_status(user_id: str = Query(...)):
-    return get_subscription_status(user_id, create_if_missing=True)
+# Note: Subscription status endpoint is now handled by subscription_routes.py
 
 if __name__ == "__main__":
     import uvicorn

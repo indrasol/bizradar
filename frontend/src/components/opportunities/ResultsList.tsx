@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from "react";
-import { Download, Bell, Shield, Search, Zap, Database, Code } from "lucide-react";
+import { Download, Bell, Shield, Search, Zap, Database, Code, HelpCircle } from "lucide-react";
 import OpportunityCard from "./OpportunityCard";
 import Pagination from "./Pagination";
 import SuggestedSearches from "./SuggestedSearches";
@@ -85,17 +85,11 @@ const ResultsList: React.FC<ResultsListProps & { onScroll?: (scrollTop: number) 
     <div ref={refToUse} className="flex-1 overflow-y-auto p-2 results-container">
       <div className="border-b border-gray-200 px-5 py-2 bg-white flex items-center justify-between">
         <div className="flex items-center gap-6">
-          <div
-            className={`py-3 px-1 border-b-2 ${sortBy === "relevance" ? "border-blue-500 text-blue-600 font-medium" : "border-transparent text-gray-500 hover:text-gray-700"} cursor-pointer`}
-            onClick={() => setSortBy("relevance")}
-          >
-            Most Relevant
-          </div>
-          <div
-            className={`py-3 px-1 border-b-2 ${sortBy === "ending_soon" ? "border-blue-500 text-blue-600 font-medium" : "border-transparent text-gray-500 hover:text-gray-700"} cursor-pointer`}
-            onClick={() => setSortBy("ending_soon")}
-          >
-            Ending Soon
+          <div className="flex items-center gap-2">
+            <HelpCircle size={16} className="text-blue-500" />
+            <span className="text-sm text-gray-600">
+              Need help finding opportunities? Try below <a href="#" className="text-blue-600 font-medium">guided popular searches wizard</a>.
+            </span>
           </div>
         </div>
         {hasSearched && !isSearching && (

@@ -316,79 +316,82 @@ const Admin = () => {
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Header */}
           <div className="border-b border-gray-200 bg-white shadow-sm">
-            <div className="flex items-center justify-between px-6 py-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-4 sm:px-6 py-3 sm:py-4 gap-3 sm:gap-0">
               <div className="flex items-center gap-2">
-                <Link to="/dashboard" className="text-gray-500 text-sm font-medium hover:text-blue-600 transition-colors">Home</Link>
-                <ChevronRight size={16} className="text-gray-400" />
-                <span className="font-medium text-gray-800">Admin</span>
+                <Link to="/dashboard" className="text-gray-500 text-xs sm:text-sm font-medium hover:text-blue-600 transition-colors">Home</Link>
+                <ChevronRight size={14} className="text-gray-400 sm:w-4 sm:h-4" />
+                <span className="font-medium text-gray-800 text-sm sm:text-base">Admin</span>
               </div>
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
                 <button 
-                  className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors shadow-sm"
+                  className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors shadow-sm text-sm sm:text-base w-full sm:w-auto"
                   onClick={fetchRecords} 
                   disabled={isLoading}
                 >
                   <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-                  Refresh
+                  <span className="sm:inline">Refresh</span>
                 </button>
                 
                 <button 
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                  className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm text-sm sm:text-base w-full sm:w-auto"
                   onClick={() => setActiveTab("etl")}
                 >
                   <Database className="h-4 w-4" />
-                  ETL Dashboard
+                  <span className="sm:inline">ETL Dashboard</span>
                 </button>
               </div>
             </div>
           </div>
 
           {/* Main Content Area */}
-          <div className="flex-1 overflow-auto p-6">
+          <div className="flex-1 overflow-auto p-4 sm:p-6">
             {/* Page Title */}
-            <div className="mb-6">
-              <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-              <p className="text-gray-500 mt-1">Manage data workflows and system settings</p>
+            <div className="mb-4 sm:mb-6">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Admin Dashboard</h1>
+              <p className="text-sm sm:text-base text-gray-500 mt-1">Manage data workflows and system settings</p>
             </div>
             
             {/* Tabs */}
-            <div className="mb-6">
+            <div className="mb-4 sm:mb-6">
               <div className="border-b border-gray-200">
-                <nav className="flex -mb-px">
+                <nav className="flex -mb-px overflow-x-auto">
                   <button
                     onClick={() => setActiveTab("etl")}
-                    className={`inline-flex items-center px-4 py-2 border-b-2 ${
+                    className={`inline-flex items-center px-3 sm:px-4 py-2 border-b-2 whitespace-nowrap ${
                       activeTab === "etl" 
                         ? "border-blue-500 text-blue-600" 
                         : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                    } font-medium text-sm`}
+                    } font-medium text-xs sm:text-sm`}
                   >
-                    <Database className={`h-4 w-4 mr-2 ${activeTab === "etl" ? "text-blue-500" : "text-gray-400"}`} />
-                    ETL Monitoring
+                    <Database className={`h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 ${activeTab === "etl" ? "text-blue-500" : "text-gray-400"}`} />
+                    <span className="hidden sm:inline">ETL Monitoring</span>
+                    <span className="sm:hidden">ETL</span>
                   </button>
                   
                   <button
                     onClick={() => setActiveTab("users")}
-                    className={`inline-flex items-center px-4 py-2 border-b-2 ${
+                    className={`inline-flex items-center px-3 sm:px-4 py-2 border-b-2 whitespace-nowrap ${
                       activeTab === "users" 
                         ? "border-blue-500 text-blue-600" 
                         : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                    } font-medium text-sm`}
+                    } font-medium text-xs sm:text-sm`}
                   >
-                    <Users className={`h-4 w-4 mr-2 ${activeTab === "users" ? "text-blue-500" : "text-gray-400"}`} />
-                    User Management
+                    <Users className={`h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 ${activeTab === "users" ? "text-blue-500" : "text-gray-400"}`} />
+                    <span className="hidden sm:inline">User Management</span>
+                    <span className="sm:hidden">Users</span>
                   </button>
                   
                   <button
                     onClick={() => setActiveTab("logs")}
-                    className={`inline-flex items-center px-4 py-2 border-b-2 ${
+                    className={`inline-flex items-center px-3 sm:px-4 py-2 border-b-2 whitespace-nowrap ${
                       activeTab === "logs" 
                         ? "border-blue-500 text-blue-600" 
                         : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                    } font-medium text-sm`}
+                    } font-medium text-xs sm:text-sm`}
                   >
-                    <Terminal className={`h-4 w-4 mr-2 ${activeTab === "logs" ? "text-blue-500" : "text-gray-400"}`} />
-                    System Logs
+                    <Terminal className={`h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 ${activeTab === "logs" ? "text-blue-500" : "text-gray-400"}`} />
+                    <span className="hidden sm:inline">System Logs</span>
+                    <span className="sm:hidden">Logs</span>
                   </button>
                 </nav>
               </div>
@@ -425,28 +428,28 @@ const Admin = () => {
                   
                   {/* Workflow Trigger Card */}
                   <div className="bg-white shadow-sm rounded-xl overflow-hidden border border-gray-200">
-                    <div className="px-6 py-5">
-                      <div className="flex items-center">
-                        <div className="p-2 bg-blue-100 text-blue-600 rounded-lg mr-3">
-                          <Activity className="h-5 w-5" />
+                    <div className="px-4 sm:px-6 py-4 sm:py-5">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                        <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
+                          <Activity className="h-4 w-4 sm:h-5 sm:w-5" />
                         </div>
-                        <div>
-                          <h3 className="text-lg leading-6 font-semibold text-gray-900">
+                        <div className="flex-1">
+                          <h3 className="text-base sm:text-lg leading-6 font-semibold text-gray-900">
                             Data Collection Workflow
                           </h3>
-                          <p className="mt-1 text-sm text-gray-500">
+                          <p className="mt-1 text-xs sm:text-sm text-gray-500">
                             Manually trigger data collection workflows to fetch data from SAM.gov and Freelancer.com
                           </p>
                         </div>
                       </div>
                     </div>
-                    <div className="border-t border-gray-200 px-6 py-5">
-                      <div className="flex flex-col sm:flex-row gap-4">
-                        <div className="w-full sm:w-64">
+                    <div className="border-t border-gray-200 px-4 sm:px-6 py-4 sm:py-5">
+                      <div className="flex flex-col gap-3 sm:gap-4">
+                        <div className="w-full">
                           <select
                             value={selectedWorkflow}
                             onChange={(e) => setSelectedWorkflow(e.target.value)}
-                            className="block w-full pl-3 pr-10 py-2.5 text-base border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-lg bg-gray-50"
+                            className="block w-full pl-3 pr-8 sm:pr-10 py-2 sm:py-2.5 text-sm sm:text-base border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-lg bg-gray-50"
                           >
                             <option value="">All workflows</option>
                             <option value="freelancer">Freelancer.com only</option>
@@ -454,124 +457,132 @@ const Admin = () => {
                           </select>
                         </div>
                         
-                        <button 
-                          className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2.5 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 transition-colors"
-                          onClick={triggerWorkflow} 
-                          disabled={isTriggering}
-                        >
-                          {isTriggering ? (
-                            <>
-                              <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-                              Triggering...
-                            </>
-                          ) : (
-                            <>
-                              <Database className="h-4 w-4 mr-2" />
-                              Trigger Records
-                            </>
-                          )}
-                        </button>
-                        <button 
-                          className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2.5 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors"
-                        >
-                          <Clock className="h-4 w-4 mr-2" />
-                          Pause Workflow
-                        </button>
-                        
-                        <button 
-                          className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2.5 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors"
-                        >
-                          <Github className="h-4 w-4 mr-2" />
-                          View on GitHub
-                        </button>
+                        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                          <button 
+                            className="w-full sm:w-auto inline-flex items-center justify-center px-3 sm:px-4 py-2 sm:py-2.5 border border-transparent text-xs sm:text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+                            onClick={triggerWorkflow} 
+                            disabled={isTriggering}
+                          >
+                            {isTriggering ? (
+                              <>
+                                <RefreshCw className="h-3 w-3 sm:h-4 sm:w-4 animate-spin mr-1 sm:mr-2" />
+                                <span className="hidden sm:inline">Triggering...</span>
+                                <span className="sm:hidden">...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Database className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                                <span className="hidden sm:inline">Trigger Records</span>
+                                <span className="sm:hidden">Trigger</span>
+                              </>
+                            )}
+                          </button>
+                          <button 
+                            className="w-full sm:w-auto inline-flex items-center justify-center px-3 sm:px-4 py-2 sm:py-2.5 border border-gray-300 text-xs sm:text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                          >
+                            <Clock className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                            <span className="hidden sm:inline">Pause Workflow</span>
+                            <span className="sm:hidden">Pause</span>
+                          </button>
+                          
+                          <button 
+                            className="w-full sm:w-auto inline-flex items-center justify-center px-3 sm:px-4 py-2 sm:py-2.5 border border-gray-300 text-xs sm:text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                          >
+                            <Github className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                            <span className="hidden sm:inline">View on GitHub</span>
+                            <span className="sm:hidden">GitHub</span>
+                          </button>
+                        </div>
                       </div>
                       
                       {/* Last updated timestamp - prominent display */}
-                      <div className="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                        <div className="flex items-center text-sm">
-                          <Clock className="h-4 w-4 text-blue-500 mr-2" />
-                          <span className="font-medium text-gray-700">Last Updated:</span>
-                          <span className="ml-2 text-gray-700">{lastUpdated}</span>
+                      <div className="mt-3 sm:mt-4 p-3 sm:p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                        <div className="flex flex-col sm:flex-row sm:items-center text-xs sm:text-sm gap-1 sm:gap-0">
+                          <div className="flex items-center">
+                            <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-blue-500 mr-1 sm:mr-2" />
+                            <span className="font-medium text-gray-700">Last Updated:</span>
+                          </div>
+                          <span className="sm:ml-2 text-gray-700 break-all sm:break-normal">{lastUpdated}</span>
                         </div>
                       </div>
                     </div>
                   </div>
                   
                   {/* Record Summary Cards */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                     <div className="bg-white overflow-hidden shadow-sm border border-gray-200 rounded-xl">
-                      <div className="p-5">
+                      <div className="p-4 sm:p-5">
                         <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-medium text-gray-500 truncate">Total Records</p>
-                            <h3 className="mt-1 text-2xl font-semibold text-gray-900">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs sm:text-sm font-medium text-gray-500 truncate">Total Records</p>
+                            <h3 className="mt-1 text-lg sm:text-2xl font-semibold text-gray-900">
                               {tableCounts.totalRecords}
                             </h3>
                           </div>
-                          <div className="bg-blue-100 p-3 rounded-lg">
-                            <BarChart3 className="h-6 w-6 text-blue-600" />
+                          <div className="bg-blue-100 p-2 sm:p-3 rounded-lg flex-shrink-0">
+                            <BarChart3 className="h-4 w-4 sm:h-6 sm:w-6 text-blue-600" />
                           </div>
                         </div>
-                        <p className="mt-4 text-xs text-blue-600 font-medium">
+                        <p className="mt-3 sm:mt-4 text-xs text-blue-600 font-medium">
                           {newRecordCounts.total > 0 ? `+${newRecordCounts.total} new records` : 'No new records'}
                         </p>
                       </div>
                     </div>
                     
                     <div className="bg-white overflow-hidden shadow-sm border border-gray-200 rounded-xl">
-                      <div className="p-5">
+                      <div className="p-4 sm:p-5">
                         <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-medium text-gray-500 truncate">SAM.gov Records</p>
-                            <h3 className="mt-1 text-2xl font-semibold text-gray-900">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs sm:text-sm font-medium text-gray-500 truncate">SAM.gov Records</p>
+                            <h3 className="mt-1 text-lg sm:text-2xl font-semibold text-gray-900">
                               {tableCounts.samGovCount}
                             </h3>
                           </div>
-                          <div className="bg-green-100 p-3 rounded-lg">
-                            <FileText className="h-6 w-6 text-green-600" />
+                          <div className="bg-green-100 p-2 sm:p-3 rounded-lg flex-shrink-0">
+                            <FileText className="h-4 w-4 sm:h-6 sm:w-6 text-green-600" />
                           </div>
                         </div>
-                        <p className="mt-4 text-xs text-green-600 font-medium">
+                        <p className="mt-3 sm:mt-4 text-xs text-green-600 font-medium">
                           {newRecordCounts.samGov > 0 ? `+${newRecordCounts.samGov} new records` : 'No new records'}
                         </p>
                       </div>
                     </div>
                     
                     <div className="bg-white overflow-hidden shadow-sm border border-gray-200 rounded-xl">
-                      <div className="p-5">
+                      <div className="p-4 sm:p-5">
                         <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-medium text-gray-500 truncate">Freelancer Records</p>
-                            <h3 className="mt-1 text-2xl font-semibold text-gray-900">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs sm:text-sm font-medium text-gray-500 truncate">Freelancer Records</p>
+                            <h3 className="mt-1 text-lg sm:text-2xl font-semibold text-gray-900">
                               {tableCounts.freelancerCount}
                             </h3>
                           </div>
-                          <div className="bg-purple-100 p-3 rounded-lg">
-                            <Users className="h-6 w-6 text-purple-600" />
+                          <div className="bg-purple-100 p-2 sm:p-3 rounded-lg flex-shrink-0">
+                            <Users className="h-4 w-4 sm:h-6 sm:w-6 text-purple-600" />
                           </div>
                         </div>
-                        <p className="mt-4 text-xs text-purple-600 font-medium">
+                        <p className="mt-3 sm:mt-4 text-xs text-purple-600 font-medium">
                           {newRecordCounts.freelancer > 0 ? `+${newRecordCounts.freelancer} new records` : 'No new records'}
                         </p>
                       </div>
                     </div>
                     
                     <div className="bg-white overflow-hidden shadow-sm border border-gray-200 rounded-xl">
-                      <div className="p-5">
+                      <div className="p-4 sm:p-5">
                         <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-medium text-gray-500 truncate">Success Rate</p>
-                            <h3 className="mt-1 text-2xl font-semibold text-gray-900">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs sm:text-sm font-medium text-gray-500 truncate">Success Rate</p>
+                            <h3 className="mt-1 text-lg sm:text-2xl font-semibold text-gray-900">
                               {records.length > 0 
                                 ? Math.round(records.filter(r => r.status === 'success').length / records.length * 100)
                                 : 0}%
                             </h3>
                           </div>
-                          <div className="bg-yellow-100 p-3 rounded-lg">
-                            <TrendingUp className="h-6 w-6 text-yellow-600" />
+                          <div className="bg-yellow-100 p-2 sm:p-3 rounded-lg flex-shrink-0">
+                            <TrendingUp className="h-4 w-4 sm:h-6 sm:w-6 text-yellow-600" />
                           </div>
                         </div>
-                        <p className="mt-4 text-xs text-gray-500">
+                        <p className="mt-3 sm:mt-4 text-xs text-gray-500">
                           Based on {records.length} collection runs
                         </p>
                       </div>
@@ -580,52 +591,56 @@ const Admin = () => {
                   
                   {/* Records Table */}
                   <div className="bg-white shadow-sm rounded-xl overflow-hidden border border-gray-200">
-                    <div className="px-6 py-5 border-b border-gray-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                      <h3 className="text-lg leading-6 font-medium text-gray-900 flex items-center">
-                        <FileText className="h-5 w-5 mr-2 text-blue-500" />
-                        Data Collection History
+                    <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-gray-200 flex flex-col gap-3 sm:gap-4">
+                      <h3 className="text-base sm:text-lg leading-6 font-medium text-gray-900 flex items-center">
+                        <FileText className="h-4 w-4 sm:h-5 sm:w-5 mr-2 text-blue-500" />
+                        <span className="hidden sm:inline">Data Collection History</span>
+                        <span className="sm:hidden">Collection History</span>
                       </h3>
-                      <div className="w-full sm:w-64 relative">
+                      <div className="w-full relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <Search className="h-5 w-5 text-gray-400" />
+                          <Search className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
                         </div>
                         <input
                           type="text"
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
-                          className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 sm:text-sm bg-gray-50"
+                          className="block w-full pl-8 sm:pl-10 pr-3 py-2 sm:py-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm bg-gray-50"
                           placeholder="Search records..."
                         />
                       </div>
                     </div>
                     
                     <div className="overflow-x-auto">
-                      <div className="max-h-96 overflow-y-auto">
+                      <div className="max-h-64 sm:max-h-96 overflow-y-auto">
                         <table className="min-w-full divide-y divide-gray-200">
                           <thead className="bg-gray-50 sticky top-0 z-10">
                             <tr>
-                              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                ID
+                              <th scope="col" className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <span className="hidden sm:inline">ID</span>
+                                <span className="sm:hidden">#</span>
                               </th>
-                              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Time Fetched
+                              <th scope="col" className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <span className="hidden sm:inline">Time Fetched</span>
+                                <span className="sm:hidden">Time</span>
                               </th>
-                              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Total Records
+                              <th scope="col" className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <span className="hidden sm:inline">Total Records</span>
+                                <span className="sm:hidden">Total</span>
                               </th>
-                              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              <th scope="col" className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
                                 SAM.gov Count
                               </th>
-                              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              <th scope="col" className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
                                 SAM.gov New
                               </th>
-                              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              <th scope="col" className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
                                 Freelancer Count
                               </th>
-                              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              <th scope="col" className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
                                 Freelancer New
                               </th>
-                              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              <th scope="col" className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Status
                               </th>
                             </tr>
@@ -635,48 +650,52 @@ const Admin = () => {
                               Array(4).fill(0).map((_, i) => (
                                 <tr key={`skeleton-${i}`}>
                                   {Array(8).fill(0).map((_, j) => (
-                                    <td key={`cell-skeleton-${i}-${j}`} className="px-6 py-4 whitespace-nowrap">
-                                      <div className="h-4 bg-gray-200 rounded w-16 animate-pulse"></div>
+                                    <td key={`cell-skeleton-${i}-${j}`} className={`px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap ${j >= 3 && j <= 6 ? 'hidden lg:table-cell' : ''}`}>
+                                      <div className="h-3 sm:h-4 bg-gray-200 rounded w-12 sm:w-16 animate-pulse"></div>
                                     </td>
                                   ))}
                                 </tr>
                               ))
                             ) : filteredRecords.length === 0 ? (
                               <tr>
-                                <td colSpan={8} className="px-6 py-10 text-center text-sm text-gray-500">
+                                <td colSpan={8} className="px-3 sm:px-6 py-6 sm:py-10 text-center text-xs sm:text-sm text-gray-500">
                                   No records found
                                 </td>
                               </tr>
                             ) : (
                               filteredRecords.map((record) => (
                                 <tr key={record.id} className="hover:bg-gray-50 transition-colors">
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900">
                                     {record.id}
                                   </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    {formatDate(record.time_fetched)}
+                                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">
+                                    <div className="truncate max-w-24 sm:max-w-none">
+                                      {formatDate(record.time_fetched)}
+                                    </div>
                                   </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
                                     {record.total_records}
                                   </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900 hidden lg:table-cell">
                                     {record.sam_gov_count}
                                   </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-medium">
+                                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-green-600 font-medium hidden lg:table-cell">
                                     +{record.sam_gov_new_count}
                                   </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900 hidden lg:table-cell">
                                     {record.freelancer_count}
                                   </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-purple-600 font-medium">
+                                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-purple-600 font-medium hidden lg:table-cell">
                                     +{record.freelancer_new_count}
                                   </td>
-                                  <td className="px-6 py-4 whitespace-nowrap">
-                                    <div className="flex items-center">
-                                      <span className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeClasses(record.status)}`}>
+                                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
+                                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-0">
+                                      <span className={`px-2 sm:px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeClasses(record.status)}`}>
                                         {record.status ? record.status.charAt(0).toUpperCase() + record.status.slice(1) : 'Unknown'}
                                       </span>
-                                      {renderTriggerBadge(record.trigger_type)}
+                                      <div className="sm:ml-1">
+                                        {renderTriggerBadge(record.trigger_type)}
+                                      </div>
                                     </div>
                                   </td>
                                 </tr>

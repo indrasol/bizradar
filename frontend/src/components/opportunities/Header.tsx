@@ -20,9 +20,9 @@ const Header: React.FC<HeaderProps> = ({ logout, pursuitCount }) => {
             <span className="font-medium text-gray-500">Opportunities</span>
           </div>
           <div className="flex items-center gap-4">
-            <Link to="/pursuits" className="flex items-center gap-2 text-blue-600 hover:text-blue-800 px-3 py-1.5 rounded-md hover:bg-blue-50 transition-colors">
+            <Link to="/trackers" className="flex items-center gap-2 text-blue-600 hover:text-blue-800 px-3 py-1.5 rounded-md hover:bg-blue-50 transition-colors">
               <Bookmark size={18} />
-              <span className="font-medium">Pursuits</span>
+              <span className="font-medium">My Tracker</span>
               {pursuitCount > 0 && (
                 <span className="bg-blue-100 text-blue-700 text-xs font-semibold rounded-full px-2 py-0.5">
                   {pursuitCount}

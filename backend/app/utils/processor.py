@@ -1,11 +1,11 @@
 import asyncio
 import json
 from typing import List, Dict
-from utils.redis_connection import RedisClient
-from utils.logger import get_logger
-from utils.tasks import is_task_active, remove_task
+from app.utils.redis_connection import RedisClient
+from app.utils.logger import get_logger
+from app.utils.tasks import is_task_active, remove_task
 
-from services.recommendations import generate_recommendations  # Your existing service
+from app.services.recommendations import generate_recommendations  # Your existing service
 
 logger = get_logger(__name__)
 

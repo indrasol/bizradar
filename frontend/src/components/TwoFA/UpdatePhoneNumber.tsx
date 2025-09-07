@@ -43,12 +43,16 @@ const UpdatePhoneNumber: React.FC<UpdatePhoneNumberProps> = ({ onSuccess }) => {
 
         setLoading(true);
         try {
-            await verifyPhoneOtp(phone, otp);
-            toast.success('Phone number updated successfully!');
-            onSuccess?.(phone);
-            setStep('enter-phone');
-            setPhone('');
-            setOtp('');
+            const result = await verifyPhoneOtp(phone, otp);
+            if (result.success) {
+                toast.success('Phone number updated successfully!');
+                onSuccess?.(phone);
+                setStep('enter-phone');
+                setPhone('');
+                setOtp('');
+            } else {
+                throw new Error('Verification failed');
+            }
         } catch (error: any) {
             toast.error(`OTP verification failed: ${error.message}`);
         } finally {
