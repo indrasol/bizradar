@@ -137,29 +137,29 @@ export function RfpContainer({ initialContent = '', contract }) {
       let pursuitId = contract.id;
       let pursuitExists = false;
       
-      // Check if the pursuit already exists
-      const { data: existingPursuit, error: checkError } = await supabase
-        .from('pursuits')
+      // Check if the tracker already exists
+      const { data: existingTracker, error: checkError } = await supabase
+        .from('trackers')
         .select('id')
         .eq('id', pursuitId)
         .single();
         
-      if (!checkError && existingPursuit) {
-        console.log("Pursuit exists with ID:", pursuitId);
+      if (!checkError && existingTracker) {
+        console.log("Tracker exists with ID:", pursuitId);
         pursuitExists = true;
       } else {
-        console.log("Pursuit does not exist, checking by title");
+        console.log("Tracker does not exist, checking by title");
         
-        // Check if a pursuit with this title exists
-        const { data: titlePursuit, error: titleError } = await supabase
-          .from('pursuits')
+        // Check if a tracker with this title exists
+        const { data: titleTracker, error: titleError } = await supabase
+          .from('trackers')
           .select('id')
           .eq('title', contract.title)
           .maybeSingle();
           
-        if (!titleError && titlePursuit) {
-          // Use the existing pursuit ID
-          pursuitId = titlePursuit.id;
+        if (!titleError && titleTracker) {
+          // Use the existing tracker ID
+          pursuitId = titleTracker.id;
           pursuitExists = true;
           console.log("Found pursuit by title, ID:", pursuitId);
         }
@@ -189,8 +189,8 @@ export function RfpContainer({ initialContent = '', contract }) {
           pursuitData.due_date = formattedDueDate;
         }
         
-        const { data: newPursuit, error: createError } = await supabase
-          .from('pursuits')
+        const { data: newTracker, error: createError } = await supabase
+          .from('trackers')
           .insert(pursuitData)
           .select();
           
@@ -201,11 +201,11 @@ export function RfpContainer({ initialContent = '', contract }) {
           return;
         }
         
-        if (newPursuit && newPursuit.length > 0) {
-          const newPursuitId = newPursuit[0].id;
-          setPursuitId(newPursuitId);
-          pursuitId = newPursuitId;
-          console.log("Created new pursuit with ID:", newPursuitId);
+        if (newTracker && newTracker.length > 0) {
+          const newTrackerId = newTracker[0].id;
+          setPursuitId(newTrackerId);
+          pursuitId = newTrackerId;
+          console.log("Created new tracker with ID:", newTrackerId);
         }
       }
       
@@ -260,9 +260,9 @@ export function RfpContainer({ initialContent = '', contract }) {
         }
       }
       
-      // Update the pursuit's stage
+      // Update the tracker's stage
       await supabase
-        .from('pursuits')
+        .from('trackers')
         .update({ stage: 'RFP Response Initiated' })
         .eq('id', pursuitId);
         

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { X, Check, Loader2 } from 'lucide-react';
+import { X, Check, Loader2, Star } from 'lucide-react';
 import { subscriptionApi } from '@/api/subscription';
 import { SubscriptionPlan, Subscription } from '@/models/subscription';
 import { useToast } from '@/components/ui/use-toast';
@@ -125,6 +125,35 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
     return type.endsWith('_annual') ? ' (Annual)' : '';
   };
 
+  const getPlanIcon = (planType: string) => {
+    switch (planType) {
+      case 'free':
+        return {
+          icon: Star,
+          bgColor: 'bg-gradient-to-br from-blue-500 to-blue-600',
+          textColor: 'text-white'
+        };
+      case 'pro':
+        return {
+          icon: Star,
+          bgColor: 'bg-gradient-to-br from-purple-500 to-purple-600',
+          textColor: 'text-white'
+        };
+      case 'premium':
+        return {
+          icon: Star,
+          bgColor: 'bg-gradient-to-br from-amber-500 to-amber-600',
+          textColor: 'text-white'
+        };
+      default:
+        return {
+          icon: Star,
+          bgColor: 'bg-gradient-to-br from-gray-500 to-gray-600',
+          textColor: 'text-white'
+        };
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -193,6 +222,8 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                 const displayPrice = isAnnual ? getPlanPrice(plan.price) : plan.price;
                 const displaySuffix = isAnnual ? 'year' : 'month';
                 const displayName = isAnnual ? `${plan.name} (Annual)` : plan.name;
+                const planIcon = getPlanIcon(plan.type);
+                const IconComponent = planIcon.icon;
 
                 return (
                   <div
@@ -205,9 +236,11 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                     onClick={() => setSelectedPlan(plan.type)}
                   >
                     <div className="flex justify-between items-start mb-4">
-                      <div>
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-lg ${planIcon.bgColor} shadow-sm`}>
+                          <IconComponent className={`w-5 h-5 ${planIcon.textColor}`} />
+                        </div>
                         <h3 className="text-xl font-semibold">{displayName}</h3>
-                        <p className="text-gray-600 mt-1">{plan.description}</p>
                       </div>
                       {selectedPlan === plan.type && (
                         <div className="bg-blue-500 text-white p-1 rounded-full">
@@ -219,7 +252,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                     <div className="mb-4">
                       <span className="text-3xl font-bold">${displayPrice}</span>
                       <span className="text-gray-600">/{displaySuffix}</span>
-                      {isAnnual && (
+                      {isAnnual && plan.type !== 'free' && (
                         <div className="text-sm text-green-600 mt-1">
                           Save 20% with annual billing
                         </div>
@@ -238,6 +271,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                 );
               })}
             </div>
+
           </div>
 
           {error && (

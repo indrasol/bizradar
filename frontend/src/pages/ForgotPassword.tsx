@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { toast } from "sonner";
 import { useAuth } from "../components/Auth/useAuth";
+import { ResponsivePatterns, AuthTemplate } from "../utils/responsivePatterns";
 
 // Form schema for password reset
 const forgotPasswordSchema = z.object({
@@ -34,20 +35,20 @@ const ForgotPassword = () => {
     try {
       await resetPassword(values.email);
       setEmailSent(true);
-      toast.success("Reset instructions sent to your email");
+      toast.success("Reset instructions sent to your email", ResponsivePatterns.toast.config);
     } catch (error: any) {
-      toast.error(error.message || "Failed to send reset email");
+      toast.error(error.message || "Failed to send reset email", ResponsivePatterns.toast.config);
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-gradient-to-b from-white to-gray-50 relative overflow-hidden">
+    <div className={AuthTemplate.wrapper}>
       {/* Background decorative elements */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute -top-20 -right-20 w-96 h-96 bg-gradient-to-bl from-blue-100 to-transparent transform rotate-12 rounded-3xl"></div>
-        <div className="absolute -bottom-40 left-1/4 w-96 h-96 bg-gradient-to-tr from-emerald-50 to-transparent transform -rotate-12 rounded-3xl"></div>
+        <div className="absolute -top-20 -right-20 w-64 sm:w-80 lg:w-96 h-64 sm:h-80 lg:h-96 bg-gradient-to-bl from-blue-100 to-transparent transform rotate-12 rounded-3xl"></div>
+        <div className="absolute -bottom-40 left-1/4 w-64 sm:w-80 lg:w-96 h-64 sm:h-80 lg:h-96 bg-gradient-to-tr from-emerald-50 to-transparent transform -rotate-12 rounded-3xl"></div>
         <div className="absolute top-1/4 right-20 w-32 h-32 border border-blue-300 rounded-full opacity-40"></div>
         <div className="absolute bottom-1/4 left-10 w-48 h-48 border border-emerald-300 rounded-full opacity-30"></div>
       </div>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
+import { Search, Calendar, Bookmark, Target } from "lucide-react";
 import { useAuth } from "@/components/Auth/useAuth";
 import { supabase } from "../utils/supabase";
 import tokenService from "../utils/tokenService";
@@ -10,7 +11,7 @@ import NotificationToast from "@/components/opportunities/NotificationToast";
 
 import { toast } from "sonner";
 import { FilterValues, Opportunity, SearchParams } from "@/models/opportunities";
-import Header from "@/components/opportunities/Header";
+import { ResponsivePatterns, DashboardTemplate } from "../utils/responsivePatterns";
 
 const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 const API_BASE_URL = isDevelopment ? 'http://localhost:5000' : import.meta.env.VITE_API_BASE_URL;
@@ -113,6 +114,14 @@ const OpportunitiesPage: React.FC = () => {
   const { logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  
+  // Get current date for header
+  const currentDate = new Date().toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
 
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
@@ -227,7 +236,7 @@ const OpportunitiesPage: React.FC = () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
         const { count, error } = await supabase
-          .from("pursuits")
+          .from("trackers")
           .select("id", { count: "exact" })
           .eq("user_id", user.id);
         if (error) throw error;
@@ -543,7 +552,7 @@ const OpportunitiesPage: React.FC = () => {
         result.refined_query || ""
       );
     } catch (error: any) {
-      toast.error(error.message || "An error occurred during search");
+      toast.error(error.message || "An error occurred during search", ResponsivePatterns.toast.config);
       setOpportunities([]);
     } finally {
       setIsSearching(false);
@@ -651,21 +660,21 @@ const OpportunitiesPage: React.FC = () => {
     handleSearch(null, query);
   }
 
-  const handleAddToPursuit = async (opportunity: Opportunity) => {
+  const handleAddToTracker = async (opportunity: Opportunity) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: existingPursuits } = await supabase
-        .from("pursuits")
+      const { data: existingTrackers } = await supabase
+        .from("trackers")
         .select("id")
         .eq("user_id", user.id)
         .eq("title", opportunity.title);
 
-      if (existingPursuits && existingPursuits.length > 0) return;
+      if (existingTrackers && existingTrackers.length > 0) return;
 
       const { data, error } = await supabase
-        .from("pursuits")
+        .from("trackers")
         .insert([{ title: opportunity.title, description: opportunity.description || "", stage: "Assessment", user_id: user.id, due_date: opportunity.response_date }])
         .select();
       if (error) throw error;
@@ -676,7 +685,7 @@ const OpportunitiesPage: React.FC = () => {
         setPursuitCount((prev) => prev + 1);
       }
     } catch (error) {
-      console.error("Error adding to pursuits:", error);
+      console.error("Error adding to tracker:", error);
     }
   };
 
@@ -879,12 +888,38 @@ const OpportunitiesPage: React.FC = () => {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50 text-gray-800">
+    <div className={DashboardTemplate.wrapper}>
       <div className="flex flex-1 overflow-hidden">
         <SideBar />
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <Header logout={logout} pursuitCount={pursuitCount} />
-          <MainContent
+        <div className={DashboardTemplate.main}>
+          {/* Page content */}
+          <div className={DashboardTemplate.content}>
+            <div className="w-full">
+              {/* Page header - moved to top for seamless UI */}
+              <div className="flex items-center mb-6 bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+                <div className="mr-6 w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center text-white text-xl font-bold shadow-md">
+                  <Search className="h-8 w-8" />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">
+                    Opportunities
+                  </h1>
+                  <div className="flex items-center mt-1 text-sm text-gray-500">
+                    <Calendar className="h-4 w-4 mr-1" />
+                    <span>{currentDate}</span>
+                    <span className="mx-2">•</span>
+                    <span className="flex items-center">
+                      <Target className="h-4 w-4 mr-1 text-blue-500" />
+                      Discover Opportunities
+                    </span>
+                  </div>
+                </div>
+                <div className="ml-auto flex space-x-3">
+                  {/* My Tracker button removed - accessible via sidebar */}
+                </div>
+              </div>
+              
+              <MainContent
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
             handleSearch={handleSearch}
@@ -898,7 +933,7 @@ const OpportunitiesPage: React.FC = () => {
             currentPage={currentPage}
             totalPages={totalPages}
             paginate={paginate}
-            handleAddToPursuit={handleAddToPursuit}
+            handleAddToPursuit={handleAddToTracker}
             handleBeginResponse={handleBeginResponse}
             handleViewDetails={handleViewDetails}
             refinedQuery={refinedQuery}
@@ -914,6 +949,8 @@ const OpportunitiesPage: React.FC = () => {
             resultsListRef={resultsListRef}
             userProfile={userProfile}
           />
+            </div>
+          </div>
         </div>
       </div>
       <ScrollToTopButton isVisible={showScrollToTop} scrollToTop={handleScrollToTop} />

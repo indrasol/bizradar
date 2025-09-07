@@ -10,7 +10,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from app.services.open_ai_refiner import refine_query
-from app.utils.subscription import ensure_active_access
+# Subscription imports moved to individual functions to avoid circular imports
 from app.services.job_search import search_jobs, sort_job_results
 from app.services.pdf_service import generate_rfp_pdf
 from app.services.recommendations import generate_recommendations
@@ -226,8 +226,9 @@ async def search_job_opportunities(request: Request):
         user_id = data.get('user_id', 'anonymous')
         # Generate a unique search ID early so it's always available in error paths
         search_id = f"{user_id}_{int(datetime.now().timestamp())}"
-        # Enforce subscription/trial access
-        ensure_active_access(user_id)
+        # Check subscription and increment usage
+        from app.routes.subscription_routes import check_and_increment_usage
+        check_and_increment_usage(user_id, "search")
         page = int(data.get('page', 1))
         page_size = int(data.get('page_size', 7))
         is_new_search = data.get('is_new_search', True)
@@ -1240,7 +1241,7 @@ async def ask_bizradar_ai(request: Request):
             }
         )
 
-from services.summary_service import process_opportunity_descriptions
+from app.services.summary_service import process_opportunity_descriptions
 
 
 async def summarize_descriptions_for_stream(opportunities: list):
@@ -1534,8 +1535,9 @@ async def enhance_rfp_with_ai(request: Request):
         
         pursuit_id = data.get("pursuitId")
         user_id = data.get("userId")
-        # Enforce subscription/trial access
-        ensure_active_access(user_id)
+        # Check subscription and increment AI RFP usage
+        from app.routes.subscription_routes import check_and_increment_usage
+        check_and_increment_usage(user_id, "ai_rfp")
         
         if not company_context or not proposal_context:
             raise HTTPException(status_code=400, detail="Both company_context and proposal_context are required")
@@ -1655,8 +1657,9 @@ async def get_refined_query(request: Request):
     contract_type = data.get("contract_type")
     platform = data.get("platform")
     user_id = data.get("user_id", "anonymous")  # Extract user_id, default to 'anonymous'
-    # Enforce subscription/trial access
-    ensure_active_access(user_id)
+    # Check subscription access (no usage increment for query refinement)
+    from app.routes.subscription_routes import require_subscription_access
+    require_subscription_access(user_id, "basic_search")
     if not query:
         return {"success": False, "message": "Query required"}
     try:

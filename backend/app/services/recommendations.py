@@ -1,8 +1,8 @@
 import os
-from utils.logger import get_logger
+from app.utils.logger import get_logger
 import json
 from typing import List, Dict, Any
-from utils.openai_client import get_openai_client
+from app.utils.openai_client import get_openai_client
 
 logger = get_logger(__name__)
 

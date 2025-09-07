@@ -1,5 +1,5 @@
-from utils.db_utils import get_db_connection
-from utils.logger import get_logger
+from app.utils.db_utils import get_db_connection
+from app.utils.logger import get_logger
 import json
 import os
 import traceback
@@ -7,8 +7,8 @@ from typing import Dict, Any, List, Optional
 import psycopg2
 from psycopg2.extras import RealDictCursor
 # from openai import OpenAI, APIError
-from services.doc_processing import format_document_context
-from utils.openai_client import get_openai_client
+from app.services.doc_processing import format_document_context
+from app.utils.openai_client import get_openai_client
 
 # Configure logging with more detailed format
 logger = get_logger(__name__)
