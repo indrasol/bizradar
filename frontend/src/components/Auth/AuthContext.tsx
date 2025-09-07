@@ -2,8 +2,8 @@ import React, { createContext, useState, useEffect, ReactNode } from 'react';
 import { Session, User, AuthError, Provider } from '@supabase/supabase-js';
 import { supabase } from '../../utils/supabase';
 import tokenService from "../../utils/tokenService";
-import * as UAParser from 'ua-parser-js';
 import { subscriptionApi } from '@/api/subscription';
+import { authDiagnostics } from '@/utils/authDiagnostics';
 import TrialStatusModal from '@/components/subscription/TrialStatusModal';
 import UpgradeBlocker from '@/components/subscription/UpgradeBlocker';
 
@@ -26,11 +26,12 @@ interface AuthContextType {
   updatePassword: (password: string, oldPassword: string) => Promise<void>;
   updateProfile: (data: { firstName?: string; lastName?: string; avatar?: string }) => Promise<void>;
   sendPhoneOtp: (phone: string) => Promise<void>;
-  verifyPhoneOtp: (phone: string, otp: string) => Promise<void>;
+  verifyPhoneOtp: (phone: string, otp: string) => Promise<{ success: boolean; user: User; session: Session; }>;
   updatePhoneNumber: (phone: string) => Promise<void>;
   sendEmailOtp: (email: string) => Promise<void>;
-  verifyEmailOtp: (email: string, otp: string, firstName?: string, lastName?: string) => Promise<void>;
+  verifyEmailOtp: (email: string, otp: string, firstName?: string, lastName?: string) => Promise<{ success: boolean; user: User; session: Session; }>;
   signupWithOtp: (firstName: string, lastName: string, email: string) => Promise<void>;
+  checkUserExists: (email: string) => Promise<boolean>;
   trialInfo?: { remainingDays: number; isTrial: boolean; expired: boolean } | null;
   refreshTrialStatus?: () => Promise<void>;
 }
@@ -49,11 +50,12 @@ const AuthContext = createContext<AuthContextType>({
   updatePassword: async () => { },
   updateProfile: async () => { },
   sendPhoneOtp: async () => { },
-  verifyPhoneOtp: async () => { },
+  verifyPhoneOtp: async () => ({ success: false, user: {} as User, session: {} as Session }),
   updatePhoneNumber: async () => { },
   sendEmailOtp: async () => { },
-  verifyEmailOtp: async () => { },
+  verifyEmailOtp: async () => ({ success: false, user: {} as User, session: {} as Session }),
   signupWithOtp: async () => { },
+  checkUserExists: async () => false,
   trialInfo: null,
   refreshTrialStatus: async () => { }
 });
@@ -225,44 +227,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
         // --- Device/Session Tracking Logic ---
         // Generate or retrieve a unique device_id for this browser
-        let deviceId = localStorage.getItem('bizradar_device_id');
-        if (!deviceId) {
-          deviceId = crypto.randomUUID();
-          localStorage.setItem('bizradar_device_id', deviceId);
-        }
-        // Use UAParser to get device/browser info
-        const parser = new UAParser.UAParser();
-        const uaResult = parser.getResult();
-        const deviceName = `${uaResult.os.name || 'Unknown OS'} (${uaResult.browser.name || 'Unknown Browser'})`;
-        // Optionally, get location (not implemented here, but could use a geolocation API)
-        // For now, set as 'Unknown'
-        const location = 'Unknown';
-        // Build device object
-        const deviceObj = {
-          device_id: deviceId,
-          name: deviceName,
-          last_active: new Date().toISOString(),
-          location,
-          current: true
-        };
-        // Fetch current recent_devices
-        const { data: secData, error: secError } = await supabase
-          .from('user_security')
-          .select('recent_devices')
-          .eq('user_id', data.user.id)
-          .single();
-        let devices = secData?.recent_devices || [];
-        // Remove any previous entry for this device_id
-        devices = devices.filter((d: any) => d.device_id !== deviceId);
-        // Mark all as not current
-        devices = devices.map((d: any) => ({ ...d, current: false }));
-        // Add this device as current
-        devices.push(deviceObj);
-        // Save back to Supabase
-        await supabase
-          .from('user_security')
-          .update({ recent_devices: devices })
-          .eq('user_id', data.user.id);
+        // Device tracking removed - using Supabase Auth built-in session management only
+        console.log('Login successful - relying on Supabase Auth session management');
       }
     } catch (error) {
       const authError = error as AuthError;
@@ -606,6 +572,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const verifyPhoneOtp = async (phone: string, otp: string) => {
     try {
+      console.log("Attempting SMS OTP verification for phone:", phone);
+      
       const { data, error } = await supabase.auth.verifyOtp({
         phone,
         token: otp,
@@ -613,8 +581,23 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       });
 
       if (error) {
-        console.error("OTP verification error:", error);
-        throw new Error(error.message);
+        console.error("SMS OTP verification error:", error);
+        console.error("Error details:", {
+          message: error.message,
+          status: error.status,
+          code: error.code || 'unknown'
+        });
+        
+        // Provide more specific error messages based on error type
+        if (error.message?.includes('403') || error.status === 403) {
+          throw new Error('SMS OTP verification failed. The code may have expired or is invalid. Please request a new code.');
+        } else if (error.message?.includes('rate limit') || error.message?.includes('too many')) {
+          throw new Error('Too many attempts. Please wait a few minutes before trying again.');
+        } else if (error.message?.includes('invalid') || error.message?.includes('expired')) {
+          throw new Error('Invalid or expired SMS code. Please request a new code.');
+        } else {
+          throw new Error(error.message || 'SMS OTP verification failed. Please try again.');
+        }
       }
 
       // After successful verification, Supabase signs in user with a session
@@ -623,8 +606,17 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         setUser(data.user);
         tokenService.setTokens(data.session.access_token, data.session.refresh_token);
         sessionStorage.setItem("userActiveSession", "true");
+        
+        // Log successful verification for diagnostics
+        authDiagnostics.logOtpAttempt(phone, 'verify', true, null);
+        
+        // Return success to indicate verification completed
+        return { success: true, user: data.user, session: data.session };
+      } else {
+        throw new Error('Phone OTP verification failed - no session returned');
       }
     } catch (error) {
+      authDiagnostics.logOtpAttempt(phone, 'verify', false, error);
       throw new Error((error as AuthError).message || 'Failed to verify OTP');
     }
   };
@@ -647,6 +639,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   // Email OTP functions
   const sendEmailOtp = async (email: string) => {
     try {
+      console.log("Sending OTP to email:", email);
+      
       const { error } = await supabase.auth.signInWithOtp({ 
         email,
         options: {
@@ -656,15 +650,34 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       
       if (error) {
         console.error("Failed to send email OTP:", error);
-        throw new Error(error.message);
+        console.error("Error details:", {
+          message: error.message,
+          status: error.status,
+          code: error.code || 'unknown'
+        });
+        
+        // Provide more specific error messages
+        if (error.message?.includes('rate limit') || error.message?.includes('too many')) {
+          throw new Error('Too many OTP requests. Please wait a few minutes before requesting another code.');
+        } else if (error.message?.includes('not found') || error.message?.includes('user')) {
+          throw new Error('No account found with this email address. Please check your email or sign up.');
+        } else {
+          throw new Error(error.message || 'Failed to send OTP. Please try again.');
+        }
       }
+      
+      console.log("OTP sent successfully to:", email);
+      authDiagnostics.logOtpAttempt(email, 'send', true);
     } catch (error) {
+      authDiagnostics.logOtpAttempt(email, 'send', false, error);
       throw new Error((error as AuthError).message || 'Failed to send OTP');
     }
   };
 
   const verifyEmailOtp = async (email: string, otp: string, firstName?: string, lastName?: string) => {
     try {
+      console.log("Attempting OTP verification for email:", email);
+      
       const { data, error } = await supabase.auth.verifyOtp({
         email,
         token: otp,
@@ -673,7 +686,22 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
       if (error) {
         console.error("Email OTP verification error:", error);
-        throw new Error(error.message);
+        console.error("Error details:", {
+          message: error.message,
+          status: error.status,
+          code: error.code || 'unknown'
+        });
+        
+        // Provide more specific error messages based on error type
+        if (error.message?.includes('403') || error.status === 403) {
+          throw new Error('OTP verification failed. The code may have expired or is invalid. Please request a new code.');
+        } else if (error.message?.includes('rate limit') || error.message?.includes('too many')) {
+          throw new Error('Too many attempts. Please wait a few minutes before trying again.');
+        } else if (error.message?.includes('invalid') || error.message?.includes('expired')) {
+          throw new Error('Invalid or expired OTP code. Please request a new code.');
+        } else {
+          throw new Error(error.message || 'OTP verification failed. Please try again.');
+        }
       }
 
       // After successful verification, Supabase signs in user with a session
@@ -702,45 +730,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         tokenService.setTokens(data.session.access_token, data.session.refresh_token);
         sessionStorage.setItem("userActiveSession", "true");
 
-        // Device tracking logic for OTP login
-        let deviceId = localStorage.getItem('bizradar_device_id');
-        if (!deviceId) {
-          deviceId = crypto.randomUUID();
-          localStorage.setItem('bizradar_device_id', deviceId);
-        }
-        
-        const parser = new UAParser.UAParser();
-        const uaResult = parser.getResult();
-        const deviceName = `${uaResult.os.name || 'Unknown OS'} (${uaResult.browser.name || 'Unknown Browser'})`;
-        const location = 'Unknown';
-        
-        const deviceObj = {
-          device_id: deviceId,
-          name: deviceName,
-          last_active: new Date().toISOString(),
-          location,
-          current: true
-        };
-
-        try {
-          const { data: secData } = await supabase
-            .from('user_security')
-            .select('recent_devices')
-            .eq('user_id', data.user.id)
-            .single();
-          
-          let devices = secData?.recent_devices || [];
-          devices = devices.filter((d: any) => d.device_id !== deviceId);
-          devices = devices.map((d: any) => ({ ...d, current: false }));
-          devices.push(deviceObj);
-          
-          await supabase
-            .from('user_security')
-            .update({ recent_devices: devices })
-            .eq('user_id', data.user.id);
-        } catch (secError) {
-          console.warn('Device tracking update failed:', secError);
-        }
+        // Device tracking removed - Supabase Auth handles session management automatically
+        console.log('Email OTP verification successful - session managed by Supabase Auth');
 
         // Create trial subscription for new signups
         if (firstName && lastName) {
@@ -750,8 +741,17 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             // ignore – will also run on auth init
           }
         }
+
+        // Log successful verification for diagnostics
+        authDiagnostics.logOtpAttempt(email, 'verify', true, null);
+        
+        // Return success to indicate verification completed
+        return { success: true, user: data.user, session: data.session };
+      } else {
+        throw new Error('OTP verification failed - no session returned');
       }
     } catch (error) {
+      authDiagnostics.logOtpAttempt(email, 'verify', false, error);
       throw new Error((error as AuthError).message || 'Failed to verify OTP');
     }
   };
@@ -790,6 +790,23 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   };
 
+  const checkUserExists = async (email: string): Promise<boolean> => {
+    try {
+      // Check if user exists in profiles table
+      const { data: existingUser } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', email)
+        .maybeSingle();
+
+      return !!existingUser;
+    } catch (error) {
+      console.error("Error checking user existence:", error);
+      // In case of error, assume user doesn't exist to allow them to try signup
+      return false;
+    }
+  };
+
   // The value to be provided to consumers
   const value = {
     user,
@@ -809,6 +826,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     sendEmailOtp,
     verifyEmailOtp,
     signupWithOtp,
+    checkUserExists,
     trialInfo,
     refreshTrialStatus: async () => {
       if (!user) return;

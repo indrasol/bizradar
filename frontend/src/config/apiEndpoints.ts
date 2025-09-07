@@ -10,9 +10,71 @@ if (isDevelopment) {
 }
 
 
+// Stripe price IDs
+export const STRIPE_PRICES = {
+  basic_monthly: 'price_1RqIaWFKTK8ICUprZJJh44Hc',
+  basic_annual: 'price_1RqIcWFKTK8ICUprtagiVbzf',
+  premium_monthly: 'price_1RqIdGFKTK8ICUprDEo5P7AB',
+  premium_annual: 'price_1RqIdxFKTK8ICUprSgy50avW',
+  enterprise_monthly: 'price_1RqIebFKTK8ICUpr6QN0hZ9a',
+  enterprise_annual: 'price_1RqIewFKTK8ICUprSvBvDwvg',
+};
+
+// Supabase table names
+export const SUPABASE_TABLES = {
+  USER_SUBSCRIPTIONS: 'user_subscriptions',
+  NOTIFICATIONS: 'notifications',
+  SUPPORT_TICKETS: 'support_tickets',
+  SUPPORT_MESSAGES: 'support_messages',
+};
+
 export const API_ENDPOINTS = {
-//   ORGANIZATIONS: `${API_BASE_URL}/organizations`,
-//   ORGANIZATION_INVITES: `${API_BASE_URL}/organization-invites`,
-//   ORGANIZATION_MEMBERS: `${API_BASE_URL}/organization-members`,
-//   PROJECTS: `${API_BASE_URL}/projects`
+  // Subscription endpoints
+  CHECKOUT_SESSION: `${API_BASE_URL}/api/create-checkout-session`,
+  SUBSCRIPTION_PAYMENT_INTENT: `${API_BASE_URL}/api/subscription/payment-intent`,
+  SUBSCRIPTION_STATUS: `${API_BASE_URL}/api/subscription/status`,
+  SUBSCRIPTION_TIERS: `${API_BASE_URL}/api/subscription/tiers`,
+  SUBSCRIPTION_UPGRADE: `${API_BASE_URL}/api/subscription/upgrade`,
+  SUBSCRIPTION_CANCEL: `${API_BASE_URL}/api/subscription/cancel`,
+  SUBSCRIPTION_TRIAL: `${API_BASE_URL}/api/subscription/trial`,
+  SUBSCRIPTION_USAGE: `${API_BASE_URL}/api/subscription/usage`,
+  SUBSCRIPTION_USAGE_INCREMENT: `${API_BASE_URL}/api/subscription/usage/increment`,
+  SUBSCRIPTION_FEATURE_ACCESS: (feature: string) => `${API_BASE_URL}/api/subscription/feature-access/${feature}`,
+  
+  // Add-on endpoints
+  ADDON_RFP_BOOST: `${API_BASE_URL}/api/subscription/addon/rfp-boost`,
+  ADDONS_LIST: `${API_BASE_URL}/api/subscription/addons`,
+  
+  // Payment endpoints
+  PAYMENT_METHODS: `${API_BASE_URL}/api/payment-methods`,
+  PAYMENT_METHOD_BY_ID: (paymentMethodId: string) => `${API_BASE_URL}/api/payment-methods/${paymentMethodId}`,
+  SET_DEFAULT_PAYMENT_METHOD: (paymentMethodId: string) => `${API_BASE_URL}/api/payment-methods/${paymentMethodId}/set-default`,
+  SETUP_INTENT: `${API_BASE_URL}/api/create-setup-intent`,
+  
+  // Company endpoints
+  COMPANY_SETUP: `${API_BASE_URL}/api/company/setup`,
+  COMPANY_PROFILE: `${API_BASE_URL}/api/company/profile`,
+  COMPANY_UPDATE: `${API_BASE_URL}/api/company/update`,
+  GENERATE_COMPANY_MARKDOWN: `${API_BASE_URL}/generate-company-markdown`,
+  
+  // Search and opportunities endpoints
+  SEARCH_OPPORTUNITIES: `${API_BASE_URL}/search-opportunities`,
+  AI_RECOMMENDATIONS: `${API_BASE_URL}/ai-recommendations`,
+  
+  // Pursuit/Tracker endpoints (legacy)
+  PURSUIT_DEADLINES: `${API_BASE_URL}/api/pursuits/deadlines`,
+  PURSUIT_MARK_SUBMITTED: `${API_BASE_URL}/api/pursuits/mark-submitted`,
+  PURSUIT_STATS: `${API_BASE_URL}/api/pursuits/stats`,
+  
+  // New Tracker endpoints
+  TRACKER_DEADLINES: `${API_BASE_URL}/api/trackers/deadlines`,
+  TRACKER_MARK_SUBMITTED: `${API_BASE_URL}/api/trackers/mark-submitted`,
+  TRACKER_STATS: `${API_BASE_URL}/api/trackers/stats`,
+  
+  // Profile endpoints
+  PROFILE_GET: (userId: string) => `${API_BASE_URL}/api/profile?user_id=${encodeURIComponent(userId)}`,
+  PROFILE_SUMMARY: (userId: string) => `${API_BASE_URL}/api/profile/summary?user_id=${encodeURIComponent(userId)}`,
+  PROFILE_UPDATE_PERSONAL: (userId: string) => `${API_BASE_URL}/api/profile/personal?user_id=${encodeURIComponent(userId)}`,
+  PROFILE_UPDATE_COMPANY: (userId: string) => `${API_BASE_URL}/api/profile/company?user_id=${encodeURIComponent(userId)}`,
+  
 };

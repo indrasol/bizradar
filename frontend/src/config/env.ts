@@ -21,7 +21,7 @@ interface EnvConfig {
     SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL || '',
     SUPABASE_ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY || '',
     SUPABASE_SERVICE_KEY: import.meta.env.VITE_SUPABASE_SERVICE_KEY || '',
-    BASE_API_URL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/v1',
+    BASE_API_URL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000',
     DEV_BASE_API_URL: import.meta.env.VITE_DEV_BASE_API_URL || 'http://localhost:8000/v1'
   };
   
@@ -31,7 +31,7 @@ interface EnvConfig {
   
   // Get the correct API URL based on environment
   export const getApiUrl = (): string => {
-    const baseUrl = isDevelopment ? env.DEV_BASE_API_URL : env.BASE_API_URL;
+    const baseUrl = env.BASE_API_URL;
     
     // Ensure baseUrl doesn't have trailing slash
     return baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;

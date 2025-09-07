@@ -16,6 +16,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { toast } from "sonner";
 import AuthContext from "../components/Auth/AuthContext";
+import { ResponsivePatterns, AuthTemplate } from "../utils/responsivePatterns";
 
 // Signup form schema validation
 const signupFormSchema = z.object({
@@ -119,7 +120,7 @@ const Signup = ({
       await authRegister(values.firstName, values.lastName, values.email, values.password);
 
       // Success notification
-      toast.success("Account created successfully!");
+      toast.success("Account created successfully!", ResponsivePatterns.toast.config);
       onOpenChange(false);
       signupForm.reset();
 
@@ -133,10 +134,10 @@ const Signup = ({
           errorMessage.includes('user already registered') ||
           errorMessage.includes('already exists')) {
         setError("An account with this email already exists. Please try logging in instead.");
-        toast.error("An account with this email already exists. Please try logging in instead.");
+        toast.error("An account with this email already exists. Please try logging in instead.", ResponsivePatterns.toast.config);
       } else {
         setError(err.message || "Signup failed. Please try again.");
-        toast.error(err.message || "Signup failed. Please try again.");
+        toast.error(err.message || "Signup failed. Please try again.", ResponsivePatterns.toast.config);
       }
     } finally {
       setIsLoading(false);
@@ -146,86 +147,86 @@ const Signup = ({
   if (!isOpen) return null;
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-gradient-to-b from-white to-gray-50 relative overflow-hidden py-12">
+    <div className={AuthTemplate.wrapper}>
       {/* Background decorative elements with asymmetrical design */}
             <div className="fixed inset-0 pointer-events-none overflow-hidden">
               {/* Diagonal decorative shapes */}
-              <div className="absolute -top-20 -right-20 w-96 h-96 bg-gradient-to-bl from-blue-100 to-transparent transform rotate-12 rounded-3xl"></div>
-              <div className="absolute -bottom-40 left-1/4 w-96 h-96 bg-gradient-to-tr from-emerald-50 to-transparent transform -rotate-12 rounded-3xl"></div>
+              <div className="absolute -top-20 -right-20 w-64 sm:w-80 lg:w-96 h-64 sm:h-80 lg:h-96 bg-gradient-to-bl from-blue-100 to-transparent transform rotate-12 rounded-3xl"></div>
+              <div className="absolute -bottom-40 left-1/4 w-64 sm:w-80 lg:w-96 h-64 sm:h-80 lg:h-96 bg-gradient-to-tr from-emerald-50 to-transparent transform -rotate-12 rounded-3xl"></div>
               
               {/* Scattered circles with different sizes and opacity */}
-              <div className="absolute top-1/4 right-20 w-32 h-32 border border-blue-300 rounded-full opacity-40"></div>
-              <div className="absolute bottom-1/4 left-10 w-48 h-48 border border-emerald-300 rounded-full opacity-30"></div>
-              <div className="absolute top-1/5 left-1/3 w-64 h-64 rounded-full bg-blue-50 blur-3xl opacity-50"></div>
-              <div className="absolute bottom-1/3 right-1/4 w-40 h-40 rounded-full bg-emerald-50 blur-3xl opacity-60"></div>
+              <div className="absolute top-1/4 right-5 sm:right-10 lg:right-20 w-20 sm:w-24 lg:w-32 h-20 sm:h-24 lg:h-32 border border-blue-300 rounded-full opacity-40"></div>
+              <div className="absolute bottom-1/4 left-2 sm:left-5 lg:left-10 w-32 sm:w-40 lg:w-48 h-32 sm:h-40 lg:h-48 border border-emerald-300 rounded-full opacity-30"></div>
+              <div className="absolute top-1/5 left-1/3 w-40 sm:w-52 lg:w-64 h-40 sm:h-52 lg:h-64 rounded-full bg-blue-50 blur-3xl opacity-50"></div>
+              <div className="absolute bottom-1/3 right-1/4 w-24 sm:w-32 lg:w-40 h-24 sm:h-32 lg:h-40 rounded-full bg-emerald-50 blur-3xl opacity-60"></div>
               
               {/* Slanted accent line */}
               <div className="absolute top-0 bottom-0 left-1/3 w-1 bg-gradient-to-b from-blue-100 via-emerald-100 to-transparent transform rotate-12"></div>
             </div>
       
               {/* Left decorative element - offset from center */}
-              <div className="hidden md:block md:w-2/5 relative -mr-20">
+              <div className="hidden lg:block lg:w-2/5 relative -mr-20">
                 <div className="absolute -top-10 -left-10 w-full h-full">
-                  <div className="w-64 h-64 bg-gradient-to-br from-blue-400/10 to-emerald-400/10 rounded-3xl transform rotate-12 ml-10"></div>
-                  <div className="w-80 h-80 border border-blue-200 rounded-full absolute top-20 left-16 opacity-50"></div>
+                  <div className="w-48 lg:w-64 h-48 lg:h-64 bg-gradient-to-br from-blue-400/10 to-emerald-400/10 rounded-3xl transform rotate-12 ml-10"></div>
+                  <div className="w-60 lg:w-80 h-60 lg:h-80 border border-blue-200 rounded-full absolute top-20 left-16 opacity-50"></div>
                   <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                    <Radar className="w-32 h-32 text-blue-600/20" />
+                    <Radar className="w-24 lg:w-32 h-24 lg:h-32 text-blue-600/20" />
                   </div>
                 </div>
               </div>
       
       {/* Signup card */}
-      <div className="relative z-10 w-full max-w-md mx-4">
-        <div className="bg-white/90 backdrop-blur-md rounded-xl overflow-hidden shadow-lg border border-gray-100">
-          <div className="p-8">
+      <div className={AuthTemplate.container}>
+        <div className={AuthTemplate.card}>
+          <div>
             {/* Logo & Title */}
-            <div className="flex flex-col items-center mb-8">
-              <div className="flex items-center gap-3 mb-6">
+            <div className={ResponsivePatterns.components.pageHeader}>
+              <div className={ResponsivePatterns.components.logo}>
                 <div className="relative">
-                  <Radar className="w-8 h-8 text-blue-600" />
+                  <Radar className={ResponsivePatterns.components.logoIcon} />
                   <div className="absolute inset-0 bg-blue-100 rounded-full -z-10"></div>
                 </div>
-                <span className="text-2xl font-semibold bg-blue-600 bg-clip-text text-transparent">
+                <span className={ResponsivePatterns.components.logoText}>
                   Bizradar
                 </span>
               </div>
 
-              <h2 className="text-2xl font-medium text-gray-800 ml-4 relative">
-                  <div className="absolute -left-4 top-1/2 transform -translate-y-1/2 w-2 h-8 bg-emerald-400 rounded-r-md"></div>
+              <h2 className={ResponsivePatterns.components.pageHeaderTitle}>
+                  <div className={ResponsivePatterns.components.pageHeaderAccent}></div>
                   Create an account
                 </h2>
             </div>
 
             {/* Social Signup Buttons */}
-            <div className="space-y-4 mb-6">
-              <button className="w-full py-3 px-4 bg-white rounded-lg flex items-center justify-center gap-2 text-gray-700 font-medium border border-gray-200 shadow-sm hover:shadow-md transition-all">
-                <FaLinkedin className="text-blue-600 text-lg" />
+            <div className="space-y-3 sm:space-y-4 mb-4 sm:mb-6">
+              <button className={ResponsivePatterns.forms.secondaryButton}>
+                <FaLinkedin className={`${ResponsivePatterns.icons.buttonIcon} text-blue-600`} />
                 <span>Sign up with LinkedIn</span>
               </button>
 
-              <button className="w-full py-3 px-4 bg-white rounded-lg flex items-center justify-center gap-2 text-gray-700 font-medium border border-gray-200 shadow-sm hover:shadow-md transition-all">
-                <FaGoogle className="text-red-500 text-lg" />
+              <button className={ResponsivePatterns.forms.secondaryButton}>
+                <FaGoogle className={`${ResponsivePatterns.icons.buttonIcon} text-red-500`} />
                 <span>Sign up with Google</span>
               </button>
 
-              <button className="w-full py-3 px-4 bg-white rounded-lg flex items-center justify-center gap-2 text-gray-700 font-medium border border-gray-200 shadow-sm hover:shadow-md transition-all">
-                <FaFacebook className="text-blue-600 text-lg" />
+              <button className={ResponsivePatterns.forms.secondaryButton}>
+                <FaFacebook className={`${ResponsivePatterns.icons.buttonIcon} text-blue-600`} />
                 <span>Sign up with Facebook</span>
               </button>
             </div>
 
             {/* Divider */}
-            <div className="flex items-center my-6">
-              <div className="flex-1 h-px bg-gray-200"></div>
-              <span className="px-4 text-sm text-gray-500">
+            <div className={ResponsivePatterns.components.divider}>
+              <div className={ResponsivePatterns.components.dividerLine}></div>
+              <span className={ResponsivePatterns.components.dividerText}>
                 OR 
               </span>
-              <div className="flex-1 h-px bg-gray-200"></div>
+              <div className={ResponsivePatterns.components.dividerLine}></div>
             </div>
 
             {/* Signup Form */}
             <form
-              className="space-y-5"
+              className={AuthTemplate.form}
               onSubmit={signupForm.handleSubmit(onSignupSubmit)}
             >
               {/* Name Fields */}

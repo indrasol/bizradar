@@ -1,10 +1,11 @@
 import { supabase } from '@/utils/supabase';
 import { SupportTicket, SupportMessage } from '@/models/support';
+import { SUPABASE_TABLES } from '@/config/apiEndpoints';
 
 export const supportApi = {
   async getTickets(): Promise<SupportTicket[]> {
     const { data, error } = await supabase
-      .from('support_tickets')
+      .from(SUPABASE_TABLES.SUPPORT_TICKETS)
       .select('*')
       .order('created_at', { ascending: false });
 
@@ -14,7 +15,7 @@ export const supportApi = {
 
   async getTicket(ticketId: string): Promise<SupportTicket> {
     const { data, error } = await supabase
-      .from('support_tickets')
+      .from(SUPABASE_TABLES.SUPPORT_TICKETS)
       .select('*')
       .eq('id', ticketId)
       .single();
@@ -28,7 +29,7 @@ export const supportApi = {
     if (!user) throw new Error('User must be logged in to create a support ticket.');
     const now = new Date().toISOString();
     const { data, error } = await supabase
-      .from('support_tickets')
+      .from(SUPABASE_TABLES.SUPPORT_TICKETS)
       .insert([
         {
           ...ticket,
@@ -46,7 +47,7 @@ export const supportApi = {
 
   async updateTicket(ticketId: string, updates: Partial<SupportTicket>): Promise<void> {
     const { error } = await supabase
-      .from('support_tickets')
+      .from(SUPABASE_TABLES.SUPPORT_TICKETS)
       .update(updates)
       .eq('id', ticketId);
 
@@ -55,7 +56,7 @@ export const supportApi = {
 
   async getMessages(ticketId: string): Promise<SupportMessage[]> {
     const { data, error } = await supabase
-      .from('support_messages')
+      .from(SUPABASE_TABLES.SUPPORT_MESSAGES)
       .select('*')
       .eq('ticket_id', ticketId)
       .order('created_at', { ascending: true });
@@ -66,7 +67,7 @@ export const supportApi = {
 
   async sendMessage(message: Omit<SupportMessage, 'id' | 'createdAt'>): Promise<SupportMessage> {
     const { data, error } = await supabase
-      .from('support_messages')
+      .from(SUPABASE_TABLES.SUPPORT_MESSAGES)
       .insert([message])
       .select()
       .single();

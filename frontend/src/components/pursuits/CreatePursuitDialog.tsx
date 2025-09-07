@@ -2,10 +2,10 @@ import React, { useRef, useState } from 'react';
 import { X, FileText, ChevronDown } from 'lucide-react';
 import { Opportunity } from './types';
 
-interface CreatePursuitDialogProps {
+interface CreateTrackerDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onCreatePursuit: (pursuit: {
+  onCreateTracker: (tracker: {
     title: string;
     description: string;
     stage: string;
@@ -16,16 +16,16 @@ interface CreatePursuitDialogProps {
   }) => void;
 }
 
-export const CreatePursuitDialog: React.FC<CreatePursuitDialogProps> = ({
+export const CreateTrackerDialog: React.FC<CreateTrackerDialogProps> = ({
   isOpen,
   onClose,
-  onCreatePursuit,
+  onCreateTracker,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [showTagsDropdown, setShowTagsDropdown] = useState(false);
   const [showAssigneeDropdown, setShowAssigneeDropdown] = useState(false);
-  const [newPursuit, setNewPursuit] = useState({
+  const [newTracker, setNewTracker] = useState({
     title: "",
     description: "",
     stage: "Assessment",
@@ -40,7 +40,7 @@ export const CreatePursuitDialog: React.FC<CreatePursuitDialogProps> = ({
   const availableAssignees = ["John Doe", "Jane Smith", "Mike Johnson"];
 
   const toggleTag = (tag: string) => {
-    setNewPursuit(prev => ({
+    setNewTracker(prev => ({
       ...prev,
       tags: prev.tags.includes(tag)
         ? prev.tags.filter(t => t !== tag)
@@ -49,14 +49,14 @@ export const CreatePursuitDialog: React.FC<CreatePursuitDialogProps> = ({
   };
 
   const toggleFederalContract = () => {
-    setNewPursuit(prev => ({
+    setNewTracker(prev => ({
       ...prev,
       isFederalContract: !prev.isFederalContract
     }));
   };
 
   const setAssignee = (assignee: string | null) => {
-    setNewPursuit(prev => ({
+    setNewTracker(prev => ({
       ...prev,
       assignee
     }));
@@ -89,15 +89,15 @@ export const CreatePursuitDialog: React.FC<CreatePursuitDialogProps> = ({
   };
 
   const handleSubmit = () => {
-    if (!newPursuit.title.trim()) {
+    if (!newTracker.title.trim()) {
       setTitleError("Title is required");
       return;
     }
     setTitleError(null);
-    onCreatePursuit(newPursuit);
+    onCreateTracker(newTracker);
     onClose();
     // Reset form
-    setNewPursuit({
+    setNewTracker({
       title: "",
       description: "",
       stage: "Assessment",
@@ -117,7 +117,7 @@ export const CreatePursuitDialog: React.FC<CreatePursuitDialogProps> = ({
         {/* Dialog Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
           <h3 className="text-lg font-semibold text-gray-800">
-            Import Pursuit
+            Import Tracker
           </h3>
           <button
             onClick={onClose}
@@ -134,9 +134,9 @@ export const CreatePursuitDialog: React.FC<CreatePursuitDialogProps> = ({
             type="text"
             placeholder="Pursuit title"
             className={`w-full p-2 border-b border-gray-200 text-lg font-medium mb-1 focus:outline-none focus:border-blue-500 ${titleError ? 'border-red-500' : ''}`}
-            value={newPursuit.title}
+            value={newTracker.title}
             onChange={(e) => {
-              setNewPursuit({ ...newPursuit, title: e.target.value });
+              setNewPursuit({ ...newTracker, title: e.target.value });
               if (titleError && e.target.value.trim()) setTitleError(null);
             }}
             required
@@ -149,9 +149,9 @@ export const CreatePursuitDialog: React.FC<CreatePursuitDialogProps> = ({
           <textarea
             placeholder="Add description..."
             className="w-full p-2 border-b border-gray-200 text-sm mb-6 focus:outline-none focus:border-blue-500 min-h-24"
-            value={newPursuit.description}
+            value={newTracker.description}
             onChange={(e) =>
-              setNewPursuit({ ...newPursuit, description: e.target.value })
+              setNewPursuit({ ...newTracker, description: e.target.value })
             }
           ></textarea>
 
@@ -160,7 +160,7 @@ export const CreatePursuitDialog: React.FC<CreatePursuitDialogProps> = ({
             {/* Federal Contract Button */}
             <button 
               className={`px-3 py-1.5 border rounded-full text-sm flex items-center gap-1 ${
-                newPursuit.isFederalContract 
+                newTracker.isFederalContract 
                   ? 'bg-blue-100 text-blue-800 border-blue-200' 
                   : 'border-gray-300 text-gray-700 hover:bg-gray-50'
               }`}
@@ -173,7 +173,7 @@ export const CreatePursuitDialog: React.FC<CreatePursuitDialogProps> = ({
             {/* Assessment Tag */}
             <div className="px-3 py-1.5 bg-amber-100 text-amber-800 rounded-full text-sm flex items-center gap-1 font-medium">
               <span className="h-2 w-2 bg-amber-500 rounded-full"></span>
-              {newPursuit.stage}
+              {newTracker.stage}
             </div>
 
             {/* Assignee Tag */}
@@ -183,7 +183,7 @@ export const CreatePursuitDialog: React.FC<CreatePursuitDialogProps> = ({
                 onClick={() => setShowAssigneeDropdown(!showAssigneeDropdown)}
               >
                 <span className="text-gray-500">👤</span>
-                {newPursuit.assignee || 'No assignee'}
+                {newTracker.assignee || 'No assignee'}
                 <ChevronDown size={14} />
               </button>
               {showAssigneeDropdown && (
@@ -213,9 +213,9 @@ export const CreatePursuitDialog: React.FC<CreatePursuitDialogProps> = ({
             <input
               type="date"
               className="px-3 py-1.5 border border-gray-300 rounded-full text-sm text-gray-700 hover:bg-gray-50"
-              value={newPursuit.due_date || ''}
+              value={newTracker.due_date || ''}
               onChange={(e) =>
-                setNewPursuit({ ...newPursuit, due_date: e.target.value })
+                setNewPursuit({ ...newTracker, due_date: e.target.value })
               }
             />
 
@@ -234,12 +234,12 @@ export const CreatePursuitDialog: React.FC<CreatePursuitDialogProps> = ({
                       <button
                         key={tag}
                         className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded flex items-center gap-2 ${
-                          newPursuit.tags.includes(tag) ? 'bg-gray-100' : ''
+                          newTracker.tags.includes(tag) ? 'bg-gray-100' : ''
                         }`}
                         onClick={() => toggleTag(tag)}
                       >
                         <span className={`h-2 w-2 rounded-full ${
-                          newPursuit.tags.includes(tag) ? 'bg-blue-500' : 'bg-gray-300'
+                          newTracker.tags.includes(tag) ? 'bg-blue-500' : 'bg-gray-300'
                         }`}></span>
                         {tag}
                       </button>
@@ -250,7 +250,7 @@ export const CreatePursuitDialog: React.FC<CreatePursuitDialogProps> = ({
             </div>
 
             {/* Selected Tags */}
-            {newPursuit.tags.map(tag => (
+            {newTracker.tags.map(tag => (
               <div key={tag} className="px-3 py-1.5 bg-blue-100 text-blue-800 rounded-full text-sm flex items-center gap-1">
                 <span className="h-2 w-2 bg-blue-500 rounded-full"></span>
                 {tag}
@@ -335,10 +335,12 @@ export const CreatePursuitDialog: React.FC<CreatePursuitDialogProps> = ({
             onClick={handleSubmit}
             className="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-700"
           >
-            Import Pursuit
+            Import Tracker
           </button>
         </div>
       </div>
     </div>
   );
-}; 
+};
+
+export default CreateTrackerDialog; 

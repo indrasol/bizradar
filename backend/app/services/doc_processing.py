@@ -1,7 +1,7 @@
 import os
 import base64
 import tempfile
-from utils.logger import get_logger
+from app.utils.logger import get_logger
 from typing import List, Dict, Any, Optional
 import traceback
 

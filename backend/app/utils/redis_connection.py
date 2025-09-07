@@ -1,7 +1,7 @@
 import os
 import redis
 import json
-from utils.logger import get_logger
+from app.utils.logger import get_logger
 from dotenv import load_dotenv
 from typing import Optional, Any
 from datetime import date, datetime

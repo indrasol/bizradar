@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import tokenService from "../../utils/tokenService";
 import { UpgradeModal } from "../subscription/UpgradeModal";
+import { API_ENDPOINTS } from "@/config/apiEndpoints";
 
 interface RecommendationsPanelProps { 
   opportunities: any[]; 
@@ -87,7 +88,7 @@ const RecommendationsPanel = ({
       
       console.log("AI recommendations request body:", requestBody);
       
-      const response = await fetch(`${API_BASE_URL}/ai-recommendations`, {
+      const response = await fetch(API_ENDPOINTS.AI_RECOMMENDATIONS, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -376,7 +377,7 @@ const RecommendationsPanel = ({
                                 className="px-3 py-1.5 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5"
                               >
                                 <Check size={14} />
-                                <span>Add to Pursuits</span>
+                                <span>Add to Tracker</span>
                               </button>
                             </div>
                           ) : (

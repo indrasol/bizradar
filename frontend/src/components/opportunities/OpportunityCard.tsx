@@ -166,7 +166,7 @@ const OpportunityCard: React.FC<OpportunityCardProps> = ({
             className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium transition-colors shadow-sm flex items-center gap-1"
           >
             <Plus size={14} />
-            <span>Add to Pursuits</span>
+            <span>Add to Tracker</span>
           </button>
           <button
             onClick={() => handleBeginResponse(opportunity.id, opportunity)}

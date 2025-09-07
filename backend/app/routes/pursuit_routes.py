@@ -1,0 +1,295 @@
+"""
+Tracker management routes
+Handles all tracker operations including deadlines
+"""
+from fastapi import APIRouter, HTTPException, Query, Depends
+from pydantic import BaseModel
+from typing import Optional, List, Dict, Any, Literal
+from datetime import datetime, timezone, timedelta
+from app.database.supabase import get_supabase_client, safe_supabase_operation
+from app.utils.logger import get_logger
+
+# Initialize logger
+logger = get_logger(__name__)
+
+router = APIRouter()
+
+class DeadlineItem(BaseModel):
+    oppId: str
+    title: str
+    agency: Optional[str] = None
+    solicitation: Optional[str] = None
+    type: Literal["proposal", "qa", "amendment", "site_visit", "all"]
+    dueAt: str  # ISO string
+    daysLeft: int
+    stage: str
+    owner: Optional[Dict[str, Any]] = None
+
+class DeadlinesResponse(BaseModel):
+    success: bool
+    deadlines: List[DeadlineItem]
+    total_count: int
+    message: Optional[str] = None
+
+class MarkSubmittedRequest(BaseModel):
+    tracker_id: str
+
+def get_deadline_type(stage: str) -> str:
+    """Map pursuit stage to deadline type"""
+    lower_stage = stage.lower()
+    if 'proposal' in lower_stage or 'rfp' in lower_stage:
+        return 'proposal'
+    if 'q&a' in lower_stage or 'question' in lower_stage:
+        return 'qa'
+    if 'amendment' in lower_stage:
+        return 'amendment'
+    if 'site' in lower_stage or 'visit' in lower_stage:
+        return 'site_visit'
+    return 'proposal'  # Default
+
+def calculate_days_left(due_date: str) -> int:
+    """Calculate days left until due date"""
+    try:
+        if not due_date or due_date.strip() == '':
+            return 0
+        due = datetime.fromisoformat(due_date.replace('Z', '+00:00'))
+        now = datetime.now(timezone.utc)
+        diff = due - now
+        return max(-999, min(999, int(diff.total_seconds() / (24 * 3600))))
+    except (ValueError, TypeError, AttributeError) as e:
+        logger.warning(f"Error parsing due date '{due_date}': {str(e)}")
+        return 0
+
+@router.get("/deadlines", response_model=DeadlinesResponse)
+async def get_deadlines(
+    user_id: str = Query(..., description="User ID to fetch deadlines for"),
+    days: int = Query(7, description="Number of days to look ahead", ge=1, le=365),
+    deadline_type: str = Query("all", description="Filter by deadline type")
+):
+    """Get upcoming deadlines from user's pursuits (tracker)"""
+    # Validate user_id first, before try block
+    if not user_id or user_id.strip() == '':
+        raise HTTPException(
+            status_code=400,
+            detail="User ID is required and cannot be empty"
+        )
+    
+    try:
+        
+        supabase = get_supabase_client()
+        
+        # Calculate date range
+        now = datetime.now(timezone.utc)
+        future_date = now + timedelta(days=days)
+        
+        # Format dates for query
+        future_date_str = future_date.isoformat()
+        
+        logger.info(f"Fetching deadlines for user {user_id}, next {days} days")
+        
+        # Define the Supabase operation as a proper function
+        def execute_query():
+            try:
+                query = supabase.table('trackers').select(
+                    'id, title, stage, due_date, is_submitted, description, naicscode'
+                ).eq('user_id', user_id).eq('is_submitted', False).lte('due_date', future_date_str).order('due_date', desc=False)
+                result = query.execute()
+                logger.debug(f"Query executed successfully, found {len(result.data) if result.data else 0} records")
+                return result
+            except Exception as e:
+                logger.error(f"Error executing Supabase query: {str(e)}")
+                raise
+        
+        # Execute query using safe operation
+        response = await safe_supabase_operation(
+            execute_query,
+            error_message=f"Failed to fetch trackers for user {user_id}"
+        )
+        
+        if not response.data:
+            logger.info(f"No deadlines found for user {user_id}")
+            return DeadlinesResponse(
+                success=True,
+                deadlines=[],
+                total_count=0,
+                message="No upcoming deadlines found"
+            )
+        
+        # Transform and filter data
+        deadlines = []
+        for tracker in response.data:
+            try:
+                # Skip trackers without due_date
+                if not tracker.get('due_date'):
+                    continue
+                    
+                days_left = calculate_days_left(tracker['due_date'])
+                
+                # Filter by days range (include overdue items)
+                if days_left > days:
+                    continue
+                
+                # Create deadline item (remove stage filtering as requested)
+                deadline = DeadlineItem(
+                    oppId=tracker['id'],
+                    title=tracker['title'],
+                    agency="Federal Agency",  # Default since trackers don't have agency
+                    solicitation=f"NAICS-{tracker['naicscode']}" if tracker.get('naicscode') else f"REF-{tracker['id'][-8:]}",
+                    type="proposal",  # Default type since we're removing stage filtering
+                    dueAt=tracker['due_date'],
+                    daysLeft=days_left,
+                    stage=tracker['stage'],
+                    owner={
+                        "id": user_id,
+                        "name": "You"  # Default owner name
+                    }
+                )
+                
+                deadlines.append(deadline)
+                
+            except Exception as e:
+                logger.warning(f"Error processing tracker {tracker.get('id', 'unknown')}: {str(e)}")
+                continue
+        
+        logger.info(f"Found {len(deadlines)} deadlines for user {user_id}")
+        
+        return DeadlinesResponse(
+            success=True,
+            deadlines=deadlines,
+            total_count=len(deadlines),
+            message=f"Found {len(deadlines)} upcoming deadlines"
+        )
+        
+    except Exception as e:
+        logger.error(f"Error fetching deadlines for user {user_id}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch deadlines: {str(e)}"
+        )
+
+@router.post("/mark-submitted")
+async def mark_tracker_submitted(
+    request: MarkSubmittedRequest,
+    user_id: str = Query(..., description="User ID")
+):
+    """Mark a tracker as submitted"""
+    try:
+        supabase = get_supabase_client()
+        
+        logger.info(f"Marking tracker {request.tracker_id} as submitted for user {user_id}")
+        
+        # Define the Supabase operation as a proper function
+        def execute_update():
+            update_query = supabase.table('trackers').update({
+                'is_submitted': True,
+                'updated_at': datetime.now(timezone.utc).isoformat()
+            }).eq('id', request.tracker_id).eq('user_id', user_id)
+            return update_query.execute()
+        
+        # Execute update using safe operation
+        response = await safe_supabase_operation(
+            execute_update,
+            error_message=f"Failed to update tracker {request.tracker_id}"
+        )
+        
+        if not response.data:
+            raise HTTPException(
+                status_code=404,
+                detail="Tracker not found or you don't have permission to update it"
+            )
+        
+        logger.info(f"Successfully marked tracker {request.tracker_id} as submitted")
+        
+        return {
+            "success": True,
+            "message": "Tracker marked as submitted successfully",
+            "tracker_id": request.tracker_id
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error marking tracker as submitted: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to mark tracker as submitted: {str(e)}"
+        )
+
+@router.get("/stats")
+async def get_tracker_stats(user_id: str = Query(..., description="User ID")):
+    """Get tracker statistics for the user"""
+    try:
+        supabase = get_supabase_client()
+        
+        logger.info(f"Fetching tracker stats for user {user_id}")
+        
+        # Define the Supabase operation as a proper function
+        def execute_stats_query():
+            stats_query = supabase.table('trackers').select(
+                'id, is_submitted, due_date, stage'
+            ).eq('user_id', user_id)
+            return stats_query.execute()
+        
+        # Execute query using safe operation
+        response = await safe_supabase_operation(
+            execute_stats_query,
+            error_message=f"Failed to fetch tracker stats for user {user_id}"
+        )
+        
+        if not response.data:
+            return {
+                "success": True,
+                "stats": {
+                    "total": 0,
+                    "active": 0,
+                    "submitted": 0,
+                    "overdue": 0,
+                    "due_this_week": 0
+                }
+            }
+        
+        # Calculate stats
+        now = datetime.now(timezone.utc)
+        week_from_now = now + timedelta(days=7)
+        
+        total = len(response.data)
+        submitted = sum(1 for p in response.data if p.get('is_submitted', False))
+        active = total - submitted
+        
+        overdue = 0
+        due_this_week = 0
+        
+        for tracker in response.data:
+            if tracker.get('is_submitted', False) or not tracker.get('due_date'):
+                continue
+                
+            try:
+                due_date = datetime.fromisoformat(tracker['due_date'].replace('Z', '+00:00'))
+                if due_date < now:
+                    overdue += 1
+                elif due_date <= week_from_now:
+                    due_this_week += 1
+            except Exception:
+                continue
+        
+        stats = {
+            "total": total,
+            "active": active,
+            "submitted": submitted,
+            "overdue": overdue,
+            "due_this_week": due_this_week
+        }
+        
+        logger.info(f"Tracker stats for user {user_id}: {stats}")
+        
+        return {
+            "success": True,
+            "stats": stats
+        }
+        
+    except Exception as e:
+        logger.error(f"Error fetching tracker stats: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch tracker stats: {str(e)}"
+        )

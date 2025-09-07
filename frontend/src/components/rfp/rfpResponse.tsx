@@ -507,14 +507,14 @@ const RfpResponse = ({ contract, pursuitId }) => {
         isSubmitted
       };
 
-      // Update stage in pursuits table
-      const { error: pursuitError } = await supabase
-        .from('pursuits')
+      // Update stage in trackers table
+      const { error: trackerError } = await supabase
+        .from('trackers')
         .update({ stage: stageToSet })
         .eq('id', pursuitId);
 
-      if (pursuitError) {
-        throw pursuitError;
+      if (trackerError) {
+        throw trackerError;
       }
 
       // Save to rfp_responses table
