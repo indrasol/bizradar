@@ -1,4 +1,7 @@
-import os
+import os, sys
+# BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+# if BASE_DIR not in sys.path:
+#     sys.path.insert(0, BASE_DIR)
 from fastapi import FastAPI, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from app.routes.search_routes import search_router
@@ -12,6 +15,8 @@ from app.routes.payment_methods import router as payment_methods_router
 from app.utils.subscription import get_subscription_status
 from app.routes.checkout import router as checkout_router
 from app.config.settings import title, description, version
+from app.routes.enhanced_search import router as enhanced_search_router
+from app.routes.profiles import router as profiles_router
 
 
 @asynccontextmanager
@@ -63,12 +68,14 @@ async def test():
 
 # Include routers
 app.include_router(search_router)
+app.include_router(enhanced_search_router, prefix="/api", tags=["enhanced-search"])
 # Include admin routes
 # Include all API routes with /api prefix
 app.include_router(admin_router, prefix="/api", tags=["admin"])
 app.include_router(email_router, prefix="/api", tags=["email"])
 app.include_router(checkout_router, prefix="/api", tags=["checkout"])
 app.include_router(payment_methods_router, prefix="/api", tags=["payment-methods"])
+app.include_router(profiles_router, prefix="/api", tags=["profiles"])
 
 # Webhook endpoint - no /api prefix since it's called directly by Stripe
 app.include_router(webhook_router, prefix="")

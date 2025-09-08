@@ -24,7 +24,7 @@ def normalize_bulleted_summary(summary: dict) -> str:
         head_keys = ["sponsor", "objective", "goal", "eligibility", "key_facts", "contact_info", "due_date"]
         bullets = []
         for header, key in zip(headers, head_keys):
-            if key in summary:
+            if key in summary and "Not specified" not in summary[key]:
                 bullets.append(f"*   **{header}**: {summary[key]}")
         return "\n".join(bullets) if bullets else normalize_bulleted_summary(DEFAULT_SUMMARY)
     except Exception:
@@ -57,12 +57,16 @@ async def fetch_description_from_sam(description_url):
                 if response.status == 200:
                     data = await response.json()
                     return data.get('description', '')
+                elif response.status == 429:
+                    logger.error("Rate limit exceeded. Sleeping for 1 hour.")
+                    await asyncio.sleep(3600)
+                    return await fetch_description_from_sam(description_url)
                 else:
                     logger.error(f"Failed to fetch description from SAM.gov: {response.status}")
-                    return None
+                    return ""
     except Exception as e:
         logger.error(f"Error fetching description from SAM.gov: {str(e)}")
-        return None
+        return ""
 
 SUMMARY_TEMPLATE = """
    "summary":{
@@ -71,8 +75,8 @@ SUMMARY_TEMPLATE = """
   "goal": "Primary goal or intended outcome in 1-2 sentences",
   "eligibility": "Eligibility criteria for applicants",
   "key_facts": "Important details like budget, timeline, or special requirements missed out in other fields",
-  "contact_info": "Contact information if available",
-  "due_date": "Application or submission deadline"
+  "due_date": "Application or submission deadline in YYYY-MM-DD format",
+  "budget": "Estimated budget for the opportunity"
 }
 """
 
@@ -128,9 +132,10 @@ async def generate_description_summary(description_text, max_length=300):
         summary = response.choices[0].message.content.strip()
         
         # Ensure bullet list formatting
-        summary = normalize_bulleted_summary(summary)
+        # summary = normalize_bulleted_summary(summary)
         
-        logger.info(f"Generated concise summary of {len(summary)} chars")
+        # logger.info(f"Generated concise summary of {len(summary)} chars")
+        summary = json.loads(summary)
         return summary
         
     except Exception as e:

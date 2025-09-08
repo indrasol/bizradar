@@ -3,11 +3,20 @@ import os
 import sys
 import psycopg2
 from dotenv import load_dotenv
-from app.config.settings import DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
-# Load environment variables
-load_dotenv()
+
+# Add the app directory to Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+try:
+    from app.config.settings import DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
+except ImportError:
+    from config.settings import DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
 from utils.logger import get_logger
+try:
+    # supabase-py client (install via: pip install supabase)
+    from supabase import create_client  # type: ignore
+except Exception:
+    create_client = None  # Lazily error when used
 
 # Configure logging
 logger = get_logger(__name__)
@@ -61,6 +70,42 @@ def get_db_connection():
         raise
     except Exception as e:
         logger.error(f"Database connection error: {e}")
+        raise
+
+def get_supabase_connection(use_service_key: bool = True):
+    """
+    Initialize and return a Supabase client using environment variables.
+    Prefers service key for elevated privileges when available.
+
+    Expected env vars:
+      - SUPABASE_URL_BIZ
+      - SUPABASE_SERVICE_KEY_BIZ (preferred for writes)
+      - SUPABASE_ANON_KEY_BIZ (fallback)
+    """
+    try:
+        # Ensure env variables are loaded
+        load_dotenv()
+
+        url = os.getenv("SUPABASE_URL_BIZ") or os.getenv("SUPABASE_URL")
+        service_key = os.getenv("SUPABASE_SERVICE_KEY_BIZ")
+        anon_key = os.getenv("SUPABASE_ANON_KEY_BIZ")
+
+        key = service_key if (use_service_key and service_key) else (anon_key or service_key)
+
+        if not url or not key:
+            raise MissingEnvironmentVariableError(
+                "Missing SUPABASE_URL_BIZ and/or SUPABASE_*_KEY_BIZ env vars"
+            )
+        if create_client is None:
+            raise RuntimeError(
+                "Supabase client not installed. Please install with: pip install supabase"
+            )
+
+        client = create_client(url, key)
+        logger.info("Supabase client initialized")
+        return client
+    except Exception as e:
+        logger.error(f"Supabase client initialization error: {e}")
         raise
 
 def initialize_tables():
