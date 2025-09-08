@@ -18,7 +18,7 @@ const STAGES = [
   { id: 'RFP Response Completed', title: 'Completed', color: 'bg-green-100 text-green-800' },
 ];
 
-export const KanbanView: React.FC<KanbanViewProps> = ({
+const KanbanView: React.FC<KanbanViewProps> = ({
   pursuits,
   onPursuitSelect,
   onRfpAction,
@@ -121,4 +121,6 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
       ))}
     </div>
   );
-}; 
+};
+
+export default KanbanView; 

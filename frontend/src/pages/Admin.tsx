@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import SideBar from "../components/layout/SideBar";
 import { Link } from 'react-router-dom';
+import { API_ENDPOINTS } from '@/config/apiEndpoints';
 
 // Define the correct API base URL
 const API_BASE_URL = 'http://localhost:5000';
@@ -80,7 +81,7 @@ const Admin = () => {
   // Fetch table counts from API
   const fetchTableCounts = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/admin/table-counts`);
+      const response = await fetch(API_ENDPOINTS.ADMIN_TABLE_COUNTS);
       
       if (!response.ok) {
         throw new Error(`Failed to fetch table counts: ${response.statusText}`);
@@ -110,7 +111,7 @@ const Admin = () => {
         params.append('search', searchQuery);
       }
       
-      const response = await fetch(`${API_BASE_URL}/admin/etl-records?${params.toString()}`);
+      const response = await fetch(API_ENDPOINTS.ADMIN_ETL_RECORDS + `?${params.toString()}`);
       
       if (!response.ok) {
         throw new Error(`Failed to fetch records: ${response.statusText}`);
@@ -205,7 +206,7 @@ const Admin = () => {
     
     try {
       // Pass an explicit trigger_source parameter to indicate this came from the Admin UI
-      const response = await fetch(`${API_BASE_URL}/admin/trigger-workflow`, {
+      const response = await fetch(API_ENDPOINTS.ADMIN_TRIGGER_WORKFLOW, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

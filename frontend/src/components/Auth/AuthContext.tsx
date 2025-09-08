@@ -4,14 +4,8 @@ import { supabase } from '../../utils/supabase';
 import tokenService from "../../utils/tokenService";
 import { subscriptionApi } from '@/api/subscription';
 import { authDiagnostics } from '@/utils/authDiagnostics';
-import TrialStatusModal from '@/components/subscription/TrialStatusModal';
-import UpgradeBlocker from '@/components/subscription/UpgradeBlocker';
-
-// Define your API base URL
-const isDevelopment = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-const API_BASE_URL = isDevelopment
-  ? "http://localhost:5000"
-  : import.meta.env.VITE_API_BASE_URL;
+import { useUpgradeModal } from '../subscription/UpgradeModalContext';
+import { API_ENDPOINTS } from '@/config/apiEndpoints';
 
 interface AuthContextType {
   user: User | null;
@@ -32,8 +26,6 @@ interface AuthContextType {
   verifyEmailOtp: (email: string, otp: string, firstName?: string, lastName?: string) => Promise<{ success: boolean; user: User; session: Session; }>;
   signupWithOtp: (firstName: string, lastName: string, email: string) => Promise<void>;
   checkUserExists: (email: string) => Promise<boolean>;
-  trialInfo?: { remainingDays: number; isTrial: boolean; expired: boolean } | null;
-  refreshTrialStatus?: () => Promise<void>;
 }
 
 // Create the context with a default value
@@ -56,8 +48,6 @@ const AuthContext = createContext<AuthContextType>({
   verifyEmailOtp: async () => ({ success: false, user: {} as User, session: {} as Session }),
   signupWithOtp: async () => { },
   checkUserExists: async () => false,
-  trialInfo: null,
-  refreshTrialStatus: async () => { }
 });
 
 interface AuthProviderProps {
@@ -68,9 +58,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [trialInfo, setTrialInfo] = useState<{ remainingDays: number; isTrial: boolean; expired: boolean } | null>(null);
-  const [showTrialModal, setShowTrialModal] = useState(false);
-  const [showBlocker, setShowBlocker] = useState(false);
+  const { isOpen: isUpgradeModalOpen, openModal, closeModal } = useUpgradeModal();
 
   // Initialize the auth state on component mount
   useEffect(() => {
@@ -97,22 +85,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
         // Set session marker for browser close detection
         sessionStorage.setItem("userActiveSession", "true");
-
-        // Fetch subscription/trial status and show modal/blocker as needed
-        try {
-          const status = await subscriptionApi.getStatus(session.user.id);
-          const info = {
-            remainingDays: status.remaining_days ?? 0,
-            isTrial: status.is_trial ?? false,
-            expired: status.expired ?? false
-          };
-          setTrialInfo(info);
-          const alreadyShown = sessionStorage.getItem('trialModalShown') === 'true';
-          setShowTrialModal(info.isTrial && !info.expired && !alreadyShown);
-          setShowBlocker(info.expired);
-        } catch (e) {
-          // ignore
-        }
       }
 
       setLoading(false);
@@ -136,24 +108,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           // Update session marker
           sessionStorage.setItem("userActiveSession", "true");
 
-          // Refresh status on auth change
-          subscriptionApi.getStatus(newSession.user.id).then(status => {
-            const info = {
-              remainingDays: status.remaining_days ?? 0,
-              isTrial: status.is_trial ?? false,
-              expired: status.expired ?? false
-            };
-            setTrialInfo(info);
-            const alreadyShown = sessionStorage.getItem('trialModalShown') === 'true';
-            setShowTrialModal(info.isTrial && !info.expired && !alreadyShown);
-            setShowBlocker(info.expired);
-          }).catch(() => {});
         } else {
           tokenService.clearTokens();
           sessionStorage.removeItem("userActiveSession");
-          setTrialInfo(null);
-          setShowTrialModal(false);
-          setShowBlocker(false);
         }
       }
     );
@@ -210,7 +167,19 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
       const { data, error } = response;
 
-      if (error) throw error;
+      if (error) {
+        // Check if error is due to unconfirmed email
+        if (error.message?.toLowerCase().includes('email not confirmed') || 
+            error.message?.toLowerCase().includes('confirm your email')) {
+          throw new Error('Please check your email and confirm your account before logging in.');
+        }
+        throw error;
+      }
+
+      // Check if user's email is confirmed
+      if (data.user && !data.user.email_confirmed_at) {
+        throw new Error('Please check your email and confirm your account before logging in.');
+      }
 
       setSession(data.session);
       setUser(data.user);
@@ -329,6 +298,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       }
 
       // Sign up the user with custom user_metadata
+      console.log('Attempting signup with:', { email, firstName, lastName });
+      
+      // Sign up the user with custom user_metadata
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -341,6 +313,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       });
 
       if (error) {
+        console.error('Detailed signup error:', {
+          message: error.message,
+          status: error.status,
+          details: error
+        });
+        
         // Duplicate email or any other auth error
         if (error.message.toLowerCase().includes('user already registered')) {
           throw new Error('An account with this email already exists. Please try logging in.');
@@ -349,7 +327,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       }
 
       if (data.user) {
-        // Optionally update profile fields (first_name/last_name) since the trigger only inserts email
+        // Update profile fields (first_name/last_name) since the trigger only inserts basic info
         const { error: updateError } = await supabase
           .from('profiles')
           .update({
@@ -362,24 +340,23 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           console.warn('Profile update failed:', updateError.message);
         }
 
-        // Set user and session
+        // Set user and session (session will be null since email confirmation is required)
         setUser(data.user);
         setSession(data.session);
 
-        // Store tokens
+        // Email confirmation is always required, so no session will be returned
         if (data.session) {
+          // This shouldn't happen with email confirmation enabled
           tokenService.setTokens(
             data.session.access_token,
             data.session.refresh_token
           );
+        } else {
+          // Expected behavior - email confirmation required
+          console.log('Email confirmation required - no session returned');
         }
 
-        // Create trial immediately on signup
-        try {
-          await subscriptionApi.getStatus(data.user.id);
-        } catch (e) {
-          // ignore – will also run on auth init
-        }
+        // Note: Subscription will be created after company setup is completed
       }
     } catch (error) {
       const authError = error as AuthError;
@@ -396,7 +373,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       // Clear cache if user exists - WITH BETTER ERROR HANDLING
       if (user) {
         try {
-          const response = await fetch(`${API_BASE_URL}/clear-cache`, {
+          const response = await fetch(API_ENDPOINTS.CLEAR_CACHE, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ user_id: user.id }),
@@ -431,7 +408,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       sessionStorage.removeItem("userProfile");
       sessionStorage.removeItem("currentContract");
       sessionStorage.removeItem("selectedOpportunity");
-      sessionStorage.removeItem("trialModalShown");
       // Optional related localStorage keys that shouldn't persist across accounts
       localStorage.removeItem("auth_user");
     } catch (error) {
@@ -827,7 +803,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     verifyEmailOtp,
     signupWithOtp,
     checkUserExists,
-    trialInfo,
     refreshTrialStatus: async () => {
       if (!user) return;
       try {
@@ -837,10 +812,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           isTrial: status.is_trial ?? false,
           expired: status.expired ?? false
         };
-        setTrialInfo(info);
-        const alreadyShown = sessionStorage.getItem('trialModalShown') === 'true';
-        setShowTrialModal(info.isTrial && !info.expired && !alreadyShown);
-        setShowBlocker(info.expired);
       } catch (e) {
         // ignore
       }
@@ -848,30 +819,27 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   const handleUpgrade = () => {
-    // Route to dashboard and open the existing Upgrade modal there
+    // Open the upgrade modal directly using the global context
+    // The blocker will be hidden by the shouldShowBlocker logic when modal opens
+    openModal();
+  };
+
+  const handleLogout = async () => {
     try {
-      window.dispatchEvent(new CustomEvent('openUpgradeModal'));
-    } catch {}
-    window.location.href = '/dashboard?upgrade=1';
+      // Close the upgrade modal first if it's open
+      if (isUpgradeModalOpen) {
+        closeModal();
+      }
+      await logout();
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
   };
 
   return (
     <AuthContext.Provider value={value}>
       {children}
-      <TrialStatusModal
-        open={showTrialModal}
-        remainingDays={trialInfo?.remainingDays ?? 0}
-        isTrial={!!trialInfo?.isTrial}
-        onUpgrade={handleUpgrade}
-        onClose={() => {
-          setShowTrialModal(false);
-          sessionStorage.setItem('trialModalShown', 'true');
-        }}
-      />
-      <UpgradeBlocker
-        open={showBlocker}
-        onUpgrade={handleUpgrade}
-      />
+      
     </AuthContext.Provider>
   );
 };

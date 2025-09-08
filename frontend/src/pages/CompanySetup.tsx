@@ -22,15 +22,15 @@ const CompanySetup: React.FC = () => {
   // Check if user is authenticated and if they already have a company setup
   useEffect(() => {
     const checkUserAndCompany = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+      // Since email confirmation is required, user should always have a session
+      if (!user) {
         navigate('/login');
         return;
       }
       
       // Check if user already has a company setup using the new API
       try {
-        const hasSetup = await companyApi.hasCompanySetup(session.user.id);
+        const hasSetup = await companyApi.hasCompanySetup(user.id);
         if (hasSetup) {
           // User already has company setup, redirect to dashboard
           navigate('/dashboard');
@@ -42,7 +42,7 @@ const CompanySetup: React.FC = () => {
     };
     
     checkUserAndCompany();
-  }, [navigate]);
+  }, [navigate, user]);
   
   // Handle input changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -56,6 +56,7 @@ const CompanySetup: React.FC = () => {
     setIsLoading(true);
     
     try {
+      // Since email confirmation is required, user should always be authenticated
       if (!user) {
         throw new Error('User not authenticated');
       }

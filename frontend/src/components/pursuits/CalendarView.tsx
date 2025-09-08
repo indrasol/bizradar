@@ -7,7 +7,7 @@ interface CalendarViewProps {
   onPursuitSelect: (pursuit: Pursuit) => void;
 }
 
-export const CalendarView: React.FC<CalendarViewProps> = ({
+const CalendarView: React.FC<CalendarViewProps> = ({
   pursuits,
   onPursuitSelect,
 }) => {
@@ -102,4 +102,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       </div>
     </div>
   );
-}; 
+};
+
+export default CalendarView; 

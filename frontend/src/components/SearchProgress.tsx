@@ -1,13 +1,6 @@
+import { API_ENDPOINTS } from '@/config/apiEndpoints';
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-
-// Import the environment variable
-const isDevelopment =
-  window.location.hostname === "localhost" ||
-  window.location.hostname === "127.0.0.1";
-const API_BASE_URL = isDevelopment
-  ? "http://localhost:5000"
-  : import.meta.env.VITE_API_BASE_URL;
 
 interface SearchProgressProps {
   searchId: string;
@@ -29,7 +22,7 @@ const SearchProgress: React.FC<SearchProgressProps> = ({ searchId, onComplete, o
   useEffect(() => {
     if (!searchId) return;
 
-    const eventSource = new EventSource(`${API_BASE_URL}/search-progress/${searchId}`);
+    const eventSource = new EventSource(API_ENDPOINTS.SEARCH_PROGRESS + `/${searchId}`);
 
     eventSource.onmessage = (event) => {
       const progressData: ProgressData = JSON.parse(event.data);

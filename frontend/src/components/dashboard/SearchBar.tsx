@@ -5,10 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { TypeWriter } from "../ui/TypeWriter";  // Update this line
 import { motion, AnimatePresence } from "framer-motion";
-
-
-const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-const API_BASE_URL = isDevelopment ? 'http://localhost:5000' : import.meta.env.VITE_API_BASE_URL;
+import { API_ENDPOINTS } from "@/config/apiEndpoints";
 
 interface SearchBarProps {
   selectionType: string;
@@ -35,7 +32,7 @@ export const SearchBar = ({
     setShowRefinedQuery(false);
     
     try {
-      const response = await fetch(`${API_BASE_URL}/search-opportunities`, {
+      const response = await fetch(API_ENDPOINTS.SEARCH_OPPORTUNITIES, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

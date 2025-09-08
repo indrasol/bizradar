@@ -1,10 +1,9 @@
+import { API_ENDPOINTS } from "@/config/apiEndpoints";
+
 interface ChatMessage {
   role: "user" | "assistant";
   content: string;
 }
-
-// Import centralized API configuration
-import { API_ENDPOINTS } from '@/config/apiEndpoints';
 import { getApiUrl } from '@/config/env';
 import { supabase } from '@/utils/supabase';
 

@@ -14,7 +14,7 @@ CREATE UNIQUE INDEX unique_user_id ON public.user_subscriptions USING btree (use
 
 alter table "public"."user_subscriptions" add constraint "unique_user_id" UNIQUE using index "unique_user_id";
 
-alter table "public"."user_subscriptions" add constraint "user_subscriptions_plan_type_check" CHECK ((plan_type = ANY (ARRAY['trial'::text, 'free'::text, 'basic'::text, 'premium'::text, 'enterprise'::text]))) not valid;
+alter table "public"."user_subscriptions" add constraint "user_subscriptions_plan_type_check" CHECK ((plan_type = ANY (ARRAY['free'::text, 'basic'::text, 'premium'::text, 'enterprise'::text]))) not valid;
 
 alter table "public"."user_subscriptions" validate constraint "user_subscriptions_plan_type_check";
 

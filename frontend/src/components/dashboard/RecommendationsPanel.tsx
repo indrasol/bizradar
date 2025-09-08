@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import tokenService from "../../utils/tokenService";
 import { UpgradeModal } from "../subscription/UpgradeModal";
+import { useUpgradeModal } from "../subscription/UpgradeModalContext";
 import { API_ENDPOINTS } from "@/config/apiEndpoints";
 
 interface RecommendationsPanelProps { 
@@ -47,7 +48,7 @@ const RecommendationsPanel = ({
   const [aiComponentCollapsed, setAiComponentCollapsed] = useState(true);
   const [cancelRequested, setCancelRequested] = useState(false);
   const [showDetailedReason, setShowDetailedReason] = useState({});
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const { isOpen: showUpgradeModal, openModal: setShowUpgradeModal, closeModal } = useUpgradeModal();
   const API_BASE_URL = window.location.hostname === "localhost" ? "http://localhost:5000" : import.meta.env.VITE_API_BASE_URL;
   const abortCtrlRef = useRef<AbortController | null>(null);
 
@@ -487,7 +488,7 @@ const RecommendationsPanel = ({
                       <h3 className="text-xl font-bold text-gray-800 mb-2">Unlock More Recommendations</h3>
                       <p className="text-gray-600 mb-4">Subscribe to Pro plan to access unlimited AI-powered opportunity recommendations.</p>
                       <button
-                        onClick={() => setShowUpgradeModal(true)}
+                        onClick={() => setShowUpgradeModal()}
                         className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-medium rounded-lg shadow-md hover:shadow-lg transition-all flex items-center gap-2 mx-auto"
                       >
                         <Star className="h-4 w-4" />
@@ -611,8 +612,8 @@ const RecommendationsPanel = ({
       {showUpgradeModal && createPortal(
         <UpgradeModal
           isOpen={showUpgradeModal}
-          onClose={() => setShowUpgradeModal(false)}
-          onSuccess={() => setShowUpgradeModal(false)}
+          onClose={closeModal}
+          onSuccess={closeModal}
         />,
         document.body
       )}

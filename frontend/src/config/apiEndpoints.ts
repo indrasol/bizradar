@@ -60,11 +60,16 @@ export const API_ENDPOINTS = {
   // Search and opportunities endpoints
   SEARCH_OPPORTUNITIES: `${API_BASE_URL}/search-opportunities`,
   AI_RECOMMENDATIONS: `${API_BASE_URL}/ai-recommendations`,
+  SUMMARIZE_DESCRIPTION: `${API_BASE_URL}/summarize-description`,
+  SUMMARIZE_DESCRIPTIONS: `${API_BASE_URL}/summarize-descriptions`,
+  REFINE_QUERY: `${API_BASE_URL}/refine-query`,
   
   // Pursuit/Tracker endpoints (legacy)
   PURSUIT_DEADLINES: `${API_BASE_URL}/api/pursuits/deadlines`,
   PURSUIT_MARK_SUBMITTED: `${API_BASE_URL}/api/pursuits/mark-submitted`,
   PURSUIT_STATS: `${API_BASE_URL}/api/pursuits/stats`,
+  ASK_BIZRADAR_AI: `${API_BASE_URL}/ask-bizradar-ai`,
+  CONVERSATIONS: `${API_BASE_URL}/api/conversations`,
   
   // New Tracker endpoints
   TRACKER_DEADLINES: `${API_BASE_URL}/api/trackers/deadlines`,
@@ -77,4 +82,6 @@ export const API_ENDPOINTS = {
   PROFILE_UPDATE_PERSONAL: (userId: string) => `${API_BASE_URL}/api/profile/personal?user_id=${encodeURIComponent(userId)}`,
   PROFILE_UPDATE_COMPANY: (userId: string) => `${API_BASE_URL}/api/profile/company?user_id=${encodeURIComponent(userId)}`,
   
+  // Auth endpoints
+  CLEAR_CACHE: `${API_BASE_URL}/api/auth/clear-cache`,
 };

@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./components/Auth/AuthContext";
+import { UpgradeModalProvider } from "./components/subscription/UpgradeModalContext";
 import ProtectedRoute from "./components/Auth/ProtectedRoute";
 
 // Eagerly loaded (lightweight)
@@ -44,14 +45,15 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <AuthProvider>
-          <Suspense fallback={<div>Loading...</div>}>
-            <Routes>
-              {/* Public routes */}
-              <Route path="/" element={<Homepage children={null} />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/signup" element={<Signup />} />
-              <Route path="/register" element={<Register />} />
+        <UpgradeModalProvider>
+          <AuthProvider>
+            <Suspense fallback={<div>Loading...</div>}>
+              <Routes>
+                {/* Public routes */}
+                <Route path="/" element={<Homepage children={null} />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/signup" element={<Signup />} />
+                <Route path="/register" element={<Register />} />
               <Route path="/company-setup" element={<CompanySetup />} />
               <Route path="/logout" element={<Logout />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -113,11 +115,12 @@ const App = () => (
                 </ProtectedRoute>
               } />
 
-              {/* 404 route */}
-              <Route path="*" element={<ComingSoon />} />
-            </Routes>
-          </Suspense>
-        </AuthProvider>
+                {/* 404 route */}
+                <Route path="*" element={<ComingSoon />} />
+              </Routes>
+            </Suspense>
+          </AuthProvider>
+        </UpgradeModalProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

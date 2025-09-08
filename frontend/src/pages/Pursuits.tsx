@@ -12,6 +12,7 @@ import { Pursuit, Opportunity, RfpSaveEventDetail } from "@/components/pursuits/
 import ScrollToTopButton from "../components/opportunities/ScrollToTopButton";
 import PageLoadingSkeleton from "@/components/ui/PageLoadingSkeleton";
 import { DashboardTemplate } from "../utils/responsivePatterns";
+import { API_ENDPOINTS } from "@/config/apiEndpoints";
 
 // Lazy load heavier components
 const KanbanView = lazy(() => import("@/components/pursuits/KanbanView"));
@@ -107,7 +108,7 @@ export default function Pursuits(): JSX.Element {
       // Call the backend endpoint directly with the correct port
       try {
         
-        const backendResponse = await fetch(`${API_BASE_URL}/ask-bizradar-ai`, {
+        const backendResponse = await fetch(API_ENDPOINTS.ASK_BIZRADAR_AI, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -701,8 +702,7 @@ export default function Pursuits(): JSX.Element {
   };
 
   const handleViewAnalytics = () => {
-    // Implement analytics view
-    toast.info("Analytics view coming soon!");
+    navigate('/analytics');
   };
 
   const handleNewTracker = () => {
@@ -736,7 +736,7 @@ export default function Pursuits(): JSX.Element {
       const noticeId = data ? data.notice_id : null;
 
       try {
-        const backendResponse = await fetch(`${API_BASE_URL}/ask-bizradar-ai`, {
+        const backendResponse = await fetch(API_ENDPOINTS.ASK_BIZRADAR_AI, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

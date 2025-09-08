@@ -1923,7 +1923,7 @@ export const Settings = () => {
                         </table>
                       </div>
                     </div>
-                  </div>
+                  </div> */}
 
                   {/* Tax Information Section */}
                   <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-6 transition-all hover:shadow-md">
