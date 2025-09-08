@@ -93,10 +93,10 @@ export default function RfpWriter() {
         
         <div className="flex flex-1">
           <SideBar />
-          <div className="flex-1 flex items-center justify-center">
+          <div className="flex-1 flex items-center justify-center p-4">
             <div className="text-center">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-4" />
-              <p className="text-gray-600">Loading contract details...</p>
+              <Loader2 className="h-6 w-6 sm:h-8 sm:w-8 animate-spin text-blue-600 mx-auto mb-3 sm:mb-4" />
+              <p className="text-sm sm:text-base text-gray-600">Loading contract details...</p>
             </div>
           </div>
         </div>
@@ -110,18 +110,20 @@ export default function RfpWriter() {
         
         <div className="flex flex-1">
           <SideBar />
-          <div className="flex-1 p-6">
+          <div className="flex-1 p-4 sm:p-6">
             <button 
               onClick={handleGoBack}
-              className="flex items-center text-blue-600 mb-6 hover:underline"
+              className="flex items-center text-blue-600 mb-4 sm:mb-6 hover:underline text-sm sm:text-base"
             >
-              <ArrowLeft className="h-4 w-4 mr-1" /> Back to Opportunities
+              <ArrowLeft className="h-3 w-3 sm:h-4 sm:w-4 mr-1" /> 
+              <span className="hidden sm:inline">Back to Opportunities</span>
+              <span className="sm:hidden">Back</span>
             </button>
-            <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-              <p className="text-red-600 mb-4">{error}</p>
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 sm:p-6 text-center">
+              <p className="text-red-600 mb-3 sm:mb-4 text-sm sm:text-base">{error}</p>
               <button 
                 onClick={fetchContractData}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md"
+                className="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-md text-sm sm:text-base"
               >
                 Try Again
               </button>
@@ -140,12 +142,14 @@ export default function RfpWriter() {
       <div className="flex flex-1">
         <SideBar />
         <div className="flex-1 flex flex-col">
-          <div className="p-4 border-b border-gray-200 bg-white shadow-sm">
+          <div className="p-3 sm:p-4 border-b border-gray-200 bg-white shadow-sm">
             <button 
               onClick={handleGoBack}
-              className="flex items-center text-blue-600 hover:underline"
+              className="flex items-center text-blue-600 hover:underline text-sm sm:text-base"
             >
-              <ArrowLeft className="h-4 w-4 mr-1" /> Back to Opportunities
+              <ArrowLeft className="h-3 w-3 sm:h-4 sm:w-4 mr-1" /> 
+              <span className="hidden sm:inline">Back to Opportunities</span>
+              <span className="sm:hidden">Back</span>
             </button>
           </div>
           <div className="flex-1">

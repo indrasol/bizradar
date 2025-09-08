@@ -1,11 +1,11 @@
 import asyncio
 import os
-from utils.db_utils import get_db_connection
-from utils.logger import get_logger
+from app.utils.db_utils import get_db_connection
+from app.utils.logger import get_logger
 import aiohttp
 from typing import List
 import psycopg2
-from utils.openai_client import get_openai_client
+from app.utils.openai_client import get_openai_client
 import json
 
 # Configure logging

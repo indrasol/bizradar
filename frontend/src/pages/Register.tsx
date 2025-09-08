@@ -40,7 +40,7 @@ const Register = () => {
     lastName?: string;
   } | null>(null);
   const navigate = useNavigate();
-  const { sendEmailOtp, signupWithOtp } = useAuth();
+  const { sendEmailOtp, signupWithOtp, checkUserExists } = useAuth();
 
 
   // Initialize forms
@@ -68,11 +68,34 @@ const Register = () => {
     setError(null);
 
     try {
-      // Send OTP to the email/username
+      // First, check if user exists
+      const userExists = await checkUserExists(values.identifier);
+      
+      if (!userExists) {
+        // User doesn't exist, show toast and switch to signup
+        toast.error("Account not found", {
+          description: "Please sign up first to create your account.",
+          closeButton: true,
+          duration: 5000
+        });
+        
+        // Auto-switch to signup tab and pre-fill email
+        setCurrentView('signup');
+        signupForm.setValue('email', values.identifier);
+        
+        // Reset login form
+        loginForm.reset();
+        setError(null);
+        return;
+      }
+
+      // User exists, proceed with sending OTP
       await sendEmailOtp(values.identifier);
       
       toast.success("OTP sent to your email!", {
-        description: "Please check your email for the verification code."
+        description: "Please check your email for the verification code.",
+        closeButton: true,
+        duration: 5000
       });
 
       // Set OTP data and switch to OTP view
@@ -87,7 +110,10 @@ const Register = () => {
     } catch (err: any) {
       console.error("Login error:", err);
       setError(err.message || "Failed to send OTP");
-      toast.error(err.message || "Failed to send OTP");
+      toast.error(err.message || "Failed to send OTP", {
+        closeButton: true,
+        duration: 5000
+      });
     } finally {
       setIsLoading(false);
     }
@@ -105,7 +131,9 @@ const Register = () => {
       await signupWithOtp(values.firstName, values.lastName, values.email);
       
       toast.success("OTP sent to your email!", {
-        description: "Please check your email for the verification code."
+        description: "Please check your email for the verification code.",
+        closeButton: true,
+        duration: 5000
       });
       
       // Set OTP data and switch to OTP view
@@ -123,7 +151,10 @@ const Register = () => {
     } catch (err: any) {
       console.error("Signup error:", err);
       setError(err.message || "Failed to send OTP");
-      toast.error(err.message || "Failed to send OTP");
+      toast.error(err.message || "Failed to send OTP", {
+        closeButton: true,
+        duration: 5000
+      });
     } finally {
       setIsLoading(false);
     }
@@ -138,34 +169,151 @@ const Register = () => {
 
   // Handle successful OTP verification
   const handleOtpSuccess = async () => {
+    console.log("handleOtpSuccess called, otpData:", otpData);
+    
     try {
-      // Get current user session
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error("No active session");
+      // Wait a bit for session to be fully established
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Get current user session with retry logic
+      let session = null;
+      let retries = 3;
+      
+      while (retries > 0 && !session) {
+        const { data } = await supabase.auth.getSession();
+        session = data.session;
+        
+        if (!session) {
+          console.log(`No session found, retrying... (${retries} attempts left)`);
+          await new Promise(resolve => setTimeout(resolve, 500));
+          retries--;
+        }
       }
       
-      // Check if user already has a company setup
-      const { data: userCompanies } = await supabase
-        .from('user_companies')
-        .select('*')
-        .eq('user_id', session.user.id)
-        .eq('is_primary', true);
-        
-      if (userCompanies && userCompanies.length > 0) {
-        // User has company setup, redirect to dashboard/opportunities
-        navigate('/dashboard');
-      } else {
-        // User does not have company setup, redirect to company setup
+      if (!session) {
+        throw new Error("No active session after verification");
+      }
+      
+      console.log("Session found:", session.user.id);
+      
+      // For new signups, always go to company setup first
+      if (otpData?.isSignup) {
+        console.log("New signup detected, navigating to company setup");
         navigate('/company-setup');
+        // Emergency fallback
+        setTimeout(() => {
+          if (window.location.pathname === '/register') {
+            console.log("New signup navigation failed, forcing redirect");
+            window.location.href = '/company-setup';
+          }
+        }, 1000);
+        return;
+      }
+      
+      // For existing users logging in, check if they have company setup
+      console.log("Checking company setup for existing user...");
+      
+      try {
+        const { companyApi } = await import('../api/company');
+        console.log("Company API imported successfully");
+        
+        // Add timeout to company setup check
+        const hasSetupPromise = companyApi.hasCompanySetup(session.user.id);
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Company setup check timeout')), 5000)
+        );
+        
+        const hasSetup = await Promise.race([hasSetupPromise, timeoutPromise]) as boolean;
+        
+        console.log("Company setup status:", hasSetup);
+        
+        if (hasSetup) {
+          // User has company setup, redirect to dashboard
+          console.log("User has company setup, navigating to dashboard");
+          navigate('/dashboard');
+        } else {
+          // User doesn't have company setup, redirect to setup
+          console.log("User needs company setup, navigating to company setup");
+          navigate('/company-setup');
+        }
+        
+        // Emergency fallback - if navigation doesn't work, force page reload
+        setTimeout(() => {
+          if (window.location.pathname === '/register') {
+            console.log("Navigation failed, forcing page redirect");
+            window.location.href = hasSetup ? '/dashboard' : '/company-setup';
+          }
+        }, 1000);
+      } catch (error) {
+        console.error("Error checking company setup:", error);
+        console.log("Company setup check failed, using fallback navigation");
+        
+        // Simple fallback: check if user has basic profile info
+        try {
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('first_name, last_name')
+            .eq('id', session.user.id)
+            .single();
+          
+          if (profileData?.first_name && profileData?.last_name) {
+            console.log("User has profile info, navigating to dashboard");
+            navigate('/dashboard');
+            // Emergency fallback
+            setTimeout(() => {
+              if (window.location.pathname === '/register') {
+                console.log("Dashboard navigation failed, forcing redirect");
+                window.location.href = '/dashboard';
+              }
+            }, 1000);
+          } else {
+            console.log("User missing profile info, navigating to company setup");
+            navigate('/company-setup');
+            // Emergency fallback
+            setTimeout(() => {
+              if (window.location.pathname === '/register') {
+                console.log("Company setup navigation failed, forcing redirect");
+                window.location.href = '/company-setup';
+              }
+            }, 1000);
+          }
+        } catch (profileError) {
+          console.error("Profile check also failed:", profileError);
+          console.log("Final fallback: navigating to dashboard");
+          navigate('/dashboard');
+          // Emergency fallback
+          setTimeout(() => {
+            if (window.location.pathname === '/register') {
+              console.log("Final fallback navigation failed, forcing redirect");
+              window.location.href = '/dashboard';
+            }
+          }, 1000);
+        }
       }
     } catch (error) {
-      console.error("Error checking user company:", error);
+      console.error("Error in OTP success handler:", error);
       // Fallback to original logic in case of error
+      console.log("Error fallback navigation");
       if (otpData?.isSignup) {
+        console.log("Fallback: new signup -> company setup");
         navigate('/company-setup');
+        // Emergency fallback
+        setTimeout(() => {
+          if (window.location.pathname === '/register') {
+            console.log("Error fallback company setup navigation failed, forcing redirect");
+            window.location.href = '/company-setup';
+          }
+        }, 1000);
       } else {
+        console.log("Fallback: existing user -> dashboard");
         navigate('/dashboard');
+        // Emergency fallback
+        setTimeout(() => {
+          if (window.location.pathname === '/register') {
+            console.log("Error fallback dashboard navigation failed, forcing redirect");
+            window.location.href = '/dashboard';
+          }
+        }, 1000);
       }
     }
   };
@@ -412,11 +560,21 @@ const Register = () => {
             {currentView !== 'otp' && (
               <div className="text-center mt-6 text-gray-500 text-xs">
                 By continuing, you agree to our{" "}
-                <Link to="/terms" className="text-blue-600 hover:underline">
+                <Link 
+                  to="/terms" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="text-blue-600 hover:underline"
+                >
                   Terms of Service
                 </Link>{" "}
                 and{" "}
-                <Link to="/privacy" className="text-blue-600 hover:underline">
+                <Link 
+                  to="/privacy" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="text-blue-600 hover:underline"
+                >
                   Privacy Policy
                 </Link>
               </div>

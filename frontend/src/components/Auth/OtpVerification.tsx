@@ -82,25 +82,42 @@ const OtpVerification: React.FC<OtpVerificationProps> = ({
     const otpString = otp.join("");
     
     if (otpString.length !== 6) {
-      toast.error("Please enter the complete 6-digit code");
+      toast.error("Please enter the complete 6-digit code", {
+        closeButton: true,
+        duration: 5000
+      });
       return;
     }
 
     setIsLoading(true);
 
     try {
+      let result;
       if (isSignup) {
-        await verifyEmailOtp(email, otpString, firstName, lastName);
+        result = await verifyEmailOtp(email, otpString, firstName, lastName);
       } else {
-        await verifyEmailOtp(email, otpString);
+        result = await verifyEmailOtp(email, otpString);
       }
+      
+      console.log("OTP verification result:", result);
+      
       toast.success("Successfully verified!", {
-        description: isSignup ? "Welcome to Bizradar!" : "You're now logged in!"
+        description: isSignup ? "Welcome to Bizradar!" : "You're now logged in!",
+        closeButton: true,
+        duration: 5000
       });
-      onSuccess();
+      
+      // Add a small delay to ensure session is fully set before navigation
+      setTimeout(() => {
+        onSuccess();
+      }, 100);
+      
     } catch (err: any) {
       console.error("OTP verification error:", err);
-      toast.error(err.message || "Invalid verification code");
+      toast.error(err.message || "Invalid verification code", {
+        closeButton: true,
+        duration: 5000
+      });
       // Clear OTP on error
       setOtp(["", "", "", "", "", ""]);
       inputRefs.current[0]?.focus();
@@ -122,7 +139,9 @@ const OtpVerification: React.FC<OtpVerificationProps> = ({
       }
       
       toast.success("New verification code sent!", {
-        description: "Please check your email"
+        description: "Please check your email",
+        closeButton: true,
+        duration: 5000
       });
       
       setResendTimer(60);
@@ -130,7 +149,10 @@ const OtpVerification: React.FC<OtpVerificationProps> = ({
       inputRefs.current[0]?.focus();
     } catch (err: any) {
       console.error("Resend OTP error:", err);
-      toast.error(err.message || "Failed to resend verification code");
+      toast.error(err.message || "Failed to resend verification code", {
+        closeButton: true,
+        duration: 5000
+      });
     } finally {
       setIsResending(false);
     }

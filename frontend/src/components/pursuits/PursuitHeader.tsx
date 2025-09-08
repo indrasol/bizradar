@@ -29,7 +29,7 @@ export const PursuitHeader: React.FC<PursuitHeaderProps> = ({ onViewAnalytics })
         <div className="flex items-center gap-2">
           <Link to="/dashboard" className="text-gray-500 text-sm font-medium hover:text-blue-600 transition-colors">Home</Link>
           <ChevronRight size={16} className="text-gray-500" />
-          <span className="font-medium text-gray-500">Pursuits</span>
+          <span className="font-medium text-gray-500">My Tracker</span>
         </div>
         <div className="flex items-center gap-4">
           <button 

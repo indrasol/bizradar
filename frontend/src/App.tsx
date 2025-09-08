@@ -20,12 +20,14 @@ import CompanySetup from "./pages/CompanySetup";
 import Contracts from "./pages/Contracts";
 import ComingSoon from "./pages/ComingSoon";
 import Analytics from "./pages/Analytics";
+import TermsOfService from "./pages/TermsOfService";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
 
 // Lazily loaded (heavier)
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Opportunities = lazy(() => import("./pages/Opportunities"));
 const OpportunityDetails = lazy(() => import("./pages/OpportunityDetails"));
-const Pursuits = lazy(() => import("./pages/Pursuits"));
+const Trackers = lazy(() => import("./pages/Pursuits"));
 const Admin = lazy(() => import("./pages/Admin"));
 const Settings = lazy(() => import("./pages/Settings"));
 const RfpWriter = lazy(() => import("./pages/RfpWriter"));
@@ -55,7 +57,8 @@ const App = () => (
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/contracts" element={<Contracts />} />
-              <Route path="/analytics" element={<Analytics />} />
+              <Route path="/terms" element={<TermsOfService />} />
+              <Route path="/privacy" element={<PrivacyPolicy />} />
 
               {/* Protected routes */}
               <Route path="/dashboard" element={
@@ -73,9 +76,9 @@ const App = () => (
                   <OpportunityDetails />
                 </ProtectedRoute>
               } />
-              <Route path="/pursuits" element={
+              <Route path="/trackers" element={
                 <ProtectedRoute>
-                  <Pursuits />
+                  <Trackers />
                 </ProtectedRoute>
               } />
               <Route path="/admin" element={
@@ -86,6 +89,11 @@ const App = () => (
               <Route path="/settings" element={
                 <ProtectedRoute>
                   <Settings />
+                </ProtectedRoute>
+              } />
+              <Route path="/analytics" element={
+                <ProtectedRoute>
+                  <Analytics />
                 </ProtectedRoute>
               } />
               <Route path="/contracts/rfp/:contractId" element={
