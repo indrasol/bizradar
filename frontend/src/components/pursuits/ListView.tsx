@@ -24,7 +24,7 @@ const formatDate = (dateString: string) => {
   return isValid(fallbackDate) ? format(fallbackDate, 'MM/dd/yyyy') : dateString;
 };
 
-export const ListView: React.FC<ListViewProps> = ({
+const ListView: React.FC<ListViewProps> = ({
   pursuits,
   onPursuitSelect,
   onRfpAction,
@@ -278,4 +278,6 @@ export const ListView: React.FC<ListViewProps> = ({
       </div>
     </div>
   );
-}; 
+};
+
+export default ListView; 

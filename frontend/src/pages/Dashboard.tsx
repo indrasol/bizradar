@@ -16,6 +16,7 @@ import {
   Shield,
   Target,
   ChevronDown,
+  ChevronUp,
   Info,
   CheckCircle2,
   ExternalLink,
@@ -26,6 +27,8 @@ import {
   Star,
   LogOut,
   Power,
+  Lock,
+  Crown,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import SideBar from "../components/layout/SideBar";
@@ -35,8 +38,11 @@ import { toast } from "sonner";
 import { UpgradeModal } from "@/components/subscription/UpgradeModal";
 import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
 import StripePaymentVerifier from '@/components/ui/StripePaymentVerifier';
-import { useUpgradeModal } from "@/components/subscription/UpgradeModalContext";
+import { ResponsivePatterns, DashboardTemplate } from "../utils/responsivePatterns";
+import { subscriptionApi } from "@/api/subscription";
 import { API_ENDPOINTS } from "@/config/apiEndpoints";
+import DeadlinesNextWidget from "@/components/dashboard/DeadlinesNextWidget";
+import TrackerStatsWidget from "@/components/dashboard/TrackerStatsWidget";
 
 
 // const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -75,11 +81,11 @@ const BizRadarDashboard = () => {
     try {
       setIsDisabled(true);
       await logout();
-      toast.success("Logging out...");
+      toast.success("Logging out...", ResponsivePatterns.toast.config);
       navigate("/logout");
     } catch (error) {
       console.error("Logout error:", error);
-      toast.error("There was a problem logging out");
+      toast.error("There was a problem logging out", ResponsivePatterns.toast.config);
     }
   };
 
@@ -90,6 +96,8 @@ const BizRadarDashboard = () => {
   // Add these new state variables
   const [monthlyStats, setMonthlyStats] = useState([]);
   const [isChartVisible, setIsChartVisible] = useState(false);
+  const [showMonthDropdown, setShowMonthDropdown] = useState(false);
+  const monthDropdownRef = useRef(null);
 
   // Update the action items state definition
   const [actionItems, setActionItems] = useState({
@@ -165,6 +173,53 @@ const BizRadarDashboard = () => {
 
     fetchMonthData(monthName, year);
   };
+
+  // Generate month options for dropdown
+  const generateMonthOptions = () => {
+    const options = [];
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear();
+    const currentMonth = currentDate.getMonth();
+
+    // Generate options for current year and previous year
+    for (let year = currentYear; year >= currentYear - 1; year--) {
+      const maxMonth = year === currentYear ? currentMonth : 11;
+      for (let month = maxMonth; month >= 0; month--) {
+        const date = new Date(year, month, 1);
+        const monthName = date.toLocaleString('default', { month: 'long' });
+        const shortMonth = date.toLocaleString('default', { month: 'short' });
+        
+        options.push({
+          value: `${monthName}-${year}`,
+          label: `${monthName} ${year}`,
+          month: shortMonth,
+          year: year,
+          fullMonth: monthName
+        });
+      }
+    }
+    return options;
+  };
+
+  // Handle month selection from dropdown
+  const handleMonthSelect = (option) => {
+    fetchMonthData(option.fullMonth, option.year);
+    setShowMonthDropdown(false);
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (monthDropdownRef.current && !monthDropdownRef.current.contains(event.target)) {
+        setShowMonthDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   // Function to fetch data for a specific month with proper date handling
   const fetchMonthData = async (monthName: string, year: number) => {
@@ -332,9 +387,9 @@ const BizRadarDashboard = () => {
         formattedDueDate = new Date(newPursuit.due_date).toISOString();
       }
 
-      // Create new pursuit
+      // Create new tracker
       const { data, error } = await supabase
-        .from("pursuits")
+        .from("trackers")
         .insert({
           title: newPursuit.title || "Untitled",
           description: newPursuit.description || "",
@@ -353,7 +408,7 @@ const BizRadarDashboard = () => {
 
       if (data && data.length > 0) {
         // Show success message
-        toast.success("Pursuit created successfully");
+        toast.success("Tracker created successfully");
 
         // Refresh monthly data
         fetchMonthData(monthlyPursuits.month, monthlyPursuits.year);
@@ -363,7 +418,7 @@ const BizRadarDashboard = () => {
       }
     } catch (error) {
       console.error("Error creating pursuit:", error);
-      toast.error("Failed to create pursuit. Please try again.");
+      toast.error("Failed to create tracker. Please try again.");
     }
   };
 
@@ -424,7 +479,7 @@ const BizRadarDashboard = () => {
 
       // Fixed OR query syntax
       const { data, error } = await supabase
-        .from('pursuits')
+        .from('trackers')
         .select('id, title, stage, due_date, is_submitted')
         .eq('user_id', user.id)
         .eq('is_submitted', false)
@@ -437,7 +492,7 @@ const BizRadarDashboard = () => {
 
       // Rest of the function remains the same
       const { data: completedData, error: completedError } = await supabase
-        .from('pursuits')
+        .from('trackers')
         .select('id')
         .eq('user_id', user.id)
         .eq('is_submitted', true);
@@ -480,7 +535,7 @@ const BizRadarDashboard = () => {
       if (!user) return;
 
       const { data, error } = await supabase
-        .from('pursuits')
+        .from('trackers')
         .select('id, title, stage, updated_at, is_submitted')
         .eq('user_id', user.id)
         .eq('is_submitted', true)
@@ -538,9 +593,9 @@ const BizRadarDashboard = () => {
       return;
     }
     const { data, error } = await supabase
-      .from("pursuit_followup_notes")
+      .from("tracker_followup_notes")
       .select("note, created_at")
-      .eq("pursuit_id", pursuit.id)
+      .eq("tracker_id", pursuit.id)
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
     if (error) {
@@ -555,9 +610,9 @@ const BizRadarDashboard = () => {
     if (!newFollowUpNote.trim() || !user || !followUpPursuit) return;
     const noteText = newFollowUpNote.trim();
     const { data, error } = await supabase
-      .from("pursuit_followup_notes")
+      .from("tracker_followup_notes")
       .insert({
-        pursuit_id: followUpPursuit.id,
+        tracker_id: followUpPursuit.id,
         user_id: user.id,
         note: noteText,
       });
@@ -567,16 +622,77 @@ const BizRadarDashboard = () => {
     }
   };
 
-  const { isOpen: upgradeOpen, openModal: setUpgradeOpen, closeModal } = useUpgradeModal();
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  
+  // Subscription state
+  const [currentSubscription, setCurrentSubscription] = useState(null);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(true);
+  
+  // Welcome message state
+  const [showWelcomeMessage, setShowWelcomeMessage] = useState(false);
+
+  // Allow other parts of the app (e.g., trial modal) to trigger the Upgrade modal here
+  useEffect(() => {
+    const openFromEvent = () => setUpgradeOpen(true);
+    window.addEventListener('openUpgradeModal', openFromEvent as EventListener);
+    // Support query param trigger e.g. /dashboard?upgrade=1
+    if (new URLSearchParams(window.location.search).get('upgrade') === '1') {
+      setUpgradeOpen(true);
+    }
+    return () => window.removeEventListener('openUpgradeModal', openFromEvent as EventListener);
+  }, []);
 
   const handleUpgradeSuccess = () => {
-    closeModal();
-    toast.success('Your subscription has been upgraded successfully!');
+    setUpgradeOpen(false);
+    toast.success('Your subscription has been upgraded successfully!', ResponsivePatterns.toast.config);
+    // Reload subscription data
+    loadSubscriptionData();
   };
+  
+  // Load subscription data
+  const loadSubscriptionData = async () => {
+    if (!user) return;
+    
+    try {
+      setSubscriptionLoading(true);
+      const subscription = await subscriptionApi.getCurrentSubscription();
+      setCurrentSubscription(subscription);
+    } catch (error) {
+      console.error('Error loading subscription:', error);
+      setCurrentSubscription(null);
+    } finally {
+      setSubscriptionLoading(false);
+    }
+  };
+  
+  // Check for welcome message
+  useEffect(() => {
+    const welcomeFlag = sessionStorage.getItem('showWelcomeMessage');
+    if (welcomeFlag === 'true') {
+      setShowWelcomeMessage(true);
+      sessionStorage.removeItem('showWelcomeMessage');
+      // Auto-hide after 5 seconds
+      setTimeout(() => setShowWelcomeMessage(false), 5000);
+    }
+  }, []);
+  
+  // Load subscription data on mount
+  useEffect(() => {
+    if (user) {
+      loadSubscriptionData();
+    }
+  }, [user]);
 
   // --- Fetch Opportunities and Recommendations on Load ---
   useEffect(() => {
     const fetchRecommendations = async () => {
+      // Only fetch recommendations for Pro users
+      if (!hasProAccess()) {
+        setIsLoadingRecommendations(false);
+        setAiRecommendations([]);
+        return;
+      }
+      
       setIsLoadingRecommendations(true);
 
       // 1. Get user profile and userId for searchQuery
@@ -618,6 +734,9 @@ const BizRadarDashboard = () => {
       }
 
       // 4. If not cached, fetch opportunities and proceed as before
+      const API_BASE_URL = window.location.hostname === "localhost"
+        ? "http://localhost:5000"
+        : import.meta.env.VITE_API_BASE_URL;
       const response = await fetch(API_ENDPOINTS.SEARCH_OPPORTUNITIES, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -679,14 +798,14 @@ const BizRadarDashboard = () => {
       setIsLoadingRecommendations(false);
     };
     fetchRecommendations();
-  }, []);
+  }, [currentSubscription]);
 
-  // Add to Pursuits handler
-  const handleAddToPursuit = async (opportunity) => {
-    if (!user) {
-      toast.error("You must be logged in to add pursuits.");
-      return;
-    }
+  // Add to Trackers handler
+  const handleAddToTracker = async (opportunity) => {
+      if (!user) {
+        toast.error("You must be logged in to add trackers.");
+        return;
+      }
     setAddingPursuitId(opportunity.id);
     try {
       // Always use the original opportunity title if available
@@ -695,19 +814,19 @@ const BizRadarDashboard = () => {
         originalTitle = dashboardOpportunities[opportunity.opportunityIndex].title;
       }
       // Check if already added
-      const { data: existingPursuits } = await supabase
-        .from("pursuits")
+      const { data: existingTrackers } = await supabase
+        .from("trackers")
         .select("id")
         .eq("user_id", user.id)
         .eq("title", originalTitle);
-      if (existingPursuits && existingPursuits.length > 0) {
-        toast.info("Already added to pursuits.");
+      if (existingTrackers && existingTrackers.length > 0) {
+        toast.info("Already added to trackers.");
         setAddingPursuitId(null);
         return;
       }
-      // Insert new pursuit
+      // Insert new tracker
       const { data, error } = await supabase
-        .from("pursuits")
+        .from("trackers")
         .insert([
           {
             title: originalTitle,
@@ -719,9 +838,9 @@ const BizRadarDashboard = () => {
         ])
         .select();
       if (error) throw error;
-      toast.success("Added to pursuits!");
+      toast.success("Added to trackers!");
     } catch (error) {
-      toast.error("Failed to add to pursuits.");
+      toast.error("Failed to add to trackers.");
     } finally {
       setAddingPursuitId(null);
     }
@@ -792,17 +911,24 @@ const BizRadarDashboard = () => {
     setOppsPage(1);
   }, [oppsFilter, oppsSort, oppsPerPage, showMonthOpportunitiesModal]);
 
+  // Helper function to check if user has Pro plan access
+  const hasProAccess = () => {
+    if (!currentSubscription) return false;
+    const planType = currentSubscription.plan_type?.toLowerCase();
+    return planType === 'pro' || planType === 'premium';
+  };
+
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
+    <div className={DashboardTemplate.wrapper}>
       <StripePaymentVerifier />
       {/* Create Pursuit Dialog */}
       {isDialogOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg relative">
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 sm:p-6 lg:p-8">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm sm:max-w-md lg:max-w-lg relative">
             {/* Dialog Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-800">
-                Import Pursuit
+            <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-800">
+                Import Tracker
               </h3>
               <button
                 onClick={toggleDialog}
@@ -817,7 +943,7 @@ const BizRadarDashboard = () => {
               {/* Title Input */}
               <input
                 type="text"
-                placeholder="Pursuit title"
+                placeholder="Tracker title"
                 className="w-full p-2 border-b border-gray-200 text-lg font-medium mb-4 focus:outline-none focus:border-blue-500"
                 value={newPursuit.title}
                 onChange={(e) =>
@@ -937,7 +1063,7 @@ const BizRadarDashboard = () => {
                 onClick={handleCreatePursuit}
                 className="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-700"
               >
-                Import Pursuit
+                Import Tracker
               </button>
             </div>
           </div>
@@ -1119,46 +1245,40 @@ const BizRadarDashboard = () => {
         <SideBar />
 
         {/* Main content */}
-        <div className="flex-1 flex flex-col overflow-auto">
-          {/* Top navigation */}
-          <div className="bg-white border-b border-gray-200 py-3 px-6 flex justify-between items-center shadow-sm">
-            <div className="flex items-center space-x-6">
-              <div className="flex items-center space-x-2">
-                <Link to="/dashboard" className="text-sm font-medium text-gray-500 hover:text-blue-600 transition-colors">Home</Link>
-                {/* <ChevronRight className="h-4 w-4 text-gray-500" />
-                <span className="text-sm font-medium text-gray-500">Home</span> */}
+        <div className={DashboardTemplate.main}>
+
+          {/* Welcome Message Banner */}
+          {showWelcomeMessage && (
+            <div className="mx-6 mt-6 mb-4 p-4 bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg shadow-sm">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="flex-shrink-0">
+                    <CheckCircle2 className="h-6 w-6 text-green-500" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-green-800">
+                      Welcome to BizRadar! 🎉
+                    </h3>
+                    <p className="text-sm text-green-700 mt-1">
+                      Your company setup is complete and you now have access to the Free Tier with unlimited searches and 2 AI RFP responses per month.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowWelcomeMessage(false)}
+                  className="flex-shrink-0 text-green-400 hover:text-green-600 transition-colors"
+                >
+                  <X className="h-5 w-5" />
+                </button>
               </div>
             </div>
-            <div className="flex items-center space-x-3">
-              <button
-                onClick={() => setUpgradeOpen()}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 transition-all">
-                <span>Upgrade</span>
-                <Star size={14} className="ml-1" />
-              </button>
-              {/* <NotificationDropdown /> */}
-              {/* <div className="relative">
-                <button className="p-2 text-gray-500 hover:text-gray-600 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors">
-                  <MessageSquare className="h-5 w-5" />
-                </button>
-                <div className="absolute top-0 right-0 w-2 h-2 bg-blue-500 rounded-full"></div>
-              </div> */}
-              <button
-                onClick={handleLogout}
-                className="bg-blue-50 text-blue-600 hover:bg-blue-100 px-4 py-2 rounded-lg text-sm flex items-center gap-2 border border-blue-100 transition-colors"
-                disabled={isDisabled}
-              >
-                <Power size={16} />
-                {/* <span className="font-medium">Logout</span> */}
-              </button>
-            </div>
-          </div>
+          )}
 
           {/* Page content */}
-          <div className="flex-1 p-6 overflow-auto">
-            <div className="max-w-9xl mx-auto">
-              {/* User greeting */}
-              <div className="flex items-center mb-8 bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+          <div className={DashboardTemplate.content}>
+            <div className="w-full">
+              {/* User greeting - moved to top for seamless UI */}
+              <div className="flex items-center mb-6 bg-white rounded-xl p-6 shadow-sm border border-gray-200">
                 <div className="mr-6 w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center text-white text-xl font-bold shadow-md">
                   {firstName.substring(0, 1)}
                 </div>
@@ -1189,7 +1309,7 @@ const BizRadarDashboard = () => {
                     onClick={toggleDialog}
                   >
                     <Plus className="mr-2 h-4 w-4" />
-                    Import Pursuit
+                    Import Tracker
                   </button>
                   <button className="inline-flex items-center px-5 py-2.5 border border-transparent text-sm font-medium rounded-lg shadow-md text-white bg-blue-600 hover:bg-blue-700 transition-all duration-300 hover:shadow-lg transform hover:-translate-y-0.5">
                     <Upload className="mr-2 h-4 w-4" />
@@ -1205,31 +1325,62 @@ const BizRadarDashboard = () => {
                   {/* Metrics */}
                   <div className="grid grid-cols-2 gap-6">
                     <div className="bg-white p-4 sm:p-6 rounded-xl shadow-md border border-gray-200 transition-all hover:shadow-lg relative overflow-hidden">
-                      {/* Header with navigation */}
-                      <div className="flex flex-wrap gap-2 justify-between items-center mb-4 sm:mb-6">
-                        <div className="flex flex-wrap items-center gap-2">
+                      {/* Header with navigation - Centered and Responsive */}
+                      <div className="flex flex-col sm:flex-row items-center justify-center mb-4 sm:mb-6 space-y-2 sm:space-y-0">
+                        <div className="flex items-center justify-center gap-2 sm:gap-3">
                           <button
                             onClick={navigateToPreviousMonth}
-                            className="p-1.5 sm:p-2 rounded-full hover:bg-gray-100 text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-300 flex-shrink-0"
+                            className="p-1.5 sm:p-2 rounded-full hover:bg-gray-100 text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-300 flex-shrink-0 transition-colors"
                           >
                             <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
                           </button>
-                          <h2 className="text-base sm:text-lg font-semibold text-gray-700 flex flex-wrap items-center">
-                            <FileText className="h-4 w-4 sm:h-5 sm:w-5 mr-2 text-blue-500 flex-shrink-0" />
-                            <div>
-                              <span className="mr-1">Opportunities in </span>
-                              <span className="text-blue-600">{monthlyPursuits.month} {monthlyPursuits.year}</span>
+                          
+                          <div className="flex flex-col sm:flex-row items-center justify-center text-center sm:text-left relative" ref={monthDropdownRef}>
+                            <div className="flex items-center justify-center mb-1 sm:mb-0 sm:mr-2">
+                              <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-blue-500 flex-shrink-0" />
                             </div>
-                          </h2>
+                            <h2 className="text-base sm:text-lg lg:text-xl font-semibold text-gray-700">
+                              <span className="block sm:inline">Opportunities in </span>
+                              <button
+                                onClick={() => setShowMonthDropdown(!showMonthDropdown)}
+                                className="text-blue-600 font-bold hover:text-blue-700 transition-colors inline-flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-blue-300 rounded px-2 py-1"
+                              >
+                                {monthlyPursuits.month} {monthlyPursuits.year}
+                                {showMonthDropdown ? (
+                                  <ChevronUp className="h-3 w-3" />
+                                ) : (
+                                  <ChevronDown className="h-3 w-3" />
+                                )}
+                              </button>
+                            </h2>
+                            
+                            {/* Month Dropdown */}
+                            {showMonthDropdown && (
+                              <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[200px] max-h-60 overflow-y-auto">
+                                {generateMonthOptions().map((option) => (
+                                  <button
+                                    key={option.value}
+                                    onClick={() => handleMonthSelect(option)}
+                                    className={`w-full text-left px-4 py-2 hover:bg-gray-50 transition-colors text-sm ${
+                                      option.month === monthlyPursuits.month && option.year === monthlyPursuits.year
+                                        ? 'bg-blue-50 text-blue-600 font-medium'
+                                        : 'text-gray-700'
+                                    }`}
+                                  >
+                                    {option.label}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          
                           <button
                             onClick={navigateToNextMonth}
-                            className="p-1.5 sm:p-2 rounded-full hover:bg-gray-100 text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-300 flex-shrink-0"
+                            className="p-1.5 sm:p-2 rounded-full hover:bg-gray-100 text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-300 flex-shrink-0 transition-colors"
                           >
                             <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
                           </button>
                         </div>
-
-                        {/* Removed the top-right icon container */}
                       </div>
 
                       {/* Count display */}
@@ -1247,19 +1398,6 @@ const BizRadarDashboard = () => {
                             title="View opportunities"
                           >
                             {monthlyPursuits.count}
-                          </div>
-                        </div>
-                        <div className="group relative ml-3 cursor-pointer">
-                          <button
-                            className="p-1.5 sm:p-2 rounded-full hover:bg-gray-100 text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                            onClick={() => setIsChartVisible(!isChartVisible)}
-                            aria-label="Toggle chart view"
-                          >
-                            <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5" />
-                          </button>
-                          <div className="absolute bottom-full right-0 mb-2 bg-gray-800 text-white text-xs rounded px-2 py-1 min-w-[120px] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                            <div className="font-medium">View Analytics</div>
-                            <div className="text-gray-300">Click to toggle chart</div>
                           </div>
                         </div>
                       </div>
@@ -1304,138 +1442,94 @@ const BizRadarDashboard = () => {
                       )}
                     </div>
 
-                    {/* Action Items Card */}
-                    <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200 transition-all hover:shadow-lg">
-                      <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-lg font-semibold text-gray-700 flex items-center">
-                          <Clock className="h-5 w-5 mr-2 text-blue-500" />
-                          Pursuits Summary
-                        </h2>
-                        {actionItems.dueToday > 0 ? (
-                          <div className="p-2 bg-red-100 text-red-800 rounded-lg">
-                            <AlertTriangle className="h-5 w-5" />
-                          </div>
-                        ) : (
-                          <div className="p-2 bg-gray-100 text-gray-500 rounded-lg">
-                            <Clock className="h-5 w-5" />
-                          </div>
-                        )}
-                      </div>
-
-                      {isLoading ? (
-                        <div className="flex items-center justify-center h-32">
-                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                        </div>
-                      ) : (
-                        <>
-                          <div className="flex items-end space-x-3 mb-4">
-                            <div className="text-4xl font-bold text-gray-900">
-                              {actionItems.count}
-                            </div>
-                            <div className="pb-1 flex items-center text-sm font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">
-                              <Clock className="h-4 w-4 mr-1" />
-                              <span>Pending</span>
-                            </div>
-
-                            {actionItems.dueToday > 0 && (
-                              <div className="pb-1 flex items-center text-sm font-medium text-red-600 bg-red-50 px-2 py-1 rounded-lg">
-                                <AlertTriangle className="h-4 w-4 mr-1" />
-                                <span>{actionItems.dueToday} Due Today</span>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Action items list */}
-                          {actionItems.items.length > 0 && (
-                            <div className="mt-4 space-y-2">
-                              {actionItems.items.map((item, index) => (
-                                <div key={index} className="p-3 bg-gray-50 rounded-lg border border-gray-200 text-sm flex items-start">
-                                  <div className="mr-3 mt-0.5">
-                                    <div className={`h-2 w-2 rounded-full ${item.stage === "Assessment" ? "bg-orange-500" : "bg-yellow-500"
-                                      }`}></div>
-                                  </div>
-                                  <div className="flex-1 truncate">
-                                    <div className="font-medium text-gray-800 truncate">{item.title}</div>
-                                    <div className="text-xs text-gray-500 mt-0.5">{item.stage}</div>
-                                  </div>
-                                  <div className="ml-2 text-xs text-gray-500 whitespace-nowrap">
-                                    {item.due_date ? new Date(item.due_date).toLocaleDateString() : "No due date"}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-
-                          {/* Progress bar */}
-                          <div className="mt-4 space-y-2">
-                            <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
-                              <div
-                                className="h-full bg-blue-500 rounded-full"
-                                style={{
-                                  width: `${actionItems.count + actionItems.completed > 0
-                                    ? Math.round((actionItems.completed / (actionItems.count + actionItems.completed)) * 100)
-                                    : 0}%`
-                                }}
-                              ></div>
-                            </div>
-                            <div className="flex justify-between text-xs text-gray-500">
-                              <span>{actionItems.completed} Completed</span>
-                              <span>{actionItems.count} Remaining</span>
-                            </div>
-                          </div>
-
-                          {/* Added Link to Pursuits page */}
-                          <div className="mt-4 text-center">
-                            <Link
-                              to="/pursuits"
-                              className="text-blue-600 hover:text-blue-800 text-sm font-medium inline-flex items-center"
-                            >
-                              View all action items
-                              <ChevronRight className="h-4 w-4 ml-1" />
-                            </Link>
-                          </div>
-                        </>
-                      )}
-                    </div>
+                    {/* Tracker Stats Widget */}
+                    <TrackerStatsWidget />
 
                   </div>
 
-                  {/* AI-Matched Opportunities */}
+                  {/* Radar Matches */}
                   <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 overflow-hidden">
                     <div className="flex justify-between items-center mb-5">
                       <div className="flex items-center space-x-3">
                         <div className="p-2 bg-emerald-50 text-emerald-500 rounded-lg">
                           <Sparkles className="h-5 w-5" />
                         </div>
-                        <h2 className="text-lg font-semibold text-gray-700">
-                          New AI-Matched Opportunities
-                        </h2>
-                      </div>
-                      <Link to="/settings" className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors shadow-sm">
-                        <Settings className="mr-2 h-4 w-4" />
-                        Edit settings
-                      </Link>
-                    </div>
-
-                    {/* Recommendations Loading/Empty/Results */}
-                    {isLoadingRecommendations ? (
-                      <div className="flex items-center justify-center h-40">
-                        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500"></div>
-                        <span className="ml-4 text-gray-600 font-medium">Generating recommendations...</span>
-                      </div>
-                    ) : aiRecommendations.length === 0 ? (
-                      <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-yellow-800 flex items-start">
-                        <AlertTriangle className="h-5 w-5 mr-3 flex-shrink-0 mt-0.5" />
-                        <div>
-                          <p className="font-medium mb-1">
-                            No highly relevant matches found
-                          </p>
-                          <p className="text-sm text-yellow-700">
-                            We couldn't find any highly relevant new opportunities for your organization. Please check back tomorrow!
-                          </p>
+                        <div className="flex items-center space-x-2">
+                          <h2 className="text-lg font-semibold text-gray-700">
+                            Radar Matches - Personalized opportunities updated daily
+                          </h2>
+                          {!hasProAccess() && (
+                            <div className="p-1.5 bg-gradient-to-r from-blue-100 to-purple-100 text-blue-600 rounded-full border border-blue-200">
+                              <Lock className="h-4 w-4" />
+                            </div>
+                          )}
                         </div>
                       </div>
-                    ) : (
+                      {hasProAccess() ? (
+                        <Link to="/settings" className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors shadow-sm">
+                          <Settings className="mr-2 h-4 w-4" />
+                          Edit settings
+                        </Link>
+                      ) : (
+                        <button
+                          onClick={() => setUpgradeOpen(true)}
+                          className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm font-medium rounded-lg shadow-md hover:shadow-lg transition-all hover:scale-105"
+                        >
+                          <Crown className="mr-2 h-4 w-4" />
+                          Upgrade
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Content */}
+                    <div className="relative">
+                      {/* Feature Preview for Non-Pro Users */}
+                      {!hasProAccess() && (
+                        <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg">
+                          <div className="space-y-2">
+                            <div className="flex items-center text-sm text-gray-700">
+                              <CheckCircle2 className="h-4 w-4 text-green-500 mr-3" />
+                              <div className="flex items-center flex-wrap gap-2">
+                                <span>Get daily AI-powered opportunity recommendations tailored to your company profile</span>
+                                <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium border border-blue-200">
+                                  Pro Plan
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex items-center text-sm text-gray-700">
+                              <CheckCircle2 className="h-4 w-4 text-green-500 mr-3" />
+                              <div className="flex items-center flex-wrap gap-2">
+                                <span>Receive priority alerts for high-match opportunities</span>
+                                <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs font-medium border border-purple-200">
+                                  Premium Plan
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                    {/* Recommendations Loading/Empty/Results - Only for Pro users */}
+                    {hasProAccess() && (
+                      <>
+                        {isLoadingRecommendations ? (
+                          <div className="flex items-center justify-center h-40">
+                            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500"></div>
+                            <span className="ml-4 text-gray-600 font-medium">Generating recommendations...</span>
+                          </div>
+                        ) : aiRecommendations.length === 0 ? (
+                          <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-yellow-800 flex items-start">
+                            <AlertTriangle className="h-5 w-5 mr-3 flex-shrink-0 mt-0.5" />
+                            <div>
+                              <p className="font-medium mb-1">
+                                No highly relevant matches found
+                              </p>
+                              <p className="text-sm text-yellow-700">
+                                We couldn't find any highly relevant new opportunities for your organization. Please check back tomorrow!
+                              </p>
+                            </div>
+                          </div>
+                        ) : (
                       <div className="space-y-5">
                         {aiRecommendations.map((rec, idx) => {
                           // Always use the opportunityIndex to look up the correct opportunity in dashboardOpportunities
@@ -1526,7 +1620,7 @@ const BizRadarDashboard = () => {
                                   className={`inline-flex items-center px-4 py-1.5 border border-gray-300 text-xs font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 hover:text-blue-600 transition-colors shadow-sm ${addingPursuitId === rec.id ? 'opacity-60 cursor-not-allowed' : ''}`}
                                   onClick={e => {
                                     e.stopPropagation();
-                                    handleAddToPursuit(rec);
+                                    handleAddToTracker(rec);
                                   }}
                                   disabled={addingPursuitId === rec.id}
                                 >
@@ -1547,8 +1641,14 @@ const BizRadarDashboard = () => {
                           </Link>
                         </div>
                       </div>
+                        )}
+                      </>
                     )}
+                    </div>
                   </div>
+
+                  {/* Deadlines Next Widget */}
+                  <DeadlinesNextWidget />
                 </div>
 
                 {/* Right sidebar - 1/4 width */}
@@ -1637,7 +1737,7 @@ const BizRadarDashboard = () => {
 
       <UpgradeModal
         isOpen={upgradeOpen}
-        onClose={closeModal}
+        onClose={() => setUpgradeOpen(false)}
         onSuccess={handleUpgradeSuccess}
       />
     </div>

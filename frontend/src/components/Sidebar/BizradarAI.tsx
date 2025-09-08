@@ -410,14 +410,14 @@ const BizradarAI: React.FC = () => {
     <div className="h-screen flex bg-gray-50 text-gray-800 overflow-hidden font-sans">
       {/* Conversations Sidebar */}
       {showSidebar && (
-        <div className="w-80 border-r border-gray-200 bg-white flex flex-col shadow-sm">
-          <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-white">
-            <h2 className="font-semibold text-gray-800">Conversations</h2>
+        <div className="w-64 sm:w-72 lg:w-80 border-r border-gray-200 bg-white flex flex-col shadow-sm">
+          <div className="p-3 sm:p-4 border-b border-gray-200 flex items-center justify-between bg-white">
+            <h2 className="font-semibold text-gray-800 text-sm sm:text-base">Conversations</h2>
             <button 
               onClick={createNewConversation}
-              className="p-1.5 rounded-md text-gray-500 hover:text-emerald-500 hover:bg-emerald-50 transition-colors"
+              className="p-1 sm:p-1.5 rounded-md text-gray-500 hover:text-emerald-500 hover:bg-emerald-50 transition-colors"
             >
-              <Plus size={18} />
+              <Plus size={16} className="sm:w-[18px] sm:h-[18px]" />
             </button>
           </div>
           
@@ -428,38 +428,38 @@ const BizradarAI: React.FC = () => {
               <div 
                 key={conversation.id}
                 onClick={() => setActiveConversation(conversation.id)}
-                className={`p-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${
+                className={`p-2 sm:p-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${
                   activeConversation === conversation.id ? 'bg-emerald-50 border-l-4 border-l-emerald-500' : ''
                 }`}
               >
                 <div className="flex items-start">
-                  <div className="p-1.5 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-sm mr-3">
-                    <Bot className="w-3.5 h-3.5 text-white" />
+                  <div className="p-1 sm:p-1.5 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-sm mr-2 sm:mr-3 flex-shrink-0">
+                    <Bot className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-medium text-gray-800 truncate">{conversation.title}</h3>
+                    <h3 className="text-xs sm:text-sm font-medium text-gray-800 truncate">{conversation.title}</h3>
                     <p className="text-xs text-gray-500">{conversation.lastActive}</p>
                   </div>
-                  <button className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100">
-                    <MoreHorizontal size={14} />
+                  <button className="p-0.5 sm:p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 flex-shrink-0">
+                    <MoreHorizontal size={12} className="sm:w-[14px] sm:h-[14px]" />
                   </button>
                 </div>
               </div>
             ))}
           </div>
           
-          <div className="p-3 border-t border-gray-200 bg-gray-50">
-            <Link to="/billing" className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100 transition-colors">
-              <div className="p-1 bg-emerald-100 rounded-md">
-                <Zap size={14} className="text-emerald-600" />
+          <div className="p-2 sm:p-3 border-t border-gray-200 bg-gray-50">
+            <Link to="/billing" className="flex items-center gap-1 sm:gap-2 p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 transition-colors">
+              <div className="p-0.5 sm:p-1 bg-emerald-100 rounded-md flex-shrink-0">
+                <Zap size={12} className="sm:w-[14px] sm:h-[14px] text-emerald-600" />
               </div>
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium text-gray-800">Pro Plan</p>
-                <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1">
-                  <div className="bg-emerald-500 h-1.5 rounded-full" style={{ width: '65%' }}></div>
+                <div className="w-full bg-gray-200 rounded-full h-1 sm:h-1.5 mt-0.5 sm:mt-1">
+                  <div className="bg-emerald-500 h-1 sm:h-1.5 rounded-full" style={{ width: '65%' }}></div>
                 </div>
               </div>
-              <span className="text-xs text-gray-500">65%</span>
+              <span className="text-xs text-gray-500 flex-shrink-0">65%</span>
             </Link>
           </div>
         </div>
@@ -468,70 +468,70 @@ const BizradarAI: React.FC = () => {
       {/* Chat Area */}
       <div className="flex-1 flex flex-col bg-white">
         {/* Chat Header */}
-        <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-white shadow-sm">
-          <div className="flex items-center gap-3">
+        <div className="p-3 sm:p-4 border-b border-gray-200 flex items-center justify-between bg-white shadow-sm">
+          <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
             {/* Back Button */}
             <button 
               onClick={handleGoBack}
-              className="p-1.5 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+              className="p-1 sm:p-1.5 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors flex-shrink-0"
               aria-label="Go back"
             >
-              <ArrowLeft size={18} />
+              <ArrowLeft size={16} className="sm:w-[18px] sm:h-[18px]" />
             </button>
             
             <button 
               onClick={() => setShowSidebar(!showSidebar)}
-              className="p-1.5 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+              className="p-1 sm:p-1.5 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors flex-shrink-0"
             >
-              {showSidebar ? <MinusCircle size={18} /> : <Plus size={18} />}
+              {showSidebar ? <MinusCircle size={16} className="sm:w-[18px] sm:h-[18px]" /> : <Plus size={16} className="sm:w-[18px] sm:h-[18px]" />}
             </button>
-            <h1 className="font-medium text-gray-800 flex items-center gap-2">
-              <span className="p-1.5 rounded-md bg-gradient-to-br from-emerald-500 to-emerald-600">
-                <Bot size={18} className="text-white" />
+            <h1 className="font-medium text-gray-800 flex items-center gap-1 sm:gap-2 min-w-0">
+              <span className="p-1 sm:p-1.5 rounded-md bg-gradient-to-br from-emerald-500 to-emerald-600 flex-shrink-0">
+                <Bot size={16} className="sm:w-[18px] sm:h-[18px] text-white" />
               </span>
-              <span className="text-lg">BizradarAI</span>
+              <span className="text-base sm:text-lg truncate">BizradarAI</span>
             </h1>
-            <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-600 rounded-full text-xs font-medium">Beta</span>
+            <span className="px-1 sm:px-1.5 py-0.5 bg-emerald-100 text-emerald-600 rounded-full text-xs font-medium flex-shrink-0">Beta</span>
             
             {/* Show pursuit context if available */}
             {pursuitContext && (
-              <div className="ml-2 px-2 py-1 bg-emerald-50 border border-emerald-100 rounded-md">
-                <span className="text-xs text-emerald-700">
+              <div className="hidden sm:block ml-2 px-2 py-1 bg-emerald-50 border border-emerald-100 rounded-md flex-shrink-0">
+                <span className="text-xs text-emerald-700 truncate">
                   Context: {pursuitContext.title}
                 </span>
               </div>
             )}
           </div>
           
-          <div className="flex items-center gap-2">
-            <button className="p-1.5 rounded-md text-gray-500 hover:text-emerald-500 hover:bg-emerald-50 transition-colors">
-              <RefreshCw size={18} />
+          <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+            <button className="p-1 sm:p-1.5 rounded-md text-gray-500 hover:text-emerald-500 hover:bg-emerald-50 transition-colors">
+              <RefreshCw size={16} className="sm:w-[18px] sm:h-[18px]" />
             </button>
-            <button className="p-1.5 rounded-md text-gray-500 hover:text-emerald-500 hover:bg-emerald-50 transition-colors">
-              <Download size={18} />
+            <button className="p-1 sm:p-1.5 rounded-md text-gray-500 hover:text-emerald-500 hover:bg-emerald-50 transition-colors">
+              <Download size={16} className="sm:w-[18px] sm:h-[18px]" />
             </button>
           </div>
         </div>
         
         {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
-          <div className="max-w-4xl mx-auto space-y-6">
+        <div className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6 bg-gray-50">
+          <div className="max-w-sm sm:max-w-2xl lg:max-w-4xl mx-auto space-y-4 sm:space-y-6">
             {messages.map(message => (
               <div key={message.id} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-3xl shadow-sm ${
+                <div className={`max-w-full sm:max-w-2xl lg:max-w-3xl shadow-sm ${
                   message.type === 'user' 
                     ? 'bg-emerald-500 text-white rounded-t-2xl rounded-bl-2xl' 
                     : message.type === 'system'
                       ? 'bg-white text-gray-700 border border-gray-200 rounded-2xl' 
                       : 'bg-white border border-gray-200 text-gray-800 rounded-t-2xl rounded-br-2xl'
-                } p-4`}>
+                } p-3 sm:p-4`}>
                   {/* Display BizradarAI branding for both system and AI messages */}
                   {(message.type === 'ai' || (message.type === 'system' && messages.indexOf(message) === 0)) && (
-                    <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-100">
-                      <div className="p-1.5 rounded-md bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-sm">
-                        <Bot size={18} className="text-white" />
+                    <div className="flex items-center gap-1 sm:gap-2 mb-2 sm:mb-3 pb-2 border-b border-gray-100">
+                      <div className="p-1 sm:p-1.5 rounded-md bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-sm flex-shrink-0">
+                        <Bot size={16} className="sm:w-[18px] sm:h-[18px] text-white" />
                       </div>
-                      <span className="text-base font-semibold text-gray-700">BizradarAI</span>
+                      <span className="text-sm sm:text-base font-semibold text-gray-700">BizradarAI</span>
                     </div>
                   )}
                   <div className="prose prose-sm max-w-none">
@@ -572,34 +572,35 @@ const BizradarAI: React.FC = () => {
                     {/* Add SAM.gov button for AI and system messages */}
                     {(message.type === 'ai' || message.type === 'system') && 
                      (message.samGovUrl || (pursuitContext?.noticeId && message.type === 'ai')) && (
-                      <div className="mt-3">
+                      <div className="mt-2 sm:mt-3">
                         <a 
                           href={message.samGovUrl || `https://sam.gov/opp/${pursuitContext?.noticeId}/view`}
                           target="_blank"
                           rel="noopener noreferrer" 
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium rounded-md transition-colors"
+                          className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs sm:text-sm font-medium rounded-md transition-colors"
                         >
-                          View on sam.gov
-                          <ExternalLink size={12} />
+                          <span className="hidden sm:inline">View on sam.gov</span>
+                          <span className="sm:hidden">sam.gov</span>
+                          <ExternalLink size={10} className="sm:w-3 sm:h-3" />
                         </a>
                       </div>
                     )}
                   </div>
                   
                   {message.type === 'ai' && (
-                    <div className="mt-3 pt-2 border-t border-gray-100 flex justify-between items-center">
-                      <div className="flex items-center space-x-2">
-                        <button className="p-1 rounded-md hover:bg-gray-100 text-gray-500 hover:text-emerald-600">
-                          <ThumbsUp size={14} />
+                    <div className="mt-2 sm:mt-3 pt-2 border-t border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-0">
+                      <div className="flex items-center space-x-1 sm:space-x-2">
+                        <button className="p-0.5 sm:p-1 rounded-md hover:bg-gray-100 text-gray-500 hover:text-emerald-600">
+                          <ThumbsUp size={12} className="sm:w-[14px] sm:h-[14px]" />
                         </button>
-                        <button className="p-1 rounded-md hover:bg-gray-100 text-gray-500 hover:text-red-500">
-                          <ThumbsDown size={14} />
+                        <button className="p-0.5 sm:p-1 rounded-md hover:bg-gray-100 text-gray-500 hover:text-red-500">
+                          <ThumbsDown size={12} className="sm:w-[14px] sm:h-[14px]" />
                         </button>
                         <button 
-                          className="p-1 rounded-md hover:bg-gray-100 text-gray-500 hover:text-emerald-600"
+                          className="p-0.5 sm:p-1 rounded-md hover:bg-gray-100 text-gray-500 hover:text-emerald-600"
                           onClick={() => copyToClipboard(message.content)}
                         >
-                          <Copy size={14} />
+                          <Copy size={12} className="sm:w-[14px] sm:h-[14px]" />
                         </button>
                       </div>
                       <span className="text-xs text-gray-400">
@@ -613,13 +614,13 @@ const BizradarAI: React.FC = () => {
             
             {isTyping && (
               <div className="flex justify-start">
-                <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm flex items-center gap-2">
+                <div className="bg-white border border-gray-200 rounded-2xl p-3 sm:p-4 shadow-sm flex items-center gap-1 sm:gap-2">
                   <div className="flex space-x-1">
-                    <div className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                    <div className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                    <div className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                    <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                    <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                    <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                   </div>
-                  <span className="text-sm text-gray-500">BizradarAI is thinking...</span>
+                  <span className="text-xs sm:text-sm text-gray-500">BizradarAI is thinking...</span>
                 </div>
               </div>
             )}
@@ -630,17 +631,17 @@ const BizradarAI: React.FC = () => {
         
         {/* Suggestions */}
         {messages.length === 1 && (
-          <div className="px-6 py-4 border-t border-gray-200 bg-white">
-            <h3 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
-              <Sparkles size={14} className="text-emerald-500" />
+          <div className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 border-t border-gray-200 bg-white">
+            <h3 className="text-xs sm:text-sm font-medium text-gray-700 mb-2 sm:mb-3 flex items-center gap-1 sm:gap-2">
+              <Sparkles size={12} className="sm:w-[14px] sm:h-[14px] text-emerald-500" />
               Try asking
             </h3>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {suggestions.map((suggestion, index) => (
                 <button 
                   key={index}
                   onClick={() => handleSuggestionClick(suggestion)}
-                  className="text-left text-sm bg-emerald-50 hover:bg-emerald-100 text-emerald-700 p-3 rounded-lg transition-colors"
+                  className="text-left text-xs sm:text-sm bg-emerald-50 hover:bg-emerald-100 text-emerald-700 p-2 sm:p-3 rounded-lg transition-colors"
                 >
                   {suggestion}
                 </button>
@@ -650,25 +651,25 @@ const BizradarAI: React.FC = () => {
         )}
         
         {/* Input Area with Drag & Drop */}
-        <div className="p-4 border-t border-gray-200 bg-white shadow-lg">
-          <div className="max-w-4xl mx-auto">
+        <div className="p-3 sm:p-4 border-t border-gray-200 bg-white shadow-lg">
+          <div className="max-w-sm sm:max-w-2xl lg:max-w-4xl mx-auto">
             {/* File List Display */}
             {uploadedFiles.length > 0 && (
-              <div className="mb-3 pb-3 border-b border-gray-200">
-                <p className="text-xs font-medium text-gray-600 mb-2">Uploaded files for context:</p>
-                <div className="flex flex-wrap gap-2">
+              <div className="mb-2 sm:mb-3 pb-2 sm:pb-3 border-b border-gray-200">
+                <p className="text-xs font-medium text-gray-600 mb-1 sm:mb-2">Uploaded files for context:</p>
+                <div className="flex flex-wrap gap-1 sm:gap-2">
                   {uploadedFiles.map((file, index) => (
                     <div 
                       key={index} 
-                      className="flex items-center bg-emerald-50 border border-emerald-100 rounded-md px-3 py-1.5 text-xs text-emerald-700"
+                      className="flex items-center bg-emerald-50 border border-emerald-100 rounded-md px-2 sm:px-3 py-1 sm:py-1.5 text-xs text-emerald-700"
                     >
                       {getFileIcon(file.name)}
-                      <span className="ml-1.5 truncate max-w-xs">{file.name}</span>
+                      <span className="ml-1 sm:ml-1.5 truncate max-w-20 sm:max-w-xs">{file.name}</span>
                       <button
                         onClick={() => removeFile(index)}
-                        className="ml-2 text-emerald-500 hover:text-emerald-700"
+                        className="ml-1 sm:ml-2 text-emerald-500 hover:text-emerald-700"
                       >
-                        <X size={12} />
+                        <X size={10} className="sm:w-3 sm:h-3" />
                       </button>
                     </div>
                   ))}
@@ -683,7 +684,7 @@ const BizradarAI: React.FC = () => {
             >
               {isDragging && (
                 <div className="absolute inset-0 bg-emerald-50 border-2 border-dashed border-emerald-300 rounded-xl flex items-center justify-center z-10">
-                  <div className="text-emerald-500 font-medium">Drop files here</div>
+                  <div className="text-emerald-500 font-medium text-sm sm:text-base">Drop files here</div>
                 </div>
               )}
               
@@ -697,10 +698,10 @@ const BizradarAI: React.FC = () => {
               />
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="absolute left-3 bottom-3 p-2 rounded-lg text-gray-500 hover:text-emerald-500 hover:bg-emerald-50 transition-colors"
+                className="absolute left-2 sm:left-3 bottom-2 sm:bottom-3 p-1.5 sm:p-2 rounded-lg text-gray-500 hover:text-emerald-500 hover:bg-emerald-50 transition-colors"
                 title="Upload files for context"
               >
-                <FileUp size={16} />
+                <FileUp size={14} className="sm:w-4 sm:h-4" />
               </button>
               
               <textarea
@@ -709,23 +710,23 @@ const BizradarAI: React.FC = () => {
                 onChange={(e) => setNewMessage(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Message BizradarAI or drag files here..."
-                className="w-full px-4 py-3 pl-12 pr-14 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none h-12 min-h-12 max-h-32 shadow-sm"
+                className="w-full px-3 sm:px-4 py-2 sm:py-3 pl-8 sm:pl-12 pr-10 sm:pr-14 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none h-10 sm:h-12 min-h-10 sm:min-h-12 max-h-24 sm:max-h-32 shadow-sm text-sm sm:text-base"
                 rows={1}
               />
               <button 
                 onClick={handleSendMessage}
                 disabled={newMessage.trim() === ''}
-                className={`absolute right-3 bottom-3 p-2 rounded-lg ${
+                className={`absolute right-2 sm:right-3 bottom-2 sm:bottom-3 p-1.5 sm:p-2 rounded-lg ${
                   newMessage.trim() === '' 
                     ? 'text-gray-400 bg-gray-100' 
                     : 'text-white bg-emerald-500 hover:bg-emerald-600'
                 } transition-colors`}
               >
-                <Send size={16} />
+                <Send size={14} className="sm:w-4 sm:h-4" />
               </button>
             </div>
             
-            <p className="text-xs text-gray-500 mt-2">
+            <p className="text-xs text-gray-500 mt-1 sm:mt-2">
               BizradarAI may produce inaccurate information. Verify important information.
             </p>
           </div>

@@ -1,11 +1,11 @@
 import asyncio
 import json
-from utils.processor import process_recommendations
-from utils.logger import get_logger
+from app.utils.processor import process_recommendations
+from app.utils.logger import get_logger
 from typing import NamedTuple, List, Dict, Optional
 # from services.recommendations import generate_recommendations
-from utils.redis_connection import RedisClient
-from utils.tasks import add_task, cancel_old_tasks
+from app.utils.redis_connection import RedisClient
+from app.utils.tasks import add_task, cancel_old_tasks
 
 # Configure logger
 logger = get_logger(__name__)

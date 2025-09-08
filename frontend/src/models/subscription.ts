@@ -1,15 +1,16 @@
-export type PlanType = 'trial' | 'free' | 'basic' | 'premium' | 'enterprise';
+export type PlanType = 'trial' | 'free' | 'pro' | 'premium';
 export type SubscriptionStatus = 'active' | 'cancelled' | 'expired';
 
 export interface Subscription {
   id: string;
-  userId: string;
+  user_id: string;
   plan_type: PlanType;
   status: SubscriptionStatus;
-  startDate: string;
-  endDate: string | null;
-  createdAt: string;
-  updatedAt: string;
+  start_date: string;
+  end_date: string | null;
+  created_at: string;
+  updated_at: string;
+  stripe_subscription_id?: string;
 }
 
 export interface SubscriptionPlan {

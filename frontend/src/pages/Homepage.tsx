@@ -255,20 +255,20 @@ const Layout = ({ children }) => {
       />
 
       {/* Modern Glass Header with subtle shadow */}
-      <header className="sticky top-0 backdrop-blur-md bg-white/90 py-3 md:py-4 z-40 border-b border-gray-100 shadow-sm w-full">
+      <header className="sticky top-0 backdrop-blur-md bg-white/90 py-2 sm:py-3 md:py-4 z-40 border-b border-gray-100 shadow-sm w-full">
         <div className="container mx-auto px-4 sm:px-6 md:px-8 w-full flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-3 group">
+          <Link to="/" className="flex items-center gap-2 sm:gap-3 group">
             <div className="relative">
               <div className="absolute inset-0 bg-blue-100 rounded-full blur-md transform group-hover:scale-110 transition-transform duration-300"></div>
-              <Radar className="w-8 h-8 text-blue-600 relative z-10 transition-transform group-hover:rotate-12 duration-300" />
+              <Radar className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600 relative z-10 transition-transform group-hover:rotate-12 duration-300" />
             </div>
             <div className="flex items-end">
-              <span className="text-2xl font-semibold text-blue-600">Bizradar</span>
+              <span className="text-lg sm:text-xl lg:text-2xl font-semibold text-blue-600">Bizradar</span>
               <a 
                 href="https://indrasol.com" 
                 target="_blank" 
                 rel="noopener noreferrer" 
-                className="text-xs text-gray-500 ml-1 mb-1 hover:text-blue-600 transition-colors duration-200"
+                className="text-xs text-gray-500 ml-1 mb-1 hover:text-blue-600 transition-colors duration-200 hidden sm:block"
                 onClick={(e) => {
                   e.stopPropagation();
                   e.preventDefault();
@@ -287,11 +287,11 @@ const Layout = ({ children }) => {
             <Link to="/dashboard" className="text-gray-700 hover:text-blue-600 relative after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-0 after:bg-blue-600 hover:after:w-full after:transition-all after:duration-300">About</Link>
             */}
             <div className="h-6 w-px bg-gradient-to-b from-gray-100 to-gray-300 mx-2"></div>
-            <Link to="/register" className="text-blue-600 hover:text-blue-800 font-medium transition-colors">Login</Link>
+            <Link to="/register" className="text-blue-600 hover:text-blue-800 font-medium transition-colors text-sm sm:text-base">Login</Link>
             {/* <button className="bg-emerald-500 hover:from-blue-700 hover:to-emerald-600 text-white px-5 py-2 rounded-lg font-medium transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5">
               Get Started
             </button> */}
-            <Link to="/register" className="bg-emerald-500 hover:from-blue-700 hover:to-emerald-600 text-white px-5 py-2 rounded-lg font-medium transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5">
+            <Link to="/register" className="bg-emerald-500 hover:from-blue-700 hover:to-emerald-600 text-white px-3 sm:px-4 lg:px-5 py-1.5 sm:py-2 rounded-lg font-medium transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 text-sm sm:text-base">
               Get Started
             </Link>
           </nav>

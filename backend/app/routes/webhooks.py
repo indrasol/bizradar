@@ -18,28 +18,23 @@ logger = logging.getLogger(__name__)
 
 # Stripe price IDs from the environment or use the provided ones
 STRIPE_PRICES = {
-    "basic_monthly": "price_1RqIaWFKTK8ICUprZJJh44Hc",
-    "basic_annual": "price_1RqIcWFKTK8ICUprtagiVbzf",
-    "premium_monthly": "price_1RqIdGFKTK8ICUprDEo5P7AB",
-    "premium_annual": "price_1RqIdxFKTK8ICUprSgy50avW",
-    "enterprise_monthly": "price_1RqIebFKTK8ICUpr6QN0hZ9a",
-    "enterprise_annual": "price_1RqIewFKTK8ICUprSvBvDwvg",
+    "pro_monthly": "price_1RqIdGFKTK8ICUprDEo5P7AB",
+    "pro_annual": "price_1RqIdxFKTK8ICUprSgy50avW",
+    "premium_monthly": "price_1RqIebFKTK8ICUpr6QN0hZ9a",
+    "premium_annual": "price_1RqIewFKTK8ICUprSvBvDwvg",
 }
 
 # Map Stripe price IDs to our plan types
 PRICE_TO_PLAN = {
-    "price_1RqIaWFKTK8ICUprZJJh44Hc": "basic",
-    "price_1RqIcWFKTK8ICUprtagiVbzf": "basic",
-    "price_1RqIdGFKTK8ICUprDEo5P7AB": "premium",
-    "price_1RqIdxFKTK8ICUprSgy50avW": "premium",
-    "price_1RqIebFKTK8ICUpr6QN0hZ9a": "enterprise",
-    "price_1RqIewFKTK8ICUprSvBvDwvg": "enterprise",
+    "price_1RqIdGFKTK8ICUprDEo5P7AB": "pro",
+    "price_1RqIdxFKTK8ICUprSgy50avW": "pro",
+    "price_1RqIebFKTK8ICUpr6QN0hZ9a": "premium",
+    "price_1RqIewFKTK8ICUprSvBvDwvg": "premium",
 }
 
 # Map Stripe subscription status to our status
 STATUS_MAPPING = {
     "active": "active",
-    "trialing": "active",
     "past_due": "active",  # Still active but payment is due
     "canceled": "cancelled",
     "unpaid": "expired",

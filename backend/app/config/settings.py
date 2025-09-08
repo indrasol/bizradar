@@ -79,6 +79,7 @@ SUPABASE_JWT_SECRET_BIZ=os.getenv("SUPABASE_JWT_SECRET_BIZ")
  
 SUPABASE_URL=os.getenv("SUPABASE_URL_BIZ")
 SUPABASE_ANON_KEY=os.getenv("SUPABASE_ANON_KEY_BIZ")
+SUPABASE_SERVICE_KEY=os.getenv("SUPABASE_SERVICE_KEY_BIZ")
 # Stripe
 # Print Stripe keys for debugging
 print(f"Loading Stripe keys - Secret: {'*' * 20}{os.getenv('STRIPE_SECRET_KEY', '')[-4:] if os.getenv('STRIPE_SECRET_KEY') else 'Not set'}")

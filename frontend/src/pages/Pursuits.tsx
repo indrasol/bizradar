@@ -1,30 +1,58 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense, lazy } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { FileText, X, PenLine, CheckCircle } from "lucide-react";
+import { FileText, X, PenLine, CheckCircle, Target, Calendar } from "lucide-react";
 import SideBar from "../components/layout/SideBar";
 import { supabase } from "../utils/supabase";
 import { toast } from "sonner";
 import RfpResponse from "../components/rfp/rfpResponse";
 import { useAuth } from "@/components/Auth/useAuth";
-import { PursuitHeader } from "@/components/pursuits/PursuitHeader";
 import { SearchAndActions } from "@/components/pursuits/SearchAndActions";
 import { ViewSelector, ViewType } from "@/components/pursuits/ViewSelector";
-import { KanbanView } from "@/components/pursuits/KanbanView";
-import { CalendarView } from "@/components/pursuits/CalendarView";
-import { ListView } from "@/components/pursuits/ListView";
-import { CreatePursuitDialog } from "@/components/pursuits/CreatePursuitDialog";
 import { Pursuit, Opportunity, RfpSaveEventDetail } from "@/components/pursuits/types";
 import ScrollToTopButton from "../components/opportunities/ScrollToTopButton";
+import PageLoadingSkeleton from "@/components/ui/PageLoadingSkeleton";
+import { DashboardTemplate } from "../utils/responsivePatterns";
 import { API_ENDPOINTS } from "@/config/apiEndpoints";
+
+// Lazy load heavier components
+const KanbanView = lazy(() => import("@/components/pursuits/KanbanView"));
+const CalendarView = lazy(() => import("@/components/pursuits/CalendarView"));
+const ListView = lazy(() => import("@/components/pursuits/ListView"));
+const CreateTrackerDialog = lazy(() => import("@/components/pursuits/CreatePursuitDialog"));
+
+const isDevelopment = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+const API_BASE_URL = isDevelopment
+  ? "http://localhost:5000"
+  : import.meta.env.VITE_API_BASE_URL;
+
+// Global cache for pursuits data
+const pursuitsCache = {
+  data: null,
+  timestamp: 0,
+  filter: null
+};
 
 export default function Pursuits(): JSX.Element {
   const { logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   
+  // Get current date for header
+  const currentDate = new Date().toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+  
   const [pursuits, setPursuits] = useState<Pursuit[]>([]);
   const [selectedPursuit, setSelectedPursuit] = useState<Pursuit | null>(null);
-  const [view, setView] = useState<ViewType>("list");
+  // Use state persistence for view type
+  const [view, setView] = useState<ViewType>(() => {
+    // Try to restore from sessionStorage
+    const savedView = sessionStorage.getItem("pursuitsViewType");
+    return (savedView as ViewType) || "list";
+  });
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [showNotification, setShowNotification] = useState<boolean>(false);
@@ -34,6 +62,9 @@ export default function Pursuits(): JSX.Element {
   const [searchQuery, setSearchQuery] = useState("");
   const [showScrollToTop, setShowScrollToTop] = useState(false);
   const [mainContentNode, setMainContentNode] = useState<HTMLDivElement | null>(null);
+  const [initialLoadComplete, setInitialLoadComplete] = useState<boolean>(false);
+  const [progressiveLoading, setProgressiveLoading] = useState<boolean>(true);
+  
   const mainContentRef = useCallback((node: HTMLDivElement | null) => {
     setMainContentNode(node);
   }, []);
@@ -42,10 +73,10 @@ export default function Pursuits(): JSX.Element {
   const fileInputRef = useRef(null);
   const [selectedFiles, setSelectedFiles] = useState([]);
 
-  // Function to handle navigation to BizRadar AI with pursuit context
+  // Function to handle navigation to BizRadar AI with tracker context
   const navigateToBizRadarAI = async (pursuit: Pursuit, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent row click event from firing
-    console.log("Ask BizRadar AI button clicked for pursuit:", pursuit);
+    console.log("Ask BizRadar AI button clicked for tracker:", pursuit);
     
     try {
       // Fetch the noticeId from the sam_gov table using the title
@@ -86,7 +117,7 @@ export default function Pursuits(): JSX.Element {
             pursuitId: pursuit.id,
             noticeId: noticeId,
             userId: userId, // Include the user ID
-            pursuitContext: {
+            trackerContext: {
               id: pursuit.id,
               title: pursuit.title,
               description: pursuit.description,
@@ -109,10 +140,10 @@ export default function Pursuits(): JSX.Element {
         // Continue with navigation even if the API call fails
       }
       
-      // Navigate to BizRadarAI with pursuit context
+      // Navigate to BizRadarAI with tracker context
       navigate('/bizradar-ai', { 
         state: { 
-          pursuitContext: {
+          trackerContext: {
             id: pursuit.id,
             title: pursuit.title,
             description: pursuit.description,
@@ -187,8 +218,8 @@ export default function Pursuits(): JSX.Element {
     setShowRfpBuilder(false);
     setCurrentRfpPursuitId(null);
     
-    // Refresh the pursuits list to get the updated stage
-    fetchPursuits();
+    // Refresh the tracker list to get the updated stage
+    fetchTrackers();
   };
 
   // Handle logout
@@ -203,8 +234,8 @@ export default function Pursuits(): JSX.Element {
     }
   };
   
-  // Add handleAddToPursuit function
-  const handleAddToPursuit = async (opportunity: Opportunity): Promise<void> => {
+  // Add handleAddToTracker function
+  const handleAddToTracker = async (opportunity: Opportunity): Promise<void> => {
     try {
       // Get the current user
       const { data: { user } } = await supabase.auth.getUser();
@@ -214,16 +245,16 @@ export default function Pursuits(): JSX.Element {
         return;
       }
       
-      console.log("Adding to pursuits:", {
+      console.log("Adding to trackers:", {
         title: opportunity.title || "Untitled",
         description: opportunity.description || "",
         stage: "Assessment",
         user_id: user.id
       });
       
-      // Create new pursuit
+      // Create new tracker
       const { data, error } = await supabase
-        .from('pursuits')
+        .from('trackers')
         .insert({
           title: opportunity.title || "Untitled",
           description: opportunity.description || "",
@@ -246,7 +277,7 @@ export default function Pursuits(): JSX.Element {
         setShowNotification(true);
         setTimeout(() => setShowNotification(false), 3000);
         
-        // Update pursuits list with the new pursuit
+        // Update tracker list with the new tracker
         const formattedPursuit: Pursuit = {
           id: data[0].id,
           title: data[0].title || "Untitled",
@@ -263,13 +294,13 @@ export default function Pursuits(): JSX.Element {
         setPursuits(prevPursuits => [formattedPursuit, ...prevPursuits]);
       }
     } catch (error) {
-      console.error("Error adding to pursuits:", error);
-      setError("Failed to add pursuit. Please try again.");
+      console.error("Error adding to trackers:", error);
+      setError("Failed to add tracker. Please try again.");
     }
   };
   
-  // Function to handle create pursuit
-  const handleCreatePursuit = async (pursuitData: {
+  // Function to handle create tracker
+  const handleCreateTracker = async (trackerData: {
     title: string;
     description: string;
     stage: string;
@@ -285,16 +316,16 @@ export default function Pursuits(): JSX.Element {
       }
 
       let formattedDueDate = null;
-      if (pursuitData.due_date) {
-        formattedDueDate = new Date(pursuitData.due_date).toISOString();
+      if (trackerData.due_date) {
+        formattedDueDate = new Date(trackerData.due_date).toISOString();
       }
 
       const { data, error } = await supabase
-        .from("pursuits")
+        .from("trackers")
         .insert({
-          title: pursuitData.title || "Untitled",
-          description: pursuitData.description || "",
-          stage: pursuitData.stage || "Assessment",
+          title: trackerData.title || "Untitled",
+          description: trackerData.description || "",
+          stage: trackerData.stage || "Assessment",
           user_id: user.id,
           due_date: formattedDueDate,
         })
@@ -306,7 +337,7 @@ export default function Pursuits(): JSX.Element {
       }
 
       if (data && data.length > 0) {
-        toast?.success("Pursuit created successfully");
+        toast?.success("Tracker created successfully");
 
         const formattedPursuit: Pursuit = {
           id: data[0].id,
@@ -325,18 +356,21 @@ export default function Pursuits(): JSX.Element {
       }
     } catch (error) {
       console.error("Error creating pursuit:", error);
-      toast?.error("Failed to create pursuit. Please try again.");
+      toast?.error("Failed to create tracker. Please try again.");
     }
   };
   
-  // Function to fetch pursuits
-  const fetchPursuits = async (): Promise<void> => {
-    setIsLoading(true);
+  // Function to fetch trackers with caching and progressive loading
+  const fetchTrackers = async (forceRefresh = false): Promise<void> => {
+    // Start progressive loading
+    setProgressiveLoading(true);
+    
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
         console.log("No user logged in");
+        setProgressiveLoading(false);
         setIsLoading(false);
         setPursuits([]);
         return;
@@ -345,8 +379,37 @@ export default function Pursuits(): JSX.Element {
       const searchParams = new URLSearchParams(location.search);
       const filter = searchParams.get('filter');
       
+      // Check if we have cached data and it's still valid (less than 5 minutes old)
+      const now = Date.now();
+      const cacheValid = 
+        !forceRefresh && 
+        pursuitsCache.data && 
+        now - pursuitsCache.timestamp < 5 * 60 * 1000 && 
+        pursuitsCache.filter === filter;
+      
+      // If we have valid cached data, use it immediately
+      if (cacheValid) {
+        console.log("Using cached pursuits data");
+        setPursuits(pursuitsCache.data);
+        
+        // Still mark as loading to show we're checking for updates
+        setIsLoading(true);
+        
+        // End progressive loading since we have data to show
+        setProgressiveLoading(false);
+        
+        // If this is the first load, mark it as complete
+        if (!initialLoadComplete) {
+          setInitialLoadComplete(true);
+        }
+      } else {
+        // No valid cache, show loading state
+        setIsLoading(true);
+      }
+      
+      // Always fetch fresh data from the server (in background if we have cache)
       let query = supabase
-        .from('pursuits')
+        .from('trackers')
         .select('id, title, description, stage, created_at, user_id, due_date, is_submitted, naicscode')
         .eq('user_id', user.id);
       
@@ -362,6 +425,7 @@ export default function Pursuits(): JSX.Element {
         console.error("Fetch error:", error);
         setError(`Failed to fetch pursuits: ${error.message}`);
         setIsLoading(false);
+        setProgressiveLoading(false);
         return;
       }
       
@@ -378,19 +442,31 @@ export default function Pursuits(): JSX.Element {
         naicscode: pursuit.naicscode || ""
       }));
       
+      // Update cache
+      pursuitsCache.data = formattedPursuits;
+      pursuitsCache.timestamp = now;
+      pursuitsCache.filter = filter;
+      
+      // Update state
       setPursuits(formattedPursuits);
+      
+      // Mark initial load as complete
+      if (!initialLoadComplete) {
+        setInitialLoadComplete(true);
+      }
     } catch (error: any) {
       console.error("Error fetching pursuits:", error);
       setError(`Error fetching pursuits: ${error.message}`);
       setPursuits([]);
     } finally {
       setIsLoading(false);
+      setProgressiveLoading(false);
     }
   };
   
-  // Replace the useEffect for fetching pursuits
+  // Replace the useEffect for fetching trackers
   useEffect(() => {
-    fetchPursuits();
+    fetchTrackers();
     
     // Set up real-time subscription for changes
     const subscription = supabase
@@ -404,7 +480,7 @@ export default function Pursuits(): JSX.Element {
         }, 
         (payload) => {
           console.log('Change received!', payload);
-          fetchPursuits(); // Refresh the list when changes occur
+          fetchTrackers(); // Refresh the list when changes occur
         }
       )
       .subscribe();
@@ -471,15 +547,15 @@ export default function Pursuits(): JSX.Element {
         throw assigneeError;
       }
       
-      // Then delete the pursuit
+      // Then delete the tracker
       const { error } = await supabase
-        .from('pursuits')
+        .from('trackers')
         .delete()
         .eq('id', id);
         
       if (error) {
-        console.error("Error removing pursuit:", error);
-        toast?.error(`Error removing pursuit: ${error.message}`);
+        console.error("Error removing tracker:", error);
+        toast?.error(`Error removing tracker: ${error.message}`);
         throw error;
       }
       
@@ -491,10 +567,10 @@ export default function Pursuits(): JSX.Element {
         setSelectedPursuit(null);
       }
       
-      toast?.success("Pursuit removed successfully");
+      toast?.success("Tracker removed successfully");
     } catch (error: any) {
-      console.error("Error removing pursuit:", error);
-      toast?.error("Failed to remove pursuit. Please try again.");
+      console.error("Error removing tracker:", error);
+      toast?.error("Failed to remove tracker. Please try again.");
     }
   };
   
@@ -558,9 +634,9 @@ export default function Pursuits(): JSX.Element {
   // Function to toggle submission status
   const handleToggleSubmission = async (pursuitId: string): Promise<void> => {
     try {
-      // Update the pursuit to mark it as submitted
+      // Update the tracker to mark it as submitted
       const { error } = await supabase
-        .from('pursuits')
+        .from('trackers')
         .update({ is_submitted: true })
         .eq('id', pursuitId);
       
@@ -625,16 +701,11 @@ export default function Pursuits(): JSX.Element {
     setSearchQuery(query);
   };
 
-  const filteredPursuits = pursuits.filter(pursuit =>
-    pursuit.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    pursuit.description.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
   const handleViewAnalytics = () => {
     navigate('/analytics');
   };
 
-  const handleNewPursuit = () => {
+  const handleNewTracker = () => {
     setIsDialogOpen(true);
   };
 
@@ -674,7 +745,7 @@ export default function Pursuits(): JSX.Element {
             pursuitId: pursuit.id,
             noticeId: noticeId,
             userId: userId,
-            pursuitContext: {
+            trackerContext: {
               id: pursuit.id,
               title: pursuit.title,
               description: pursuit.description,
@@ -698,7 +769,7 @@ export default function Pursuits(): JSX.Element {
 
       navigate('/bizradar-ai', {
         state: {
-          pursuitContext: {
+          trackerContext: {
             id: pursuit.id,
             title: pursuit.title,
             description: pursuit.description,
@@ -732,7 +803,7 @@ export default function Pursuits(): JSX.Element {
     return () => {
       node.removeEventListener("scroll", handleScroll);
     };
-  }, [mainContentNode, view, filteredPursuits.length]);
+  }, [mainContentNode, view, pursuits.length, searchQuery]);
 
   const handleScrollToTop = () => {
     if (mainContentNode) {
@@ -740,52 +811,61 @@ export default function Pursuits(): JSX.Element {
     }
   };
 
-  // Show loading state
-  if (isLoading) {
-    return (
-      <div className="h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-      </div>
+  // Memoize filtered pursuits to prevent unnecessary re-renders
+  const filteredPursuits = useMemo(() => {
+    return pursuits.filter(pursuit =>
+      pursuit.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      pursuit.description.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }
+  }, [pursuits, searchQuery]);
 
   // Show error state
   if (error) {
     return (
       <div className="h-screen flex items-center justify-center">
         <div className="text-red-500 text-center">
-          <p className="text-lg font-medium">Error loading pursuits</p>
+          <p className="text-lg font-medium">Error loading trackers</p>
           <p className="text-sm mt-2">{error}</p>
+          <button 
+            onClick={() => fetchTrackers(true)} 
+            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+          >
+            Try Again
+          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50 text-gray-800">
+    <div className={DashboardTemplate.wrapper}>
       {showNotification && (
-        <div className="fixed top-4 right-4 z-50 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-fade-in">
-          <span>Pursuit added successfully!</span>
+        <div className="fixed top-4 right-4 z-50 bg-green-500 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg shadow-lg flex items-center gap-2 animate-fade-in text-sm sm:text-base">
+          <span>Tracker added successfully!</span>
         </div>
       )}
       
-      <CreatePursuitDialog
-        isOpen={isDialogOpen}
-        onClose={() => setIsDialogOpen(false)}
-        onCreatePursuit={handleCreatePursuit}
-      />
+      {/* Use Suspense for CreateTrackerDialog */}
+      <Suspense fallback={null}>
+        {isDialogOpen && (
+          <CreateTrackerDialog
+            isOpen={isDialogOpen}
+            onClose={() => setIsDialogOpen(false)}
+            onCreateTracker={handleCreateTracker}
+          />
+        )}
+      </Suspense>
       
       {showRfpBuilder && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-start overflow-y-auto">
-          <div className="bg-white rounded-lg shadow-xl w-full mx-auto relative">
-            {/* <div className="sticky top-0 bg-white z-10 p-4 border-b flex justify-between items-center"> */}
-            <div className="sticky top-0 z-10 p-4 border-b flex justify-between items-center">
-              <h2 className="text-xl font-bold">RFP Response Builder</h2>
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-start overflow-y-auto p-2 sm:p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm sm:max-w-lg lg:max-w-4xl xl:max-w-6xl mx-auto relative mt-2 sm:mt-4">
+            <div className="sticky top-0 z-10 p-3 sm:p-4 border-b flex justify-between items-center bg-white">
+              <h2 className="text-lg sm:text-xl font-bold">RFP Response Builder</h2>
               <button
                 onClick={closeRfpBuilder}
                 className="text-gray-500 hover:text-gray-700 p-1 bg-gray-100 rounded-full"
               >
-                <X className="w-6 h-6" />
+                <X className="w-5 h-5 sm:w-6 sm:h-6" />
               </button>
             </div>
             
@@ -804,70 +884,113 @@ export default function Pursuits(): JSX.Element {
       <div className="flex flex-1 overflow-hidden">
         <SideBar />
 
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <PursuitHeader onViewAnalytics={handleViewAnalytics} />
-          
-          <SearchAndActions
+        <div className={DashboardTemplate.main}>
+          {/* Page content */}
+          <div className={DashboardTemplate.content}>
+            <div className="w-full">
+              {/* Page header - moved to top for seamless UI */}
+              <div className="flex items-center mb-6 bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+                <div className="mr-6 w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center text-white text-xl font-bold shadow-md">
+                  <Target className="h-8 w-8" />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">
+                    My Tracker
+                  </h1>
+                  <div className="flex items-center mt-1 text-sm text-gray-500">
+                    <Calendar className="h-4 w-4 mr-1" />
+                    <span>{currentDate}</span>
+                    <span className="mx-2">•</span>
+                    <span className="flex items-center">
+                      <Target className="h-4 w-4 mr-1 text-blue-500" />
+                      Manage Trackers
+                    </span>
+                  </div>
+                </div>
+                <div className="ml-auto flex space-x-3">
+                  {/* View Analytics button removed - accessible via sidebar */}
+                </div>
+              </div>
+              
+              <SearchAndActions
             onSearch={handleSearch}
-            onNewPursuit={handleNewPursuit}
           />
 
           <ViewSelector
             currentView={view}
             onViewChange={(newView: ViewType) => {
               setView(newView);
+              // Save to session storage for persistence
+              sessionStorage.setItem("pursuitsViewType", newView);
             }}
           />
 
-          <div className={`flex-1 p-5 ${view === 'kanban' ? '' : 'overflow-y-auto'}`} ref={mainContentRef}>
-            {pursuits.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-[60vh]">
-                <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full mb-5">
-                  <FileText className="w-8 h-8 text-gray-400" />
+          <div className={`flex-1 p-3 sm:p-4 lg:p-5 ${view === 'kanban' ? '' : 'overflow-y-auto'}`} ref={mainContentRef}>
+            {/* Show skeleton loading during initial/progressive loading */}
+            {(progressiveLoading && !initialLoadComplete) ? (
+              <PageLoadingSkeleton type="pursuits" />
+            ) : pursuits.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-[60vh] px-4">
+                <div className="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 bg-gray-100 rounded-full mb-4 sm:mb-5">
+                  <FileText className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400" />
                 </div>
-                <h3 className="text-xl font-medium text-gray-500 mb-2">No pursuits added</h3>
-                <p className="text-gray-400 max-w-md mb-6 text-center">
-                  Explore opportunities and add them to your pursuits list to track them here.
+                <h3 className="text-lg sm:text-xl font-medium text-gray-500 mb-2 text-center">No trackers added</h3>
+                <p className="text-sm sm:text-base text-gray-400 max-w-sm sm:max-w-md mb-4 sm:mb-6 text-center">
+                  Explore opportunities and add them to your tracker list to track them here.
                 </p>
                 <Link
                   to="/opportunities"
-                  className="px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm flex items-center gap-2 mx-auto w-fit"
+                  className="px-3 sm:px-4 py-2 sm:py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm flex items-center gap-2 mx-auto w-fit text-sm sm:text-base"
                 >
                   <span>Find Opportunities</span>
                 </Link>
               </div>
             ) : (
               <>
-                {view === 'list' && (
-                  <ListView
-                    pursuits={filteredPursuits}
-                    onPursuitSelect={handlePursuitSelect}
-                    onRfpAction={handleRfpAction}
-                    onDelete={handleRemovePursuit}
-                    onAskAI={handleAskAI}
-                    onToggleSubmission={handleToggleSubmission}
-                  />
-                )}
-                
-                {view === 'kanban' && (
-                  <KanbanView
-                    pursuits={filteredPursuits}
-                    onPursuitSelect={handlePursuitSelect}
-                    onRfpAction={handleRfpAction}
-                    onDelete={handleRemovePursuit}
-                    onAskAI={handleAskAI}
-                  />
-                )}
-                
-                {view === 'calendar' && (
-                  <CalendarView
-                    pursuits={filteredPursuits}
-                    onPursuitSelect={handlePursuitSelect}
-                  />
-                )}
+                {/* Use Suspense for content views */}
+                <Suspense fallback={<PageLoadingSkeleton type="pursuits" />}>
+                  {view === 'list' && (
+                    <ListView
+                      pursuits={filteredPursuits}
+                      onPursuitSelect={handlePursuitSelect}
+                      onRfpAction={handleRfpAction}
+                      onDelete={handleRemovePursuit}
+                      onAskAI={handleAskAI}
+                      onToggleSubmission={handleToggleSubmission}
+                    />
+                  )}
+                  
+                  {view === 'kanban' && (
+                    <KanbanView
+                      pursuits={filteredPursuits}
+                      onPursuitSelect={handlePursuitSelect}
+                      onRfpAction={handleRfpAction}
+                      onDelete={handleRemovePursuit}
+                      onAskAI={handleAskAI}
+                    />
+                  )}
+                  
+                  {view === 'calendar' && (
+                    <CalendarView
+                      pursuits={filteredPursuits}
+                      onPursuitSelect={handlePursuitSelect}
+                    />
+                  )}
+                </Suspense>
               </>
             )}
+            
+            {/* Show loading overlay for background refreshes */}
+            {isLoading && initialLoadComplete && !progressiveLoading && (
+              <div className="fixed top-0 right-0 mt-2 mr-2 bg-white/80 backdrop-blur-sm rounded-full px-3 py-1 text-xs text-gray-600 flex items-center gap-1 shadow-sm">
+                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                Refreshing...
+              </div>
+            )}
+            
             <ScrollToTopButton isVisible={showScrollToTop} scrollToTop={handleScrollToTop} />
+            </div>
+          </div>
           </div>
         </div>
       </div>

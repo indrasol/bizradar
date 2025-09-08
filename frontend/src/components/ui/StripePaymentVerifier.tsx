@@ -10,7 +10,6 @@ interface StripePaymentVerifierProps {
 const StripePaymentVerifier: React.FC<StripePaymentVerifierProps> = ({ onSuccess, onError }) => {
   const [paymentStatus, setPaymentStatus] = useState<null | "success" | "error" | "pending">(null);
   const [paymentMessage, setPaymentMessage] = useState<string>("");
-  const { refreshTrialStatus } = useContext(AuthContext);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -25,8 +24,6 @@ const StripePaymentVerifier: React.FC<StripePaymentVerifierProps> = ({ onSuccess
           if (data.success) {
             setPaymentStatus("success");
             setPaymentMessage("Your subscription has been updated successfully!");
-            // Refresh trial/subscription status so blocker disappears immediately
-            refreshTrialStatus?.();
             if (onSuccess) onSuccess();
           } else {
             setPaymentStatus("error");

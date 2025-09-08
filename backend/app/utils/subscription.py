@@ -4,29 +4,42 @@ from typing import Optional, Dict, Any
 from fastapi import HTTPException
 
 from app.utils.db_utils import get_db_connection
-from app.config.settings import TRIAL_DURATION_MINUTES
 
 
 def _ensure_subscription_table_exists() -> None:
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
+            # Check if table already exists (from Supabase migration)
             cursor.execute(
                 """
-                CREATE TABLE IF NOT EXISTS user_subscriptions (
-                    id SERIAL PRIMARY KEY,
-                    user_id TEXT UNIQUE NOT NULL,
-                    plan_type TEXT NOT NULL,
-                    status TEXT NOT NULL,
-                    start_date TIMESTAMP NOT NULL,
-                    end_date TIMESTAMP NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_name = 'user_subscriptions'
                 );
-                CREATE INDEX IF NOT EXISTS idx_user_subscriptions_user_id ON user_subscriptions(user_id);
                 """
             )
-            # Ensure plan_type allows 'trial'
+            table_exists = cursor.fetchone()[0]
+            
+            if not table_exists:
+                # Create table without foreign key constraint for local development
+                cursor.execute(
+                    """
+                    CREATE TABLE user_subscriptions (
+                        id SERIAL PRIMARY KEY,
+                        user_id UUID UNIQUE NOT NULL,
+                        plan_type TEXT NOT NULL,
+                        status TEXT NOT NULL,
+                        start_date TIMESTAMP NOT NULL,
+                        end_date TIMESTAMP NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_user_subscriptions_user_id ON user_subscriptions(user_id);
+                    """
+                )
+            
+            # Ensure plan_type constraint (update existing constraint if needed)
             try:
                 cursor.execute(
                     """
@@ -46,7 +59,7 @@ def _ensure_subscription_table_exists() -> None:
                     """
                     ALTER TABLE user_subscriptions
                     ADD CONSTRAINT user_subscriptions_plan_type_check
-                    CHECK (plan_type IN ('trial','free','basic','premium','enterprise'));
+                    CHECK (plan_type IN ('basic','pro','premium'));
                     """
                 )
             except Exception:
@@ -91,12 +104,14 @@ def _fetch_user_subscription(user_id: str) -> Optional[Dict[str, Any]]:
         conn.close()
 
 
-def _create_trial_subscription(user_id: str) -> Dict[str, Any]:
+
+
+def _create_basic_subscription(user_id: str) -> Dict[str, Any]:
     """
-    Create a 15-day trial subscription for the user.
+    Create a basic subscription for new users.
+    This function creates a basic subscription for any valid user_id.
     """
     now = datetime.now(timezone.utc)
-    trial_end = now + timedelta(minutes=TRIAL_DURATION_MINUTES)
     _ensure_subscription_table_exists()
     conn = get_db_connection()
     try:
@@ -112,7 +127,7 @@ def _create_trial_subscription(user_id: str) -> Dict[str, Any]:
                               end_date = EXCLUDED.end_date
                 RETURNING id, user_id, plan_type, status, start_date, end_date
                 """,
-                (user_id, "trial", "active", now.isoformat(), trial_end.isoformat()),
+                (user_id, "basic", "active", now.isoformat(), None),  # No end date for basic plan
             )
             row = cursor.fetchone()
             conn.commit()
@@ -148,17 +163,16 @@ def _expire_subscription(user_id: str) -> None:
 
 def ensure_active_access(user_id: Optional[str]) -> None:
     """
-    Ensure the user has an active paid subscription or an active (non-expired) trial.
-    If the user has no subscription, automatically starts a 15-day trial.
-    If the trial is expired, raise 402 Payment Required.
+    Ensure the user has an active subscription.
+    If the user has no subscription, automatically create a basic subscription.
     """
     if not user_id or user_id == "anonymous":
         raise HTTPException(status_code=401, detail="Authentication required")
 
     sub = _fetch_user_subscription(user_id)
     if not sub:
-        # Start trial for first-time users
-        _create_trial_subscription(user_id)
+        # Create a basic subscription for new users
+        _create_basic_subscription(user_id)
         return
 
     status = (sub.get("status") or "").lower()
@@ -177,13 +191,6 @@ def ensure_active_access(user_id: Optional[str]) -> None:
     if status != "active":
         raise HTTPException(status_code=402, detail="Subscription inactive. Please upgrade your plan to continue.")
 
-    if plan == "trial":
-        if end_date and now <= end_date:
-            return
-        # Trial expired
-        _expire_subscription(user_id)
-        raise HTTPException(status_code=402, detail="Your 15-day trial has expired. Please upgrade to continue using BizRadar.")
-
     # Paid plan: optionally validate end_date if present
     if end_date and now > end_date:
         _expire_subscription(user_id)
@@ -195,18 +202,15 @@ def ensure_active_access(user_id: Optional[str]) -> None:
 def get_subscription_status(user_id: Optional[str], create_if_missing: bool = True) -> Dict[str, Any]:
     """
     Return current subscription status for a user without raising HTTP errors.
-    Optionally create a trial if no subscription exists.
     Output: { plan_type, status, start_date, end_date, remaining_days, is_trial, expired }
     """
     if not user_id or user_id == "anonymous":
         raise HTTPException(status_code=401, detail="Authentication required")
 
     sub = _fetch_user_subscription(user_id)
-    if not sub and create_if_missing:
-        sub = _create_trial_subscription(user_id)
 
     if not sub:
-        # No sub and not creating one: report no access
+        # No subscription found: report no access
         return {
             "plan_type": None,
             "status": "none",
@@ -264,7 +268,7 @@ def get_subscription_status(user_id: Optional[str], create_if_missing: bool = Tr
         "start_date": start_date.isoformat() if start_date else None,
         "end_date": end_date.isoformat() if end_date else None,
         "remaining_days": remaining_days,
-        "is_trial": plan == "trial",
+        "is_trial": False,
         "expired": expired,
         "newly_created": False,
     }

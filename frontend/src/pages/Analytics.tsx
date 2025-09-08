@@ -1,11 +1,17 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, PieChart, Pie, Cell, LineChart, Line } from "recharts";
 import { supabase } from "../utils/supabase";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import Papa from "papaparse";
 import { toPng } from "html-to-image";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
+import SideBar from "../components/layout/SideBar";
+import { useAuth } from "../components/Auth/useAuth";
+import { UpgradeModal } from "@/components/subscription/UpgradeModal";
+import { subscriptionApi } from "@/api/subscription";
+import { Star, BarChart3, Calendar, Target, ChevronDown, Check } from "lucide-react";
+import { DashboardTemplate } from "../utils/responsivePatterns";
 
 const STAGE_OPTIONS = [
   { value: '', label: 'All Stages' },
@@ -22,9 +28,22 @@ const STATUS_OPTIONS = [
 const PIE_COLORS = ["#2563eb", "#10b981", "#f59e42", "#f43f5e", "#6366f1", "#fbbf24", "#14b8a6", "#a21caf"];
 
 const Analytics = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [monthlyStats, setMonthlyStats] = useState([]);
   const [pursuits, setPursuits] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // Subscription state
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [currentSubscription, setCurrentSubscription] = useState(null);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(true);
+
+  // Dropdown states
+  const [stageDropdownOpen, setStageDropdownOpen] = useState(false);
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
+  const stageDropdownRef = useRef(null);
+  const statusDropdownRef = useRef(null);
 
   // Filter state
   const [dateRange, setDateRange] = useState([null, null]);
@@ -96,11 +115,11 @@ const Analytics = () => {
       setMonthlyStats(stats);
 
       // --- All pursuits (for table) ---
-      const { data: pursuitsData } = await supabase
-        .from('pursuits')
+      const { data: trackersData } = await supabase
+        .from('trackers')
         .select('id, title, stage, due_date, is_submitted, updated_at')
         .order('updated_at', { ascending: false });
-      setPursuits(pursuitsData || []);
+      setPursuits(trackersData || []);
       setLoading(false);
     };
     fetchData();
@@ -141,6 +160,56 @@ const Analytics = () => {
     }
     setFilteredMonthlyStats(filteredStats);
   }, [pursuits, monthlyStats, startDate, endDate, stage, status]);
+
+  // Load subscription data
+  useEffect(() => {
+    const loadSubscription = async () => {
+      if (!user) {
+        setSubscriptionLoading(false);
+        return;
+      }
+
+      try {
+        const subscription = await subscriptionApi.getCurrentSubscription();
+        setCurrentSubscription(subscription);
+      } catch (error) {
+        console.error('Error loading subscription:', error);
+      } finally {
+        setSubscriptionLoading(false);
+      }
+    };
+
+    loadSubscription();
+  }, [user]);
+
+  // Click outside handlers for dropdowns
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (stageDropdownRef.current && !stageDropdownRef.current.contains(event.target)) {
+        setStageDropdownOpen(false);
+      }
+      if (statusDropdownRef.current && !statusDropdownRef.current.contains(event.target)) {
+        setStatusDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Helper functions for dropdown labels
+  const getSelectedStageLabel = () => {
+    const selected = STAGE_OPTIONS.find(opt => opt.value === stage);
+    return selected ? selected.label : 'All Stages';
+  };
+
+  const getSelectedStatusLabel = () => {
+    const selected = STATUS_OPTIONS.find(opt => opt.value === status);
+    return selected ? selected.label : 'All Statuses';
+  };
+
 
   // Pie chart data for stage breakdown
   const stageBreakdown = React.useMemo(() => {
@@ -215,19 +284,46 @@ const Analytics = () => {
     }
   };
 
-  const navigate = useNavigate();
-
   return (
-    <div className="p-8">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">Detailed Analytics</h1>
-        <button
-          onClick={() => navigate("/dashboard")}
-          className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 transition font-semibold"
-        >
-          Close
-        </button>
-      </div>
+    <div className={DashboardTemplate.wrapper}>
+      {/* Upgrade Modal */}
+      <UpgradeModal 
+        isOpen={upgradeOpen} 
+        onClose={() => setUpgradeOpen(false)} 
+      />
+
+      <div className="flex flex-1 overflow-hidden">
+        {/* Sidebar */}
+        <SideBar />
+
+        {/* Main content */}
+        <div className={DashboardTemplate.main}>
+          {/* Page content */}
+          <div className={DashboardTemplate.content}>
+            <div className="w-full">
+              {/* Page header - moved to top for seamless UI */}
+              <div className="flex items-center mb-6 bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+                <div className="mr-6 w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center text-white text-xl font-bold shadow-md">
+                  <BarChart3 className="h-8 w-8" />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">
+                    Analytics Dashboard
+                  </h1>
+                  <div className="flex items-center mt-1 text-sm text-gray-500">
+                    <Calendar className="h-4 w-4 mr-1" />
+                    <span>{new Date().toLocaleDateString()}</span>
+                    <span className="mx-2">•</span>
+                    <span className="flex items-center">
+                      <Target className="h-4 w-4 mr-1 text-blue-500" />
+                      Tracker Analytics
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Analytics content */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
       {/* Filter Bar */}
       <div className="flex flex-wrap gap-4 items-center bg-white p-4 rounded-lg shadow border mb-8">
         {/* Date Range Picker */}
@@ -239,35 +335,71 @@ const Analytics = () => {
             endDate={endDate}
             onChange={(update) => setDateRange(update)}
             isClearable={true}
-            className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors min-w-[160px]"
             placeholderText="Select date range"
           />
         </div>
         {/* Stage Dropdown */}
-        <div className="flex flex-col">
+        <div className="flex flex-col relative" ref={stageDropdownRef}>
           <label className="text-xs font-semibold text-gray-600 mb-1">Stage</label>
-          <select
-            value={stage}
-            onChange={e => setStage(e.target.value)}
-            className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          <button
+            onClick={() => setStageDropdownOpen(!stageDropdownOpen)}
+            className="flex items-center justify-between bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors min-w-[160px]"
           >
-            {STAGE_OPTIONS.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
+            <span className="text-gray-700">{getSelectedStageLabel()}</span>
+            <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${stageDropdownOpen ? 'rotate-180' : ''}`} />
+          </button>
+          
+          {stageDropdownOpen && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
+              {STAGE_OPTIONS.map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => {
+                    setStage(opt.value);
+                    setStageDropdownOpen(false);
+                  }}
+                  className={`w-full text-left px-3 py-2 text-sm hover:bg-blue-50 transition-colors flex items-center justify-between ${
+                    stage === opt.value ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-700'
+                  }`}
+                >
+                  <span>{opt.label}</span>
+                  {stage === opt.value && <Check className="h-4 w-4 text-blue-600" />}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         {/* Status Dropdown */}
-        <div className="flex flex-col">
+        <div className="flex flex-col relative" ref={statusDropdownRef}>
           <label className="text-xs font-semibold text-gray-600 mb-1">Submission Status</label>
-          <select
-            value={status}
-            onChange={e => setStatus(e.target.value)}
-            className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          <button
+            onClick={() => setStatusDropdownOpen(!statusDropdownOpen)}
+            className="flex items-center justify-between bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors min-w-[160px]"
           >
-            {STATUS_OPTIONS.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
+            <span className="text-gray-700">{getSelectedStatusLabel()}</span>
+            <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${statusDropdownOpen ? 'rotate-180' : ''}`} />
+          </button>
+          
+          {statusDropdownOpen && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
+              {STATUS_OPTIONS.map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => {
+                    setStatus(opt.value);
+                    setStatusDropdownOpen(false);
+                  }}
+                  className={`w-full text-left px-3 py-2 text-sm hover:bg-blue-50 transition-colors flex items-center justify-between ${
+                    status === opt.value ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-700'
+                  }`}
+                >
+                  <span>{opt.label}</span>
+                  {status === opt.value && <Check className="h-4 w-4 text-blue-600" />}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
       {loading ? (
@@ -312,9 +444,9 @@ const Analytics = () => {
                 </ResponsiveContainer>
               )}
             </div>
-            {/* Line Chart: Pursuit Trends */}
+            {/* Line Chart: Tracker Trends */}
             <div className="bg-white p-6 rounded-lg shadow border flex flex-col items-center">
-              <h2 className="text-lg font-semibold mb-4">Pursuit Trends</h2>
+              <h2 className="text-lg font-semibold mb-4">Tracker Trends</h2>
               {lineChartData.length === 0 ? (
                 <div className="text-gray-400">No data for selected filters.</div>
               ) : (
@@ -325,7 +457,7 @@ const Analytics = () => {
                     <YAxis allowDecimals={false} />
                     <Tooltip />
                     <Legend />
-                    <Line type="monotone" dataKey="count" stroke="#2563eb" name="Pursuits" strokeWidth={3} dot={{ r: 5 }} />
+                    <Line type="monotone" dataKey="count" stroke="#2563eb" name="Opportunities Tracked" strokeWidth={3} dot={{ r: 5 }} />
                   </LineChart>
                 </ResponsiveContainer>
               )}
@@ -334,7 +466,7 @@ const Analytics = () => {
           {/* Bar Chart: Monthly Stats */}
           <div className="mb-8 bg-white p-6 rounded-lg shadow border">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold">Pursuits Added (Last 6 Months)</h2>
+              <h2 className="text-lg font-semibold">Opportunities added to Tracker (Last 6 Months)</h2>
               <button
                 onClick={handleExportChart}
                 className="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-xs font-medium"
@@ -350,90 +482,20 @@ const Analytics = () => {
                   <YAxis allowDecimals={false} />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="count" fill="#2563eb" name="Pursuits" />
+                  <Bar dataKey="count" fill="#2563eb" name="Opportunities Added" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
           </div>
 
-          {/* Table */}
-          <div className="bg-white p-6 rounded-lg shadow border">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold">All Pursuits</h2>
-              <button
-                onClick={handleExportCSV}
-                className="px-3 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200 text-xs font-medium"
-              >
-                Export as CSV
-              </button>
-            </div>
-            {/* Search box */}
-            <div className="mb-4 flex flex-col sm:flex-row sm:items-center gap-2">
-              <input
-                type="text"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Search by title or stage..."
-                className="border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-64"
-              />
-              <div className="text-xs text-gray-500 ml-auto">
-                Showing {paginatedPursuits.length} of {searchedPursuits.length} results
-              </div>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
-                <thead>
-                  <tr>
-                    <th className="px-4 py-2 text-left">Title</th>
-                    <th className="px-4 py-2 text-left">Stage</th>
-                    <th className="px-4 py-2 text-left">Due Date</th>
-                    <th className="px-4 py-2 text-left">Submitted</th>
-                    <th className="px-4 py-2 text-left">Last Updated</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginatedPursuits.map((p) => (
-                    <tr key={p.id} className="border-t">
-                      <td className="px-4 py-2">{p.title}</td>
-                      <td className="px-4 py-2">{p.stage}</td>
-                      <td className="px-4 py-2">{p.due_date ? new Date(p.due_date).toLocaleDateString() : "N/A"}</td>
-                      <td className="px-4 py-2">{p.is_submitted ? "Yes" : "No"}</td>
-                      <td className="px-4 py-2">{p.updated_at ? new Date(p.updated_at).toLocaleString() : "N/A"}</td>
-                    </tr>
-                  ))}
-                  {paginatedPursuits.length === 0 && (
-                    <tr>
-                      <td colSpan={5} className="text-center py-4 text-gray-400">No pursuits found.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-            {/* Pagination controls */}
-            <div className="flex justify-between items-center mt-4">
-              <div className="text-xs text-gray-500">
-                Page {currentPage} of {totalPages}
-              </div>
-              <div className="flex gap-2">
-                <button
-                  className="px-3 py-1 rounded border border-gray-300 text-sm bg-white hover:bg-blue-50 disabled:opacity-50"
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                >
-                  Previous
-                </button>
-                <button
-                  className="px-3 py-1 rounded border border-gray-300 text-sm bg-white hover:bg-blue-50 disabled:opacity-50"
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                >
-                  Next
-                </button>
+          {/* All Pursuits table removed for cleaner analytics focus */}
+              </>
+            )}
               </div>
             </div>
           </div>
-        </>
-      )}
+        </div>
+      </div>
     </div>
   );
 };

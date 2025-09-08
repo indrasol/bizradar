@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { toast } from "sonner";
 import { supabase } from "../utils/supabase";
+import { ResponsivePatterns, AuthTemplate } from "../utils/responsivePatterns";
 
 // Form schema for password reset
 const resetPasswordSchema = z
@@ -93,7 +94,7 @@ const ResetPassword = () => {
     // The hash param comes from the URL when the user clicks the reset link in their email
     const hash = window.location.hash.substring(1);
     if (!hash) {
-      toast.error("Invalid or expired password reset link");
+      toast.error("Invalid or expired password reset link", ResponsivePatterns.toast.config);
       navigate("/login", { replace: true });
     }
   }, [navigate]);
@@ -111,10 +112,10 @@ const ResetPassword = () => {
       if (error) throw error;
 
       setResetComplete(true);
-      toast.success("Password updated successfully");
+      toast.success("Password updated successfully", ResponsivePatterns.toast.config);
     } catch (error: any) {
       console.error("Reset password error:", error);
-      toast.error(error.message || "Failed to reset password");
+      toast.error(error.message || "Failed to reset password", ResponsivePatterns.toast.config);
     } finally {
       setIsLoading(false);
     }

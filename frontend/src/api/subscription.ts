@@ -1,17 +1,7 @@
 import { supabase } from '@/utils/supabase';
-import { Subscription, SubscriptionPlan } from '@/models/subscription';
-import { useToast } from '@/components/ui/use-toast';
-import { API_ENDPOINTS } from '@/config/apiEndpoints';
-
-// Stripe price IDs
-const STRIPE_PRICES = {
-  basic_monthly: 'price_1RqIaWFKTK8ICUprZJJh44Hc',
-  basic_annual: 'price_1RqIcWFKTK8ICUprtagiVbzf',
-  premium_monthly: 'price_1RqIdGFKTK8ICUprDEo5P7AB',
-  premium_annual: 'price_1RqIdxFKTK8ICUprSgy50avW',
-  enterprise_monthly: 'price_1RqIebFKTK8ICUpr6QN0hZ9a',
-  enterprise_annual: 'price_1RqIewFKTK8ICUprSvBvDwvg',
-};
+import { Subscription, SubscriptionPlan, PlanType, SubscriptionStatus } from '@/models/subscription';
+import { API_ENDPOINTS, STRIPE_PRICES, SUPABASE_TABLES } from '@/config/apiEndpoints';
+import { apiClient } from '@/lib/api';
 
 export const subscriptionApi = {
 
@@ -23,74 +13,94 @@ export const subscriptionApi = {
       return null;
     }
     
-    const { data, error } = await supabase
-      .from('user_subscriptions')
-      .select('*')
-      .eq('user_id', user.id)
-      .in('status', ['active', 'trialing', 'past_due']) // Include active-like statuses
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (error) {
+    try {
+      // Use the new server-side API
+      const status = await this.getStatus(user.id);
+      
+      // Convert server response to frontend Subscription format
+      if (status && status.plan_type) {
+        return {
+          id: user.id, // Use user ID as subscription ID
+          user_id: user.id,
+          plan_type: status.plan_type as PlanType,
+          status: status.status as SubscriptionStatus,
+          start_date: status.start_date,
+          end_date: status.end_date,
+          created_at: status.start_date,
+          updated_at: new Date().toISOString(),
+          stripe_subscription_id: status.stripe_subscription_id
+        };
+      }
+      
+      return null;
+    } catch (error) {
       console.error('Error fetching subscription:', error);
       throw error;
     }
-    
-    return data;
   },
 
   async getAvailablePlans(): Promise<SubscriptionPlan[]> {
-    // In a real application, this would come from your backend
-    // For now, we'll return hardcoded plans
-    return [
-      {
-        type: 'basic',
-        name: 'Basic Plan',
-        price: 9.99,
-        features: [
-          'Basic opportunity tracking',
-          'Email notifications',
-          'Basic analytics'
-        ],
-        description: 'Perfect for small businesses getting started'
-      },
-      {
-        type: 'premium',
-        name: 'Premium Plan',
-        price: 29.99,
-        features: [
-          '100 opportunity searches',
-          '20 AI generated RFP responses per month',
-          'Advanced analytics and reporting',
-          'Priority customer support',
-          'Advanced opportunity tracking',
-          'Real-time notifications',
-          'Priority support',
-          'Custom reports'
-        ],
-        description: 'Ideal for growing businesses'
-      },
-      {
-        type: 'enterprise',
-        name: 'Enterprise Plan',
-        price: 99.99,
-        features: [
-          'Unlimited opportunity searches',
-          '50 AI generated RFP responses per month',
-          'Advanced analytics and reporting',
-          'Priority customer support',
-          'Team collaboration (up to 5 users)',
-          'Everything in Premium',
-          'Dedicated account manager',
-          'Custom integrations',
-          'SLA guarantees',
-          'Team collaboration tools',
-          'API access'
-        ],
-        description: 'For large organizations with complex needs'
-      }
-    ];
+    try {
+      // Get plans from the server
+      const response = await apiClient.get(`${API_ENDPOINTS.SUBSCRIPTION_TIERS}`);
+      const tiers = response.tiers;
+      
+      // Convert server tier configs to frontend SubscriptionPlan format
+      return Object.entries(tiers).map(([key, config]: [string, any]) => ({
+        type: key as PlanType,
+        name: config.name,
+        price: config.price,
+        features: config.features,
+        description: `${config.name} - ${config.monthly_searches === -1 ? 'Unlimited' : config.monthly_searches} searches, ${config.ai_rfp_responses} AI responses per month`
+      }));
+    } catch (error) {
+      console.error('Error fetching plans from server:', error);
+      // Fallback to hardcoded plans
+      return [
+        {
+          type: 'free' as PlanType,
+          name: 'Free Plan',
+          price: 0,
+          features: [
+            'Unlimited opportunity searches',
+            'AI Search Boost - up to 5 smart suggestions per search',
+            'Starter tracking',
+            'Basic dashboard',
+            '2 AI-assisted RFP drafts per month'
+          ],
+          description: 'Perfect for getting started'
+        },
+        {
+          type: 'pro' as PlanType,
+          name: 'Pro Plan',
+          price: 29.99,
+          features: [
+            'Unlimited opportunity searches',
+            'AI Search Boost — up to 5 smart suggestions per search',
+            'Tracking with Bizradar AI Assistant',
+            'Radar Matches — daily AI-picked opportunities for your company',
+            'Advanced dashboard',
+            '5 AI-assisted RFP drafts per month'
+          ],
+          description: 'Ideal for growing businesses'
+        },
+        {
+          type: 'premium' as PlanType,
+          name: 'Premium Plan',
+          price: 99.99,
+          features: [
+            'Unlimited opportunity searches',
+            'AI Search Boost — up to 5 smart suggestions per search',
+            'Tracking with Bizradar AI Assistant',
+            'Radar Matches+ — matches with priority alerts',
+            'Tracking alerts — deadlines updates',
+            'Advanced dashbaord with analytics',
+            '10 AI-assisted RFP drafts per month'
+          ],
+          description: 'For large organizations with complex needs'
+        }
+      ];
+    }
   },
 
   async createCheckoutSession(planType: string, billingCycle: 'monthly' | 'annual' = 'monthly'): Promise<{ sessionId: string }> {
@@ -107,24 +117,12 @@ export const subscriptionApi = {
     }
 
     // Call our backend to create a checkout session
-    const response = await fetch(API_ENDPOINTS.CREATE_CHECKOUT_SESSION, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
-      },
-      body: JSON.stringify({
-        priceId: priceId,
-        planType: planType
-      }),
+    const data = await apiClient.post(API_ENDPOINTS.CHECKOUT_SESSION, {
+      priceId: priceId,
+      planType: planType
     });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to create checkout session');
-    }
-
-    const { sessionId } = await response.json();
+    
+    const { sessionId } = data;
     return { sessionId };
   },
 
@@ -140,7 +138,7 @@ export const subscriptionApi = {
     endDate.setMonth(endDate.getMonth() + 1);
 
     const { data, error } = await supabase
-      .from('user_subscriptions')
+      .from(SUPABASE_TABLES.USER_SUBSCRIPTIONS)
       .upsert({
         user_id: user.id,
         plan_type: planType,
@@ -160,18 +158,10 @@ export const subscriptionApi = {
     return data;
   },
 
-  async cancelSubscription(subscriptionId: string): Promise<void> {
-    const { error } = await supabase
-      .from('user_subscriptions')
-      .update({ status: 'cancelled' })
-      .eq('id', subscriptionId);
-
-    if (error) throw error;
-  },
 
   async updateSubscription(subscriptionId: string, updates: Partial<Subscription>): Promise<void> {
     const { error } = await supabase
-      .from('user_subscriptions')
+      .from(SUPABASE_TABLES.USER_SUBSCRIPTIONS)
       .update(updates)
       .eq('id', subscriptionId);
 
@@ -190,20 +180,83 @@ export const subscriptionApi = {
   // },
 
   async createSubscriptionPaymentIntent(planType: string, userId: string): Promise<string> {
-    const res = await fetch(API_ENDPOINTS.SUBSCRIPTION_PAYMENT_INTENT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ plan_type: planType, user_id: userId })
+    const data = await apiClient.post(API_ENDPOINTS.SUBSCRIPTION_PAYMENT_INTENT, { 
+      plan_type: planType, 
+      user_id: userId 
     });
-    if (!res.ok) throw new Error('Failed to create Stripe PaymentIntent');
-    const data = await res.json();
     return data.client_secret;
   }
   ,
 
   async getStatus(userId: string) {
-    const res = await fetch(API_ENDPOINTS.SUBSCRIPTION_STATUS + `?user_id=${encodeURIComponent(userId)}`);
-    if (!res.ok) throw new Error('Failed to fetch subscription status');
-    return res.json();
+    return apiClient.get(`${API_ENDPOINTS.SUBSCRIPTION_STATUS}?user_id=${encodeURIComponent(userId)}`);
+  },
+
+  async upgradeSubscription(planType: string, stripeSubscriptionId?: string) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User must be logged in');
+
+    return apiClient.post(`${API_ENDPOINTS.SUBSCRIPTION_UPGRADE}?user_id=${encodeURIComponent(user.id)}`, {
+      plan_type: planType,
+      stripe_subscription_id: stripeSubscriptionId
+    });
+  },
+
+  async cancelSubscription() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User must be logged in');
+
+    return apiClient.post(`${API_ENDPOINTS.SUBSCRIPTION_CANCEL}?user_id=${encodeURIComponent(user.id)}`);
+  },
+
+  async startTrial() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User must be logged in');
+
+    return apiClient.post(`${API_ENDPOINTS.SUBSCRIPTION_TRIAL}?user_id=${encodeURIComponent(user.id)}`);
+  },
+
+  async getUsageStats() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User must be logged in');
+
+    return apiClient.get(`${API_ENDPOINTS.SUBSCRIPTION_USAGE}?user_id=${encodeURIComponent(user.id)}`);
+  },
+
+  async incrementUsage(usageType: 'search' | 'ai_rfp') {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User must be logged in');
+
+    return apiClient.post(`${API_ENDPOINTS.SUBSCRIPTION_USAGE_INCREMENT}?user_id=${encodeURIComponent(user.id)}`, {
+      usage_type: usageType
+    });
+  },
+
+  async checkFeatureAccess(feature: string) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User must be logged in');
+
+    return apiClient.get(API_ENDPOINTS.SUBSCRIPTION_FEATURE_ACCESS(feature) + `?user_id=${encodeURIComponent(user.id)}`);
+  },
+
+  async addRfpBoostPack() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User must be logged in');
+
+    return apiClient.post(`${API_ENDPOINTS.ADDON_RFP_BOOST}?user_id=${encodeURIComponent(user.id)}`);
+  },
+
+  async removeRfpBoostPack() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User must be logged in');
+
+    return apiClient.delete(`${API_ENDPOINTS.ADDON_RFP_BOOST}?user_id=${encodeURIComponent(user.id)}`);
+  },
+
+  async getUserAddons() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User must be logged in');
+
+    return apiClient.get(`${API_ENDPOINTS.ADDONS_LIST}?user_id=${encodeURIComponent(user.id)}`);
   }
 }; 

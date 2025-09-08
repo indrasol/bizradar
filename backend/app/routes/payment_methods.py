@@ -96,9 +96,8 @@ def create_checkout_session(body: SubscriptionCheckoutRequest):
     customer_id = get_or_create_stripe_customer(user)
     # Define plan prices (should match frontend)
     plan_prices = {
-        'basic': 999,        # $9.99
-        'premium': 2999,     # $29.99
-        'enterprise': 9999   # $99.99
+        'pro': 2999,         # $29.99
+        'premium': 9999      # $99.99
     }
     if body.plan_type not in plan_prices:
         raise HTTPException(status_code=400, detail='Invalid plan type')
