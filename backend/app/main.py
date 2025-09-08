@@ -87,6 +87,7 @@ app.include_router(tracker_router, prefix="/api/trackers", tags=["trackers"])
 app.include_router(profile_router, prefix="/api/profile", tags=["profile"])
 app.include_router(profiles_router, prefix="/api", tags=["profiles"])
 
+
 # Webhook endpoint - no /api prefix since it's called directly by Stripe
 app.include_router(webhook_router, prefix="")
 
