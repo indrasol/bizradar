@@ -608,9 +608,13 @@ const OpportunitiesPage: React.FC = () => {
 
       if (existingTrackers && existingTrackers.length > 0) return;
 
+      const newId = (typeof window !== 'undefined' && window.crypto && 'randomUUID' in window.crypto)
+        ? window.crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+
       const { data, error } = await supabase
         .from("trackers")
-        .insert([{ title: opportunity.title, description: opportunity.description || "", stage: "Assessment", user_id: user.id, due_date: opportunity.response_date }])
+        .insert([{ id: newId, title: opportunity.title, description: opportunity.description || "", stage: "Assessment", user_id: user.id, due_date: opportunity.response_date }])
         .select();
       if (error) throw error;
 
