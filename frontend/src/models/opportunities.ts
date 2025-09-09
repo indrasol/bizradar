@@ -145,6 +145,10 @@ export interface Opportunity {
   additional_description?: string;
   summary?: string | Record<string, string>;
   summary_ai?:string;
+  objective?: string;
+  expected_outcome?: string;
+  eligibility?: string;
+  key_facts?: string;
 }
 
 export interface SearchParams {

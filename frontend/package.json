@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "dev:local": "./start-dev.sh",
-    "dev:env": "./start-dev.sh",
+    "dev:local": "vite --mode development",
+    "dev:env": "vite --mode development",
     "build:dev": "vite build --mode development",
     "build:dist": "vite build --outDir=dist",
     "lint": "eslint .",

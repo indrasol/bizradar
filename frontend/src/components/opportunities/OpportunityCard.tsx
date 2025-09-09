@@ -183,111 +183,17 @@ const OpportunityCard: React.FC<OpportunityCardProps> = ({
         <div className="flex gap-6">
           {/* Left Side - Main Content */}
           <div className="flex-1">
-            {/* Summary Section */}
+            {/* Professional Overview Section */}
             <div className="mb-4">
-              <div className="text-base" style={{ fontFamily: "Arial, Arial" }}>
-                {(opportunity.summary || opportunity.summary_ai) ? (
-                  <div className="relative">
-                    <div className={`prose prose-sm text-gray-700`}>
-                      <ReactMarkdown
-                        remarkPlugins={[remarkGfm]}
-                        components={{
-                          ul: ({ children }) => <div className="space-y-0.5">{children}</div>,
-                          ol: ({ children }) => <div className="space-y-0.5">{children}</div>,
-                          li: ({ children }) => {
-                            const flatten = (nodes: any[]): any[] => nodes.flatMap((n) => {
-                              if (Array.isArray(n)) return flatten(n);
-                              return [n];
-                            });
-                            const childArray = flatten(React.Children.toArray(children));
-                            let seq = childArray;
-                            if (seq.length === 1 && React.isValidElement(seq[0]) && (seq[0] as any).type === 'p') {
-                              seq = flatten(React.Children.toArray((seq[0] as any).props.children));
-                            }
-
-                            // Helper to safely extract text from any React element or string
-                            const getTextContent = (element: any): string => {
-                              if (typeof element === 'string') return element;
-                              if (React.isValidElement(element)) {
-                                const children = React.Children.toArray((element as any).props?.children || []);
-                                return children.map(child => getTextContent(child)).join('');
-                              }
-                              return '';
-                            };
-
-                            // Get full text content of this list item
-                            const fullText = seq.map(getTextContent).join('').trim();
-                            
-                            // Skip empty items
-                            if (!fullText) return null;
-
-                            // Parse key-value pairs
-                            let key = '';
-                            let value = '';
-
-                            // Method 1: Check if first element is strong (bold)
-                            if (seq.length > 0 && React.isValidElement(seq[0]) && (seq[0] as any).type === 'strong') {
-                              const strongEl = seq[0] as React.ReactElement<any>;
-                              key = getTextContent(strongEl).trim();
-                              
-                              // Get the rest as value
-                              const restText = seq.slice(1).map(getTextContent).join('').trim();
-                              value = restText.startsWith(':') ? restText.slice(1).trim() : restText;
-                            }
-                            // Method 2: Look for colon in the text
-                            else {
-                              const colonIndex = fullText.indexOf(':');
-                              if (colonIndex > 0) {
-                                key = fullText.substring(0, colonIndex).trim();
-                                value = fullText.substring(colonIndex + 1).trim();
-                              } else {
-                                // Treat the whole thing as a key with empty value
-                                key = fullText;
-                                value = '';
-                              }
-                            }
-
-                            // Skip unwanted fields
-                            const keyLower = key.toLowerCase();
-                            if (keyLower === 'due date' || keyLower === 'eligibility' || keyLower === 'key facts') {
-                              return null;
-                            }
-
-                            // Transform Goal to Expected Outcome
-                            let displayKey = key;
-                            if (keyLower === 'goal') {
-                              displayKey = 'Expected Outcome';
-                            }
-
-                            // Determine if background should be removed for certain keys
-                            const plainKeys = ['sponsor', 'expected outcome', 'objective', 'contact information', 'contact info'];
-                            const isPlain = plainKeys.includes(displayKey.toLowerCase());
-
-                            // Show as key-value card with conditional background
-                            return (
-                              <div
-                                className={`mb-1 p-1.5 rounded-lg border border-gray-100 ${
-                                  isPlain ? '' : 'bg-gray-50'
-                                }`}
-                              >
-                                <div className="font-semibold text-gray-900 mb-0">
-                                  <strong>{displayKey}</strong>
-                                </div>
-                                <div className="text-gray-700 leading-snug">
-                                  {value || 'Not specified'}
-                                </div>
-                              </div>
-                            );
-                          }
-                        }}
-                      >
-                        {normalizeSummaryToMarkdown(opportunity.summary ?? opportunity.summary_ai ?? "", opportunity.agency, opportunity.response_date)}
-                      </ReactMarkdown>
-                    </div>
-                  </div>
-                ) : (
-                  <span>Generating ...</span>
-                )}
+              <div className="space-y-2">
+                <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                  <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Objective</div>
+                  <div className="text-gray-800 text-sm leading-relaxed">{opportunity.objective || 'Not specified'}</div>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                  <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Expected Outcome</div>
+                  <div className="text-gray-800 text-sm leading-relaxed">{opportunity.expected_outcome || 'Not specified'}</div>
+                </div>
               </div>
             </div>
 

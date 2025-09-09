@@ -4,6 +4,7 @@ import { getApiUrl, isDevelopment } from "@/config/env";
 
 // Get the appropriate base URL from the environment configuration
 const API_BASE_URL = `${getApiUrl()}`;
+// const API_BASE_URL = `http://localhost:8000`;
 // Log the API base URL being used
 if (isDevelopment) {
   console.log(`Using API base URL: ${API_BASE_URL}`);
@@ -60,6 +61,8 @@ export const API_ENDPOINTS = {
   // Search and opportunities endpoints
   SEARCH_OPPORTUNITIES: `${API_BASE_URL}/search-opportunities`,
   AI_RECOMMENDATIONS: `${API_BASE_URL}/ai-recommendations`,
+  ENHANCED_VECTOR_SEARCH: `${API_BASE_URL}/api/enhanced/vector-search`,
+  ENHANCE_RFP_WITH_AI: `${API_BASE_URL}/enhance-rfp-with-ai`,
   
   // Pursuit/Tracker endpoints (legacy)
   PURSUIT_DEADLINES: `${API_BASE_URL}/api/pursuits/deadlines`,
