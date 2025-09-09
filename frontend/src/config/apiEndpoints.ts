@@ -62,6 +62,7 @@ export const API_ENDPOINTS = {
   SEARCH_OPPORTUNITIES: `${API_BASE_URL}/search-opportunities`,
   AI_RECOMMENDATIONS: `${API_BASE_URL}/ai-recommendations`,
   ENHANCED_VECTOR_SEARCH: `${API_BASE_URL}/api/enhanced/vector-search`,
+  ENHANCE_RFP_WITH_AI: `${API_BASE_URL}/enhance-rfp-with-ai`,
   
   // Pursuit/Tracker endpoints (legacy)
   PURSUIT_DEADLINES: `${API_BASE_URL}/api/pursuits/deadlines`,

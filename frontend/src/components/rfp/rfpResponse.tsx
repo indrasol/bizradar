@@ -38,6 +38,7 @@ import '@react-pdf-viewer/core/lib/styles/index.css';
 import '@react-pdf-viewer/default-layout/lib/styles/index.css';
 import { Worker, Viewer } from '@react-pdf-viewer/core';
 import { defaultLayoutPlugin } from '@react-pdf-viewer/default-layout';
+import { API_ENDPOINTS } from '@/config/apiEndpoints';
 
 
 const cleanEmptyParagraphs = (html: string): string => {
@@ -187,9 +188,7 @@ const evaluateCondition = (condition: string, data: any): boolean => {
   return false;
 };
 
-// Import API base URL
-const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-const API_BASE_URL = isDevelopment ? 'http://localhost:5000' : import.meta.env.VITE_API_BASE_URL;
+// API base URL and endpoints are centralized in API_ENDPOINTS
 
 const RfpResponse = ({ contract, pursuitId }) => {
   const contentRef = useRef<HTMLDivElement>(null);
@@ -1260,7 +1259,7 @@ const RfpResponse = ({ contract, pursuitId }) => {
       console.log("Sending proposal context:", proposal_context);
 
       // Call the backend API
-      const response = await fetch(`${API_BASE_URL}/enhance-rfp-with-ai`, {
+      const response = await fetch(`${API_ENDPOINTS.ENHANCE_RFP_WITH_AI}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
