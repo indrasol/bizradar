@@ -12,101 +12,12 @@ import NotificationToast from "@/components/opportunities/NotificationToast";
 import { toast } from "sonner";
 import { FilterValues, Opportunity, SearchParams } from "@/models/opportunities";
 import { ResponsivePatterns, DashboardTemplate } from "../utils/responsivePatterns";
+import { API_ENDPOINTS } from "@/config/apiEndpoints";
+import { getApiUrl } from "@/config/env";
 
-const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-const API_BASE_URL = isDevelopment ? 'http://localhost:5000' : import.meta.env.VITE_API_BASE_URL;
+ const API_BASE_URL = getApiUrl();
 
-// Mock data for testing - remove when backend is ready
-const MOCK_OPPORTUNITIES = [
-  {
-    title: "Cybersecurity Support Services for Department of Energy",
-    description: {
-      sponsor: "U.S. Department of Energy (DOE)",
-      objective: "To acquire cybersecurity support services to enhance the security posture of DOE's internal networks and infrastructure.",
-      expected_outcome: "Award of a performance-based contract to a qualified vendor capable of delivering risk assessment, incident response, and compliance reporting for federal cybersecurity standards.",
-      point_of_contact: {
-        name: "John A. Keller",
-        contact: "john.keller@hq.doe.gov | (202) 586-0000"
-      }
-    },
-    timelines: {
-      published_date: "2025-08-15",
-      due_date: "2025-09-20",
-      response_in_days: "36"
-    },
-    details: {
-      naics_code: "541512",
-      solicitation: "DOE-CYBER-OPS-RFI-2025",
-      funding: "Estimated contract value is $5 million over 3 years"
-    }
-  },
-  {
-    title: "Construction of Military Housing Units - Fort Bragg",
-    description: {
-      sponsor: "U.S. Army Corps of Engineers",
-      objective: "To construct 120 residential housing units for military personnel and families stationed at Fort Bragg, NC.",
-      expected_outcome: "Award of a construction contract to a certified small business construction firm.",
-      point_of_contact: {
-        name: "Lisa M. Harris",
-        contact: "lisa.harris@usace.army.mil | (910) 251-4000"
-      }
-    },
-    timelines: {
-      published_date: "2025-07-30",
-      due_date: "2025-09-10",
-      response_in_days: "42"
-    },
-    details: {
-      naics_code: "236220",
-      solicitation: "W912HN25R0045",
-      funding: "Projected budget of $28 million"
-    }
-  },
-  {
-    title: "Food Services for Federal Correctional Institution",
-    description: {
-      sponsor: "Federal Bureau of Prisons",
-      objective: "To provide food preparation and delivery services to meet the daily dietary requirements of inmates at FCI Phoenix.",
-      expected_outcome: "Award of a 1-year renewable food services contract to a qualified vendor.",
-      point_of_contact: {
-        name: "Mark J. Stevenson",
-        contact: "mstevenson@bop.gov | (602) 555-1289"
-      }
-    },
-    timelines: {
-      published_date: "2025-08-10",
-      due_date: "2025-08-31",
-      response_in_days: "21"
-    },
-    details: {
-      naics_code: "722310",
-      solicitation: "RFQ-FCI-PHX-2025-09",
-      funding: "Annual budget allocation of $2.1 million"
-    }
-  },
-  {
-    title: "Cloud Migration Services for SSA",
-    description: {
-      sponsor: "Social Security Administration (SSA)",
-      objective: "To migrate legacy IT systems to a secure, scalable cloud platform.",
-      expected_outcome: "Partnership with a cloud solutions provider with FedRAMP authorization to migrate and maintain core SSA applications.",
-      point_of_contact: {
-        name: "Angela Rowe",
-        contact: "angela.rowe@ssa.gov | (410) 965-8000"
-      }
-    },
-    timelines: {
-      published_date: "2025-08-05",
-      due_date: "2025-09-15",
-      response_in_days: "41"
-    },
-    details: {
-      naics_code: "541519",
-      solicitation: "SSA-CLOUD-RFP-2025",
-      funding: "Contract ceiling of $12 million over 5 years"
-    }
-  }
-];
+ 
 
 
 
@@ -429,6 +340,52 @@ const OpportunitiesPage: React.FC = () => {
     refined_query?: string;
   };
 
+  const PAGE_SIZE = 7;
+
+  // Fetch top-k results from enhanced search and slice locally for pagination
+  const fetchEnhancedResults = async (
+    params: { query: string; page?: number; pageSize?: number; onlyActive?: boolean }
+  ): Promise<SearchResult> => {
+    const query = params.query;
+    const pageSize = params.pageSize || PAGE_SIZE;
+    const page = params.page || 1;
+    const onlyActive = params.onlyActive ?? false;
+
+    const k = Math.max(page * pageSize, pageSize);
+
+    const response = await fetch(API_ENDPOINTS.ENHANCED_VECTOR_SEARCH, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query,
+        k,
+        only_active: onlyActive,
+      }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data?.detail || data?.message || "Search failed");
+    }
+
+    const docs = Array.isArray(data.results) ? data.results : [];
+    const processedResults = processSearchResults(docs);
+
+    const total = processedResults.length; // equals returned top-k
+    const total_pages = Math.max(1, Math.ceil(total / pageSize));
+    const safePage = Math.min(Math.max(1, page), total_pages);
+    const start = (safePage - 1) * pageSize;
+    const end = start + pageSize;
+    const pageItems = processedResults.slice(start, end);
+
+    return {
+      opportunities: pageItems,
+      total,
+      total_pages,
+      page: safePage,
+    };
+  };
+
   // Generator function to handle search with streaming results
   const executeSearch = async (
     params: Partial<SearchParams>
@@ -532,24 +489,21 @@ const OpportunitiesPage: React.FC = () => {
     setHasSearched(false);
 
     try {
-      // 1. Get expanded query first
-      const refinedQuery = await getRefinedQuery(query, params.contract_type, params.platform);
-      setRefinedQuery(refinedQuery);
-      setShowRefinedQuery(true);
-
-      // 2. Now search using the expanded query
-      const result = await executeSearch({ ...params, query: refinedQuery });
+      const page = params.page || 1;
+      const result = await fetchEnhancedResults({ query, page, pageSize: PAGE_SIZE });
       setOpportunities(result.opportunities);
       setTotalResults(result.total);
       setTotalPages(result.total_pages);
       setCurrentPage(result.page);
       setHasSearched(true);
+      setRefinedQuery("");
+      setShowRefinedQuery(false);
       saveSearchStateToSession(
         query,
         result.opportunities,
         result.total,
         result.total_pages,
-        result.refined_query || ""
+        ""
       );
     } catch (error: any) {
       toast.error(error.message || "An error occurred during search", ResponsivePatterns.toast.config);
@@ -567,25 +521,6 @@ const OpportunitiesPage: React.FC = () => {
     const query = suggestedQuery ?? searchQuery;
     if (!query.trim()) return;
 
-    // For testing: use mock data instead of API call
-    if (isDevelopment) {
-      setIsSearching(true);
-      setHasSearched(false);
-      
-      // Simulate API delay
-      setTimeout(() => {
-        const processedResults = processSearchResults(MOCK_OPPORTUNITIES);
-        setOpportunities(processedResults);
-        setTotalResults(processedResults.length);
-        setTotalPages(1);
-        setCurrentPage(1);
-        setHasSearched(true);
-        setIsSearching(false);
-      }, 1000);
-      return;
-    }
-
-    // Production: use real API
     await performAndSetSearch(
       {
         query,
@@ -673,9 +608,13 @@ const OpportunitiesPage: React.FC = () => {
 
       if (existingTrackers && existingTrackers.length > 0) return;
 
+      const newId = (typeof window !== 'undefined' && window.crypto && 'randomUUID' in window.crypto)
+        ? window.crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+
       const { data, error } = await supabase
         .from("trackers")
-        .insert([{ title: opportunity.title, description: opportunity.description || "", stage: "Assessment", user_id: user.id, due_date: opportunity.response_date }])
+        .insert([{ id: newId, title: opportunity.title, description: opportunity.description || "", stage: "Assessment", user_id: user.id, due_date: opportunity.response_date }])
         .select();
       if (error) throw error;
 
@@ -752,14 +691,11 @@ const OpportunitiesPage: React.FC = () => {
           response_date: result.timelines.due_date || null,
           budget: result.details.funding || "Not specified",
           solicitation_number: result.details.solicitation || "N/A",
-          summary: [
-            result.description.sponsor ? `- **Sponsor**: ${result.description.sponsor}` : null,
-            result.description.objective ? `- **Objective**: ${result.description.objective}` : null,
-            result.description.expected_outcome ? `- **Expected Outcome**: ${result.description.expected_outcome}` : null,
-            result.description.point_of_contact?.name && result.description.point_of_contact?.contact ? 
-              `- **Contact information**: ${result.description.point_of_contact.name} — ${result.description.point_of_contact.contact}` : null,
-            result.timelines.due_date ? `- **Due Date**: ${result.timelines.due_date}` : null,
-          ].filter(Boolean).join("\n"),
+          objective: result.description.objective || result.objective || "",
+          expected_outcome: result.description.expected_outcome || result.expected_outcome || "",
+          eligibility: (result.description.eligibility || result.eligibility || "") as string,
+          key_facts: (result.details.key_facts || result.key_facts || "") as string,
+          summary: undefined,
           active: true,
           type: "RFP",
         } as Opportunity;
@@ -778,6 +714,10 @@ const OpportunitiesPage: React.FC = () => {
         response_date: result.response_date || result.dueDate || null,
         budget: result.budget || "Not specified",
         solicitation_number: result.solicitation_number || "N/A",
+        objective: (result.objective || "") as string,
+        expected_outcome: (result.expected_outcome || "") as string,
+        eligibility: (result.eligibility || "") as string,
+        key_facts: (result.key_facts || "") as string,
         ...result,
       } as Opportunity;
     });
