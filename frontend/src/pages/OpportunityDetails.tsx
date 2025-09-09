@@ -311,26 +311,18 @@ const OpportunityDetails: React.FC = () => {
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
                         <Info size={20} />
-                        Opportunity Summary
+                        Opportunity Overview
                       </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                      {opportunity.summary || opportunity.summary_ai ? (
-                        <div className="prose prose-sm max-w-none text-gray-700">
-                          <ReactMarkdown 
-                            remarkPlugins={[remarkGfm]}
-                            components={{
-                              li: ({ children }) => <li className="mb-1">{children}</li>,
-                              p: ({ children }) => <p className="mb-2">{children}</p>,
-                              strong: ({ children }) => <strong className="font-semibold text-gray-900">{children}</strong>
-                            }}
-                          >
-                            {filterSummaryContent(opportunity.summary || opportunity.summary_ai)}
-                          </ReactMarkdown>
-                        </div>
-                      ) : (
-                        <p className="text-gray-500 italic">No summary available</p>
-                      )}
+                    <CardContent className="space-y-3">
+                      <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                        <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Objective</div>
+                        <div className="text-gray-800 text-sm leading-relaxed">{opportunity.objective || 'Not specified'}</div>
+                      </div>
+                      <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                        <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Expected Outcome</div>
+                        <div className="text-gray-800 text-sm leading-relaxed">{opportunity.expected_outcome || 'Not specified'}</div>
+                      </div>
                     </CardContent>
                   </Card>
 
@@ -362,16 +354,13 @@ const OpportunityDetails: React.FC = () => {
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      {(() => {
-                        const { eligibility } = extractSummaryFields(opportunity);
-                        return eligibility ? (
-                          <div className="prose prose-sm max-w-none text-gray-700">
-                            {String(eligibility)}
-                          </div>
-                        ) : (
-                          <p className="text-gray-500 italic">No eligibility requirements specified</p>
-                        );
-                      })()}
+                      {opportunity.eligibility ? (
+                        <div className="prose prose-sm max-w-none text-gray-700">
+                          {String(opportunity.eligibility)}
+                        </div>
+                      ) : (
+                        <p className="text-gray-500 italic">No eligibility requirements specified</p>
+                      )}
                     </CardContent>
                   </Card>
 
@@ -384,16 +373,13 @@ const OpportunityDetails: React.FC = () => {
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      {(() => {
-                        const { keyFacts } = extractSummaryFields(opportunity);
-                        return keyFacts ? (
-                          <div className="prose prose-sm max-w-none text-gray-700">
-                            {String(keyFacts)}
-                          </div>
-                        ) : (
-                          <p className="text-gray-500 italic">No key facts available</p>
-                        );
-                      })()}
+                      {opportunity.key_facts ? (
+                        <div className="prose prose-sm max-w-none text-gray-700 whitespace-pre-wrap">
+                          {String(opportunity.key_facts)}
+                        </div>
+                      ) : (
+                        <p className="text-gray-500 italic">No key facts available</p>
+                      )}
                     </CardContent>
                   </Card>
 

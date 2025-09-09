@@ -14,9 +14,9 @@ import PageLoadingSkeleton from "@/components/ui/PageLoadingSkeleton";
 import { DashboardTemplate } from "../utils/responsivePatterns";
 
 // Lazy load heavier components
-const KanbanView = lazy(() => import("@/components/pursuits/KanbanView"));
-const CalendarView = lazy(() => import("@/components/pursuits/CalendarView"));
-const ListView = lazy(() => import("@/components/pursuits/ListView"));
+const KanbanView = lazy(() => import("@/components/pursuits/KanbanView").then(m => ({ default: m.KanbanView })));
+const CalendarView = lazy(() => import("@/components/pursuits/CalendarView").then(m => ({ default: m.CalendarView })));
+const ListView = lazy(() => import("@/components/pursuits/ListView").then(m => ({ default: m.ListView })));
 const CreateTrackerDialog = lazy(() => import("@/components/pursuits/CreatePursuitDialog"));
 
 const isDevelopment = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
