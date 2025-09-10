@@ -3,8 +3,8 @@
 import { getApiUrl, isDevelopment } from "@/config/env";
 
 // Get the appropriate base URL from the environment configuration
-const API_BASE_URL = `${getApiUrl()}`;
-// const API_BASE_URL = `http://localhost:8000`;
+// const API_BASE_URL = `${getApiUrl()}`;
+const API_BASE_URL = `http://localhost:8000`;
 // Log the API base URL being used
 if (isDevelopment) {
   console.log(`Using API base URL: ${API_BASE_URL}`);
@@ -13,8 +13,8 @@ if (isDevelopment) {
 
 // Stripe price IDs
 export const STRIPE_PRICES = {
-  basic_monthly: 'price_1RqIaWFKTK8ICUprZJJh44Hc',
-  basic_annual: 'price_1RqIcWFKTK8ICUprtagiVbzf',
+  pro_monthly: 'price_1RqIaWFKTK8ICUprZJJh44Hc',
+  pro_annual: 'price_1RqIcWFKTK8ICUprtagiVbzf',
   premium_monthly: 'price_1RqIdGFKTK8ICUprDEo5P7AB',
   premium_annual: 'price_1RqIdxFKTK8ICUprSgy50avW',
   enterprise_monthly: 'price_1RqIebFKTK8ICUpr6QN0hZ9a',
