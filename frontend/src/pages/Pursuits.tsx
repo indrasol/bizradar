@@ -57,6 +57,7 @@ export default function Pursuits(): JSX.Element {
   const [showNotification, setShowNotification] = useState<boolean>(false);
   const [showRfpBuilder, setShowRfpBuilder] = useState<boolean>(false);
   const [currentRfpPursuitId, setCurrentRfpPursuitId] = useState<string | null>(null);
+  const [currentAiOppId, setCurrentAiOppId] = useState<number | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showScrollToTop, setShowScrollToTop] = useState(false);
@@ -206,9 +207,10 @@ export default function Pursuits(): JSX.Element {
   };
   
   // Function to open the RFP builder for a pursuit
-  const openRfpBuilder = (pursuit: Pursuit): void => {
+  const openRfpBuilder = async (pursuit: Pursuit): Promise<void> => {
     setSelectedPursuit(pursuit);
     setCurrentRfpPursuitId(pursuit.id);
+    setCurrentAiOppId(pursuit.opportunity_id || null);
     setShowRfpBuilder(true);
   };
   
@@ -255,6 +257,7 @@ export default function Pursuits(): JSX.Element {
       const { data, error } = await supabase
         .from('trackers')
         .insert({
+          opportunity_id: opportunity.id,
           title: opportunity.title || "Untitled",
           description: opportunity.description || "",
           stage: "Assessment",
@@ -287,7 +290,8 @@ export default function Pursuits(): JSX.Element {
           assignee: "Unassigned",
           assigneeInitials: "UA",
           is_submitted: data[0].is_submitted || false,
-          naicscode: data[0].naicscode || ""
+          naicscode: data[0].naicscode || "",
+          opportunity_id: data[0].opportunity_id || 0
         };
         
         setPursuits(prevPursuits => [formattedPursuit, ...prevPursuits]);
@@ -873,7 +877,8 @@ export default function Pursuits(): JSX.Element {
               {currentRfpPursuitId && (
                 <RfpResponse 
                   contract={selectedPursuit} 
-                  pursuitId={currentRfpPursuitId} 
+                  pursuitId={currentRfpPursuitId}
+                  aiOpportunityId={currentAiOppId || undefined}
                 />
               )}
             </div>

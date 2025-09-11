@@ -321,3 +321,68 @@ async def handle_subscription_updated(subscription: Dict[str, Any]) -> None:
         logger.error(f"HTTP error updating subscription: {e.detail}")
     except Exception as e:
         logger.error(f"Error updating subscription: {str(e)}")
+
+@router.get("/api/stripe/price-id")
+def get_stripe_price_id(plan_type: str, billing_cycle: str = "monthly"):
+    """Resolve Stripe price_id (and plan_id) for a given plan_type and billing_cycle from public.subscriptions."""
+    try:
+        normalized_plan = (plan_type or "").lower().strip()
+        if normalized_plan == "basic":
+            normalized_plan = "pro"
+        normalized_cycle = (billing_cycle or "monthly").lower().strip()
+        if normalized_cycle not in ["monthly", "annual", "yearly"]:
+            raise HTTPException(status_code=400, detail="Invalid billing cycle")
+
+        supabase = get_supabase_connection(use_service_key=True)
+        cycle_value = 'annual' if normalized_cycle == 'yearly' else normalized_cycle
+        res = (
+            supabase
+            .table('subscriptions')
+            .select('id, price_id, plan_type, plan_period')
+            .eq('plan_type', normalized_plan)
+            .eq('plan_period', cycle_value)
+            .limit(1)
+            .execute()
+        )
+        data = getattr(res, 'data', None) or []
+        if not data:
+            raise HTTPException(status_code=404, detail="Price not configured")
+        row = data[0]
+        return { "price_id": row.get('price_id'), "plan_id": row.get('id'), "plan_period": row.get('plan_period') }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error resolving Stripe price id: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to resolve price id")
+
+@router.get("/api/stripe/billing-history")
+def get_billing_history(user_id: str):
+    """Return up to 3 recent Stripe invoices for the given user_id."""
+    try:
+        supabase = get_supabase_connection(use_service_key=True)
+        prof = supabase.table('profiles').select('stripe_customer_id').eq('id', user_id).limit(1).execute()
+        data = getattr(prof, 'data', None) or []
+        if not data or not data[0].get('stripe_customer_id'):
+            raise HTTPException(status_code=404, detail="Stripe customer not found for user")
+        customer_id = data[0]['stripe_customer_id']
+
+        invoices = stripe.Invoice.list(customer=customer_id, limit=3)
+        items = []
+        for inv in invoices.data:
+            items.append({
+                "id": inv.id,
+                "number": getattr(inv, 'number', None),
+                "created": getattr(inv, 'created', None),
+                "amount_paid": getattr(inv, 'amount_paid', 0),
+                "amount_due": getattr(inv, 'amount_due', 0),
+                "status": getattr(inv, 'status', None),
+                "hosted_invoice_url": getattr(inv, 'hosted_invoice_url', None),
+                "invoice_pdf": getattr(inv, 'invoice_pdf', None),
+                "currency": getattr(inv, 'currency', 'usd')
+            })
+        return { "invoices": items }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching billing history: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch billing history")
