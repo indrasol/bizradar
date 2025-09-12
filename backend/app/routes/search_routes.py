@@ -20,7 +20,6 @@ from app.utils.openai_client import get_openai_client
 from app.services.summary_service import process_opportunity_descriptions, fetch_description_from_sam, normalize_bulleted_summary
 from app.utils.redis_connection import RedisClient
 from app.utils.database import fetch_opportunities_from_db
-from app.utils.db_utils import get_supabase_connection
 from collections import deque
 from app.services.filter_service import apply_filters_to_results, sort_results
 import asyncio
@@ -1528,10 +1527,7 @@ async def enhance_rfp_with_ai(request: Request):
         data = await request.json()
         logger.info("Enhance RFP with AI request received")
         
-        # Extract identifiers (preferred) or legacy context objects
-        profile_id = data.get("profile_id") or data.get("profileId")
-        ai_opportunity_id = data.get("ai_opportunity_id") or data.get("aiOpportunityId")
-        # Legacy payload support (will be ignored if IDs provided)
+        # Extract the context data from the request
         company_context = data.get("company_context", {})
         proposal_context = data.get("proposal_context", {})
         
@@ -1543,54 +1539,28 @@ async def enhance_rfp_with_ai(request: Request):
         from app.routes.subscription_routes import check_and_increment_usage
         check_and_increment_usage(user_id, "ai_rfp")
         
-        # Resolve contexts by IDs when provided
-        try:
-            supabase = get_supabase_connection(use_service_key=True)
-        except Exception as e:
-            logger.error(f"Supabase init error: {e}")
-            raise HTTPException(status_code=500, detail="Failed to initialize database client")
-
-        if profile_id:
-            try:
-                prof_res = supabase.from_("profiles").select("*").eq("id", profile_id).single().execute()
-                if prof_res.data:
-                    company_context = prof_res.data
-            except Exception as e:
-                logger.warning(f"Failed to fetch profile {profile_id}: {e}")
-
-        if ai_opportunity_id:
-            try:
-                opp_res = supabase.from_("ai_enhanced_opportunities").select(
-                    "id,notice_id,solicitation_number,title,department,naics_code,published_date,response_date,description,url,active,created_at,updated_at,additional_description,sub_departments,point_of_contact,expected_outcome,funding,key_facts,eligibility,objective,due_date"
-                ).eq("id", ai_opportunity_id).single().execute()
-                if opp_res.data:
-                    proposal_context = opp_res.data
-                    
-            except Exception as e:
-                logger.warning(f"Failed to fetch ai_enhanced_opportunities {ai_opportunity_id}: {e}")
-
         if not company_context or not proposal_context:
-            raise HTTPException(status_code=400, detail="Missing context: provide profile_id and ai_opportunity_id or legacy contexts")
+            raise HTTPException(status_code=400, detail="Both company_context and proposal_context are required")
         
         # --- NEW: Replace proposal_description URL with actual description ---
-        # if (
-        #     proposal_context.get("proposal_description") 
-        #     and isinstance(proposal_context["proposal_description"], str)
-        #     and proposal_context["proposal_description"].startswith("http")
-        # ):
-        #     desc_url = proposal_context["proposal_description"]
-        #     logger.info(f"Fetching actual description from SAM API: {desc_url}")
-        #     actual_desc = await fetch_description_from_sam(desc_url)
-        #     if actual_desc:
-        #         proposal_context["proposal_description"] = actual_desc
-        #         logger.info("Replaced proposal_description with actual description text.")
-        #     else:
-        #         logger.warning("Failed to fetch description from SAM API, leaving as URL.")
+        if (
+            proposal_context.get("proposal_description") 
+            and isinstance(proposal_context["proposal_description"], str)
+            and proposal_context["proposal_description"].startswith("http")
+        ):
+            desc_url = proposal_context["proposal_description"]
+            logger.info(f"Fetching actual description from SAM API: {desc_url}")
+            actual_desc = await fetch_description_from_sam(desc_url)
+            if actual_desc:
+                proposal_context["proposal_description"] = actual_desc
+                logger.info("Replaced proposal_description with actual description text.")
+            else:
+                logger.warning("Failed to fetch description from SAM API, leaving as URL.")
         # --- END NEW ---
         
         # --- Redis cache check ---
         # Create a unique hash for the context
-        context_str = json.dumps({"My profile and Qualifications": company_context, "Opportunity I am bidding on": proposal_context}, sort_keys=True)
+        context_str = json.dumps({"company_context": company_context, "proposal_context": proposal_context}, sort_keys=True)
         context_hash = hashlib.md5(context_str.encode()).hexdigest()
         cache_key = f"enhanced_rfp:{user_id}:{pursuit_id}:{context_hash}"
         
@@ -1626,7 +1596,7 @@ async def enhance_rfp_with_ai(request: Request):
         user_prompt = f"""Please generate the following RFP data to create a professional, comprehensive proposal:
         
         {rfp_context_prompt}
-        using the data provided in my qualifications {company_context} for the opportunity I am bidding on in {proposal_context}
+        using the data provided in company data in {company_context} and proposal data in {proposal_context}
         Use the following example to guide your response:
         {rfp_context_example}
         
@@ -1646,8 +1616,7 @@ async def enhance_rfp_with_ai(request: Request):
             ],
             temperature=0.7,
             max_tokens=4000,
-            n=1,
-            response_format={"type": "json_object"},
+            n=1
         )
         logger.info("OpenAI response received")
         enhanced_content = response.choices[0].message.content
