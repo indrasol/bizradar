@@ -5,7 +5,7 @@ Handles tier-based subscriptions: Free, Pro, Premium
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any, Literal
 from fastapi import HTTPException
-from app.utils.db_utils import get_supabase_connection
+from app.database.supabase import get_supabase_client
 from app.config.settings import TRIAL_DURATION_MINUTES
 from app.utils.logger import get_logger
 
@@ -64,7 +64,7 @@ TIER_CONFIGS = {
 
 class SubscriptionManager:
     def __init__(self):
-        self.supabase = get_supabase_connection(use_service_key=True)
+        self.supabase = get_supabase_client()
     
     def get_user_addons(self, user_id: str) -> list:
         """Get active add-ons for a user"""
@@ -192,7 +192,7 @@ class SubscriptionManager:
             # Base subscription data that should always exist
             subscription_data = {
                 "user_id": user_id,
-                "current_subscription_plan": "free",
+                "plan_type": "free",
                 "status": "active",
                 "start_date": datetime.now(timezone.utc).isoformat(),
                 "end_date": None,  # Free tier doesn't expire
@@ -269,7 +269,7 @@ class SubscriptionManager:
             
             subscription_data = {
                 "user_id": user_id,
-                "current_subscription_plan": "pro",
+                "plan_type": "pro",
                 "status": "trial", 
                 "start_date": now.isoformat(),
                 "end_date": trial_end.isoformat(),
@@ -298,7 +298,7 @@ class SubscriptionManager:
             
             subscription_data = {
                 "user_id": user_id,
-                "current_subscription_plan": new_tier,
+                "plan_type": new_tier,
                 "status": "active",
                 "start_date": now.isoformat(),
                 "end_date": None,  # Paid subscriptions don't expire unless cancelled
@@ -327,7 +327,7 @@ class SubscriptionManager:
             
             subscription_data = {
                 "user_id": user_id,
-                "current_subscription_plan": "free",
+                "plan_type": "free",
                 "status": "active",
                 "start_date": now.isoformat(),
                 "end_date": None,
@@ -376,7 +376,7 @@ class SubscriptionManager:
                     }
                 }
             
-            plan_type = subscription.get("current_subscription_plan", subscription.get("plan_type", "free"))
+            plan_type = subscription.get("plan_type", "free")
             status = subscription.get("status", "active")
             end_date_str = subscription.get("end_date")
             
@@ -487,7 +487,7 @@ class SubscriptionManager:
             if not subscription:
                 return False
             
-            plan_type = subscription.get("current_subscription_plan", subscription.get("plan_type", "free"))
+            plan_type = subscription.get("plan_type", "free")
             tier_config = TIER_CONFIGS.get(plan_type, TIER_CONFIGS["free"])
             
             current_searches = subscription.get("monthly_searches_used", 0)

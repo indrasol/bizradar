@@ -18,28 +18,6 @@ const OpportunityDetails: React.FC = () => {
   const [opportunity, setOpportunity] = useState<Opportunity | null>(null);
   const [pursuitCount, setPursuitCount] = useState<number>(0);
 
-  const handleGenerateResponse = () => {
-    if (!opportunity) return;
-    const contract = {
-      id: opportunity.id,
-      title: opportunity.title,
-      department: opportunity.agency,
-      noticeId: opportunity.id,
-      dueDate: opportunity.response_date || "2025-01-01",
-      response_date: opportunity.response_date || "2025-01-01",
-      published_date: opportunity.published_date || "",
-      value: opportunity.budget || "0",
-      status: (opportunity as any).active === false ? "Inactive" : "Active",
-      naicsCode: opportunity.naics_code || "000000",
-      solicitation_number: opportunity.solicitation_number || "",
-      description: opportunity.description || "",
-      external_url: opportunity.external_url || "",
-      budget: opportunity.budget || "",
-    } as any;
-    sessionStorage.setItem("currentContract", JSON.stringify(contract));
-    navigate(`/contracts/rfp/${opportunity.id}`);
-  };
-
   useEffect(() => {
     // Get opportunity data from sessionStorage
     const storedOpportunity = sessionStorage.getItem("selectedOpportunity");
@@ -300,7 +278,6 @@ const OpportunityDetails: React.FC = () => {
                       <span>Add to Pursuits</span>
                     </button>
                     <button
-                      onClick={handleGenerateResponse}
                       className="px-3 py-1.5 bg-green-50 text-green-600 hover:bg-green-100 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 border border-green-200"
                     >
                       <FileText size={14} />

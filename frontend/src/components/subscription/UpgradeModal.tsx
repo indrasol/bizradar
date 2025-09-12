@@ -51,10 +51,9 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
   // Update selected plan when current subscription changes
   useEffect(() => {
     if (currentSubscription) {
-      // Extract base plan type (remove _monthly or _annual suffix) and normalize basic->pro
+      // Extract base plan type (remove _monthly or _annual suffix)
       const basePlan = currentSubscription.plan_type.split('_')[0];
-      const normalizedPlan = basePlan === 'basic' ? 'pro' : basePlan;
-      setSelectedPlan(normalizedPlan);
+      setSelectedPlan(basePlan);
       
       // Set billing cycle based on current subscription
       if (currentSubscription.plan_type.endsWith('_annual')) {
@@ -74,23 +73,18 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
     setError(null);
     
     try {
-      // Normalize basic->pro
-      const normalizedPlan = plan === 'basic' ? 'pro' : plan;
       // Create a checkout session
-      const { sessionId, url } = await subscriptionApi.createCheckoutSession(normalizedPlan, billingCycle);
+      const { sessionId } = await subscriptionApi.createCheckoutSession(plan, billingCycle);
       
       // Redirect to Stripe Checkout
-      // Prefer the URL if backend returns it (works even if Stripe.js has issues)
-      if (url) {
-        window.location.assign(url);
-      } else {
-        const stripe = await loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
-        if (!stripe) {
-          throw new Error('Failed to load Stripe');
-        }
-        const { error } = await stripe.redirectToCheckout({ sessionId });
-        if (error) throw error;
+      const stripe = await loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+      if (!stripe) {
+        throw new Error('Failed to load Stripe');
       }
+      
+      const { error } = await stripe.redirectToCheckout({
+        sessionId,
+      });
       
       if (error) {
         throw error;

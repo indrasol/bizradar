@@ -180,7 +180,6 @@ export const Settings = () => {
   const [cancelLoading, setCancelLoading] = useState(false);
   const [availablePlans, setAvailablePlans] = useState([]);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [billingHistory, setBillingHistory] = useState<any[]>([]);
 
   // --- Add state for backup codes and recent devices ---
   const [backupCodes, setBackupCodes] = useState<string[]>([]);
@@ -268,22 +267,9 @@ export const Settings = () => {
     }
   };
 
-  const loadBillingHistory = async () => {
-    try {
-      if (!user) return;
-      const res = await fetch(API_ENDPOINTS.BILLING_HISTORY(user.id));
-      if (!res.ok) throw new Error('Failed to fetch billing history');
-      const data = await res.json();
-      setBillingHistory(Array.isArray(data.invoices) ? data.invoices : []);
-    } catch (e) {
-      setBillingHistory([]);
-    }
-  };
-
   useEffect(() => {
     loadCurrentSubscription();
     loadAvailablePlans();
-    loadBillingHistory();
   }, []);
 
   // Handle logout
@@ -1833,48 +1819,108 @@ export const Settings = () => {
 
                     <div className="p-6">
                       <div className="overflow-x-auto">
-                        {billingHistory.length === 0 ? (
-                          <div className="text-sm text-gray-500">No billing history found.</div>
-                        ) : (
-                          <table className="min-w-full divide-y divide-gray-200">
-                            <thead>
-                              <tr>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"></th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-200 bg-white">
-                              {billingHistory.map((inv) => (
-                                <tr key={inv.id}>
-                                  <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{inv.number || inv.id}</td>
-                                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{inv.created ? new Date(inv.created * 1000).toLocaleDateString() : 'N/A'}</td>
-                                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                                    ${((inv.amount_paid ?? inv.amount_due ?? 0) / 100).toFixed(2)}
-                                  </td>
-                                  <td className="px-4 py-4 whitespace-nowrap">
-                                    <span className="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">{inv.status || 'paid'}</span>
-                                  </td>
-                                  <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                    {inv.invoice_pdf ? (
-                                      <a href={inv.invoice_pdf} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-900 inline-flex items-center gap-1">
-                                        <Download className="h-4 w-4" />
-                                        <span>PDF</span>
-                                      </a>
-                                    ) : inv.hosted_invoice_url ? (
-                                      <a href={inv.hosted_invoice_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-900 inline-flex items-center gap-1">
-                                        <Download className="h-4 w-4" />
-                                        <span>View</span>
-                                      </a>
-                                    ) : null}
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        )}
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead>
+                            <tr>
+                              <th
+                                scope="col"
+                                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                              >
+                                Invoice
+                              </th>
+                              <th
+                                scope="col"
+                                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                              >
+                                Date
+                              </th>
+                              <th
+                                scope="col"
+                                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                              >
+                                Amount
+                              </th>
+                              <th
+                                scope="col"
+                                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                              >
+                                Status
+                              </th>
+                              <th
+                                scope="col"
+                                className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+                              ></th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-200 bg-white">
+                            <tr>
+                              <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                INV-2025-003
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                                April 1, 2025
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                                $199.00
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap">
+                                <span className="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                  Paid
+                                </span>
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <button className="text-blue-600 hover:text-blue-900 inline-flex items-center gap-1">
+                                  <Download className="h-4 w-4" />
+                                  <span>PDF</span>
+                                </button>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                INV-2025-002
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                                March 1, 2025
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                                $199.00
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap">
+                                <span className="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                  Paid
+                                </span>
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <button className="text-blue-600 hover:text-blue-900 inline-flex items-center gap-1">
+                                  <Download className="h-4 w-4" />
+                                  <span>PDF</span>
+                                </button>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                INV-2025-001
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                                February 1, 2025
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                                $199.00
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap">
+                                <span className="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                  Paid
+                                </span>
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <button className="text-blue-600 hover:text-blue-900 inline-flex items-center gap-1">
+                                  <Download className="h-4 w-4" />
+                                  <span>PDF</span>
+                                </button>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
                       </div>
                     </div>
                   </div>

@@ -614,7 +614,7 @@ const OpportunitiesPage: React.FC = () => {
 
       const { data, error } = await supabase
         .from("trackers")
-        .insert([{ id: newId, title: opportunity.title, description: opportunity.description || "", stage: "Assessment", user_id: user.id, due_date: opportunity.response_date, opportunity_id: opportunity.id }])
+        .insert([{ id: newId, title: opportunity.title, description: opportunity.description || "", stage: "Assessment", user_id: user.id, due_date: opportunity.response_date }])
         .select();
       if (error) throw error;
 
