@@ -9,9 +9,11 @@ export interface Pursuit {
   assigneeInitials: string;
   is_submitted?: boolean;
   naicscode: string;
+  opportunity_id?: number;
 }
 
 export interface Opportunity {
+  id?: string;
   title?: string;
   description?: string;
   due_date?: string;
