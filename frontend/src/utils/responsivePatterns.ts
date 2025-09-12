@@ -13,13 +13,13 @@ export const ResponsivePatterns = {
   // Full-width responsive containers
   containers: {
     // Main page container with full responsive padding
-    fullPage: "min-h-screen w-full bg-gradient-to-b from-white to-gray-50 px-4 sm:px-6 lg:px-8",
+    fullPage: "min-h-screen w-full bg-gradient-to-b from-background to-muted px-4 sm:px-6 lg:px-8",
     
     // Centered content container with responsive max-widths
     centered: "container mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16",
     
     // Card container with responsive padding
-    card: "bg-white/90 backdrop-blur-md rounded-xl overflow-hidden shadow-lg border border-gray-200 p-4 sm:p-6 lg:p-8 xl:p-10",
+    card: "bg-card/90 backdrop-blur-md rounded-xl overflow-hidden shadow-lg border border-border p-4 sm:p-6 lg:p-8 xl:p-10",
     
     // Modal/Dialog container
     modal: "relative z-10 w-full max-w-sm sm:max-w-md lg:max-w-lg xl:max-w-xl",
@@ -28,7 +28,7 @@ export const ResponsivePatterns = {
     wide: "relative z-10 w-full max-w-sm sm:max-w-lg lg:max-w-2xl xl:max-w-4xl 2xl:max-w-6xl",
     
     // Dashboard/App layout container
-    dashboard: "flex h-screen w-full bg-gray-50 overflow-hidden",
+    dashboard: "flex h-screen w-full bg-background overflow-hidden",
   },
 
   // =============================================================================
@@ -36,22 +36,22 @@ export const ResponsivePatterns = {
   // =============================================================================
   typography: {
     // Main page titles
-    pageTitle: "text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-bold text-gray-900",
+    pageTitle: "text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-bold text-foreground",
     
     // Section headings
-    sectionTitle: "text-lg sm:text-xl lg:text-2xl font-semibold text-gray-900",
+    sectionTitle: "text-lg sm:text-xl lg:text-2xl font-semibold text-foreground",
     
     // Subsection headings
-    subsectionTitle: "text-base sm:text-lg font-medium text-gray-900",
+    subsectionTitle: "text-base sm:text-lg font-medium text-foreground",
     
     // Body text
-    body: "text-sm sm:text-base text-gray-700",
+    body: "text-sm sm:text-base text-foreground",
     
     // Small text (captions, labels)
-    small: "text-xs sm:text-sm text-gray-600",
+    small: "text-xs sm:text-sm text-muted-foreground",
     
     // Form labels
-    label: "block text-xs sm:text-sm font-medium text-gray-700 mb-1 ml-1",
+    label: "block text-xs sm:text-sm font-medium text-foreground mb-1 ml-1",
     
     // Error text
     error: "text-xs sm:text-sm text-red-600",
@@ -100,19 +100,19 @@ export const ResponsivePatterns = {
     container: "space-y-4 sm:space-y-6",
     
     // Input fields
-    input: "w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white border border-gray-300 rounded-lg text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all text-sm sm:text-base",
+    input: "w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-background border border-input rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all text-sm sm:text-base",
     
     // Input with icon (left padding for icon)
-    inputWithIcon: "w-full pl-8 sm:pl-10 pr-3 sm:pr-4 py-2.5 sm:py-3 bg-white border border-gray-300 rounded-lg text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all text-sm sm:text-base",
+    inputWithIcon: "w-full pl-8 sm:pl-10 pr-3 sm:pr-4 py-2.5 sm:py-3 bg-background border border-input rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all text-sm sm:text-base",
     
     // Textarea
-    textarea: "w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white border border-gray-300 rounded-lg text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all text-sm sm:text-base resize-vertical",
+    textarea: "w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-background border border-input rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all text-sm sm:text-base resize-vertical",
     
     // Primary button
     primaryButton: "w-full py-2.5 sm:py-3 px-3 sm:px-4 bg-blue-600 hover:bg-blue-700 rounded-lg text-white font-medium flex items-center justify-center gap-2 transition-colors shadow-md hover:shadow-lg text-sm sm:text-base",
     
     // Secondary button
-    secondaryButton: "w-full py-2.5 sm:py-3 px-3 sm:px-4 bg-white border border-gray-300 rounded-lg text-gray-700 font-medium flex items-center justify-center gap-2 hover:bg-gray-50 transition-colors text-sm sm:text-base",
+    secondaryButton: "w-full py-2.5 sm:py-3 px-3 sm:px-4 bg-background border border-input rounded-lg text-foreground font-medium flex items-center justify-center gap-2 hover:bg-muted transition-colors text-sm sm:text-base",
     
     // Success button
     successButton: "w-full py-2.5 sm:py-3 px-3 sm:px-4 bg-emerald-600 hover:bg-emerald-700 rounded-lg text-white font-medium flex items-center justify-center gap-2 transition-colors shadow-md hover:shadow-lg text-sm sm:text-base",
@@ -176,10 +176,10 @@ export const ResponsivePatterns = {
     `,
     
     // Page gradient background
-    pageGradient: "bg-gradient-to-b from-white to-gray-50",
+    pageGradient: "bg-gradient-to-b from-background to-muted",
     
     // Card background
-    cardBackground: "bg-white/90 backdrop-blur-md",
+    cardBackground: "bg-card/90 backdrop-blur-md",
     
     // Success background
     successBackground: "bg-green-50 border border-green-200",
@@ -205,11 +205,11 @@ export const ResponsivePatterns = {
     
     // Page header
     pageHeader: "flex flex-col items-center mb-6 sm:mb-8",
-    pageHeaderTitle: "text-xl sm:text-2xl lg:text-3xl font-medium text-gray-800 ml-3 sm:ml-4 relative",
+    pageHeaderTitle: "text-xl sm:text-2xl lg:text-3xl font-medium text-foreground ml-3 sm:ml-4 relative",
     pageHeaderAccent: "absolute -left-3 sm:-left-4 top-1/2 transform -translate-y-1/2 w-2 h-6 sm:h-8 bg-emerald-400 rounded-r-md",
     
     // Navigation breadcrumbs
-    breadcrumbs: "flex items-center gap-2 text-xs sm:text-sm text-gray-600",
+    breadcrumbs: "flex items-center gap-2 text-xs sm:text-sm text-muted-foreground",
     
     // Status badges
     badge: "inline-flex items-center px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium",
@@ -219,8 +219,8 @@ export const ResponsivePatterns = {
     
     // Divider
     divider: "flex items-center my-4 sm:my-6",
-    dividerLine: "flex-1 h-px bg-gray-200",
-    dividerText: "px-3 sm:px-4 text-xs sm:text-sm text-gray-500",
+    dividerLine: "flex-1 h-px bg-border",
+    dividerText: "px-3 sm:px-4 text-xs sm:text-sm text-muted-foreground",
   },
 
   // =============================================================================
@@ -302,7 +302,7 @@ export const PageTemplate = {
   
   // Footer section
   footer: combinePatterns(
-    "mt-8 sm:mt-12 pt-6 sm:pt-8 border-t border-gray-200",
+    "mt-8 sm:mt-12 pt-6 sm:pt-8 border-t border-border",
     "flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4"
   ),
 };
@@ -311,7 +311,7 @@ export const PageTemplate = {
  * Authentication page template
  */
 export const AuthTemplate = {
-  wrapper: "flex justify-center items-center min-h-screen w-full bg-gradient-to-b from-white to-gray-50 relative overflow-hidden px-4 sm:px-6 lg:px-8",
+  wrapper: "flex justify-center items-center min-h-screen w-full bg-gradient-to-b from-background to-muted relative overflow-hidden px-4 sm:px-6 lg:px-8",
   container: ResponsivePatterns.containers.modal,
   card: ResponsivePatterns.containers.card,
   form: ResponsivePatterns.forms.container,
@@ -323,10 +323,10 @@ export const AuthTemplate = {
  */
 export const DashboardTemplate = {
   wrapper: ResponsivePatterns.containers.dashboard,
-  sidebar: "w-64 bg-white shadow-lg hidden lg:block",
+  sidebar: "w-64 bg-card shadow-lg hidden lg:block",
   mobileSidebar: "lg:hidden",
   main: "flex-1 flex flex-col overflow-hidden",
-  header: "bg-white shadow-sm px-4 sm:px-6 lg:px-8 py-4",
+  header: "bg-card shadow-sm px-4 sm:px-6 lg:px-8 py-4",
   content: "flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto",
 };
 

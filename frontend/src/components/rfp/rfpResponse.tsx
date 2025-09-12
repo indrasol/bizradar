@@ -206,14 +206,14 @@ const RfpResponse = ({ contract, pursuitId }) => {
   const [showPreview, setShowPreview] = useState(false);
   const [showDownloadOptions, setShowDownloadOptions] = useState(false);
   const [logo, setLogo] = useState(null);
-  const [companyName, setCompanyName] = useState('BizRadar Solutions');
-  const [companyWebsite, setCompanyWebsite] = useState('https://www.bizradar.com');
-  const [letterhead, setLetterhead] = useState('123 Innovation Drive, Suite 100, TechCity, TX 75001');
-  const [phone, setPhone] = useState('(510) 754-2001');
+  const [companyName, setCompanyName] = useState('');
+  const [companyWebsite, setCompanyWebsite] = useState('');
+  const [letterhead, setLetterhead] = useState('');
+  const [phone, setPhone] = useState('');
   const [rfpTitle, setRfpTitle] = useState(contract?.title || 'Proposal for Cybersecurity Audit & Penetration Testing Services');
   const [rfpNumber, setRfpNumber] = useState(exampleJob.solicitationNumber);
   const [issuedDate, setIssuedDate] = useState(contract?.published_date || new Date().toLocaleDateString());
-  const [submittedBy, setSubmittedBy] = useState('Admin, BizRadar');
+  const [submittedBy, setSubmittedBy] = useState('');
   const [expandedSection, setExpandedSection] = useState(null);
   const [theme, setTheme] = useState('professional'); // professional, modern, classic
 
@@ -348,15 +348,15 @@ const RfpResponse = ({ contract, pursuitId }) => {
 
   const [proposalData, setProposalData] = useState({
     logo: null,
-    companyName: 'BizRadar Solutions',
-    companyWebsite: 'https://www.bizradar.com',
-    letterhead: '123 Innovation Drive, Suite 100, TechCity, TX 75001',
-    phone: '(510) 754-2001',
+    companyName: '',
+    companyWebsite: '',
+    letterhead: '',
+    phone: '',
     rfpTitle: contract?.title || 'Proposal for Cybersecurity Audit & Penetration Testing Services',
     naicsCode: contract?.naicsCode || '000000',
     solicitationNumber: contract?.solicitation_number || '',
     issuedDate: contract?.published_date || new Date().toLocaleDateString(),
-    submittedBy: 'Jane Smith, BizRadar (CEO)',
+    submittedBy: '',
     theme: 'professional',
     sections: defaultTemplate(exampleJob)
   });
@@ -366,13 +366,16 @@ const RfpResponse = ({ contract, pursuitId }) => {
     console.log('isSubmitted state:', isSubmitted);
   }, [isSubmitted]);
 
-  // Modify the loadRfpData function to properly set isSubmitted
+  // Modify the loadRfpData function to properly set isSubmitted and load profile data
   useEffect(() => {
     const loadRfpData = async () => {
       if (!pursuitId) return;
 
       try {
         console.log("Loading RFP data for pursuit ID:", pursuitId);
+
+        // Fetch user profile data first
+        const userProfile = await fetchUserProfile();
 
         // Fetch RFP response data for this pursuit
         const { data: responses, error } = await supabase
@@ -397,33 +400,33 @@ const RfpResponse = ({ contract, pursuitId }) => {
           if (data.content) {
             const content = data.content;
 
-            // Set all state values from saved data
-            setLogo(content.logo || null);
+            // Set all state values from saved data, with profile fallbacks
+            setLogo(content.logo || userProfile?.avatar_url || null);
             console.log("Logo:", logo);
-            setCompanyName(content.companyName || 'BizRadar Solutions');
-            setCompanyWebsite(content.companyWebsite || 'https://www.bizradar.com');
-            setLetterhead(content.letterhead || '123 Innovation Drive, Suite 100, TechCity, TX 75001');
-            setPhone(content.phone || '(510) 754-2001');
+            setCompanyName(content.companyName || userProfile?.company_name || 'BizRadar Solutions');
+            setCompanyWebsite(content.companyWebsite || userProfile?.company_url || 'https://www.bizradar.com');
+            setLetterhead(content.letterhead || '123 Innovation Drive, Suite 100, TechCity, TX 75001'); // No address field in profile
+            setPhone(content.phone || userProfile?.phone_number || '(510) 754-2001');
             setRfpTitle(content.rfpTitle || 'Proposal for Cybersecurity Audit & Penetration Testing Services');
             setRfpNumber(content.rfpNumber || exampleJob.solicitationNumber);
             setIssuedDate(content.issuedDate || 'December 26th, 2024');
-            setSubmittedBy(content.submittedBy || 'Jane Smith, BizRadar (CEO)');
+            setSubmittedBy(content.submittedBy || `${userProfile?.first_name || 'Admin'} ${userProfile?.last_name || 'User'}, ${userProfile?.company_name || 'BizRadar'}`);
             setTheme(content.theme || 'professional');
             if (Array.isArray(content.sections)) {
               setSections(content.sections);
             }
 
             setProposalData({
-              logo: content.logo || logo,
-              companyName: content.companyName || 'BizRadar Solutions',
-              companyWebsite: content.companyWebsite || 'https://www.bizradar.com',
-              letterhead: content.letterhead || '123 Innovation Drive, Suite 100, TechCity, TX 75001',
-              phone: content.phone || '(510) 754-2001',
+              logo: content.logo || userProfile?.avatar_url || null,
+              companyName: content.companyName || userProfile?.company_name || 'BizRadar Solutions',
+              companyWebsite: content.companyWebsite || userProfile?.company_url || 'https://www.bizradar.com',
+              letterhead: content.letterhead || '123 Innovation Drive, Suite 100, TechCity, TX 75001', // No address field in profile
+              phone: content.phone || userProfile?.phone_number || '(510) 754-2001',
               rfpTitle: content.rfpTitle || 'Proposal for Cybersecurity Audit & Penetration Testing Services',
               naicsCode: content.naicsCode || '000000',
               solicitationNumber: content.solicitationNumber || exampleJob.solicitationNumber,
               issuedDate: content.issuedDate || 'December 26th, 2024',
-              submittedBy: content.submittedBy || 'Jane Smith, BizRadar (CEO)',
+              submittedBy: content.submittedBy || `${userProfile?.first_name || 'Admin'} ${userProfile?.last_name || 'User'}, ${userProfile?.company_name || 'BizRadar'}`,
               theme: content.theme || 'professional',
               sections: Array.isArray(content.sections) ? content.sections : defaultTemplate(exampleJob),
             });
@@ -436,13 +439,32 @@ const RfpResponse = ({ contract, pursuitId }) => {
 
           console.log("Successfully loaded saved RFP data");
         } else {
-          console.log("No existing RFP response found, using default template");
-          // No saved data found, use default template with contract data
+          console.log("No existing RFP response found, using default template with profile data");
+          // No saved data found, use default template with contract data and profile data
           setRfpTitle(contract?.title || 'Proposal for Cybersecurity Audit & Penetration Testing Services');
           setNaicsCode(contract?.naicsCode || '000000');
           setSolicitationNumber(contract?.solicitation_number || '');
           setIssuedDate(contract?.published_date || new Date().toLocaleDateString());
           setSections(defaultTemplate(exampleJob));
+          
+          // Set profile data if available
+          if (userProfile) {
+            setCompanyName(userProfile?.company_name || 'BizRadar Solutions');
+            setCompanyWebsite(userProfile?.company_url || 'https://www.bizradar.com');
+            setLetterhead('123 Innovation Drive, Suite 100, TechCity, TX 75001'); // No address field in profile
+            setPhone(userProfile?.phone_number || '(510) 754-2001');
+            setSubmittedBy(`${userProfile?.first_name || 'Admin'} ${userProfile?.last_name || 'User'}, ${userProfile?.company_name || 'BizRadar'}`);
+            
+            // Also update proposalData
+            setProposalData(prev => ({
+              ...prev,
+              companyName: userProfile?.company_name || 'BizRadar Solutions',
+              companyWebsite: userProfile?.company_url || 'https://www.bizradar.com',
+              letterhead: '123 Innovation Drive, Suite 100, TechCity, TX 75001', // No address field in profile
+              phone: userProfile?.phone_number || '(510) 754-2001',
+              submittedBy: `${userProfile?.first_name || 'Admin'} ${userProfile?.last_name || 'User'}, ${userProfile?.company_name || 'BizRadar'}`
+            }));
+          }
         }
       } catch (err) {
         console.error("Error in RFP data loading:", err);
@@ -459,7 +481,7 @@ const RfpResponse = ({ contract, pursuitId }) => {
 
     const autoSaveTimer = setTimeout(() => {
       saveRfpData(false); // Don't show notification for auto-save
-    }, 60000); // Auto-save every minute
+    }, 300000); // Auto-save every 5 minutes
 
     return () => clearTimeout(autoSaveTimer);
   }, [
@@ -468,12 +490,55 @@ const RfpResponse = ({ contract, pursuitId }) => {
     autoSaveEnabled, pursuitId
   ]);
 
+  // Function to fetch user profile data
+  const fetchUserProfile = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.log('No user found, cannot fetch profile');
+        return null;
+      }
+
+      // Fetch user profile data
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError) {
+        console.error('Error fetching user profile:', profileError);
+        return null;
+      }
+
+      console.log('Fetched user profile:', profile);
+      return profile;
+    } catch (error) {
+      console.error('Error in fetchUserProfile:', error);
+      return null;
+    }
+  };
+
   // Function to save RFP data to the database
   const saveRfpData = async (showNotification = true) => {
     try {
       setIsSaving(true);
       const { data: { user } } = await supabase.auth.getUser();
       const userId = user?.id;
+      
+      // Fetch user profile data
+      const userProfile = await fetchUserProfile();
+      
+      console.log('Current state values:', {
+        companyName,
+        companyWebsite,
+        letterhead,
+        phone,
+        submittedBy
+      });
+      
+      console.log('User profile data:', userProfile);
+      
       // Calculate completion percentage
       const completedSections = sections.filter(section => section.completed).length;
       const totalSections = sections.length;
@@ -489,22 +554,24 @@ const RfpResponse = ({ contract, pursuitId }) => {
         stageToSet = "Assessment";
       }
 
-      // Prepare the content object to save
+      // Prepare the content object to save with profile data
       const contentToSave = {
-        logo,
-        companyName,
-        companyWebsite,
-        letterhead,
-        phone,
+        logo: logo || userProfile?.avatar_url || null,
+        companyName: companyName || userProfile?.company_name || 'BizRadar Solutions',
+        companyWebsite: companyWebsite || userProfile?.company_url || 'https://www.bizradar.com',
+        letterhead: letterhead || '123 Innovation Drive, Suite 100, TechCity, TX 75001', // No address field in profile
+        phone: phone || userProfile?.phone_number || '(510) 754-2001',
         rfpTitle,
         naicsCode,
         solicitationNumber,
         issuedDate,
-        submittedBy,
+        submittedBy: submittedBy || `${userProfile?.first_name || 'Admin'} ${userProfile?.last_name || 'User'}, ${userProfile?.company_name || 'BizRadar'}`,
         theme,
         sections,
         isSubmitted
       };
+      
+      console.log('Content to save:', contentToSave);
 
       // Update stage in trackers table
       const { error: trackerError } = await supabase
@@ -1532,9 +1599,9 @@ const RfpResponse = ({ contract, pursuitId }) => {
   }, [sections, expandedSection]);
 
   return (
-    <div className="fixed inset-0 bg-gray-50 overflow-y-auto">
-      <div className="min-h-full w-full">
-        <div className="p-2 md:p-6 max-w-6xl mx-auto" style={{ paddingTop: '3.5rem' }}>
+    <div className="w-full min-h-full bg-gray-50">
+      <div className="w-full">
+        <div className="p-4 md:p-6 max-w-7xl mx-auto">
           {/* Hidden ProposalContent for External Downloads */}
           <div style={{ position: 'absolute', left: '-9999px' }} ref={contentRef}>
             <RfpPreviewContent {...proposalData} />
@@ -1635,7 +1702,7 @@ const RfpResponse = ({ contract, pursuitId }) => {
                   </div>
                 )}
                 <div className="flex gap-3 flex-wrap">
-                  <div className="relative">
+                  {/* <div className="relative">
                     <button
                       onClick={() => {
                         const themes = ['professional', 'modern', 'classic'];
@@ -1648,7 +1715,7 @@ const RfpResponse = ({ contract, pursuitId }) => {
                     >
                       <Settings className="w-4 h-4" /> Theme: {theme.charAt(0).toUpperCase() + theme.slice(1)}
                     </button>
-                  </div>
+                  </div> */}
                   <button
                     onClick={handlePreview}
                     className="inline-flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-3 py-2 rounded-lg shadow-sm hover:bg-gray-50 hover:border-gray-400 transition-all"
@@ -2031,12 +2098,12 @@ const RfpResponse = ({ contract, pursuitId }) => {
                 >
                   <Eye className="w-5 h-5" /> Preview Proposal
                 </button>
-                <button
+                {/* <button
                   onClick={() => setShowDownloadOptions(true)}
                   className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-xl shadow-md hover:shadow-lg hover:from-blue-700 hover:to-blue-800 transition-all"
                 >
                   <Download className="w-5 h-5" /> Download Proposal
-                </button>
+                </button> */}
                 {showDownloadOptions && (
                   <div className="fixed inset-0 bg-black bg-opacity-60 z-40 flex items-center justify-center" onClick={() => setShowDownloadOptions(false)}>
                     <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>

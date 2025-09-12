@@ -1,5 +1,5 @@
-import React from 'react';
-import { Bot, PenLine, CheckCircle, Trash2 } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Bot, PenLine, CheckCircle, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Pursuit } from './types';
 
 interface KanbanViewProps {
@@ -8,6 +8,8 @@ interface KanbanViewProps {
   onRfpAction: (pursuit: Pursuit) => void;
   onDelete: (id: string) => void;
   onAskAI: (pursuit: Pursuit) => void;
+  highlightedPursuitId?: string | null;
+  fadingOutPursuitId?: string | null;
 }
 
 const STAGES = [
@@ -24,7 +26,14 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
   onRfpAction,
   onDelete,
   onAskAI,
+  highlightedPursuitId,
+  fadingOutPursuitId,
 }) => {
+  const highlightedCardRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(true);
+
   const getPursuitsForStage = (stageId: string) => {
     return pursuits.filter(pursuit => pursuit.stage === stageId);
   };
@@ -57,9 +66,87 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
     );
   };
 
+  // Check scroll position to show/hide scroll indicators
+  const checkScrollPosition = () => {
+    if (scrollContainerRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current;
+      setCanScrollLeft(scrollLeft > 0);
+      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 1);
+    }
+  };
+
+  // Auto-scroll to highlighted pursuit when it's available
+  useEffect(() => {
+    if (highlightedPursuitId && highlightedCardRef.current) {
+      setTimeout(() => {
+        highlightedCardRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center'
+        });
+      }, 100);
+    }
+  }, [highlightedPursuitId, pursuits]);
+
+  // Check scroll position on mount and when pursuits change
+  useEffect(() => {
+    checkScrollPosition();
+    const container = scrollContainerRef.current;
+    if (container) {
+      container.addEventListener('scroll', checkScrollPosition);
+      return () => container.removeEventListener('scroll', checkScrollPosition);
+    }
+  }, [pursuits]);
+
+  const scrollToDirection = (direction: 'left' | 'right') => {
+    if (scrollContainerRef.current) {
+      const scrollAmount = 320; // Width of one column + gap
+      const currentScroll = scrollContainerRef.current.scrollLeft;
+      const newScroll = direction === 'left' 
+        ? currentScroll - scrollAmount 
+        : currentScroll + scrollAmount;
+      
+      scrollContainerRef.current.scrollTo({
+        left: newScroll,
+        behavior: 'smooth'
+      });
+    }
+  };
+
   return (
-    <div className="flex gap-4 p-4 pb-6 overflow-auto h-[calc(100vh-280px)] min-h-[600px] scrollbar-thin scrollbar-track-gray-100 scrollbar-thumb-gray-300">
-      {STAGES.map((stage) => (
+    <div className="relative">
+      {/* Left scroll indicator */}
+      {canScrollLeft && (
+        <button
+          onClick={() => scrollToDirection('left')}
+          className="absolute left-2 top-1/2 -translate-y-1/2 z-10 bg-white/90 hover:bg-white border border-gray-200 rounded-full p-2 shadow-lg transition-all duration-200 hover:shadow-xl"
+          aria-label="Scroll left"
+        >
+          <ChevronLeft className="w-4 h-4 text-gray-600" />
+        </button>
+      )}
+
+      {/* Right scroll indicator */}
+      {canScrollRight && (
+        <button
+          onClick={() => scrollToDirection('right')}
+          className="absolute right-2 top-1/2 -translate-y-1/2 z-10 bg-white/90 hover:bg-white border border-gray-200 rounded-full p-2 shadow-lg transition-all duration-200 hover:shadow-xl"
+          aria-label="Scroll right"
+        >
+          <ChevronRight className="w-4 h-4 text-gray-600" />
+        </button>
+      )}
+
+      {/* Scroll container with gradient fade */}
+      <div 
+        ref={scrollContainerRef}
+        className="flex gap-4 p-4 pb-6 overflow-auto h-[calc(100vh-280px)] min-h-[600px] scrollbar-thin scrollbar-track-gray-100 scrollbar-thumb-gray-300 relative"
+        style={{
+          background: canScrollRight 
+            ? 'linear-gradient(to right, transparent 0%, transparent 85%, rgba(0,0,0,0.05) 100%)'
+            : 'transparent'
+        }}
+      >
+        {STAGES.map((stage) => (
         <div
           key={stage.id}
           className="flex-shrink-0 w-80 bg-gray-50 rounded-lg p-4"
@@ -72,12 +159,27 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
           </div>
           
           <div className="space-y-3">
-            {getPursuitsForStage(stage.id).map((pursuit) => (
-              <div
-                key={pursuit.id}
-                className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 hover:border-blue-200 transition-colors cursor-pointer"
-                onClick={() => onPursuitSelect(pursuit)}
-              >
+            {getPursuitsForStage(stage.id).map((pursuit) => {
+              const isHighlighted = highlightedPursuitId === pursuit.id;
+              const isFadingOut = fadingOutPursuitId === pursuit.id;
+              return (
+                <div
+                  key={pursuit.id}
+                  ref={isHighlighted ? highlightedCardRef : null}
+                  className={`p-4 rounded-lg shadow-sm border cursor-pointer ${
+                    isHighlighted 
+                      ? 'bg-blue-100 border-blue-400 border-2' 
+                      : 'bg-white border-gray-200 hover:border-blue-200'
+                  }`}
+                  style={{
+                    transition: 'all 0.5s ease-out',
+                    ...(isFadingOut && {
+                      backgroundColor: 'white',
+                      borderColor: '#e5e7eb'
+                    })
+                  }}
+                  onClick={() => onPursuitSelect(pursuit)}
+                >
                 <div className="flex items-start justify-between">
                   <h4 className="font-medium text-sm text-gray-900">{pursuit.title}</h4>
                   <div className="flex items-center space-x-1">
@@ -115,10 +217,12 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
                   {renderRfpActionButton(pursuit)}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }; 

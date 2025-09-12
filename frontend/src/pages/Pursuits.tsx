@@ -63,6 +63,15 @@ export default function Pursuits(): JSX.Element {
   const [mainContentNode, setMainContentNode] = useState<HTMLDivElement | null>(null);
   const [initialLoadComplete, setInitialLoadComplete] = useState<boolean>(false);
   const [progressiveLoading, setProgressiveLoading] = useState<boolean>(true);
+  const [dueDateFilter, setDueDateFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<string>('due_date');
+  const [highlightedPursuitId, setHighlightedPursuitId] = useState<string | null>(() => {
+    // Initialize highlighted pursuit ID from URL parameter
+    const searchParams = new URLSearchParams(location.search);
+    return searchParams.get('highlight');
+  });
+  const [fadingOutPursuitId, setFadingOutPursuitId] = useState<string | null>(null);
   
   const mainContentRef = useCallback((node: HTMLDivElement | null) => {
     setMainContentNode(node);
@@ -453,6 +462,7 @@ export default function Pursuits(): JSX.Element {
       if (!initialLoadComplete) {
         setInitialLoadComplete(true);
       }
+      
     } catch (error: any) {
       console.error("Error fetching pursuits:", error);
       setError(`Error fetching pursuits: ${error.message}`);
@@ -463,6 +473,16 @@ export default function Pursuits(): JSX.Element {
     }
   };
   
+  // Update state when URL changes (for navigation between different highlight IDs)
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const highlightId = searchParams.get('highlight');
+    
+    if (highlightId !== highlightedPursuitId) {
+      setHighlightedPursuitId(highlightId);
+    }
+  }, [location.search]);
+
   // Replace the useEffect for fetching trackers
   useEffect(() => {
     fetchTrackers();
@@ -490,11 +510,37 @@ export default function Pursuits(): JSX.Element {
     };
   }, [location.search]); // Add location.search as a dependency to refetch when query params change
   
+  // Clear highlight parameter from URL after a delay to avoid permanent highlighting
+  useEffect(() => {
+    if (highlightedPursuitId) {
+      const timer = setTimeout(() => {
+        // Start fade out animation
+        setFadingOutPursuitId(highlightedPursuitId);
+        
+        // After fade out animation completes, clear everything
+        setTimeout(() => {
+          const searchParams = new URLSearchParams(location.search);
+          if (searchParams.get('highlight')) {
+            searchParams.delete('highlight');
+            const newUrl = searchParams.toString() 
+              ? `${location.pathname}?${searchParams.toString()}`
+              : location.pathname;
+            navigate(newUrl, { replace: true });
+          }
+          setHighlightedPursuitId(null);
+          setFadingOutPursuitId(null);
+        }, 500); // Wait for fade animation to complete
+      }, 5000); // Start fade after 5 seconds (longer to ensure user sees it)
+      
+      return () => clearTimeout(timer);
+    }
+  }, [highlightedPursuitId, location.search, location.pathname, navigate]);
+  
   // Modify the handlePursuitSelect function
   const handlePursuitSelect = async (pursuit: Pursuit): Promise<void> => {
     try {
       const { data, error } = await supabase
-        .from('sam_gov')
+        .from('ai_enhanced_opportunities')
         .select('notice_id')
         .eq('title', pursuit.title)
         .limit(1)
@@ -700,6 +746,18 @@ export default function Pursuits(): JSX.Element {
     setSearchQuery(query);
   };
 
+  const handleDueDateFilterChange = (filter: string) => {
+    setDueDateFilter(filter);
+  };
+
+  const handleStatusFilterChange = (filter: string) => {
+    setStatusFilter(filter);
+  };
+
+  const handleSortChange = (sort: string) => {
+    setSortBy(sort);
+  };
+
   const handleViewAnalytics = () => {
     // Implement analytics view
     toast.info("Analytics view coming soon!");
@@ -811,13 +869,74 @@ export default function Pursuits(): JSX.Element {
     }
   };
 
-  // Memoize filtered pursuits to prevent unnecessary re-renders
+  // Memoize filtered and sorted pursuits to prevent unnecessary re-renders
   const filteredPursuits = useMemo(() => {
-    return pursuits.filter(pursuit =>
-      pursuit.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      pursuit.description.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [pursuits, searchQuery]);
+    let filtered = pursuits.filter(pursuit => {
+      // Search filter
+      const matchesSearch = pursuit.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        pursuit.description.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      if (!matchesSearch) return false;
+
+      // Status filter
+      if (statusFilter !== 'all') {
+        if (statusFilter === 'active' && pursuit.is_submitted) return false;
+        if (statusFilter === 'submitted' && !pursuit.is_submitted) return false;
+        if (statusFilter === 'draft' && pursuit.stage !== 'Assessment') return false;
+      }
+
+      // Due date filter
+      if (dueDateFilter !== 'all' && pursuit.dueDate !== 'TBD') {
+        const dueDate = new Date(pursuit.dueDate);
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const nextWeek = new Date(today);
+        nextWeek.setDate(nextWeek.getDate() + 7);
+        const nextMonth = new Date(today);
+        nextMonth.setMonth(nextMonth.getMonth() + 1);
+
+        switch (dueDateFilter) {
+          case 'overdue':
+            if (dueDate >= today) return false;
+            break;
+          case 'this_week':
+            if (dueDate < today || dueDate > nextWeek) return false;
+            break;
+          case 'next_week':
+            if (dueDate < nextWeek || dueDate > new Date(nextWeek.getTime() + 7 * 24 * 60 * 60 * 1000)) return false;
+            break;
+          case 'this_month':
+            if (dueDate < today || dueDate > nextMonth) return false;
+            break;
+        }
+      }
+
+      return true;
+    });
+
+    // Sort the filtered results
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case 'due_date':
+          if (a.dueDate === 'TBD' && b.dueDate === 'TBD') return 0;
+          if (a.dueDate === 'TBD') return 1;
+          if (b.dueDate === 'TBD') return -1;
+          return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+        case 'created_at':
+          return new Date(b.created).getTime() - new Date(a.created).getTime();
+        case 'title':
+          return a.title.localeCompare(b.title);
+        case 'stage':
+          return a.stage.localeCompare(b.stage);
+        default:
+          return 0;
+      }
+    });
+
+    return filtered;
+  }, [pursuits, searchQuery, statusFilter, dueDateFilter, sortBy]);
 
   // Show error state
   if (error) {
@@ -839,6 +958,7 @@ export default function Pursuits(): JSX.Element {
 
   return (
     <div className={DashboardTemplate.wrapper}>
+      
       {showNotification && (
         <div className="fixed top-4 right-4 z-50 bg-green-500 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg shadow-lg flex items-center gap-2 animate-fade-in text-sm sm:text-base">
           <span>Tracker added successfully!</span>
@@ -857,36 +977,40 @@ export default function Pursuits(): JSX.Element {
       </Suspense>
       
       {showRfpBuilder && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-start overflow-y-auto p-2 sm:p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm sm:max-w-lg lg:max-w-4xl xl:max-w-6xl mx-auto relative mt-2 sm:mt-4">
-            <div className="sticky top-0 z-10 p-3 sm:p-4 border-b flex justify-between items-center bg-white">
-              <h2 className="text-lg sm:text-xl font-bold">RFP Response Builder</h2>
-              <button
-                onClick={closeRfpBuilder}
-                className="text-gray-500 hover:text-gray-700 p-1 bg-gray-100 rounded-full"
-              >
-                <X className="w-5 h-5 sm:w-6 sm:h-6" />
-              </button>
-            </div>
-            
-            <div className="overflow-y-auto">
-              {currentRfpPursuitId && (
-                <RfpResponse 
-                  contract={selectedPursuit} 
-                  pursuitId={currentRfpPursuitId} 
-                />
-              )}
+        <div className="fixed inset-0 bg-gray-50 z-40 flex flex-col">
+          <div className="flex flex-1 overflow-hidden">
+            <SideBar />
+            <div className="flex-1 flex flex-col overflow-hidden">
+              <div className="sticky top-0 z-10 p-4 border-b flex justify-between items-center bg-white flex-shrink-0">
+                <h2 className="text-lg sm:text-xl font-bold">RFP Response Builder</h2>
+                <button
+                  onClick={closeRfpBuilder}
+                  className="text-gray-500 hover:text-gray-700 p-1 bg-gray-100 rounded-full"
+                >
+                  <X className="w-5 h-5 sm:w-6 sm:h-6" />
+                </button>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto">
+                {currentRfpPursuitId && (
+                  <RfpResponse 
+                    contract={selectedPursuit} 
+                    pursuitId={currentRfpPursuitId} 
+                  />
+                )}
+              </div>
             </div>
           </div>
         </div>
       )}
       
       <div className="flex flex-1 overflow-hidden">
-        <SideBar />
+        {!showRfpBuilder && <SideBar />}
 
         <div className={DashboardTemplate.main}>
           {/* Page content */}
-          <div className={DashboardTemplate.content}>
+          <div className={`${DashboardTemplate.content} relative`}>
+            
             <div className="w-full">
               {/* Page header - moved to top for seamless UI */}
               <div className="flex items-center mb-6 bg-white rounded-xl p-6 shadow-sm border border-gray-200">
@@ -902,7 +1026,7 @@ export default function Pursuits(): JSX.Element {
                     <span>{currentDate}</span>
                     <span className="mx-2">•</span>
                     <span className="flex items-center">
-                      <Target className="h-4 w-4 mr-1 text-blue-500" />
+                      <Target className="h-4 w-4 mr-2 text-blue-500" />
                       Manage Trackers
                     </span>
                   </div>
@@ -914,6 +1038,12 @@ export default function Pursuits(): JSX.Element {
               
               <SearchAndActions
             onSearch={handleSearch}
+            onDueDateFilterChange={handleDueDateFilterChange}
+            onStatusFilterChange={handleStatusFilterChange}
+            onSortChange={handleSortChange}
+            dueDateFilter={dueDateFilter}
+            statusFilter={statusFilter}
+            sortBy={sortBy}
           />
 
           <ViewSelector
@@ -925,9 +1055,9 @@ export default function Pursuits(): JSX.Element {
             }}
           />
 
-          <div className={`flex-1 p-3 sm:p-4 lg:p-5 ${view === 'kanban' ? '' : 'overflow-y-auto'}`} ref={mainContentRef}>
-            {/* Show skeleton loading during initial/progressive loading */}
-            {(progressiveLoading && !initialLoadComplete) ? (
+           <div className={`flex-1 p-3 sm:p-4 lg:p-5 ${view === 'kanban' ? '' : 'overflow-y-auto'}`} ref={mainContentRef}>
+             {/* Show skeleton loading during initial/progressive loading */}
+             {(progressiveLoading && !initialLoadComplete) ? (
               <PageLoadingSkeleton type="pursuits" />
             ) : pursuits.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-[60vh] px-4">
@@ -957,6 +1087,8 @@ export default function Pursuits(): JSX.Element {
                       onDelete={handleRemovePursuit}
                       onAskAI={handleAskAI}
                       onToggleSubmission={handleToggleSubmission}
+                      highlightedPursuitId={highlightedPursuitId}
+                      fadingOutPursuitId={fadingOutPursuitId}
                     />
                   )}
                   
@@ -967,6 +1099,8 @@ export default function Pursuits(): JSX.Element {
                       onRfpAction={handleRfpAction}
                       onDelete={handleRemovePursuit}
                       onAskAI={handleAskAI}
+                      highlightedPursuitId={highlightedPursuitId}
+                      fadingOutPursuitId={fadingOutPursuitId}
                     />
                   )}
                   
@@ -974,6 +1108,8 @@ export default function Pursuits(): JSX.Element {
                     <CalendarView
                       pursuits={filteredPursuits}
                       onPursuitSelect={handlePursuitSelect}
+                      highlightedPursuitId={highlightedPursuitId}
+                      fadingOutPursuitId={fadingOutPursuitId}
                     />
                   )}
                 </Suspense>

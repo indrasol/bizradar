@@ -1,17 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Pursuit } from './types';
 
 interface CalendarViewProps {
   pursuits: Pursuit[];
   onPursuitSelect: (pursuit: Pursuit) => void;
+  highlightedPursuitId?: string | null;
+  fadingOutPursuitId?: string | null;
 }
 
 export const CalendarView: React.FC<CalendarViewProps> = ({
   pursuits,
   onPursuitSelect,
+  highlightedPursuitId,
+  fadingOutPursuitId,
 }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
+  const highlightedPursuitRef = useRef<HTMLDivElement>(null);
 
   const getDaysInMonth = (date: Date) => {
     return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
@@ -32,6 +37,18 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     });
   };
 
+  // Auto-scroll to highlighted pursuit when it's available
+  useEffect(() => {
+    if (highlightedPursuitId && highlightedPursuitRef.current) {
+      setTimeout(() => {
+        highlightedPursuitRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center'
+        });
+      }, 100);
+    }
+  }, [highlightedPursuitId, pursuits]);
+
   const renderCalendar = () => {
     const daysInMonth = getDaysInMonth(currentDate);
     const firstDayOfMonth = getFirstDayOfMonth(currentDate);
@@ -51,15 +68,32 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         <div key={day} className="h-24 border border-gray-200 p-2 overflow-y-auto">
           <div className="text-sm font-medium text-gray-900 mb-1">{day}</div>
           <div className="space-y-1">
-            {pursuitsForDay.map((pursuit) => (
-              <div
-                key={pursuit.id}
-                className="text-xs p-1 bg-blue-50 text-blue-700 rounded cursor-pointer hover:bg-blue-100 transition-colors"
-                onClick={() => onPursuitSelect(pursuit)}
-              >
-                {pursuit.title}
-              </div>
-            ))}
+            {pursuitsForDay.map((pursuit) => {
+              const isHighlighted = highlightedPursuitId === pursuit.id;
+              const isFadingOut = fadingOutPursuitId === pursuit.id;
+              return (
+                <div
+                  key={pursuit.id}
+                  ref={isHighlighted ? highlightedPursuitRef : null}
+                  className={`text-xs p-1 rounded cursor-pointer ${
+                    isHighlighted 
+                      ? 'bg-blue-200 text-blue-900 border border-blue-400' 
+                      : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+                  }`}
+                  style={{
+                    transition: 'all 0.5s ease-out',
+                    ...(isFadingOut && {
+                      backgroundColor: '#dbeafe',
+                      borderColor: 'transparent',
+                      color: '#1e40af'
+                    })
+                  }}
+                  onClick={() => onPursuitSelect(pursuit)}
+                >
+                  {pursuit.title}
+                </div>
+              );
+            })}
           </div>
         </div>
       );

@@ -17,6 +17,14 @@ const FiltersSidebar: React.FC<FiltersSidebarProps> = ({ filterValues, setFilter
     setActiveFilters((prev) => ({ ...prev, [filter]: !prev[filter] }));
   };
 
+  const handleDateChange = (type: 'from' | 'to', value: string) => {
+    if (type === 'from') {
+      setFilterValues({ ...filterValues, customPostedDateFrom: value });
+    } else {
+      setFilterValues({ ...filterValues, customPostedDateTo: value });
+    }
+  };
+
   return (
     <div className={`border-r border-gray-200 overflow-y-auto relative bg-white shadow-sm transition-all duration-300 ease-in-out ${filtersOpen ? "w-72" : "w-16"}`}>
       <div className="sticky top-0 z-10 p-4 border-b border-gray-200 bg-white flex items-center justify-between">
@@ -61,6 +69,7 @@ const FiltersSidebar: React.FC<FiltersSidebarProps> = ({ filterValues, setFilter
             ]}
             selectedValue={filterValues.postedDate}
             onChange={(value) => setFilterValues({ ...filterValues, postedDate: value })}
+            onDateChange={handleDateChange}
           />
           {/* Add NAICS Code and Opportunity Type filters similarly */}
           <FilterSectionAutocomplete
@@ -83,7 +92,6 @@ const FiltersSidebar: React.FC<FiltersSidebarProps> = ({ filterValues, setFilter
             options={[
               { id: "all", value: "all", label: "All" },
               { id: "federal", value: "federal", label: "Federal (SAM.gov)" },
-              { id: "freelancer", value: "freelancer", label: "Freelancer" },
             ]}
             selectedValue={filterValues.opportunityType}
             onChange={(value) => setFilterValues({ ...filterValues, opportunityType: value })}
@@ -100,18 +108,42 @@ const FiltersSidebar: React.FC<FiltersSidebarProps> = ({ filterValues, setFilter
         </>
       ) : (
         <div className="flex flex-col items-center p-3 gap-3">
-          <button className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
-            <Clock size={18} />
-          </button>
-          <button className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-600">
-            <Calendar size={18} />
-          </button>
-          <button className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-600">
-            <Tag size={18} />
-          </button>
-          <button className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-600">
-            <ListFilter size={18} />
-          </button>
+          <div className="group relative">
+            <button 
+              className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 hover:bg-blue-100 transition-colors"
+              onClick={() => toggleFilter("dueDate")}
+              title="Due Date Filter"
+            >
+              <Clock size={18} />
+            </button>
+          </div>
+          <div className="group relative">
+            <button 
+              className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 hover:bg-gray-200 transition-colors"
+              onClick={() => toggleFilter("postedDate")}
+              title="Posted Date Filter"
+            >
+              <Calendar size={18} />
+            </button>
+          </div>
+          <div className="group relative">
+            <button 
+              className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 hover:bg-gray-200 transition-colors"
+              onClick={() => toggleFilter("naicsCode")}
+              title="NAICS Code Filter"
+            >
+              <Tag size={18} />
+            </button>
+          </div>
+          <div className="group relative">
+            <button 
+              className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 hover:bg-gray-200 transition-colors"
+              onClick={() => toggleFilter("opportunityType")}
+              title="Opportunity Type Filter"
+            >
+              <ListFilter size={18} />
+            </button>
+          </div>
         </div>
       )}
     </div>

@@ -12,6 +12,8 @@ import { UpgradeModal } from "@/components/subscription/UpgradeModal";
 import { subscriptionApi } from "@/api/subscription";
 import { Star, BarChart3, Calendar, Target, ChevronDown, Check } from "lucide-react";
 import { DashboardTemplate } from "../utils/responsivePatterns";
+import DeadlineRiskWidget from "../components/analytics/DeadlineRiskWidget";
+import PerformanceMetricsWidget from "../components/analytics/PerformanceMetricsWidget";
 
 const STAGE_OPTIONS = [
   { value: '', label: 'All Stages' },
@@ -85,45 +87,70 @@ const Analytics = () => {
   // Fetch monthly stats and all pursuits
   useEffect(() => {
     const fetchData = async () => {
-      setLoading(true);
-      // --- Monthly stats (last 6 months) ---
-      const today = new Date();
-      const currentYear = today.getFullYear();
-      const currentMonth = today.getMonth();
-      const stats = [];
-      for (let i = 0; i < 6; i++) {
-        const targetDate = new Date(currentYear, currentMonth - i, 1);
-        const monthName = targetDate.toLocaleString('default', { month: 'short' });
-        const year = targetDate.getFullYear();
-        const startDate = new Date(year, targetDate.getMonth(), 1);
-        const endDate = new Date(year, targetDate.getMonth() + 1, 0);
-        const startDateStr = startDate.toISOString().split('T')[0];
-        const endDateStr = endDate.toISOString().split('T')[0];
-        const { data, error } = await supabase
-          .from('sam_gov')
-          .select('id')
-          .gte('published_date', startDateStr)
-          .lte('published_date', endDateStr);
-        stats.unshift({
-          month: monthName,
-          year: year,
-          count: data?.length || 0,
-          startDate: startDate,
-          endDate: endDate
-        });
+      if (!user) {
+        setLoading(false);
+        return;
       }
-      setMonthlyStats(stats);
 
-      // --- All pursuits (for table) ---
+      setLoading(true);
+
+      // Determine last 6 months buckets
+      const today = new Date();
+      const startMonth = new Date(today.getFullYear(), today.getMonth() - 5, 1);
+
+      // Fetch trackers for current user (including created_at)
       const { data: trackersData } = await supabase
         .from('trackers')
-        .select('id, title, stage, due_date, is_submitted, updated_at')
-        .order('updated_at', { ascending: false });
+        .select('id, title, stage, due_date, is_submitted, updated_at, created_at')
+        .eq('user_id', user.id)
+        .gte('created_at', startMonth.toISOString().split('T')[0])
+        .order('created_at', { ascending: true });
+
+      // Build month buckets for last 6 months
+      const monthBuckets = [] as any[];
+      for (let i = 5; i >= 0; i--) {
+        const bucketDate = new Date(today.getFullYear(), today.getMonth() - i, 1);
+        const monthName = bucketDate.toLocaleString('default', { month: 'short' });
+        const year = bucketDate.getFullYear();
+        const bucketStart = new Date(year, bucketDate.getMonth(), 1);
+        const bucketEnd = new Date(year, bucketDate.getMonth() + 1, 0);
+        monthBuckets.push({
+          month: monthName,
+          year,
+          count: 0,
+          startDate: bucketStart,
+          endDate: bucketEnd,
+        });
+      }
+
+      // Aggregate trackers by created_at month
+      (trackersData || []).forEach((t: any) => {
+        if (!t.created_at) return;
+        const d = new Date(t.created_at);
+        
+        // Find the correct month bucket
+        const bucket = monthBuckets.find(b => {
+          const bucketYear = b.year;
+          const bucketMonth = new Date(bucketYear, b.startDate.getMonth()).getMonth();
+          const trackerYear = d.getFullYear();
+          const trackerMonth = d.getMonth();
+          
+          return bucketYear === trackerYear && bucketMonth === trackerMonth;
+        });
+        
+        if (bucket) {
+          bucket.count += 1;
+        }
+      });
+
+      setMonthlyStats(monthBuckets);
+
+      // Set pursuits for table (unfiltered; filters apply later)
       setPursuits(trackersData || []);
       setLoading(false);
     };
     fetchData();
-  }, []);
+  }, [user]);
 
   // Filtering logic
   useEffect(() => {
@@ -290,6 +317,7 @@ const Analytics = () => {
       <UpgradeModal 
         isOpen={upgradeOpen} 
         onClose={() => setUpgradeOpen(false)} 
+        onSuccess={() => setUpgradeOpen(false)}
       />
 
       <div className="flex flex-1 overflow-hidden">
@@ -315,7 +343,7 @@ const Analytics = () => {
                     <span>{new Date().toLocaleDateString()}</span>
                     <span className="mx-2">•</span>
                     <span className="flex items-center">
-                      <Target className="h-4 w-4 mr-1 text-blue-500" />
+                      <Target className="h-4 w-4 mr-2 text-blue-500" />
                       Tracker Analytics
                     </span>
                   </div>
@@ -407,14 +435,24 @@ const Analytics = () => {
       ) : (
         <>
           {/* Export buttons for charts */}
-          <div className="flex flex-wrap gap-4 mb-4">
+          {/* <div className="flex flex-wrap gap-4 mb-4">
             <button
               onClick={handleExportChart}
               className="px-4 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700 transition"
             >
               Export Bar Chart as PNG
             </button>
+          </div> */}
+          {/* Deadline Risk Assessment - Full Width */}
+          <div className="mb-8">
+            <DeadlineRiskWidget />
           </div>
+
+          {/* Performance Metrics - Full Width */}
+          <div className="mb-8">
+            <PerformanceMetricsWidget />
+          </div>
+
           {/* Charts Row */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
             {/* Pie Chart: Stage Breakdown */}
@@ -475,16 +513,22 @@ const Analytics = () => {
               </button>
             </div>
             <div ref={barChartRef} className="w-full h-[300px]">
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={filteredMonthlyStats}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis allowDecimals={false} />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="count" fill="#2563eb" name="Opportunities Added" />
-                </BarChart>
-              </ResponsiveContainer>
+              {filteredMonthlyStats && filteredMonthlyStats.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={filteredMonthlyStats} margin={{ top: 16, right: 24, bottom: 8, left: 8 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis allowDecimals={false} />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="count" fill="#2563eb" name="Opportunities Added" />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+                  No data for selected filters.
+                </div>
+              )}
             </div>
           </div>
 

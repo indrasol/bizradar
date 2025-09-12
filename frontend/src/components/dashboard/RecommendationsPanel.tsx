@@ -21,6 +21,7 @@ import {
 import tokenService from "../../utils/tokenService";
 import { UpgradeModal } from "../subscription/UpgradeModal";
 import { API_ENDPOINTS } from "@/config/apiEndpoints";
+import { profileApi, UserProfile } from "../../api/profile";
 
 interface RecommendationsPanelProps { 
   opportunities: any[]; 
@@ -48,8 +49,46 @@ const RecommendationsPanel = ({
   const [cancelRequested, setCancelRequested] = useState(false);
   const [showDetailedReason, setShowDetailedReason] = useState({});
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [userProfileData, setUserProfileData] = useState<UserProfile | null>(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const API_BASE_URL = window.location.hostname === "localhost" ? "http://localhost:5000" : import.meta.env.VITE_API_BASE_URL;
   const abortCtrlRef = useRef<AbortController | null>(null);
+
+  // Fetch user profile from database
+  const fetchUserProfile = async () => {
+    try {
+      setIsLoadingProfile(true);
+      const userId = tokenService.getUserIdFromToken();
+      
+      if (!userId) {
+        console.warn('No user ID found in token');
+        return;
+      }
+
+      const profile = await profileApi.getUserProfile(userId);
+      setUserProfileData(profile);
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+      // Fallback to prop data if API fails
+      if (userProfile.companyUrl || userProfile.companyDescription) {
+        setUserProfileData({
+          id: '',
+          personal_info: {},
+          company_info: {
+            company_url: userProfile.companyUrl,
+            company_description: userProfile.companyDescription
+          }
+        });
+      }
+    } finally {
+      setIsLoadingProfile(false);
+    }
+  };
+
+  // Load user profile on component mount
+  useEffect(() => {
+    fetchUserProfile();
+  }, []);
 
   // Generate recommendations function
   const generateRecommendations = async () => {
@@ -64,22 +103,24 @@ const RecommendationsPanel = ({
     const { signal } = abortCtrlRef.current;
     
     try {
-      // Get user profile and current search query
-      const userProfile = {
-        companyUrl: "example.com", // Replace with actual user profile data
-        companyDescription: "Technology consulting company specializing in AI solutions and government contracts." // Placeholder
-      };
-      
       // Get the current search query from session storage
       const searchState = sessionStorage.getItem('lastOpportunitiesSearchState');
       const parsedState = searchState ? JSON.parse(searchState) : {};
       const searchQuery = parsedState.query || "";
       const userId = tokenService.getUserIdFromToken();
       
+      // Use fetched profile data or fallback to prop data
+      const profileData = userProfileData || {
+        company_info: {
+          company_url: userProfile.companyUrl,
+          company_description: userProfile.companyDescription
+        }
+      };
+      
       const requestBody = {
-        companyUrl: userProfile.companyUrl,
-        companyDescription: userProfile.companyDescription || "",
-        opportunities: opportunities.slice(0,2),
+        companyUrl: profileData.company_info?.company_url || "",
+        companyDescription: profileData.company_info?.company_description || "",
+        opportunities: opportunities.slice(0,5),
         responseFormat: "json",
         includeMatchReason: true,
         searchQuery: searchQuery,  // Include search query for caching
@@ -389,7 +430,7 @@ const RecommendationsPanel = ({
                       </div>
                       <div className="flex items-start">
                           {/* Match Analysis Box */}
-                          <div className="mt-3 bg-blue-50 p-4 rounded-lg border border-blue-100">
+                          <div className="mt-3 bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
                             <div className="flex items-start">
                               <div className="bg-white p-1.5 rounded-full mr-3 mt-0.5 border border-blue-200 shadow-sm">
                                 <Info size={14} className="text-blue-600" />
@@ -478,7 +519,7 @@ const RecommendationsPanel = ({
                 })}
                 
                 {/* Pro Upgrade Banner */}
-                <div className="p-2 relative">
+                {/* <div className="p-2 relative">
                   <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-10">
                     <div className="text-center p-4 max-w-md">
                       <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
@@ -496,7 +537,6 @@ const RecommendationsPanel = ({
                     </div>
                   </div>
 
-                  {/* Placeholder Recommendation Card */}
                   <div className="flex items-start">
                     <div className="flex-1">
                       <div className="font-medium text-gray-800 mb-1">
@@ -564,7 +604,7 @@ const RecommendationsPanel = ({
                       </div>
                     </div>
                   </div>
-                </div>
+                </div> */}
               </div>
             </div>
           ) : (
@@ -586,13 +626,18 @@ const RecommendationsPanel = ({
               </p>
               <button
                 onClick={generateRecommendations}
-                disabled={opportunities.length === 0}
+                disabled={opportunities.length === 0 || isLoadingProfile}
                 className={`px-6 py-2.5 rounded-lg shadow-md text-sm font-medium transition-all flex items-center gap-2
-                          ${opportunities.length === 0 
+                          ${opportunities.length === 0 || isLoadingProfile
                           ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
                           : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
               >
-                {hasExistingRecommendations ? (
+                {isLoadingProfile ? (
+                  <>
+                    <Loader className="animate-spin" size={16} />
+                    <span>Loading Profile...</span>
+                  </>
+                ) : hasExistingRecommendations ? (
                   <>
                     <Eye size={16} />
                     <span>View Recommendations</span>
