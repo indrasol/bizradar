@@ -190,7 +190,7 @@ const evaluateCondition = (condition: string, data: any): boolean => {
 
 // API base URL and endpoints are centralized in API_ENDPOINTS
 
-const RfpResponse = ({ contract, pursuitId }) => {
+const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; pursuitId: string; aiOpportunityId?: number }) => {
   const contentRef = useRef<HTMLDivElement>(null);
 
   const exampleJob = contract || {
@@ -436,13 +436,13 @@ const RfpResponse = ({ contract, pursuitId }) => {
 
           console.log("Successfully loaded saved RFP data");
         } else {
-          console.log("No existing RFP response found, using default template");
-          // No saved data found, use default template with contract data
+          console.log("No existing RFP response found, loading templates and converting to HTML");
+          // No saved data found, load DOCX templates and convert to HTML for editing
           setRfpTitle(contract?.title || 'Proposal for Cybersecurity Audit & Penetration Testing Services');
           setNaicsCode(contract?.naicsCode || '000000');
           setSolicitationNumber(contract?.solicitation_number || '');
           setIssuedDate(contract?.published_date || new Date().toLocaleDateString());
-          setSections(defaultTemplate(exampleJob));
+          await resetSectionsWithDocxHtml();
         }
       } catch (err) {
         console.error("Error in RFP data loading:", err);
@@ -1181,82 +1181,28 @@ const RfpResponse = ({ contract, pursuitId }) => {
         throw new Error("User not authenticated");
       }
 
-      // First, try to get company data from user_companies table
-      let companyData = null;
-      try {
-        const { data: userCompanies, error: userCompaniesError } = await supabase
-          .from('user_companies')
-          .select(`
-            *,
-            companies (
-              id,
-              name,
-              url,
-              description
-            )
-          `)
-          .eq('user_id', user.id)
-          .eq('is_primary', true)
-          .single();
+      // Determine profile_id from authenticated user
+      const profile_id = user.id;
 
-        if (!userCompaniesError && userCompanies && userCompanies.companies) {
-          companyData = userCompanies.companies;
-          console.log("Found company data from user_companies:", companyData);
+      // Resolve ai_enhanced_opportunities.id from prop or fallback lookup
+      let ai_opportunity_id: number | null = aiOpportunityId || null;
+      if (!ai_opportunity_id) {
+        try {
+          const { data: aiOpp, error: aiOppError } = await supabase
+            .from('ai_enhanced_opportunities')
+            .select('id')
+            .eq('title', contract?.title || rfpTitle)
+            .limit(1)
+            .maybeSingle();
+          if (!aiOppError && aiOpp && aiOpp.id) {
+            ai_opportunity_id = aiOpp.id;
+          }
+        } catch (e) {
+          // Ignore and proceed without id
         }
-      } catch (error) {
-        console.log("No primary company found in user_companies, using form data");
       }
 
-      // Parse company address from letterhead or use company data
-      let companyCity = '';
-      let companyState = '';
-      let companyZip = '';
-      let companyStreet = '';
-
-      if (companyData) {
-        // Use data from user_companies table
-        companyStreet = companyData.address || '';
-        companyCity = companyData.city || '';
-        companyState = companyData.state || '';
-        companyZip = companyData.zip_code || '';
-      } else {
-        // Parse from letterhead field
-        const addressParts = letterhead.split(',').map(part => part.trim());
-        companyStreet = addressParts.length > 0 ? addressParts[0] : letterhead;
-        companyCity = addressParts.length > 1 ? addressParts[2] : '';
-        const companyStateZip = addressParts.length > 2 ? addressParts[3] : '';
-        [companyState, companyZip] = companyStateZip.split(' ').filter(Boolean);
-      }
-
-      // Prepare company context data with fallback logic
-      const company_context = {
-        company_logo: companyData?.logo || logo || "",
-        company_website: companyData?.website || companyWebsite,
-        company_ceo: companyData?.ceo_name || submittedBy,
-        company_name: companyData?.name || companyName,
-        company_street: companyStreet,
-        company_city: companyCity,
-        company_state: companyState || "",
-        company_zip: companyZip || "",
-        company_phone: companyData?.phone || phone,
-        company_email: companyData?.email || "", // Could be extracted from submittedBy or added as separate field
-        company_esign: "", // Could be added as separate field
-      };
-
-      // Prepare proposal context data
-      const proposal_context = {
-        proposal_class: rfpTitle,
-        proposal_bid: solicitationNumber,
-        proposal_org: contract?.department || "",
-        proposal_address: contract?.department || "",
-        proposal_phone: "", // Could be extracted from contract data
-        proposal_due_date: contract?.dueDate || "",
-        proposal_description: contract?.description || "",
-        proposal_title: rfpTitle,
-      };
-
-      console.log("Sending company context:", company_context);
-      console.log("Sending proposal context:", proposal_context);
+      console.log("Posting IDs for contexts:", { profile_id, ai_opportunity_id });
 
       // Call the backend API
       const response = await fetch(`${API_ENDPOINTS.ENHANCE_RFP_WITH_AI}`, {
@@ -1265,8 +1211,8 @@ const RfpResponse = ({ contract, pursuitId }) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          company_context,
-          proposal_context,
+          profile_id,
+          ai_opportunity_id,
           pursuitId,
           userId: user?.id
         }),

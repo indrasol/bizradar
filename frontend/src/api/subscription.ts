@@ -1,6 +1,6 @@
 import { supabase } from '@/utils/supabase';
 import { Subscription, SubscriptionPlan, PlanType, SubscriptionStatus } from '@/models/subscription';
-import { API_ENDPOINTS, STRIPE_PRICES, SUPABASE_TABLES } from '@/config/apiEndpoints';
+import { API_ENDPOINTS, SUPABASE_TABLES } from '@/config/apiEndpoints';
 import { apiClient } from '@/lib/api';
 
 export const subscriptionApi = {
@@ -103,27 +103,30 @@ export const subscriptionApi = {
     }
   },
 
-  async createCheckoutSession(planType: string, billingCycle: 'monthly' | 'annual' = 'monthly'): Promise<{ sessionId: string }> {
+  async createCheckoutSession(planType: string, billingCycle: 'monthly' | 'annual' = 'monthly'): Promise<{ sessionId: string; url?: string }> {
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       throw new Error('User must be logged in to create a checkout session.');
     }
 
-    // Get the price ID based on plan and billing cycle
-    const priceId = STRIPE_PRICES[`${planType}_${billingCycle}` as keyof typeof STRIPE_PRICES];
-    if (!priceId) {
-      throw new Error('Invalid plan type or billing cycle');
-    }
+    // Normalize inputs
+    let normalizedPlan = (planType || '').toLowerCase().trim();
+    if (normalizedPlan === 'basic') normalizedPlan = 'pro';
+    const normalizedCycle = (billingCycle || 'monthly').toLowerCase().trim() as 'monthly' | 'annual';
+
+    // Get the price ID from backend (subscriptions table)
+    const priceResp = await apiClient.get(API_ENDPOINTS.STRIPE_PRICE_ID(normalizedPlan, normalizedCycle));
+    const priceId = priceResp.price_id as string;
 
     // Call our backend to create a checkout session
     const data = await apiClient.post(API_ENDPOINTS.CHECKOUT_SESSION, {
       priceId: priceId,
-      planType: planType
+      planType: normalizedPlan
     });
     
-    const { sessionId } = data;
-    return { sessionId };
+    const { sessionId, url } = data;
+    return { sessionId, url };
   },
 
   async createSubscription(planType: string): Promise<Subscription> {
