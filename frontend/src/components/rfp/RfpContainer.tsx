@@ -328,16 +328,16 @@ export function RfpContainer({ initialContent = '', contract }) {
   };
 
   return (
-    <div className="min-h-[calc(100vh-8rem)] bg-[#f9fafb] relative">
+    <div className="min-h-[calc(100vh-8rem)] bg-background relative">
       {/* Description Modal */}
       {viewDescription && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-start overflow-y-auto p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 my-8 relative">
-            <div className="sticky top-0 bg-white z-10 p-4 border-b flex justify-between items-center">
-              <h2 className="text-xl font-bold">RFP Description</h2>
+          <div className="bg-card rounded-lg shadow-xl max-w-4xl w-full mx-4 my-8 relative border border-border">
+            <div className="sticky top-0 bg-card z-10 p-4 border-b border-border flex justify-between items-center">
+              <h2 className="text-xl font-bold text-foreground">RFP Description</h2>
               <button
                 onClick={() => setViewDescription(false)}
-                className="text-gray-500 hover:text-gray-700 p-2 rounded-full hover:bg-gray-100"
+                className="text-muted-foreground hover:text-foreground p-2 rounded-full hover:bg-muted"
               >
                 <Eye className="w-5 h-5" />
               </button>
@@ -354,12 +354,12 @@ export function RfpContainer({ initialContent = '', contract }) {
       {/* HTML View Modal */}
       {viewHtml && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-start overflow-y-auto overflow-x-hidden p-2">
-          <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full mx-1 my-4 relative box-border">
-            <div className="sticky top-0 bg-white z-10 p-3 border-b flex justify-between items-center">
-              <h2 className="text-xl font-bold">Sample RFP Response</h2>
+          <div className="bg-card rounded-lg shadow-xl max-w-5xl w-full mx-1 my-4 relative box-border border border-border">
+            <div className="sticky top-0 bg-card z-10 p-3 border-b border-border flex justify-between items-center">
+              <h2 className="text-xl font-bold text-foreground">Sample RFP Response</h2>
               <button
                 onClick={() => setViewHtml(false)}
-                className="text-gray-500 hover:text-gray-700 p-2 rounded-full hover:bg-gray-100"
+                className="text-muted-foreground hover:text-foreground p-2 rounded-full hover:bg-muted"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -431,14 +431,14 @@ export function RfpContainer({ initialContent = '', contract }) {
                     animate={{ opacity: 1, y: 0 }}
                     className="mt-4 w-full p-6"
                   >
-                    <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-200">
+                    <div className="bg-card rounded-2xl shadow-lg overflow-hidden border border-border">
                       {generatingRfp ? (
                         <div className="flex flex-col items-center justify-center h-64 p-6">
                           <Loader2 size={32} className="animate-spin text-blue-500 mb-4" />
-                          <p className="text-gray-600 font-medium">
+                          <p className="text-muted-foreground font-medium">
                             Generating RFP response...
                           </p>
-                          <p className="text-sm text-gray-500 mt-2">This may take a few moments</p>
+                          <p className="text-sm text-muted-foreground mt-2">This may take a few moments</p>
                         </div>
                       ) : (
                         <>

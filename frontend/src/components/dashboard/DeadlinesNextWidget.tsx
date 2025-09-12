@@ -108,7 +108,7 @@ const DeadlinesNextWidget: React.FC<DeadlinesNextWidgetProps> = ({ className = '
   // Quick actions
   const handleViewPursuit = (oppId: string) => {
     // Navigate to pursuits page with the specific pursuit highlighted
-    window.open(`/pursuits?highlight=${oppId}`, '_blank');
+    window.open(`/trackers?highlight=${oppId}`, '_blank');
   };
 
   const handleAddToCalendar = (deadline: DeadlineRow) => {
@@ -141,16 +141,16 @@ const DeadlinesNextWidget: React.FC<DeadlinesNextWidgetProps> = ({ className = '
   }, [user, selectedDays]);
 
   return (
-    <div className={`bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden ${className}`}>
+    <div className={`bg-card rounded-xl shadow-sm border border-border overflow-hidden flex flex-col ${className}`}>
       {/* Header */}
-      <div className="px-6 py-4 border-b border-gray-100">
+      <div className="px-6 py-4 border-b border-border flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="p-2 bg-blue-50 text-blue-500 rounded-lg">
               <Clock className="h-5 w-5" />
             </div>
             <div className="flex items-center space-x-2">
-              <h2 className="text-lg font-semibold text-gray-700">
+              <h2 className="text-lg font-semibold text-foreground">
                 Deadlines Next
               </h2>
               
@@ -158,7 +158,7 @@ const DeadlinesNextWidget: React.FC<DeadlinesNextWidgetProps> = ({ className = '
               <div className="relative">
                 <button
                   onClick={() => setShowDropdown(!showDropdown)}
-                  className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                  className="inline-flex items-center px-3 py-1.5 border border-input text-sm font-medium rounded-lg text-foreground bg-background hover:bg-muted transition-colors"
                 >
                   {selectedDays} days
                   <ChevronDown className="ml-1 h-4 w-4" />
@@ -190,7 +190,7 @@ const DeadlinesNextWidget: React.FC<DeadlinesNextWidgetProps> = ({ className = '
       </div>
 
       {/* Content */}
-      <div className="max-h-96 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto">
         {isLoading ? (
           <div className="flex items-center justify-center h-32">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
@@ -206,16 +206,16 @@ const DeadlinesNextWidget: React.FC<DeadlinesNextWidgetProps> = ({ className = '
               const daysInfo = getDaysLeftInfo(deadline.daysLeft);
               
               return (
-                <div key={deadline.oppId} className="p-4 hover:bg-gray-50 transition-colors">
+                <div key={deadline.oppId} className="p-4 hover:bg-muted transition-colors">
                   <div className="flex items-center justify-between">
                     <div className="flex-1 min-w-0">
                       {/* Title and Agency */}
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex-1 min-w-0">
-                          <h3 className="text-sm font-medium text-gray-900 truncate">
+                          <h3 className="text-sm font-medium text-foreground truncate">
                             {deadline.title}
                           </h3>
-                          <div className="flex items-center text-xs text-gray-500 mt-1">
+                          <div className="flex items-center text-xs text-muted-foreground mt-1">
                             <Shield className="h-3 w-3 mr-1" />
                             <span className="truncate">{deadline.agency}</span>
                             <span className="mx-1">•</span>
@@ -258,13 +258,13 @@ const DeadlinesNextWidget: React.FC<DeadlinesNextWidgetProps> = ({ className = '
                           >
                             <CalendarPlus className="h-4 w-4" />
                           </button>
-                          <button
+                          {/* <button
                             onClick={() => handleMarkSubmitted(deadline.oppId)}
                             className="p-1.5 text-gray-400 hover:text-emerald-500 hover:bg-emerald-50 rounded transition-colors"
                             title="Mark Submitted"
                           >
                             <CheckCircle2 className="h-4 w-4" />
-                          </button>
+                          </button> */}
                         </div>
                       </div>
                     </div>
@@ -278,13 +278,13 @@ const DeadlinesNextWidget: React.FC<DeadlinesNextWidgetProps> = ({ className = '
 
       {/* Footer */}
       {filteredDeadlines.length > 0 && (
-        <div className="px-6 py-3 border-t border-gray-100 bg-gray-50">
+        <div className="px-6 py-3 border-t border-gray-100 bg-gray-50 flex-shrink-0">
           <div className="flex items-center justify-between">
             <Link
-              to="/pursuits"
+              to="/trackers"
               className="text-blue-600 hover:text-blue-800 text-sm font-medium inline-flex items-center"
             >
-              View all pursuits
+              View all trackers
               <ChevronRight className="h-4 w-4 ml-1" />
             </Link>
             <button
@@ -298,7 +298,7 @@ const DeadlinesNextWidget: React.FC<DeadlinesNextWidgetProps> = ({ className = '
             </button>
           </div>
         </div>
-      )}
+        )}
     </div>
   );
 };

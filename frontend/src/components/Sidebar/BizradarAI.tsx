@@ -637,8 +637,8 @@ const BizradarAI: React.FC = () => {
         
         {/* Suggestions */}
         {messages.length === 1 && (
-          <div className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 border-t border-gray-200 bg-white">
-            <h3 className="text-xs sm:text-sm font-medium text-gray-700 mb-2 sm:mb-3 flex items-center gap-1 sm:gap-2">
+          <div className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 border-t border-border bg-card">
+            <h3 className="text-xs sm:text-sm font-medium text-foreground mb-2 sm:mb-3 flex items-center gap-1 sm:gap-2">
               <Sparkles size={12} className="sm:w-[14px] sm:h-[14px] text-emerald-500" />
               Try asking
             </h3>
@@ -647,7 +647,7 @@ const BizradarAI: React.FC = () => {
                 <button 
                   key={index}
                   onClick={() => handleSuggestionClick(suggestion)}
-                  className="text-left text-xs sm:text-sm bg-emerald-50 hover:bg-emerald-100 text-emerald-700 p-2 sm:p-3 rounded-lg transition-colors"
+                  className="text-left text-xs sm:text-sm bg-emerald-50 dark:bg-emerald-900/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 p-2 sm:p-3 rounded-lg transition-colors"
                 >
                   {suggestion}
                 </button>
@@ -657,23 +657,23 @@ const BizradarAI: React.FC = () => {
         )}
         
         {/* Input Area with Drag & Drop */}
-        <div className="p-3 sm:p-4 border-t border-gray-200 bg-white shadow-lg">
+        <div className="p-3 sm:p-4 border-t border-border bg-card shadow-lg">
           <div className="max-w-sm sm:max-w-2xl lg:max-w-4xl mx-auto">
             {/* File List Display */}
             {uploadedFiles.length > 0 && (
-              <div className="mb-2 sm:mb-3 pb-2 sm:pb-3 border-b border-gray-200">
-                <p className="text-xs font-medium text-gray-600 mb-1 sm:mb-2">Uploaded files for context:</p>
+              <div className="mb-2 sm:mb-3 pb-2 sm:pb-3 border-b border-border">
+                <p className="text-xs font-medium text-muted-foreground mb-1 sm:mb-2">Uploaded files for context:</p>
                 <div className="flex flex-wrap gap-1 sm:gap-2">
                   {uploadedFiles.map((file, index) => (
                     <div 
                       key={index} 
-                      className="flex items-center bg-emerald-50 border border-emerald-100 rounded-md px-2 sm:px-3 py-1 sm:py-1.5 text-xs text-emerald-700"
+                      className="flex items-center bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-100 dark:border-emerald-800/50 rounded-md px-2 sm:px-3 py-1 sm:py-1.5 text-xs text-emerald-700 dark:text-emerald-300"
                     >
                       {getFileIcon(file.name)}
                       <span className="ml-1 sm:ml-1.5 truncate max-w-20 sm:max-w-xs">{file.name}</span>
                       <button
                         onClick={() => removeFile(index)}
-                        className="ml-1 sm:ml-2 text-emerald-500 hover:text-emerald-700"
+                        className="ml-1 sm:ml-2 text-emerald-500 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300"
                       >
                         <X size={10} className="sm:w-3 sm:h-3" />
                       </button>
@@ -686,11 +686,11 @@ const BizradarAI: React.FC = () => {
             {/* Drag & Drop Area */}
             <div 
               ref={dropAreaRef} 
-              className={`relative ${isDragging ? 'bg-emerald-50 border-emerald-300' : ''}`}
+              className={`relative ${isDragging ? 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-300 dark:border-emerald-600' : ''}`}
             >
               {isDragging && (
-                <div className="absolute inset-0 bg-emerald-50 border-2 border-dashed border-emerald-300 rounded-xl flex items-center justify-center z-10">
-                  <div className="text-emerald-500 font-medium text-sm sm:text-base">Drop files here</div>
+                <div className="absolute inset-0 bg-emerald-50 dark:bg-emerald-900/30 border-2 border-dashed border-emerald-300 dark:border-emerald-600 rounded-xl flex items-center justify-center z-10">
+                  <div className="text-emerald-500 dark:text-emerald-400 font-medium text-sm sm:text-base">Drop files here</div>
                 </div>
               )}
               
@@ -704,7 +704,7 @@ const BizradarAI: React.FC = () => {
               />
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="absolute left-2 sm:left-3 bottom-2 sm:bottom-3 p-1.5 sm:p-2 rounded-lg text-gray-500 hover:text-emerald-500 hover:bg-emerald-50 transition-colors"
+                className="absolute left-2 sm:left-3 bottom-2 sm:bottom-3 p-1.5 sm:p-2 rounded-lg text-muted-foreground hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors"
                 title="Upload files for context"
               >
                 <FileUp size={14} className="sm:w-4 sm:h-4" />
@@ -716,7 +716,7 @@ const BizradarAI: React.FC = () => {
                 onChange={(e) => setNewMessage(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Message BizradarAI or drag files here..."
-                className="w-full px-3 sm:px-4 py-2 sm:py-3 pl-8 sm:pl-12 pr-10 sm:pr-14 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none h-10 sm:h-12 min-h-10 sm:min-h-12 max-h-24 sm:max-h-32 shadow-sm text-sm sm:text-base"
+                className="w-full px-3 sm:px-4 py-2 sm:py-3 pl-8 sm:pl-12 pr-10 sm:pr-14 border border-border bg-background text-foreground rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none h-10 sm:h-12 min-h-10 sm:min-h-12 max-h-24 sm:max-h-32 shadow-sm text-sm sm:text-base placeholder:text-muted-foreground"
                 rows={1}
               />
               <button 
@@ -724,7 +724,7 @@ const BizradarAI: React.FC = () => {
                 disabled={newMessage.trim() === ''}
                 className={`absolute right-2 sm:right-3 bottom-2 sm:bottom-3 p-1.5 sm:p-2 rounded-lg ${
                   newMessage.trim() === '' 
-                    ? 'text-gray-400 bg-gray-100' 
+                    ? 'text-muted-foreground bg-muted' 
                     : 'text-white bg-emerald-500 hover:bg-emerald-600'
                 } transition-colors`}
               >
@@ -732,7 +732,7 @@ const BizradarAI: React.FC = () => {
               </button>
             </div>
             
-            <p className="text-xs text-gray-500 mt-1 sm:mt-2">
+            <p className="text-xs text-muted-foreground mt-1 sm:mt-2">
               BizradarAI may produce inaccurate information. Verify important information.
             </p>
           </div>

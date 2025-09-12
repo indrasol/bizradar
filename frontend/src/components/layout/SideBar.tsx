@@ -22,6 +22,7 @@ import { toast } from 'sonner';
 import BizradarAIModal from './BizradarAIModal';
 import { subscriptionApi } from '../../api/subscription';
 import { UpgradeModal } from '../subscription/UpgradeModal';
+import ThemeToggle from '../ThemeToggle';
 
 const Sidebar = () => {
   const location = useLocation();
@@ -210,7 +211,7 @@ const Sidebar = () => {
   const handleLogout = async () => {
     try {
       await logout();
-      navigate('/login');
+      navigate('/register');
     } catch (error) {
       console.error('Logout error:', error);
     }
@@ -312,7 +313,7 @@ const Sidebar = () => {
   }, [profileLoading, profile, isAdmin, user, isNavigating]);
   
   return (
-    <div className={`h-full bg-gray-50 border-r border-gray-200 transition-all duration-300 flex flex-col ${collapsed ? 'w-20' : 'w-64'}`}>
+    <div className={`relative z-[9999] h-full bg-card border-r border-border transition-all duration-300 flex flex-col ${collapsed ? 'w-20' : 'w-64'}`}>
       {/* Global Loading Indicator */}
       {isNavigating && (
         <div className="absolute top-0 left-0 right-0 z-50">
@@ -336,9 +337,9 @@ const Sidebar = () => {
         {/* Toggle Button */}
         <button 
           onClick={() => setCollapsed(!collapsed)}
-          className="absolute -right-3 top-10 w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-sm hover:shadow-md focus:outline-none transition-all"
+          className="absolute -right-3 top-10 w-6 h-6 bg-background border border-border rounded-full flex items-center justify-center shadow-sm hover:shadow-md focus:outline-none transition-all"
         >
-          <ChevronRight className={`w-4 h-4 text-gray-500 transition-transform duration-300 ${collapsed ? '' : 'rotate-180'}`} />
+          <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform duration-300 ${collapsed ? '' : 'rotate-180'}`} />
         </button>
         
         {/* Logo */}
@@ -354,7 +355,7 @@ const Sidebar = () => {
         
         {/* User Info - Enhanced with stable loading states */}
         <div className={`${collapsed ? 'px-2' : 'px-6'} mb-8`}>
-          <div className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'} p-2 rounded-xl bg-gradient-to-r from-blue-50 to-white border border-blue-100 transition-all duration-300`}>
+          <div className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'} p-2 rounded-xl bg-gradient-to-r from-blue-50 to-card border border-blue-100 transition-all duration-300`}>
             {/* Avatar - Always visible with stable content */}
             <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-medium shadow-sm transition-all duration-300">
               {profileDisplayData.showLoading ? (
@@ -376,7 +377,7 @@ const Sidebar = () => {
                   </div>
                 ) : (
                   <div className="transition-all duration-300 opacity-100">
-                    <p className="text-sm font-medium text-gray-800 truncate transition-all duration-300">
+                    <p className="text-sm font-medium text-foreground truncate transition-all duration-300">
                       {profileDisplayData.displayName}
                     </p>
                     {profileDisplayData.showAdmin && (
@@ -386,7 +387,7 @@ const Sidebar = () => {
                       </p>
                     )}
                     {profileError && (
-                      <p className="text-xs text-gray-400 transition-all duration-300">Profile loading...</p>
+                      <p className="text-xs text-muted-foreground transition-all duration-300">Profile loading...</p>
                     )}
                   </div>
                 )}
@@ -397,7 +398,7 @@ const Sidebar = () => {
             {!collapsed && (
               <button
                 onClick={handleLogout}
-                className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                className="p-1.5 text-muted-foreground hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                 title="Sign out"
               >
                 <LogOut className="w-4 h-4" />
@@ -443,7 +444,7 @@ const Sidebar = () => {
               <span className="font-medium transition-all duration-300">Home</span>
             )}
             {collapsed && (
-              <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none whitespace-nowrap z-50">
+              <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none whitespace-nowrap z-[10000] shadow-lg">
                 Home
               </div>
             )}
@@ -484,7 +485,7 @@ const Sidebar = () => {
               <span className="font-medium transition-all duration-300">Opportunities</span>
             )}
             {collapsed && (
-              <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none whitespace-nowrap z-50">
+              <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none whitespace-nowrap z-[10000] shadow-lg">
                 Opportunities
               </div>
             )}
@@ -547,7 +548,7 @@ const Sidebar = () => {
               </div>
             )}
             {collapsed && (
-              <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none whitespace-nowrap z-50">
+              <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none whitespace-nowrap z-[10000] shadow-lg">
                 My Tracker {pursuitCount > 0 ? `(${pursuitCount})` : ''}
               </div>
             )}
@@ -588,7 +589,7 @@ const Sidebar = () => {
               <span className="font-medium transition-all duration-300">Analytics</span>
             )}
             {collapsed && (
-              <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none whitespace-nowrap z-50">
+              <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none whitespace-nowrap z-[10000] shadow-lg">
                 Analytics
               </div>
             )}
@@ -630,7 +631,7 @@ const Sidebar = () => {
               <span className="font-medium transition-all duration-300">Settings</span>
             )}
             {collapsed && (
-              <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none whitespace-nowrap z-50">
+              <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none whitespace-nowrap z-[10000] shadow-lg">
                 Settings
               </div>
             )}
@@ -688,7 +689,7 @@ const Sidebar = () => {
                 <Lock className="w-3.5 h-3.5 ml-auto text-gray-400" />
               )}
               {collapsed && (
-                <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none whitespace-nowrap z-50">
+                <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none whitespace-nowrap z-[10000] shadow-lg">
                   Admin Zone
                   {!isAdmin && " (Restricted)"}
                 </div>
@@ -722,11 +723,16 @@ const Sidebar = () => {
               </div>
             )}
             {collapsed && (
-              <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+              <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-[10000] shadow-lg">
                 Bizradar AI
               </div>
             )}
           </Link>
+          
+          {/* Theme Toggle */}
+          <div className={`${collapsed ? 'flex justify-center' : 'px-3'} py-2`}>
+            <ThemeToggle collapsed={collapsed} />
+          </div>
         </nav>
         
         {/* Bottom Links */}
@@ -752,7 +758,7 @@ const Sidebar = () => {
                 <span className="font-medium text-blue-600">
                   {subscriptionLoading ? 'Loading...' : 
                    currentSubscription ? `${currentSubscription.plan_type?.charAt(0).toUpperCase() + currentSubscription.plan_type?.slice(1)} Plan` : 
-                   'Free Plan'}
+                   'Basic Plan'}
                 </span>
                 <div className="ml-auto flex items-center">
                   <span className="px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded-full text-xs font-medium">Upgrade</span>
@@ -764,10 +770,10 @@ const Sidebar = () => {
               </div>
             )}
             {collapsed && (
-              <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+              <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-[10000] shadow-lg">
                 {subscriptionLoading ? 'Loading...' : 
                  currentSubscription ? `${currentSubscription.plan_type?.charAt(0).toUpperCase() + currentSubscription.plan_type?.slice(1)} Plan` : 
-                 'Free Plan'} <span className="ml-1 px-1 bg-blue-600 rounded text-xs">Upgrade</span>
+                 'Basic Plan'} <span className="ml-1 px-1 bg-blue-600 rounded text-xs">Upgrade</span>
               </div>
             )}
           </button>

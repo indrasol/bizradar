@@ -3082,3 +3082,308 @@ Testing search functionality...
 Indexing completed in 20.03 seconds!
 2025-04-16 13:53:20,319 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
 2025-04-16 13:53:20,337 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-05-23 15:40:54,958 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-05-23 15:40:54,960 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-05-23 15:40:59,268 - indexer - INFO - Running INCREMENTAL indexing (new/updated records only)...
+2025-05-23 15:40:59,269 - indexer - INFO - Checking Pinecone index before indexing...
+2025-05-23 15:41:00,652 - indexer - INFO - Index dimension: 384
+2025-05-23 15:41:00,652 - indexer - INFO - Total vectors: 0
+2025-05-23 15:41:00,652 - indexer - INFO - Namespaces: {}
+2025-05-23 15:41:00,652 - indexer - INFO - Starting to index SAM.gov records...
+2025-05-23 15:41:05,959 - indexer - INFO - Fetched 1305 SAM.gov records from database since 2025-04-15T00:51:29.309854
+2025-05-23 15:47:11,958 - indexer - INFO - Upserted sam_gov batch 1 of 14
+2025-05-23 15:47:13,654 - indexer - INFO - Upserted sam_gov batch 2 of 14
+2025-05-23 15:47:15,113 - indexer - INFO - Upserted sam_gov batch 3 of 14
+2025-05-23 15:47:16,157 - indexer - INFO - Upserted sam_gov batch 4 of 14
+2025-05-23 15:47:17,397 - indexer - INFO - Upserted sam_gov batch 5 of 14
+2025-05-23 15:47:18,629 - indexer - INFO - Upserted sam_gov batch 6 of 14
+2025-05-23 15:47:19,754 - indexer - INFO - Upserted sam_gov batch 7 of 14
+2025-05-23 15:47:20,635 - indexer - INFO - Upserted sam_gov batch 8 of 14
+2025-05-23 15:47:23,756 - indexer - INFO - Upserted sam_gov batch 9 of 14
+2025-05-23 15:47:26,009 - indexer - INFO - Upserted sam_gov batch 10 of 14
+2025-05-23 15:47:27,270 - indexer - INFO - Upserted sam_gov batch 11 of 14
+2025-05-23 15:47:28,357 - indexer - INFO - Upserted sam_gov batch 12 of 14
+2025-05-23 15:47:29,304 - indexer - INFO - Upserted sam_gov batch 13 of 14
+2025-05-23 15:47:29,634 - indexer - INFO - Upserted sam_gov batch 14 of 14
+2025-05-23 15:47:29,634 - indexer - INFO - Successfully indexed 1305 sam_gov records to Pinecone. Skipped 0 records.
+2025-05-23 15:47:29,640 - indexer - INFO - 
+Starting to index Freelancer projects...
+2025-05-23 15:47:32,329 - indexer - INFO - Fetched 50 Freelancer records from database
+2025-05-23 15:47:47,313 - indexer - INFO - Upserted freelancer batch 1 of 1
+2025-05-23 15:47:47,314 - indexer - INFO - Successfully indexed 50 freelancer records to Pinecone. Skipped 0 records.
+2025-05-23 15:47:47,314 - indexer - INFO - Checking Pinecone index after indexing...
+2025-05-23 15:47:47,593 - indexer - INFO - Index dimension: 384
+2025-05-23 15:47:47,593 - indexer - INFO - Total vectors: 1355
+2025-05-23 15:47:47,593 - indexer - INFO - Namespaces: {'': {'vector_count': 1355}}
+2025-05-23 15:47:47,594 - indexer - INFO - Added 1355 vectors to the index (total processed: 1355)
+2025-05-23 15:47:47,594 - indexer - INFO - 
+Testing search functionality...
+2025-05-23 15:47:47,594 - indexer - INFO - Testing search with query: 'cybersecurity'
+2025-05-23 15:47:47,895 - indexer - INFO - Found 5 matches for query 'cybersecurity'
+2025-05-23 15:47:47,896 - indexer - INFO - Match 1: ID=sam_gov_1200, Score=0.571966171, Source=sam_gov
+2025-05-23 15:47:47,896 - indexer - INFO -   Title: Integrated Defensive Cyberspace System (IDCS) Secure Platform Architecture for Real-Time Threat Analysis and Network Defense (SPARTAN)
+2025-05-23 15:47:47,896 - indexer - INFO - Match 2: ID=sam_gov_1151, Score=0.548819602, Source=sam_gov
+2025-05-23 15:47:47,896 - indexer - INFO -   Title: Department of Defense Cyber Crime Center (DC3) System Engineering and Technical Advisory (SETA)
+2025-05-23 15:47:47,897 - indexer - INFO - Match 3: ID=sam_gov_1389, Score=0.510564864, Source=sam_gov
+2025-05-23 15:47:47,897 - indexer - INFO -   Title: Cybersecurity Services RFI 2025
+2025-05-23 15:47:47,897 - indexer - INFO - Match 4: ID=sam_gov_920, Score=0.485398293, Source=sam_gov
+2025-05-23 15:47:47,897 - indexer - INFO -   Title: Project Manager Support Services for Defensive Cyber Operations
+2025-05-23 15:47:47,897 - indexer - INFO - Match 5: ID=sam_gov_1085, Score=0.454035759, Source=sam_gov
+2025-05-23 15:47:47,898 - indexer - INFO -   Title: BRAND NAME  Trellix Endpoint Threat Prevention Software
+2025-05-23 15:47:48,178 - indexer - INFO - Results for sam_gov: 3 matches
+2025-05-23 15:47:48,577 - indexer - INFO - Results for freelancer: 3 matches
+2025-05-23 15:47:48,578 - indexer - INFO - Testing search with query: 'web development'
+2025-05-23 15:47:49,054 - indexer - INFO - Found 5 matches for query 'web development'
+2025-05-23 15:47:49,054 - indexer - INFO - Match 1: ID=freelancer_47, Score=0.573913574, Source=freelancer
+2025-05-23 15:47:49,054 - indexer - INFO -   Title: Fullstack Developer For Long Term Projects
+2025-05-23 15:47:49,054 - indexer - INFO - Match 2: ID=freelancer_8, Score=0.537837505, Source=freelancer
+2025-05-23 15:47:49,054 - indexer - INFO -   Title: Web Developer, Seo Expert & Graphic Designer
+2025-05-23 15:47:49,054 - indexer - INFO - Match 3: ID=freelancer_16, Score=0.520588398, Source=freelancer
+2025-05-23 15:47:49,054 - indexer - INFO -   Title: Escort Website Directory Development
+2025-05-23 15:47:49,054 - indexer - INFO - Match 4: ID=freelancer_17, Score=0.474751, Source=freelancer
+2025-05-23 15:47:49,054 - indexer - INFO -   Title: Quoting Web App Integrated With Perfex
+2025-05-23 15:47:49,054 - indexer - INFO - Match 5: ID=freelancer_18, Score=0.472891331, Source=freelancer
+2025-05-23 15:47:49,054 - indexer - INFO -   Title: Laravel Website Completion: Frontend Integration -- 2
+2025-05-23 15:47:49,344 - indexer - INFO - Results for sam_gov: 3 matches
+2025-05-23 15:47:50,627 - indexer - INFO - Results for freelancer: 3 matches
+2025-05-23 15:47:50,628 - indexer - INFO - 
+Indexing completed in 411.36 seconds!
+2025-05-23 16:20:59,334 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-05-23 16:20:59,334 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-05-23 16:21:03,139 - indexer - INFO - Running INCREMENTAL indexing (new/updated records only)...
+2025-05-23 16:21:03,139 - indexer - INFO - Checking Pinecone index before indexing...
+2025-05-23 16:21:04,493 - indexer - INFO - Index dimension: 384
+2025-05-23 16:21:04,493 - indexer - INFO - Total vectors: 1000
+2025-05-23 16:21:04,496 - indexer - INFO - Namespaces: {'': {'vector_count': 1000}}
+2025-05-23 16:21:04,496 - indexer - INFO - Starting to index SAM.gov records...
+2025-05-23 16:21:06,731 - indexer - INFO - Fetched 0 SAM.gov records from database since 2025-05-23T15:47:29.634658
+2025-05-23 16:21:06,731 - indexer - WARNING - No new records found in sam_gov table to index.
+2025-05-23 16:21:06,731 - indexer - INFO - 
+Starting to index Freelancer projects...
+2025-05-23 16:21:09,376 - indexer - INFO - Fetched 50 Freelancer records from database
+2025-05-23 16:21:24,408 - indexer - INFO - Upserted freelancer batch 1 of 1
+2025-05-23 16:21:24,408 - indexer - INFO - Successfully indexed 50 freelancer records to Pinecone. Skipped 0 records.
+2025-05-23 16:21:24,408 - indexer - INFO - Checking Pinecone index after indexing...
+2025-05-23 16:21:24,630 - indexer - INFO - Index dimension: 384
+2025-05-23 16:21:24,630 - indexer - INFO - Total vectors: 1000
+2025-05-23 16:21:24,630 - indexer - INFO - Namespaces: {'': {'vector_count': 1000}}
+2025-05-23 16:21:24,630 - indexer - INFO - Added 0 vectors to the index (total processed: 50)
+2025-05-23 16:21:24,630 - indexer - INFO - 
+Testing search functionality...
+2025-05-23 16:21:24,630 - indexer - INFO - Testing search with query: 'cybersecurity'
+2025-05-23 16:21:24,887 - indexer - INFO - Found 5 matches for query 'cybersecurity'
+2025-05-23 16:21:24,888 - indexer - INFO - Match 1: ID=c28abe6e501041f4867777c18d1a9a76, Score=0.538529694, Source=sam_gov
+2025-05-23 16:21:24,888 - indexer - INFO -   Title: CyberSecure Alarm System Sole Source
+2025-05-23 16:21:24,888 - indexer - INFO - Match 2: ID=e3db2e5c00bc4f89aa61fd06a96ef12c, Score=0.497153163, Source=sam_gov
+2025-05-23 16:21:24,888 - indexer - INFO -   Title: Comprehensive Cybersecurity Solutions for Operational Technology (OT) Environments - Software Licensing Opportunity
+2025-05-23 16:21:24,888 - indexer - INFO - Match 3: ID=4b6f01b785774edea5c8f8b75436db7a, Score=0.482100219, Source=sam_gov
+2025-05-23 16:21:24,888 - indexer - INFO -   Title: Electronic Security Systems (ESS) VIII
+2025-05-23 16:21:24,888 - indexer - INFO - Match 4: ID=0d97cd2f19124fd29b2f34ee39cc5e3e, Score=0.46315375, Source=sam_gov
+2025-05-23 16:21:24,889 - indexer - INFO -   Title: Security Operations Support Services
+2025-05-23 16:21:24,889 - indexer - INFO - Match 5: ID=7ba3dac395f246df8c6b6a5f1596ffbc, Score=0.45837754, Source=sam_gov
+2025-05-23 16:21:24,889 - indexer - INFO -   Title: Reclaiming Bus-based Systems During Compromise (Red-C)
+2025-05-23 16:21:25,107 - indexer - INFO - Results for sam_gov: 3 matches
+2025-05-23 16:21:25,397 - indexer - INFO - Results for freelancer: 0 matches
+2025-05-23 16:21:25,398 - indexer - INFO - Testing search with query: 'web development'
+2025-05-23 16:21:25,627 - indexer - INFO - Found 5 matches for query 'web development'
+2025-05-23 16:21:25,627 - indexer - INFO - Match 1: ID=78b1f0ff2da24de79302d41896fc9b2c, Score=0.286184132, Source=sam_gov
+2025-05-23 16:21:25,627 - indexer - INFO -   Title: Demonstrating the SERDP-ESTCP e-Learning Platform for Enhancing Technology Transition
+2025-05-23 16:21:25,627 - indexer - INFO - Match 2: ID=a108acac2fcf420fa19c5fe42a188d17, Score=0.208519399, Source=sam_gov
+2025-05-23 16:21:25,627 - indexer - INFO -   Title: Environmental Data Services (EDS) Subscription Services and Enhancements
+2025-05-23 16:21:25,627 - indexer - INFO - Match 3: ID=093a0c0386e6416ea3f48a7aea5b0047, Score=0.20488435, Source=sam_gov
+2025-05-23 16:21:25,627 - indexer - INFO -   Title: Methodological Advancements for Generalizable Insights into Complex Systems (MAGICS)
+2025-05-23 16:21:25,627 - indexer - INFO - Match 4: ID=1e287185b7694348881c2d99dcf0e8bf, Score=0.202090383, Source=sam_gov
+2025-05-23 16:21:25,627 - indexer - INFO -   Title: Expedited Research Implementation Series (ERIS)
+2025-05-23 16:21:25,627 - indexer - INFO - Match 5: ID=0553a6ceb04148aca02ad2add442fb8a, Score=0.198844194, Source=sam_gov
+2025-05-23 16:21:25,627 - indexer - INFO -   Title: Services for Co-creation with Public Libraries
+2025-05-23 16:21:25,860 - indexer - INFO - Results for sam_gov: 3 matches
+2025-05-23 16:21:26,070 - indexer - INFO - Results for freelancer: 0 matches
+2025-05-23 16:21:26,070 - indexer - INFO - 
+Indexing completed in 22.93 seconds!
+2025-06-05 15:10:57,685 - indexer - INFO - index_to_pinecone:<module>:644 - Running INCREMENTAL indexing (new/updated records only)...
+2025-06-05 15:10:57,686 - indexer - INFO - index_to_pinecone:index_all_to_pinecone:600 - Checking Pinecone index before indexing...
+2025-06-05 15:11:02,654 - indexer - INFO - index_to_pinecone:index_all_to_pinecone:607 - Starting to index SAM.gov records...
+2025-06-05 15:11:05,236 - indexer - ERROR - index_to_pinecone:fetch_sam_gov_records:108 - Error fetching sam_gov records: syntax error at or near "WHERE"
+LINE 7:                     WHERE created_at > '2025-05-23T15:47:29....
+                            ^
+
+2025-06-05 15:14:38,078 - indexer - INFO - index_to_pinecone:<module>:644 - Running INCREMENTAL indexing (new/updated records only)...
+2025-06-05 15:14:38,079 - indexer - INFO - index_to_pinecone:index_all_to_pinecone:600 - Checking Pinecone index before indexing...
+2025-06-05 15:14:43,156 - indexer - INFO - index_to_pinecone:index_all_to_pinecone:607 - Starting to index SAM.gov records...
+2025-06-05 15:14:46,528 - indexer - INFO - index_to_pinecone:fetch_sam_gov_records:104 - Fetched 238 SAM.gov records from database since 2025-05-23T15:47:29.634658
+2025-06-05 15:14:46,529 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:377 - Starting to process 238 sam_gov records...
+2025-06-05 15:16:59,443 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:505 - 
+sam_gov indexing completed with detailed statistics:
+2025-06-05 15:16:59,443 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:506 -   - Total records processed: 238
+2025-06-05 15:16:59,443 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:507 -   - New records indexed: 0
+2025-06-05 15:16:59,444 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:508 -   - Existing records updated: 0
+2025-06-05 15:16:59,445 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:509 -   - Records skipped (no changes): 238
+2025-06-05 15:16:59,445 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:510 -   - Records skipped (empty content): 0
+2025-06-05 15:16:59,481 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:511 -   - Records failed: 0
+2025-06-05 15:16:59,481 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:512 -   - Vector fetch errors: 0
+2025-06-05 15:16:59,481 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:513 -   - Batch processing errors: 0
+2025-06-05 15:16:59,481 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:514 -   - Success rate: 0.00%
+2025-06-05 15:16:59,481 - indexer - INFO - index_to_pinecone:index_all_to_pinecone:613 - 
+Starting to index Freelancer projects...
+2025-06-05 15:17:03,510 - indexer - INFO - index_to_pinecone:fetch_freelancer_data_table:142 - Fetched 50 Freelancer records from database
+2025-06-05 15:17:03,511 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:377 - Starting to process 50 freelancer records...
+2025-06-05 15:17:33,210 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:505 - 
+freelancer indexing completed with detailed statistics:
+2025-06-05 15:17:33,210 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:506 -   - Total records processed: 50
+2025-06-05 15:17:33,212 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:507 -   - New records indexed: 0
+2025-06-05 15:17:33,212 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:508 -   - Existing records updated: 0
+2025-06-05 15:17:33,212 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:509 -   - Records skipped (no changes): 50
+2025-06-05 15:17:33,212 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:510 -   - Records skipped (empty content): 0
+2025-06-05 15:17:33,212 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:511 -   - Records failed: 0
+2025-06-05 15:17:33,212 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:512 -   - Vector fetch errors: 0
+2025-06-05 15:17:33,214 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:513 -   - Batch processing errors: 0
+2025-06-05 15:17:33,214 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:514 -   - Success rate: 0.00%
+2025-06-05 15:17:33,214 - indexer - INFO - index_to_pinecone:index_all_to_pinecone:618 - Checking Pinecone index after indexing...
+2025-06-05 15:17:33,463 - indexer - INFO - index_to_pinecone:index_all_to_pinecone:624 - Added 0 vectors to the index (total processed: 0)
+2025-06-05 15:17:33,463 - indexer - INFO - index_to_pinecone:index_all_to_pinecone:627 - 
+Testing search functionality...
+2025-06-05 15:17:33,463 - indexer - INFO - index_to_pinecone:check_search:552 - Testing search with query: 'cybersecurity'
+2025-06-05 15:17:47,961 - indexer - INFO - index_to_pinecone:check_search:569 - Found 5 matches for query 'cybersecurity'
+2025-06-05 15:17:47,961 - indexer - INFO - index_to_pinecone:check_search:571 - Match 1: ID=sam_gov_1200, Score=0.57143724, Source=sam_gov
+2025-06-05 15:17:47,961 - indexer - INFO - index_to_pinecone:check_search:572 -   Title: Integrated Defensive Cyberspace System (IDCS) Secure Platform Architecture for Real-Time Threat Analysis and Network Defense (SPARTAN)
+2025-06-05 15:17:47,961 - indexer - INFO - index_to_pinecone:check_search:571 - Match 2: ID=sam_gov_153, Score=0.561115503, Source=sam_gov
+2025-06-05 15:17:47,961 - indexer - INFO - index_to_pinecone:check_search:572 -   Title: Electronic Security Systems (ESS) VIII
+2025-06-05 15:17:47,961 - indexer - INFO - index_to_pinecone:check_search:571 - Match 3: ID=sam_gov_1151, Score=0.548216701, Source=sam_gov
+2025-06-05 15:17:47,961 - indexer - INFO - index_to_pinecone:check_search:572 -   Title: Department of Defense Cyber Crime Center (DC3) System Engineering and Technical Advisory (SETA)
+2025-06-05 15:17:47,966 - indexer - INFO - index_to_pinecone:check_search:571 - Match 4: ID=sam_gov_317, Score=0.544884145, Source=sam_gov
+2025-06-05 15:17:47,966 - indexer - INFO - index_to_pinecone:check_search:572 -   Title: CyberSecure Alarm System Sole Source
+2025-06-05 15:17:47,966 - indexer - INFO - index_to_pinecone:check_search:571 - Match 5: ID=sam_gov_124, Score=0.515954494, Source=sam_gov
+2025-06-05 15:17:47,966 - indexer - INFO - index_to_pinecone:check_search:572 -   Title: High Performance Computing Modernization Program Cybersecurity Service Provider Support Services
+2025-06-05 15:17:48,221 - indexer - INFO - index_to_pinecone:check_search:585 - Results for sam_gov: 3 matches
+2025-06-05 15:17:48,592 - indexer - INFO - index_to_pinecone:check_search:585 - Results for freelancer: 3 matches
+2025-06-05 15:17:48,595 - indexer - INFO - index_to_pinecone:check_search:552 - Testing search with query: 'web development'
+2025-06-05 15:17:48,901 - indexer - INFO - index_to_pinecone:check_search:569 - Found 5 matches for query 'web development'
+2025-06-05 15:17:48,913 - indexer - INFO - index_to_pinecone:check_search:571 - Match 1: ID=freelancer_47, Score=0.573879242, Source=freelancer
+2025-06-05 15:17:48,913 - indexer - INFO - index_to_pinecone:check_search:572 -   Title: Fullstack Developer For Long Term Projects
+2025-06-05 15:17:48,913 - indexer - INFO - index_to_pinecone:check_search:571 - Match 2: ID=freelancer_8, Score=0.537976742, Source=freelancer
+2025-06-05 15:17:48,913 - indexer - INFO - index_to_pinecone:check_search:572 -   Title: Web Developer, Seo Expert & Graphic Designer
+2025-06-05 15:17:48,913 - indexer - INFO - index_to_pinecone:check_search:571 - Match 3: ID=freelancer_16, Score=0.521036863, Source=freelancer
+2025-06-05 15:17:48,913 - indexer - INFO - index_to_pinecone:check_search:572 -   Title: Escort Website Directory Development
+2025-06-05 15:17:48,913 - indexer - INFO - index_to_pinecone:check_search:571 - Match 4: ID=freelancer_17, Score=0.474953592, Source=freelancer
+2025-06-05 15:17:48,916 - indexer - INFO - index_to_pinecone:check_search:572 -   Title: Quoting Web App Integrated With Perfex
+2025-06-05 15:17:48,916 - indexer - INFO - index_to_pinecone:check_search:571 - Match 5: ID=freelancer_18, Score=0.473142922, Source=freelancer
+2025-06-05 15:17:48,916 - indexer - INFO - index_to_pinecone:check_search:572 -   Title: Laravel Website Completion: Frontend Integration -- 2
+2025-06-05 15:17:49,159 - indexer - INFO - index_to_pinecone:check_search:585 - Results for sam_gov: 3 matches
+2025-06-05 15:17:49,445 - indexer - INFO - index_to_pinecone:check_search:585 - Results for freelancer: 3 matches
+2025-06-05 15:17:49,446 - indexer - INFO - index_to_pinecone:index_all_to_pinecone:632 - 
+Indexing completed in 191.37 seconds!
+2025-06-05 15:22:41,935 - indexer - INFO - index_to_pinecone:<module>:642 - Running FULL reindexing of all records...
+2025-06-05 15:22:41,935 - indexer - INFO - index_to_pinecone:index_all_to_pinecone:600 - Checking Pinecone index before indexing...
+2025-06-05 15:22:47,156 - indexer - INFO - index_to_pinecone:index_all_to_pinecone:607 - Starting to index SAM.gov records...
+2025-06-05 15:22:51,649 - indexer - INFO - index_to_pinecone:fetch_sam_gov_records:92 - Fetched 2299 SAM.gov records from database
+2025-06-05 15:22:51,650 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:377 - Starting to process 2299 sam_gov records...
+2025-06-05 15:23:35,084 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:470 - Processing batch 1 with 100 vectors...
+2025-06-05 15:23:36,752 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:472 - Successfully processed batch 1
+2025-06-05 15:24:08,629 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:470 - Processing batch 2 with 100 vectors...
+2025-06-05 15:24:09,506 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:472 - Successfully processed batch 2
+2025-06-05 15:24:39,248 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:470 - Processing batch 3 with 100 vectors...
+2025-06-05 15:24:39,973 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:472 - Successfully processed batch 3
+2025-06-05 15:25:11,142 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:470 - Processing batch 4 with 100 vectors...
+2025-06-05 15:25:11,880 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:472 - Successfully processed batch 4
+2025-06-05 15:25:41,700 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:470 - Processing batch 5 with 100 vectors...
+2025-06-05 15:25:42,449 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:472 - Successfully processed batch 5
+2025-06-05 15:26:13,233 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:470 - Processing batch 6 with 100 vectors...
+2025-06-05 15:26:13,996 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:472 - Successfully processed batch 6
+2025-06-05 15:26:43,846 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:470 - Processing batch 7 with 100 vectors...
+2025-06-05 15:26:44,464 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:472 - Successfully processed batch 7
+2025-06-05 15:27:14,843 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:470 - Processing batch 8 with 100 vectors...
+2025-06-05 15:27:15,712 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:472 - Successfully processed batch 8
+2025-06-05 15:27:49,915 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:470 - Processing batch 9 with 100 vectors...
+2025-06-05 15:27:52,386 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:472 - Successfully processed batch 9
+2025-06-05 15:28:27,467 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:470 - Processing batch 10 with 100 vectors...
+2025-06-05 15:28:29,661 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:472 - Successfully processed batch 10
+2025-06-05 15:29:00,118 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:470 - Processing batch 11 with 100 vectors...
+2025-06-05 15:29:00,988 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:472 - Successfully processed batch 11
+2025-06-05 15:29:32,905 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:470 - Processing batch 12 with 100 vectors...
+2025-06-05 15:29:35,129 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:472 - Successfully processed batch 12
+2025-06-05 15:30:06,150 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:470 - Processing batch 13 with 100 vectors...
+2025-06-05 15:30:06,956 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:472 - Successfully processed batch 13
+2025-06-05 15:30:37,366 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:470 - Processing batch 14 with 100 vectors...
+2025-06-05 15:30:38,367 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:472 - Successfully processed batch 14
+2025-06-05 15:31:07,828 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:470 - Processing batch 15 with 100 vectors...
+2025-06-05 15:31:08,668 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:472 - Successfully processed batch 15
+2025-06-05 15:31:39,505 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:470 - Processing batch 16 with 100 vectors...
+2025-06-05 15:31:40,915 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:472 - Successfully processed batch 16
+2025-06-05 15:32:12,610 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:470 - Processing batch 17 with 100 vectors...
+2025-06-05 15:32:13,473 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:472 - Successfully processed batch 17
+2025-06-05 15:32:44,635 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:470 - Processing batch 18 with 100 vectors...
+2025-06-05 15:32:45,335 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:472 - Successfully processed batch 18
+2025-06-05 15:33:17,366 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:470 - Processing batch 19 with 100 vectors...
+2025-06-05 15:33:18,093 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:472 - Successfully processed batch 19
+2025-06-05 15:33:48,793 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:470 - Processing batch 20 with 100 vectors...
+2025-06-05 15:33:49,571 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:472 - Successfully processed batch 20
+2025-06-05 15:34:21,034 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:470 - Processing batch 21 with 100 vectors...
+2025-06-05 15:34:21,744 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:472 - Successfully processed batch 21
+2025-06-05 15:34:51,176 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:470 - Processing batch 22 with 100 vectors...
+2025-06-05 15:34:51,934 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:472 - Successfully processed batch 22
+2025-06-05 15:35:21,844 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:488 - Processing final batch 23 with 99 vectors...
+2025-06-05 15:35:22,479 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:490 - Successfully processed final batch 23
+2025-06-05 15:35:22,481 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:502 - Updated indexing state for sam_gov
+2025-06-05 15:35:22,481 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:505 - 
+sam_gov indexing completed with detailed statistics:
+2025-06-05 15:35:22,481 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:506 -   - Total records processed: 2299
+2025-06-05 15:35:22,482 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:507 -   - New records indexed: 2299
+2025-06-05 15:35:22,482 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:508 -   - Existing records updated: 0
+2025-06-05 15:35:22,482 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:509 -   - Records skipped (no changes): 0
+2025-06-05 15:35:22,483 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:510 -   - Records skipped (empty content): 0
+2025-06-05 15:35:22,483 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:511 -   - Records failed: 0
+2025-06-05 15:35:22,483 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:512 -   - Vector fetch errors: 0
+2025-06-05 15:35:22,483 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:513 -   - Batch processing errors: 0
+2025-06-05 15:35:22,485 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:514 -   - Success rate: 100.00%
+2025-06-05 15:35:22,489 - indexer - INFO - index_to_pinecone:index_all_to_pinecone:613 - 
+Starting to index Freelancer projects...
+2025-06-05 15:35:25,526 - indexer - INFO - index_to_pinecone:fetch_freelancer_data_table:142 - Fetched 50 Freelancer records from database
+2025-06-05 15:35:25,531 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:377 - Starting to process 50 freelancer records...
+2025-06-05 15:36:16,165 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:488 - Processing final batch 1 with 50 vectors...
+2025-06-05 15:36:22,115 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:490 - Successfully processed final batch 1
+2025-06-05 15:36:22,115 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:502 - Updated indexing state for freelancer
+2025-06-05 15:36:22,115 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:505 - 
+freelancer indexing completed with detailed statistics:
+2025-06-05 15:36:22,115 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:506 -   - Total records processed: 50
+2025-06-05 15:36:22,122 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:507 -   - New records indexed: 50
+2025-06-05 15:36:22,123 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:508 -   - Existing records updated: 0
+2025-06-05 15:36:22,123 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:509 -   - Records skipped (no changes): 0
+2025-06-05 15:36:22,123 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:510 -   - Records skipped (empty content): 0
+2025-06-05 15:36:22,123 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:511 -   - Records failed: 0
+2025-06-05 15:36:22,123 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:512 -   - Vector fetch errors: 0
+2025-06-05 15:36:22,123 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:513 -   - Batch processing errors: 0
+2025-06-05 15:36:22,125 - indexer - INFO - index_to_pinecone:index_records_to_pinecone:514 -   - Success rate: 100.00%
+2025-06-05 15:36:22,125 - indexer - INFO - index_to_pinecone:index_all_to_pinecone:618 - Checking Pinecone index after indexing...
+2025-06-05 15:36:22,358 - indexer - INFO - index_to_pinecone:index_all_to_pinecone:624 - Added 2349 vectors to the index (total processed: 2349)
+2025-06-05 15:36:22,358 - indexer - INFO - index_to_pinecone:index_all_to_pinecone:627 - 
+Testing search functionality...
+2025-06-05 15:36:22,358 - indexer - INFO - index_to_pinecone:check_search:552 - Testing search with query: 'cybersecurity'
+2025-06-05 15:36:22,630 - indexer - INFO - index_to_pinecone:check_search:569 - Found 5 matches for query 'cybersecurity'
+2025-06-05 15:36:22,630 - indexer - INFO - index_to_pinecone:check_search:571 - Match 1: ID=sam_gov_1200, Score=0.57143724, Source=sam_gov
+2025-06-05 15:36:22,630 - indexer - INFO - index_to_pinecone:check_search:572 -   Title: Integrated Defensive Cyberspace System (IDCS) Secure Platform Architecture for Real-Time Threat Analysis and Network Defense (SPARTAN)
+2025-06-05 15:36:22,630 - indexer - INFO - index_to_pinecone:check_search:571 - Match 2: ID=sam_gov_153, Score=0.561115503, Source=sam_gov
+2025-06-05 15:36:22,630 - indexer - INFO - index_to_pinecone:check_search:572 -   Title: Electronic Security Systems (ESS) VIII
+2025-06-05 15:36:22,643 - indexer - INFO - index_to_pinecone:check_search:571 - Match 3: ID=sam_gov_1151, Score=0.548216701, Source=sam_gov
+2025-06-05 15:36:22,644 - indexer - INFO - index_to_pinecone:check_search:572 -   Title: Department of Defense Cyber Crime Center (DC3) System Engineering and Technical Advisory (SETA)
+2025-06-05 15:36:22,644 - indexer - INFO - index_to_pinecone:check_search:571 - Match 4: ID=sam_gov_317, Score=0.544884086, Source=sam_gov
+2025-06-05 15:36:22,644 - indexer - INFO - index_to_pinecone:check_search:572 -   Title: CyberSecure Alarm System Sole Source
+2025-06-05 15:36:22,644 - indexer - INFO - index_to_pinecone:check_search:571 - Match 5: ID=sam_gov_124, Score=0.515954435, Source=sam_gov
+2025-06-05 15:36:22,644 - indexer - INFO - index_to_pinecone:check_search:572 -   Title: High Performance Computing Modernization Program Cybersecurity Service Provider Support Services
+2025-06-05 15:36:22,891 - indexer - INFO - index_to_pinecone:check_search:585 - Results for sam_gov: 3 matches
+2025-06-05 15:36:23,140 - indexer - INFO - index_to_pinecone:check_search:585 - Results for freelancer: 3 matches
+2025-06-05 15:36:23,141 - indexer - INFO - index_to_pinecone:check_search:552 - Testing search with query: 'web development'
+2025-06-05 15:36:23,427 - indexer - INFO - index_to_pinecone:check_search:569 - Found 5 matches for query 'web development'
+2025-06-05 15:36:23,427 - indexer - INFO - index_to_pinecone:check_search:571 - Match 1: ID=freelancer_47, Score=0.573913574, Source=freelancer
+2025-06-05 15:36:23,428 - indexer - INFO - index_to_pinecone:check_search:572 -   Title: Fullstack Developer For Long Term Projects
+2025-06-05 15:36:23,428 - indexer - INFO - index_to_pinecone:check_search:571 - Match 2: ID=freelancer_8, Score=0.537837505, Source=freelancer
+2025-06-05 15:36:23,428 - indexer - INFO - index_to_pinecone:check_search:572 -   Title: Web Developer, Seo Expert & Graphic Designer
+2025-06-05 15:36:23,429 - indexer - INFO - index_to_pinecone:check_search:571 - Match 3: ID=freelancer_16, Score=0.520588398, Source=freelancer
+2025-06-05 15:36:23,429 - indexer - INFO - index_to_pinecone:check_search:572 -   Title: Escort Website Directory Development
+2025-06-05 15:36:23,429 - indexer - INFO - index_to_pinecone:check_search:571 - Match 4: ID=freelancer_17, Score=0.474751, Source=freelancer
+2025-06-05 15:36:23,429 - indexer - INFO - index_to_pinecone:check_search:572 -   Title: Quoting Web App Integrated With Perfex
+2025-06-05 15:36:23,431 - indexer - INFO - index_to_pinecone:check_search:571 - Match 5: ID=freelancer_18, Score=0.472891331, Source=freelancer
+2025-06-05 15:36:23,431 - indexer - INFO - index_to_pinecone:check_search:572 -   Title: Laravel Website Completion: Frontend Integration -- 2
+2025-06-05 15:36:23,705 - indexer - INFO - index_to_pinecone:check_search:585 - Results for sam_gov: 3 matches
+2025-06-05 15:36:24,000 - indexer - INFO - index_to_pinecone:check_search:585 - Results for freelancer: 3 matches
+2025-06-05 15:36:24,000 - indexer - INFO - index_to_pinecone:index_all_to_pinecone:632 - 
+Indexing completed in 822.07 seconds!

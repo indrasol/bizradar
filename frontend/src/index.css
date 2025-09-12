@@ -90,12 +90,1158 @@
   }
 
   * {
-    border: var(--border);
+    border-color: hsl(var(--border));
   }
 
   body {
-    background-color: var(--background);
-    color: var(--foreground);
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+  }
+
+  /* Global theme overrides for common classes */
+  .bg-white {
+    background-color: hsl(var(--card));
+  }
+  
+  .bg-gray-50 {
+    background-color: hsl(var(--muted));
+  }
+  
+  .bg-gray-100 {
+    background-color: hsl(var(--muted));
+  }
+  
+  .text-gray-900 {
+    color: hsl(var(--foreground));
+  }
+  
+  .text-gray-800 {
+    color: hsl(var(--foreground));
+  }
+  
+  .text-gray-700 {
+    color: hsl(var(--foreground));
+  }
+  
+  .text-gray-600 {
+    color: hsl(var(--muted-foreground));
+  }
+  
+  .text-gray-500 {
+    color: hsl(var(--muted-foreground));
+  }
+  
+  .text-gray-400 {
+    color: hsl(var(--muted-foreground));
+  }
+  
+  .border-gray-200 {
+    border-color: hsl(var(--border));
+  }
+  
+  .border-gray-100 {
+    border-color: hsl(var(--border));
+  }
+  
+  .border-gray-300 {
+    border-color: hsl(var(--border));
+  }
+
+  .hover\\:bg-gray-50:hover {
+    background-color: hsl(var(--muted));
+  }
+
+  .hover\\:bg-gray-100:hover {
+    background-color: hsl(var(--muted));
+  }
+
+  /* Comprehensive theme overrides using CSS custom properties */
+  
+  /* All gray backgrounds */
+  .bg-gray-200 { background-color: hsl(var(--muted)); }
+  
+  /* All gray text colors */
+  .text-gray-300 { color: hsl(var(--muted-foreground)); }
+  
+  /* All border colors */
+  .border-gray-100,
+  .border-gray-200, 
+  .border-gray-300 { border-color: hsl(var(--border)); }
+  
+  /* Table headers and similar components */
+  thead { background-color: hsl(var(--muted)); }
+  
+  /* Force all gray-50 backgrounds to use muted color */
+  [class*="bg-gray-50"] { background-color: hsl(var(--muted)) !important; }
+  
+  /* Force all white backgrounds on cards to use card color */
+  [class*="bg-white"][class*="rounded"] { background-color: hsl(var(--card)) !important; }
+  [class*="bg-white"][class*="shadow"] { background-color: hsl(var(--card)) !important; }
+  [class*="bg-white"][class*="border"] { background-color: hsl(var(--card)) !important; }
+  
+  /* Force all gray text to use appropriate theme colors */
+  [class*="text-gray-900"],
+  [class*="text-gray-800"],
+  [class*="text-gray-700"] { color: hsl(var(--foreground)) !important; }
+  
+  [class*="text-gray-600"],
+  [class*="text-gray-500"],
+  [class*="text-gray-400"] { color: hsl(var(--muted-foreground)) !important; }
+  
+  /* Force all gray borders */
+  [class*="border-gray"] { border-color: hsl(var(--border)) !important; }
+  
+  /* Additional overrides for specific problem areas */
+  
+  /* Opportunity cards and search results */
+  .bg-white { background-color: hsl(var(--card)); }
+  
+  /* Analytics cards and charts */
+  .bg-white.rounded-xl { background-color: hsl(var(--card)); }
+  
+  /* Tracker table and list items */
+  .bg-white.rounded-lg { background-color: hsl(var(--card)); }
+  
+  /* Settings notification and billing cards */
+  .bg-gray-50 { background-color: hsl(var(--muted)); }
+  
+  /* Widget and modal backgrounds */
+  .bg-white.shadow-sm,
+  .bg-white.shadow-md,
+  .bg-white.shadow-lg { background-color: hsl(var(--card)); }
+  
+  /* Ensure main content areas use proper background */
+  main { background-color: hsl(var(--background)); }
+  
+  /* Override any remaining gradients that should be solid */
+  .bg-gradient-to-b { background: hsl(var(--background)); }
+  .bg-gradient-to-r { background: hsl(var(--card)); }
+  
+  /* Specific fix for Radar Matches card that wasn't responding */
+  .bg-card {
+    background-color: hsl(var(--card)) !important;
+  }
+  
+  /* Additional insurance for any missed white backgrounds */
+  div[class*="bg-white"] {
+    background-color: hsl(var(--card)) !important;
+  }
+  
+  /* Force any remaining white backgrounds in card-like elements */
+  [class*="bg-white"][class*="p-4"],
+  [class*="bg-white"][class*="p-5"], 
+  [class*="bg-white"][class*="p-6"],
+  [class*="bg-white"][class*="p-8"] {
+    background-color: hsl(var(--card)) !important;
+  }
+  
+  /* Specific fixes for Radar Matches card content */
+  
+  /* Fix gradient backgrounds in Radar Matches */
+  .bg-gradient-to-r.from-blue-50 {
+    background: hsl(var(--muted)) !important;
+  }
+  
+  /* Fix individual recommendation cards */
+  .border-gray-200 {
+    border-color: hsl(var(--border)) !important;
+  }
+  
+  .hover\\:bg-blue-50:hover {
+    background-color: hsl(var(--muted)) !important;
+  }
+  
+  /* Fix the bottom section of recommendation cards */
+  .border-t.border-gray-200 {
+    border-color: hsl(var(--border)) !important;
+  }
+  
+  /* Fix buttons in recommendation cards */
+  .bg-white.hover\\:bg-gray-50 {
+    background-color: hsl(var(--card)) !important;
+  }
+  
+  .bg-white.hover\\:bg-gray-50:hover {
+    background-color: hsl(var(--muted)) !important;
+  }
+  
+  /* Additional comprehensive overrides for remaining elements */
+  .text-gray-500 {
+    color: hsl(var(--muted-foreground)) !important;
+  }
+  
+  .text-gray-600 {
+    color: hsl(var(--muted-foreground)) !important;
+  }
+  
+  /* Scrollbar styling for dark theme - Always visible */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--muted));
+    border-radius: 4px;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / 0.5);
+    border-radius: 4px;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.8);
+  }
+  
+  ::-webkit-scrollbar-thumb:active {
+    background: hsl(var(--muted-foreground));
+  }
+  
+  /* Firefox scrollbar styling */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.5) hsl(var(--muted));
+  }
+  
+  /* Additional scrollbar overrides for specific containers */
+  .overflow-y-auto::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .overflow-y-auto::-webkit-scrollbar-track {
+    background: hsl(var(--muted) / 0.5);
+    border-radius: 3px;
+  }
+  
+  .overflow-y-auto::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / 0.4);
+    border-radius: 3px;
+  }
+  
+  .overflow-y-auto::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.7);
+  }
+  
+  .overflow-y-auto::-webkit-scrollbar-thumb:active {
+    background: hsl(var(--muted-foreground));
+  }
+
+  /* Billing History table (Settings) - ensure dark backgrounds by default */
+  .dark table thead { background-color: hsl(var(--muted)) !important; }
+  .dark table tbody.bg-white { background-color: hsl(var(--card)) !important; }
+  .dark table tbody.bg-white tr { background-color: hsl(var(--card)) !important; }
+  .dark table tbody.bg-white tr:nth-child(even) { background-color: hsl(var(--muted)) !important; }
+  .dark table tbody.bg-white td { background-color: transparent !important; color: hsl(var(--foreground)) !important; }
+  
+  /* Fix SuggestedSearches component gradients and colors */
+  
+  /* Remove gradient backgrounds in dark theme */
+  .bg-gradient-to-r.from-gray-800.to-gray-900 {
+    background: hsl(var(--foreground)) !important;
+    -webkit-background-clip: unset !important;
+    background-clip: unset !important;
+    -webkit-text-fill-color: unset !important;
+    color: hsl(var(--foreground)) !important;
+  }
+  
+  /* Fix card backgrounds */
+  .bg-white\/80 {
+    background-color: hsl(var(--card)) !important;
+  }
+  
+  /* Fix gradient accents - remove patch-like appearance in dark mode */
+  .bg-gradient-to-bl.from-blue-50.to-transparent {
+    background: transparent !important;
+  }
+  
+  /* Fix icon container gradients */
+  .bg-gradient-to-br.from-blue-50.to-blue-100 {
+    background: hsl(var(--muted)) !important;
+  }
+  
+  /* Fix hover states for icon containers */
+  .group:hover .group-hover\\:from-blue-100 {
+    background: hsl(var(--muted)) !important;
+  }
+  
+  /* Fix description area backgrounds - exclude SuggestedSearches */
+  .bg-gray-50\/80:not([class*="group-hover"]) {
+    background-color: hsl(var(--muted)) !important;
+  }
+
+  /* Specific fix for SuggestedSearches - keep it light in light theme */
+  .bg-gray-50\/80.group-hover\\:bg-blue-50\/80 {
+    background-color: rgba(249, 250, 251, 0.8) !important; /* Keep original light gray */
+  }
+
+  .dark .bg-gray-50\/80.group-hover\\:bg-blue-50\/80 {
+    background-color: hsl(var(--muted)) !important; /* Use theme muted in dark mode */
+  }
+  
+  /* Fix hover states for description areas */
+  .group:hover .group-hover\\:bg-blue-50\/80 {
+    background-color: hsl(var(--muted)) !important;
+  }
+  
+  /* Fix border colors */
+  .border-gray-200 {
+    border-color: hsl(var(--border)) !important;
+  }
+  
+  .hover\\:border-blue-300:hover {
+    border-color: hsl(var(--border)) !important;
+  }
+  
+  /* Additional fixes for SuggestedSearches container and decorations */
+  
+  /* Fix main container gradient background */
+  .bg-gradient-to-br.from-white.via-blue-50\/30.to-white {
+    background: hsl(var(--card)) !important;
+  }
+  
+  /* Remove background decorations in dark theme */
+  .bg-gradient-to-bl.from-blue-100\/50.to-transparent {
+    background: transparent !important;
+  }
+  
+  .bg-gradient-to-tr.from-emerald-100\/40.to-transparent {
+    background: transparent !important;
+  }
+  
+  /* Fix the main icon gradient - keep it blue */
+  .bg-gradient-to-br.from-blue-500.to-blue-600 {
+    background: linear-gradient(to bottom right, #3b82f6, #2563eb) !important;
+  }
+  
+  /* Fix backdrop blur cards */
+  .backdrop-blur-sm {
+    backdrop-filter: none !important;
+  }
+  
+  /* Comprehensive override for any remaining blue gradients */
+  [class*="bg-gradient"][class*="blue"] {
+    background: hsl(var(--muted)) !important;
+  }
+  
+  /* Override gradient hover states */
+  .group:hover [class*="bg-gradient"][class*="blue"] {
+    background: hsl(var(--muted)) !important;
+  }
+  
+  /* Fix invisible text in SuggestedSearches */
+  
+  /* Fix white text on icons - keep white on blue backgrounds */
+  .text-white:not(.bg-gradient-to-r *) {
+    color: white !important;
+  }
+
+  /* Specific override for gradient backgrounds */
+  .bg-gradient-to-r .text-white,
+  .bg-gradient-to-r.text-white {
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+  }
+  
+  /* Specific fix for icons on blue gradient backgrounds */
+  .bg-gradient-to-br.from-blue-500.to-blue-600 .text-white {
+    color: white !important;
+  }
+  
+  /* Fix transparent text with gradient background - make it visible */
+  .text-transparent {
+    color: hsl(var(--foreground)) !important;
+    -webkit-text-fill-color: hsl(var(--foreground)) !important;
+    background-clip: unset !important;
+    -webkit-background-clip: unset !important;
+  }
+
+  /* Preserve gradient text on public pages (Homepage, Register, etc.) */
+  .bg-gradient-to-r.from-blue-600.to-blue-700.bg-clip-text.text-transparent,
+  .bg-gradient-to-r.from-blue-600.to-blue-700.bg-clip-text.text-transparent * {
+    background: linear-gradient(to right, #2563eb, #1d4ed8) !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    color: transparent !important;
+  }
+
+  .bg-blue-600.bg-clip-text.text-transparent,
+  .bg-blue-600.bg-clip-text.text-transparent * {
+    background: #2563eb !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    color: transparent !important;
+  }
+
+  /* More specific overrides for public pages to ensure gradient text works */
+  html:not(.dark) .bg-gradient-to-r.from-blue-600.to-blue-700.bg-clip-text.text-transparent,
+  html:not(.dark) .bg-gradient-to-r.from-blue-600.to-blue-700.bg-clip-text.text-transparent * {
+    background: linear-gradient(to right, #2563eb, #1d4ed8) !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    color: transparent !important;
+  }
+
+  html:not(.dark) .bg-blue-600.bg-clip-text.text-transparent,
+  html:not(.dark) .bg-blue-600.bg-clip-text.text-transparent * {
+    background: #2563eb !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    color: transparent !important;
+  }
+  
+  /* More specific fix for the gradient title */
+  .bg-clip-text.text-transparent {
+    color: hsl(var(--foreground)) !important;
+    -webkit-text-fill-color: hsl(var(--foreground)) !important;
+    background-clip: unset !important;
+    -webkit-background-clip: unset !important;
+  }
+  
+  /* Very specific fix for the Popular Searches h2 */
+  h2.bg-gradient-to-r.from-gray-800.to-gray-900.bg-clip-text.text-transparent {
+    background: none !important;
+    color: hsl(var(--foreground)) !important;
+    -webkit-text-fill-color: hsl(var(--foreground)) !important;
+    background-clip: unset !important;
+    -webkit-background-clip: unset !important;
+  }
+  
+  /* Alternative catch-all for any gradient text elements */
+  .bg-gradient-to-r.bg-clip-text.text-transparent {
+    background: none !important;
+    color: hsl(var(--foreground)) !important;
+    -webkit-text-fill-color: hsl(var(--foreground)) !important;
+    background-clip: unset !important;
+    -webkit-background-clip: unset !important;
+  }
+
+  /* Fix RecommendationsPanel elements */
+  /* Main panel gradient background */
+  .bg-gradient-to-r.from-blue-50.to-white {
+    background: hsl(var(--card)) !important;
+  }
+
+  /* Loading section gradient */
+  .bg-gradient-to-r.from-blue-50\/30.to-white {
+    background: hsl(var(--card)) !important;
+  }
+
+  /* Blue accent backgrounds - exclude buttons and interactive elements */
+  .bg-blue-50:not(button):not(.px-3) {
+    background-color: hsl(var(--muted)) !important;
+  }
+
+  .bg-blue-100:not(button):not(.px-3) {
+    background-color: hsl(var(--muted)) !important;
+  }
+
+  /* Blue borders */
+  .border-blue-100,
+  .border-blue-200 {
+    border-color: hsl(var(--border)) !important;
+  }
+
+  /* Blue text colors - only within RecommendationsPanel and similar components */
+  .bg-gradient-to-r.from-blue-50.to-white .text-blue-500,
+  .bg-gradient-to-r.from-blue-50.to-white .text-blue-600,
+  .bg-gradient-to-r.from-blue-50.to-white .text-blue-700,
+  .bg-gradient-to-r.from-blue-50.to-white .text-blue-800,
+  .bg-blue-50 .text-blue-500,
+  .bg-blue-50 .text-blue-600,
+  .bg-blue-50 .text-blue-700,
+  .bg-blue-50 .text-blue-800 {
+    color: #3b82f6 !important; /* Keep original blue-500 */
+  }
+
+  /* Gray backgrounds for tables and cards */
+  .bg-gray-50 {
+    background-color: hsl(var(--muted)) !important;
+  }
+
+  .bg-gray-100 {
+    background-color: hsl(var(--muted)) !important;
+  }
+
+  /* Hover states */
+  .hover\\:bg-blue-50:hover {
+    background-color: hsl(var(--muted)) !important;
+  }
+
+  .hover\\:bg-blue-100:hover {
+    background-color: hsl(var(--muted)) !important;
+  }
+
+  .hover\\:bg-blue-200:hover {
+    background-color: hsl(var(--muted)) !important;
+  }
+
+  .hover\\:bg-gray-50:hover {
+    background-color: hsl(var(--muted)) !important;
+  }
+
+  .hover\\:bg-gray-200:hover {
+    background-color: hsl(var(--muted)) !important;
+  }
+
+  .bg-gradient-to-r.from-blue-50.to-white .hover\\:text-blue-600:hover,
+  .bg-gradient-to-r.from-blue-50.to-white .hover\\:text-blue-700:hover,
+  .bg-gradient-to-r.from-blue-50.to-white .hover\\:text-blue-800:hover,
+  .bg-blue-50 .hover\\:text-blue-600:hover,
+  .bg-blue-50 .hover\\:text-blue-700:hover,
+  .bg-blue-50 .hover\\:text-blue-800:hover {
+    color: hsl(var(--primary)) !important;
+  }
+
+  /* Table and divider elements */
+  .divide-gray-100 > * + * {
+    border-color: hsl(var(--border)) !important;
+  }
+
+  .divide-gray-200 > * + * {
+    border-color: hsl(var(--border)) !important;
+  }
+
+  /* Status badges with better dark mode support */
+  .bg-green-100.text-green-800 {
+    background-color: hsl(120, 60%, 90%) !important;
+    color: hsl(120, 60%, 25%) !important;
+  }
+
+  .bg-yellow-100.text-yellow-800 {
+    background-color: hsl(45, 60%, 90%) !important;
+    color: hsl(45, 60%, 25%) !important;
+  }
+
+  .dark .bg-green-100.text-green-800 {
+    background-color: hsl(120, 30%, 20%) !important;
+    color: hsl(120, 60%, 70%) !important;
+  }
+
+  .dark .bg-yellow-100.text-yellow-800 {
+    background-color: hsl(45, 30%, 20%) !important;
+    color: hsl(45, 60%, 70%) !important;
+  }
+
+  /* Fix circle progress stroke colors */
+  path[stroke="#E5E7EB"] {
+    stroke: hsl(var(--border)) !important;
+  }
+
+  /* Keep original conditional colors for match scores */
+  path[stroke="#10B981"] {
+    stroke: #10B981 !important; /* Keep green for high scores */
+  }
+
+  path[stroke="#3B82F6"] {
+    stroke: #3B82F6 !important; /* Keep blue for medium scores */
+  }
+
+  path[stroke="#9CA3AF"] {
+    stroke: #9CA3AF !important; /* Keep gray for low scores */
+  }
+
+  /* Ensure blue buttons maintain proper styling */
+  button.bg-blue-100,
+  button.bg-blue-200 {
+    background-color: #dbeafe !important; /* Keep original blue-100 */
+  }
+
+  .dark button.bg-blue-100,
+  .dark button.bg-blue-200 {
+    background-color: #1e3a8a !important; /* Dark blue for dark mode */
+  }
+
+  button.text-blue-700 {
+    color: #1d4ed8 !important; /* Keep original blue-700 */
+  }
+
+  .dark button.text-blue-700 {
+    color: #60a5fa !important; /* Lighter blue for dark mode */
+  }
+
+  button.hover\\:bg-blue-200:hover {
+    background-color: #bfdbfe !important; /* Keep original blue-200 */
+  }
+
+  .dark button.hover\\:bg-blue-200:hover {
+    background-color: #1e40af !important; /* Darker blue hover for dark mode */
+  }
+
+  /* Fix blue text colors in RecommendationsPanel - exclude SideBar */
+  .text-blue-600:not(nav *):not([class*="sidebar"] *) {
+    color: #2563eb !important; /* Keep original blue-600 */
+  }
+
+  .text-blue-700:not(nav *):not([class*="sidebar"] *) {
+    color: #1d4ed8 !important; /* Keep original blue-700 */
+  }
+
+  .text-blue-500:not(nav *):not([class*="sidebar"] *) {
+    color: #3b82f6 !important; /* Keep original blue-500 */
+  }
+
+  /* SideBar specific overrides for dark theme */
+  .dark nav .text-blue-600,
+  .dark nav .text-blue-700,
+  .dark nav .text-blue-500 {
+    color: hsl(var(--foreground)) !important;
+  }
+
+  .dark nav .bg-blue-100 {
+    background-color: hsl(var(--primary) / 0.1) !important;
+  }
+
+  .dark nav .bg-blue-50 {
+    background-color: hsl(var(--primary) / 0.05) !important;
+  }
+
+  /* Fix blue backgrounds in RecommendationsPanel */
+  .bg-blue-50 {
+    background-color: #eff6ff !important; /* Keep original blue-50 */
+  }
+
+  .bg-blue-100 {
+    background-color: #dbeafe !important; /* Keep original blue-100 */
+  }
+
+  .dark .bg-blue-50 {
+    background-color: #1e3a8a !important; /* Dark blue for dark mode */
+  }
+
+  .dark .bg-blue-100 {
+    background-color: #1e40af !important; /* Darker blue for dark mode */
+  }
+
+  /* Fix Sparkles icon to be blue like other icons */
+  .bg-gradient-to-r.from-blue-500.to-blue-600 .text-white,
+  .bg-gradient-to-r.from-blue-500.to-blue-600 svg.text-white,
+  .bg-gradient-to-r.from-blue-500.to-blue-600 svg,
+  div.bg-gradient-to-r.from-blue-500.to-blue-600 svg,
+  div.bg-gradient-to-r.from-blue-500.to-blue-600 .text-white {
+    color: #3b82f6 !important; /* blue-500 */
+    fill: #3b82f6 !important;
+    stroke: #3b82f6 !important;
+  }
+
+  /* Ensure consistency across themes */
+  .dark .bg-gradient-to-r.from-blue-500.to-blue-600 .text-white,
+  .dark .bg-gradient-to-r.from-blue-500.to-blue-600 svg.text-white,
+  .dark .bg-gradient-to-r.from-blue-500.to-blue-600 svg,
+  .dark div.bg-gradient-to-r.from-blue-500.to-blue-600 svg,
+  .dark div.bg-gradient-to-r.from-blue-500.to-blue-600 .text-white {
+    color: #3b82f6 !important; /* blue-500 */
+    fill: #3b82f6 !important;
+    stroke: #3b82f6 !important;
+  }
+
+  /* Fix ListView table rows and elements */
+  /* Table container */
+  .bg-white.border.border-gray-200.rounded-xl {
+    background-color: hsl(var(--card)) !important;
+    border-color: hsl(var(--border)) !important;
+  }
+
+  /* Table header */
+  .bg-gray-50.sticky {
+    background-color: hsl(var(--muted)) !important;
+  }
+
+  /* Table dividers */
+  .divide-gray-200 > * + * {
+    border-color: hsl(var(--border)) !important;
+  }
+
+  /* Alternating row backgrounds */
+  table tbody tr.bg-white {
+    background-color: hsl(var(--card)) !important;
+  }
+
+  table tbody tr.bg-gray-50 {
+    background-color: hsl(var(--muted)) !important;
+  }
+
+  /* Hover states for table rows */
+  table tbody tr.hover\\:bg-blue-50:hover {
+    background-color: hsl(var(--accent)) !important;
+  }
+
+  /* Better hover color for dark theme */
+  .dark table tbody tr.hover\\:bg-blue-50:hover {
+    background-color: hsl(var(--primary) / 0.1) !important;
+  }
+
+  /* Highlighted row */
+  table tbody tr.bg-blue-100 {
+    background-color: hsl(var(--primary) / 0.1) !important;
+  }
+
+  /* Stage color badges in table */
+  table .bg-orange-100.text-orange-800 {
+    background-color: hsl(25, 60%, 90%) !important;
+    color: hsl(25, 60%, 25%) !important;
+  }
+
+  table .bg-purple-100.text-purple-800 {
+    background-color: hsl(270, 60%, 90%) !important;
+    color: hsl(270, 60%, 25%) !important;
+  }
+
+  table .bg-indigo-100.text-indigo-800 {
+    background-color: hsl(230, 60%, 90%) !important;
+    color: hsl(230, 60%, 25%) !important;
+  }
+
+  .dark table .bg-orange-100.text-orange-800 {
+    background-color: hsl(25, 30%, 20%) !important;
+    color: hsl(25, 60%, 70%) !important;
+  }
+
+  .dark table .bg-purple-100.text-purple-800 {
+    background-color: hsl(270, 30%, 20%) !important;
+    color: hsl(270, 60%, 70%) !important;
+  }
+
+  .dark table .bg-indigo-100.text-indigo-800 {
+    background-color: hsl(230, 30%, 20%) !important;
+    color: hsl(230, 60%, 70%) !important;
+  }
+
+  /* Action buttons in table */
+  table .bg-blue-50.text-blue-600 {
+    background-color: hsl(var(--primary) / 0.1) !important;
+    color: hsl(var(--primary)) !important;
+  }
+
+  table .hover\\:bg-blue-100:hover {
+    background-color: hsl(var(--primary) / 0.15) !important;
+  }
+
+  table .hover\\:bg-emerald-100:hover {
+    background-color: hsl(160, 60%, 90%) !important;
+  }
+
+  .dark table .hover\\:bg-emerald-100:hover {
+    background-color: hsl(160, 30%, 20%) !important;
+  }
+
+  table .hover\\:bg-red-100:hover {
+    background-color: hsl(0, 60%, 90%) !important;
+  }
+
+  .dark table .hover\\:bg-red-100:hover {
+    background-color: hsl(0, 30%, 20%) !important;
+  }
+
+  /* Fix FiltersSidebar elements */
+  /* Main sidebar container */
+  .border-r.border-gray-200.bg-white.shadow-sm {
+    background-color: hsl(var(--card)) !important;
+    border-color: hsl(var(--border)) !important;
+  }
+
+  /* Sidebar header */
+  .sticky.top-0.border-b.border-gray-200.bg-white {
+    background-color: hsl(var(--card)) !important;
+    border-color: hsl(var(--border)) !important;
+  }
+
+  /* Toggle button - collapsed state */
+  .bg-blue-50.hover\\:bg-blue-100.text-blue-600.border.border-blue-200 {
+    background-color: hsl(var(--primary) / 0.1) !important;
+    color: hsl(var(--primary)) !important;
+    border-color: hsl(var(--primary) / 0.2) !important;
+  }
+
+  .bg-blue-50.hover\\:bg-blue-100.text-blue-600.border.border-blue-200:hover {
+    background-color: hsl(var(--primary) / 0.15) !important;
+  }
+
+  /* Fix toggle button icons with simpler selectors */
+  button[class*="bg-blue-50"] svg.text-blue-600,
+  button[class*="bg-blue-50"] .text-blue-600 {
+    color: #2563eb !important; /* Force blue color */
+  }
+
+  button[class*="bg-gray-100"] svg.text-gray-600,
+  button[class*="bg-gray-100"] .text-gray-600 {
+    color: hsl(var(--muted-foreground)) !important;
+  }
+
+  /* Alternative approach - target the specific button structure */
+  .rounded-full.bg-blue-50 svg,
+  .rounded-full.bg-blue-50 * {
+    color: #2563eb !important;
+  }
+
+  /* Very specific override for FiltersSidebar toggle button */
+  div[class*="border-r"] button[class*="rounded-full"] svg[class*="text-blue-600"] {
+    color: #2563eb !important;
+    fill: currentColor !important;
+  }
+
+  /* Catch-all for any blue-600 text in buttons */
+  button svg[class*="text-blue-600"],
+  button *[class*="text-blue-600"] {
+    color: #2563eb !important;
+  }
+
+  /* Toggle button - expanded state */
+  .bg-gray-100.hover\\:bg-gray-200 {
+    background-color: hsl(var(--muted)) !important;
+  }
+
+  .bg-gray-100.hover\\:bg-gray-200:hover {
+    background-color: hsl(var(--muted-foreground) / 0.1) !important;
+  }
+
+  /* Filter buttons in collapsed state */
+  .bg-blue-50.text-blue-600.hover\\:bg-blue-100 {
+    background-color: hsl(var(--primary) / 0.1) !important;
+    color: hsl(var(--primary)) !important;
+  }
+
+  .bg-blue-50.text-blue-600.hover\\:bg-blue-100:hover {
+    background-color: hsl(var(--primary) / 0.15) !important;
+  }
+
+  .bg-gray-100.text-gray-600.hover\\:bg-gray-200 {
+    background-color: hsl(var(--muted)) !important;
+    color: hsl(var(--muted-foreground)) !important;
+  }
+
+  .bg-gray-100.text-gray-600.hover\\:bg-gray-200:hover {
+    background-color: hsl(var(--muted-foreground) / 0.1) !important;
+  }
+
+  /* Apply Filters button */
+  .bg-blue-600.hover\\:bg-blue-700.text-white {
+    background-color: hsl(var(--primary)) !important;
+    color: hsl(var(--primary-foreground)) !important;
+  }
+
+  .bg-blue-600.hover\\:bg-blue-700.text-white:hover {
+    background-color: hsl(var(--primary) / 0.9) !important;
+  }
+
+  /* Filter icons - more specific selectors to avoid affecting button icons */
+  h2.text-gray-800 {
+    color: hsl(var(--foreground)) !important;
+  }
+
+  /* Keep button icons with their intended colors */
+  button .text-blue-600 {
+    color: hsl(var(--primary)) !important;
+  }
+
+  button .text-gray-600 {
+    color: hsl(var(--muted-foreground)) !important;
+  }
+
+  /* Filter section icons (not in buttons) - exclude Settings page icons */
+  .text-blue-500:not(button *):not(.w-4):not(.w-5):not(.w-12) {
+    color: hsl(var(--primary)) !important;
+  }
+
+  .text-gray-500:not(button *):not(.w-4):not(.w-5) {
+    color: hsl(var(--muted-foreground)) !important;
+  }
+
+  /* Preserve Settings page icon colors and Target icons */
+  .text-blue-500.w-4,
+  .text-blue-500.w-5,
+  .text-blue-500.w-12,
+  .text-blue-600.w-4,
+  .text-blue-600.w-5,
+  .text-blue-600.w-12 {
+    color: #3b82f6 !important; /* Keep original blue-500/600 */
+  }
+
+  .text-blue-600 {
+    color: #2563eb !important; /* Keep original blue-600 */
+  }
+
+  .hover\\:text-blue-700:hover,
+  .hover\\:text-blue-800:hover,
+  .hover\\:text-blue-900:hover {
+    color: #1d4ed8 !important; /* Keep original blue-700/800/900 */
+  }
+
+  /* Fix "Coming Soon" badge text - more aggressive */
+  .bg-gradient-to-r.from-blue-600.to-purple-600 {
+    color: white !important;
+  }
+
+  .bg-gradient-to-r.from-blue-600.to-purple-600 span,
+  .bg-gradient-to-r.from-blue-600.to-purple-600 svg,
+  .bg-gradient-to-r.from-blue-600.to-purple-600 * {
+    color: white !important;
+    fill: currentColor !important;
+  }
+
+  /* Very specific override for Coming Soon badge */
+  div[class*="bg-gradient-to-r"][class*="from-blue-600"][class*="to-purple-600"] {
+    color: white !important;
+  }
+
+  div[class*="bg-gradient-to-r"][class*="from-blue-600"][class*="to-purple-600"] * {
+    color: white !important;
+  }
+
+  /* Ultimate override for Coming Soon badge and Notify Me button */
+  .inline-flex.items-center.gap-2.px-4.py-2.bg-gradient-to-r.from-blue-600.to-purple-600.text-white,
+  .inline-flex.items-center.gap-2.px-4.py-2.bg-gradient-to-r.from-blue-600.to-purple-600.text-white *,
+  .inline-flex.items-center.gap-2.px-6.py-3.bg-gradient-to-r.from-blue-600.to-purple-600.text-white,
+  .inline-flex.items-center.gap-2.px-6.py-3.bg-gradient-to-r.from-blue-600.to-purple-600.text-white * {
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+  }
+
+  /* Nuclear option - force white on ALL gradient elements */
+  [class*="bg-gradient-to-r"][class*="from-blue-600"][class*="to-purple-600"][class*="text-white"] {
+    color: #ffffff !important;
+  }
+
+  [class*="bg-gradient-to-r"][class*="from-blue-600"][class*="to-purple-600"][class*="text-white"] * {
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+    fill: #ffffff !important;
+  }
+
+  /* Force white on any text in gradient backgrounds in Settings */
+  .bg-gradient-to-r.from-blue-600.to-purple-600 span,
+  .bg-gradient-to-r.from-blue-600.to-purple-600 svg {
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+    fill: currentColor !important;
+  }
+
+  /* Emergency override - check if there's a body or global rule affecting text */
+  body .bg-gradient-to-r.from-blue-600.to-purple-600,
+  body .bg-gradient-to-r.from-blue-600.to-purple-600 *,
+  html .bg-gradient-to-r.from-blue-600.to-purple-600,
+  html .bg-gradient-to-r.from-blue-600.to-purple-600 * {
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+  }
+
+  /* Try with higher specificity using :where() */
+  :where(.bg-gradient-to-r.from-blue-600.to-purple-600) {
+    color: #ffffff !important;
+  }
+
+  :where(.bg-gradient-to-r.from-blue-600.to-purple-600) * {
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+  }
+
+  /* Fix RFP Response component elements */
+  /* Main card containers */
+  .bg-white.rounded-xl.shadow-sm.border.border-gray-200 {
+    background-color: hsl(var(--card)) !important;
+    border-color: hsl(var(--border)) !important;
+  }
+
+  /* Input fields */
+  input.border.border-gray-200.rounded-lg {
+    background-color: hsl(var(--background)) !important;
+    border-color: hsl(var(--border)) !important;
+    color: hsl(var(--foreground)) !important;
+  }
+
+  /* Input focus states */
+  input.focus\\:ring-2.focus\\:ring-blue-200.focus\\:border-blue-400:focus {
+    border-color: hsl(var(--primary)) !important;
+    box-shadow: 0 0 0 2px hsl(var(--primary) / 0.2) !important;
+  }
+
+  /* Disabled input states */
+  input.bg-gray-50.cursor-not-allowed {
+    background-color: hsl(var(--muted)) !important;
+    color: hsl(var(--muted-foreground)) !important;
+  }
+
+  /* Labels */
+  label.text-gray-600 {
+    color: hsl(var(--muted-foreground)) !important;
+  }
+
+  /* Icon containers in RFP */
+  .bg-blue-100.text-blue-600 {
+    background-color: hsl(var(--primary) / 0.1) !important;
+    color: hsl(var(--primary)) !important;
+  }
+
+  .bg-purple-100.text-purple-600 {
+    background-color: hsl(270, 60%, 90%) !important;
+    color: hsl(270, 60%, 25%) !important;
+  }
+
+  .dark .bg-purple-100.text-purple-600 {
+    background-color: hsl(270, 30%, 20%) !important;
+    color: hsl(270, 60%, 70%) !important;
+  }
+
+  /* File upload area */
+  .border-dashed.border-gray-200.bg-gray-50 {
+    background-color: hsl(var(--muted)) !important;
+    border-color: hsl(var(--border)) !important;
+  }
+
+  .hover\\:border-blue-300.hover\\:bg-blue-50:hover {
+    background-color: hsl(var(--primary) / 0.05) !important;
+    border-color: hsl(var(--primary) / 0.3) !important;
+  }
+
+  /* Upload text colors */
+  .text-gray-400 {
+    color: hsl(var(--muted-foreground) / 0.7) !important;
+  }
+
+  .hover\\:text-red-500:hover {
+    color: hsl(0, 60%, 50%) !important;
+  }
+
+  .hover\\:bg-red-50:hover {
+    background-color: hsl(0, 60%, 95%) !important;
+  }
+
+  .dark .hover\\:bg-red-50:hover {
+    background-color: hsl(0, 30%, 15%) !important;
+  }
+
+  /* Status badges */
+  .bg-green-100.text-green-700 {
+    background-color: hsl(120, 60%, 90%) !important;
+    color: hsl(120, 60%, 25%) !important;
+  }
+
+  .dark .bg-green-100.text-green-700 {
+    background-color: hsl(120, 30%, 20%) !important;
+    color: hsl(120, 60%, 70%) !important;
+  }
+
+  /* Image border and background */
+  img + .border.border-gray-100.bg-white.shadow-sm,
+  .border.border-gray-100.bg-white.shadow-sm {
+    background-color: hsl(var(--card)) !important;
+    border-color: hsl(var(--border)) !important;
+  }
+
+  /* RFP Section completion states - More specific selectors */
+  /* Completed section icon containers */
+  div.bg-green-100.text-green-600 {
+    background-color: hsl(120, 60%, 90%) !important;
+    color: hsl(120, 60%, 25%) !important;
+  }
+
+  .dark div.bg-green-100.text-green-600 {
+    background-color: hsl(120, 30%, 20%) !important;
+    color: hsl(120, 60%, 70%) !important;
+  }
+
+  /* Completed section titles - very specific */
+  input.text-green-700,
+  .text-green-700 {
+    color: hsl(120, 60%, 25%) !important;
+  }
+
+  .dark input.text-green-700,
+  .dark .text-green-700 {
+    color: hsl(120, 60%, 70%) !important;
+  }
+
+  /* Force override for any white text that's appearing */
+  .dark .text-green-700,
+  .dark input[class*="text-green-700"] {
+    color: hsl(120, 60%, 70%) !important;
+    -webkit-text-fill-color: hsl(120, 60%, 70%) !important;
+  }
+
+  /* Section completion buttons */
+  .text-green-500 {
+    color: hsl(120, 60%, 45%) !important;
+  }
+
+  .dark .text-green-500 {
+    color: hsl(120, 60%, 60%) !important;
+  }
+
+  /* Uncompleted section states */
+  .text-gray-300 {
+    color: hsl(var(--muted-foreground) / 0.5) !important;
+  }
+
+  .hover\\:text-blue-400:hover {
+    color: hsl(var(--primary) / 0.8) !important;
+  }
+
+  .text-gray-700 {
+    color: hsl(var(--foreground)) !important;
+  }
+
+  /* Section title input fields */
+  input.bg-transparent.border-b.border-transparent {
+    background-color: transparent !important;
+    border-bottom-color: transparent !important;
+    color: inherit !important;
+  }
+
+  input.hover\\:border-gray-300:hover {
+    border-bottom-color: hsl(var(--border)) !important;
+  }
+
+  input.focus\\:border-blue-400:focus {
+    border-bottom-color: hsl(var(--primary)) !important;
+  }
+
+  /* Aggressive fix for invisible text in RFP sections */
+  .dark [class*="text-green"] {
+    color: hsl(120, 60%, 70%) !important;
+  }
+
+  .dark input[class*="text-green"] {
+    color: hsl(120, 60%, 70%) !important;
+    -webkit-text-fill-color: hsl(120, 60%, 70%) !important;
+  }
+
+  /* Ensure completed sections have proper contrast */
+  .dark div[class*="bg-green"] {
+    background-color: hsl(120, 30%, 20%) !important;
+    color: hsl(120, 60%, 70%) !important;
+  }
+
+  /* Override any white backgrounds on green elements in dark mode */
+  .dark .bg-green-100,
+  .dark div.bg-green-100 {
+    background-color: hsl(120, 30%, 20%) !important;
+  }
+
+  /* Light/dark-specific text overrides for blue→purple gradients */
+  html:not(.dark) .bg-gradient-to-r.from-blue-600.to-purple-600,
+  html:not(.dark) .bg-gradient-to-r.from-blue-600.to-purple-600 * {
+    color: #111827 !important; /* gray-900 for light theme */
+    -webkit-text-fill-color: #111827 !important;
+  }
+
+  .dark .bg-gradient-to-r.from-blue-600.to-purple-600,
+  .dark .bg-gradient-to-r.from-blue-600.to-purple-600 * {
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+  }
+
+  /* Scoped amber icon color inside gradient badges/buttons */
+  html:not(.dark) .bg-gradient-to-r.from-blue-600.to-purple-600 .text-amber-on-gradient {
+    color: #f59e0b !important; /* amber-500 */
+    -webkit-text-fill-color: #f59e0b !important;
+  }
+  .dark .bg-gradient-to-r.from-blue-600.to-purple-600 .text-amber-on-gradient {
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
   }
 }
 
@@ -218,4 +1364,267 @@
   float: left;
   height: 0;
   pointer-events: none;
+}
+
+/* React DatePicker - Dark theme overrides */
+.dark .react-datepicker-wrapper input,
+.dark .react-datepicker__input-container input {
+  background-color: hsl(var(--card)) !important;
+  color: hsl(var(--foreground)) !important;
+  border-color: hsl(var(--border)) !important;
+}
+.dark .react-datepicker-wrapper input::placeholder,
+.dark .react-datepicker__input-container input::placeholder {
+  color: hsl(var(--muted-foreground)) !important;
+  opacity: 0.8 !important;
+}
+.dark .react-datepicker {
+  background-color: hsl(var(--card)) !important;
+  border-color: hsl(var(--border)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+.dark .react-datepicker__header {
+  background-color: hsl(var(--secondary)) !important;
+  border-bottom-color: hsl(var(--border)) !important;
+}
+.dark .react-datepicker__current-month,
+.dark .react-datepicker-time__header,
+.dark .react-datepicker-year-header {
+  color: hsl(var(--foreground)) !important;
+}
+.dark .react-datepicker__day-name,
+.dark .react-datepicker__day,
+.dark .react-datepicker__time-name {
+  color: hsl(var(--foreground)) !important;
+}
+.dark .react-datepicker__day--outside-month {
+  color: hsl(var(--muted-foreground)) !important;
+}
+.dark .react-datepicker__day--disabled,
+.dark .react-datepicker__day--disabled:hover {
+  color: hsl(var(--muted-foreground)) !important;
+  background-color: transparent !important;
+}
+.dark .react-datepicker__day--selected,
+.dark .react-datepicker__day--keyboard-selected {
+  background-color: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+}
+.dark .react-datepicker__day:hover {
+  background-color: hsl(var(--muted)) !important;
+}
+.dark .react-datepicker__triangle,
+.dark .react-datepicker__triangle::before {
+  border-bottom-color: hsl(var(--secondary)) !important;
+}
+.dark .react-datepicker__navigation-icon::before {
+  border-color: hsl(var(--muted-foreground)) !important;
+}
+
+/* Analytics dropdown menus - dark theme fixes */
+.dark .bg-white.border.border-gray-200.rounded-lg.shadow-lg.z-50 {
+  background-color: hsl(var(--card)) !important;
+  border-color: hsl(var(--border)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+.dark .bg-white.border.border-gray-200.rounded-lg.shadow-lg.z-50 button {
+  color: hsl(var(--foreground)) !important;
+}
+.dark .bg-white.border.border-gray-200.rounded-lg.shadow-lg.z-50 button:hover {
+  background-color: hsl(var(--muted)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+.dark .bg-white.border.border-gray-200.rounded-lg.shadow-lg.z-50 .bg-blue-50 {
+  background-color: hsl(var(--primary) / 0.15) !important;
+}
+.dark .bg-white.border.border-gray-200.rounded-lg.shadow-lg.z-50 .text-blue-600 {
+  color: hsl(var(--primary)) !important;
+}
+
+  /* Ensure gradient action buttons keep white text/icons (fixes Dashboard Upgrade) */
+  button.bg-gradient-to-r.from-blue-600.to-purple-600,
+  button.bg-gradient-to-r.from-blue-600.to-purple-600 * {
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+  }
+
+  /* Settings page gradient elements - force dark text on light background */
+  div.bg-gradient-to-r.from-blue-600.to-purple-600,
+  div.bg-gradient-to-r.from-blue-600.to-purple-600 *,
+  div.bg-gradient-to-r.from-blue-600.to-purple-600 span,
+  div.bg-gradient-to-r.from-blue-600.to-purple-600 svg {
+    color: #111827 !important;
+    -webkit-text-fill-color: #111827 !important;
+    fill: #111827 !important;
+  }
+
+  /* Override any conflicting rules for Settings page gradient elements */
+  .bg-gradient-to-r.from-blue-600.to-purple-600:not(button) {
+    background-image: linear-gradient(to right, #2563eb, #9333ea) !important;
+    background-color: transparent !important;
+  }
+
+  .bg-gradient-to-r.from-blue-600.to-purple-600:not(button) * {
+    color: #111827 !important;
+    -webkit-text-fill-color: #111827 !important;
+    fill: #111827 !important;
+  }
+
+/* Override any theme-specific text color rules for gradient buttons */
+html:not(.dark) button.bg-gradient-to-r.from-blue-600.to-purple-600,
+html:not(.dark) button.bg-gradient-to-r.from-blue-600.to-purple-600 *,
+.dark button.bg-gradient-to-r.from-blue-600.to-purple-600,
+.dark button.bg-gradient-to-r.from-blue-600.to-purple-600 * {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+  /* Restore gradient for primary action button (Upgrade) */
+  button.bg-gradient-to-r.from-blue-600.to-purple-600 {
+    background-image: linear-gradient(to right, #2563eb, #9333ea) !important; /* blue-600 → purple-600 */
+    background-color: transparent !important;
+  }
+  button.bg-gradient-to-r.from-blue-600.to-purple-600:hover {
+    background-image: linear-gradient(to right, #1d4ed8, #7e22ce) !important; /* blue-700 → purple-700 */
+  }
+
+  /* RfpOverview component dark theme fixes */
+  .dark .bg-white.rounded-xl.shadow-lg {
+    background-color: hsl(var(--card)) !important;
+    border-color: hsl(var(--border)) !important;
+  }
+
+  .dark .bg-gradient-to-r.from-blue-50.via-blue-50.to-white {
+    background: linear-gradient(to right, hsl(var(--muted)), hsl(var(--muted)), hsl(var(--card))) !important;
+  }
+
+  .dark .bg-gray-50.rounded-xl {
+    background-color: hsl(var(--muted)) !important;
+    border-color: hsl(var(--border)) !important;
+  }
+
+  .dark .bg-white.rounded-lg {
+    background-color: hsl(var(--card)) !important;
+    border-color: hsl(var(--border)) !important;
+  }
+
+  .dark .text-gray-900,
+  .dark .text-gray-800 {
+    color: hsl(var(--foreground)) !important;
+  }
+
+  .dark .text-gray-600,
+  .dark .text-gray-500 {
+    color: hsl(var(--muted-foreground)) !important;
+  }
+
+  .dark .bg-gradient-to-r.from-gray-50.to-white {
+    background: linear-gradient(to right, hsl(var(--muted)), hsl(var(--card))) !important;
+  }
+
+  .dark .border-gray-200,
+  .dark .border-gray-100 {
+    border-color: hsl(var(--border)) !important;
+  }
+
+  /* Additional RfpOverview dark theme fixes */
+  .dark .bg-blue-100 {
+    background-color: hsl(var(--primary) / 0.1) !important;
+  }
+
+  .dark .bg-green-100 {
+    background-color: hsl(120, 30%, 20%) !important;
+  }
+
+  .dark .bg-amber-100 {
+    background-color: hsl(45, 30%, 20%) !important;
+  }
+
+  .dark .bg-purple-100 {
+    background-color: hsl(270, 30%, 20%) !important;
+  }
+
+  .dark .bg-indigo-100 {
+    background-color: hsl(230, 30%, 20%) !important;
+  }
+
+  .dark .bg-teal-100 {
+    background-color: hsl(180, 30%, 20%) !important;
+  }
+
+  .dark .text-blue-600 {
+    color: #3b82f6 !important;
+  }
+
+  .dark .text-green-600 {
+    color: #10b981 !important;
+  }
+
+  .dark .text-amber-600 {
+    color: #f59e0b !important;
+  }
+
+  .dark .text-purple-600 {
+    color: #9333ea !important;
+  }
+
+  .dark .text-indigo-600 {
+    color: #6366f1 !important;
+  }
+
+  .dark .text-teal-600 {
+    color: #14b8a6 !important;
+  }
+
+  .dark .bg-amber-50 {
+    background-color: hsl(45, 30%, 15%) !important;
+  }
+
+  .dark .text-amber-700 {
+    color: #f59e0b !important;
+  }
+
+  .dark .hover\\:bg-gray-50:hover {
+    background-color: hsl(var(--muted)) !important;
+  }
+
+  .dark .hover\\:border-blue-200:hover {
+    border-color: hsl(var(--primary) / 0.3) !important;
+  }
+
+  .dark .hover\\:shadow-md:hover {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3) !important;
+  }
+
+  /* Ensure RFP buttons maintain blue gradient in both themes */
+  .bg-gradient-to-r.from-blue-600.to-blue-700 {
+    background-image: linear-gradient(to right, #2563eb, #1d4ed8) !important;
+    background-color: transparent !important;
+  }
+
+  .bg-gradient-to-r.from-blue-600.to-blue-700:hover {
+    background-image: linear-gradient(to right, #1d4ed8, #1e40af) !important;
+  }
+
+  .bg-gradient-to-r.from-blue-600.to-blue-700,
+  .bg-gradient-to-r.from-blue-600.to-blue-700 * {
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+  }
+
+  /* Specific overrides for RFP buttons */
+  button.bg-gradient-to-r.from-blue-600.to-blue-700,
+  button.bg-gradient-to-r.from-blue-600.to-blue-700 * {
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+  }
+
+  /* Ensure ListView action buttons stay blue in both themes */
+  button.bg-blue-50.text-blue-600,
+  button.bg-blue-50.text-blue-600 * {
+    color: #2563eb !important; /* blue-600 */
+  }
+
+  button.bg-blue-50.text-blue-600:hover,
+  button.bg-blue-50.text-blue-600:hover * {
+    color: #1d4ed8 !important; /* blue-700 */
 }

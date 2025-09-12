@@ -65,6 +65,7 @@ export interface FilterSectionProps {
   options: FilterSectionOption[];
   selectedValue: string;
   onChange: (value: string) => void;
+  onDateChange?: (type: 'from' | 'to', value: string) => void;
 }
 
 export interface FilterSectionOption {
@@ -126,6 +127,8 @@ export interface FilterValues {
   opportunityType: string;
   contractType: string | null;
   platform: string | null;
+  customPostedDateFrom?: string;
+  customPostedDateTo?: string;
 }
 
 export interface Opportunity {

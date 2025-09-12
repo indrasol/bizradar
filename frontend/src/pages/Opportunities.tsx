@@ -43,6 +43,8 @@ const OpportunitiesPage: React.FC = () => {
     opportunityType: "all",
     contractType: null,
     platform: null,
+    customPostedDateFrom: "",
+    customPostedDateTo: "",
   });
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalResults, setTotalResults] = useState<number>(0);
@@ -61,84 +63,20 @@ const OpportunitiesPage: React.FC = () => {
   const resultsListRef = useRef<HTMLDivElement>(null);
   const [userProfile, setUserProfile] = useState<{ companyUrl?: string; companyDescription?: string }>({});
   const [open, setOpen] = useState(false);
-  const isRestoringRef = useRef<boolean>(true);
-  const hasRunInitialFilterEffectRef = useRef<boolean>(false);
-  const hasRunInitialSortEffectRef = useRef<boolean>(false);
 
-  // Restore last search state on mount without refetching
-  useEffect(() => {
-    // Check if this is a page reload (not navigation)
-    const isPageReload = !window.performance.getEntriesByType('navigation')[0] || 
-      (window.performance.getEntriesByType('navigation')[0] as any).type === 'reload';
-    
-    if (isPageReload) {
-      // Clear search state on page reload
-      sessionStorage.removeItem("lastOpportunitiesSearchState");
-      sessionStorage.removeItem("aiRecommendations");
-      sessionStorage.removeItem("allOpportunitiesForExport");
-      return;
-    }
-    
-    try {
-      const saved = sessionStorage.getItem("lastOpportunitiesSearchState");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        // Only restore if the saved state belongs to the current user
-        const currentUserId = tokenService.getUserIdFromToken();
-        if (!currentUserId || parsed.userId !== currentUserId) {
-          sessionStorage.removeItem("lastOpportunitiesSearchState");
-        } else {
-          // Set filters and sort first while searchQuery is still empty to avoid auto-fetch
-          if (parsed.filters) {
-            setFilterValues((prev) => ({
-              ...prev,
-              ...parsed.filters,
-            }));
-          }
-          if (parsed.sortBy) {
-            setSortBy(parsed.sortBy);
-          }
-          // Now set query and results
-          setSearchQuery(parsed.query || "");
-          if (Array.isArray(parsed.results)) {
-            setOpportunities(parsed.results);
-            setHasSearched(parsed.results.length > 0);
-          }
-          setTotalResults(parsed.total || 0);
-          setTotalPages(parsed.totalPages || 1);
-          setCurrentPage(1);
-          setRefinedQuery(parsed.refinedQuery || "");
-          setShowRefinedQuery(!!parsed.refinedQuery);
-        }
-      }
-    } catch (e) {
-      // Ignore corrupted saved state
-      console.warn("Failed to restore last opportunities search state", e);
-    } finally {
-      // Defer releasing the guard to the next tick to ensure effects triggered by
-      // the above state updates do not auto-fetch.
-      setTimeout(() => {
-        isRestoringRef.current = false;
-      }, 0);
-    }
-  }, []);
 
   useEffect(() => {
-    if (!hasRunInitialFilterEffectRef.current) {
-      hasRunInitialFilterEffectRef.current = true;
-      return;
+    // Apply filters when filter values change and we have an active search
+    if (searchQuery.trim() && hasSearched) {
+      applyFilters();
     }
-    if (isRestoringRef.current) return;
-    applyFilters();
   }, [filterValues.opportunityType, filterValues.dueDate, filterValues.postedDate, filterValues.naicsCode]);
 
   useEffect(() => {
-    if (!hasRunInitialSortEffectRef.current) {
-      hasRunInitialSortEffectRef.current = true;
-      return;
+    // Apply sort when sort value changes and we have an active search
+    if (searchQuery.trim() && hasSearched) {
+      applySort();
     }
-    if (isRestoringRef.current) return;
-    applySort();
   }, [sortBy]);
 
   useEffect(() => {
@@ -415,10 +353,6 @@ const OpportunitiesPage: React.FC = () => {
        throw new Error("Invalid data format received");
      }
 
-     // Save all_results to sessionStorage for export
-     if (Array.isArray(data.all_results)) {
-       sessionStorage.setItem("allOpportunitiesForExport", JSON.stringify(data.all_results));
-     }
 
      // Process results
      const processedResults = processSearchResults(data.results);
@@ -448,13 +382,6 @@ const OpportunitiesPage: React.FC = () => {
              setTotalPages(data.total_pages || 1);
        setCurrentPage(data.page || 1);
       setHasSearched(true);
-      // saveSearchStateToSession(
-      //   data.query,
-      //   summarized_results,
-      //   tot,
-      //   data.total_pages,
-      //   refinedQuery || ""
-      // );
       console.log("Adding results")
     }
          return {
@@ -482,9 +409,6 @@ const OpportunitiesPage: React.FC = () => {
     params: Partial<SearchParams>,
     query: string
   ) => {
-    if (isRestoringRef.current) {
-      return;
-    }
     setIsSearching(true);
     setHasSearched(false);
 
@@ -498,13 +422,6 @@ const OpportunitiesPage: React.FC = () => {
       setHasSearched(true);
       setRefinedQuery("");
       setShowRefinedQuery(false);
-      saveSearchStateToSession(
-        query,
-        result.opportunities,
-        result.total,
-        result.total_pages,
-        ""
-      );
     } catch (error: any) {
       toast.error(error.message || "An error occurred during search", ResponsivePatterns.toast.config);
       setOpportunities([]);
@@ -606,7 +523,19 @@ const OpportunitiesPage: React.FC = () => {
         .eq("user_id", user.id)
         .eq("title", opportunity.title);
 
-      if (existingTrackers && existingTrackers.length > 0) return;
+      if (existingTrackers && existingTrackers.length > 0) {
+        toast.info("This opportunity is already being tracked", {
+          description: "You can view it in your Pursuits dashboard",
+          duration: 4000,
+          style: {
+            background: "#f0f9ff",
+            border: "1px solid #0ea5e9",
+            color: "#0c4a6e",
+          },
+          icon: "📋",
+        });
+        return;
+      }
 
       const newId = (typeof window !== 'undefined' && window.crypto && 'randomUUID' in window.crypto)
         ? window.crypto.randomUUID()
@@ -663,14 +592,15 @@ const OpportunitiesPage: React.FC = () => {
     setHasSearched(false);
     setShowRefinedQuery(false);
     setRefinedQuery("");
-    sessionStorage.removeItem("lastOpportunitiesSearchState");
     setFilterValues({
       dueDate: "none",
       postedDate: "all",
       naicsCode: "",
-      opportunityType: "All",
+      opportunityType: "all",
       contractType: null,
       platform: null,
+      customPostedDateFrom: "",
+      customPostedDateTo: "",
     });
   };
 
@@ -797,20 +727,6 @@ const OpportunitiesPage: React.FC = () => {
     }
   };
 
-  const saveSearchStateToSession = (query: string, results: Opportunity[], total: number, totalPages: number, refinedQuery: string) => {
-    const searchState = {
-      query,
-      results,
-      total,
-      totalPages,
-      refinedQuery,
-      filters: filterValues,
-      sortBy,
-      lastUpdated: new Date().toISOString(),
-      userId: tokenService.getUserIdFromToken(),
-    };
-    sessionStorage.setItem("lastOpportunitiesSearchState", JSON.stringify(searchState));
-  };
 
   // Handler for ResultsList scroll
   const handleResultsScroll = (scrollTop: number) => {
@@ -849,7 +765,7 @@ const OpportunitiesPage: React.FC = () => {
                     <span>{currentDate}</span>
                     <span className="mx-2">•</span>
                     <span className="flex items-center">
-                      <Target className="h-4 w-4 mr-1 text-blue-500" />
+                      <Target className="h-4 w-4 mr-2 text-blue-500" />
                       Discover Opportunities
                     </span>
                   </div>

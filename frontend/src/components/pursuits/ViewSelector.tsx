@@ -15,7 +15,7 @@ export const ViewSelector: React.FC<ViewSelectorProps> = ({
     <div className="flex border-b border-gray-200 bg-white px-4">
       <button 
         className={`flex items-center justify-center py-3 px-6 font-medium rounded-t-lg transition-colors ${
-          currentView === 'list' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+          currentView === 'list' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-600 hover:text-gray-800'
         }`}
         onClick={() => onViewChange('list')}
       >
@@ -23,7 +23,7 @@ export const ViewSelector: React.FC<ViewSelectorProps> = ({
       </button>
       <button 
         className={`flex items-center justify-center py-3 px-6 font-medium rounded-t-lg transition-colors ${
-          currentView === 'kanban' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+          currentView === 'kanban' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-600 hover:text-gray-800'
         }`}
         onClick={() => onViewChange('kanban')}
       >
@@ -31,7 +31,7 @@ export const ViewSelector: React.FC<ViewSelectorProps> = ({
       </button>
       <button 
         className={`flex items-center justify-center py-3 px-6 font-medium rounded-t-lg transition-colors ${
-          currentView === 'calendar' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+          currentView === 'calendar' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-600 hover:text-gray-800'
         }`}
         onClick={() => onViewChange('calendar')}
       >

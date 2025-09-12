@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./components/Auth/AuthContext";
+import ConditionalThemeProvider from "./components/ConditionalThemeProvider";
 import ProtectedRoute from "./components/Auth/ProtectedRoute";
 
 // Eagerly loaded (lightweight)
@@ -44,8 +45,9 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <AuthProvider>
-          <Suspense fallback={<div>Loading...</div>}>
+        <ConditionalThemeProvider>
+          <AuthProvider>
+            <Suspense fallback={<div>Loading...</div>}>
             <Routes>
               {/* Public routes */}
               <Route path="/" element={<Homepage children={null} />} />
@@ -116,8 +118,9 @@ const App = () => (
               {/* 404 route */}
               <Route path="*" element={<ComingSoon />} />
             </Routes>
-          </Suspense>
-        </AuthProvider>
+            </Suspense>
+          </AuthProvider>
+        </ConditionalThemeProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
