@@ -14,6 +14,7 @@ import { FilterValues, Opportunity, SearchParams } from "@/models/opportunities"
 import { ResponsivePatterns, DashboardTemplate } from "../utils/responsivePatterns";
 import { API_ENDPOINTS } from "@/config/apiEndpoints";
 import { getApiUrl } from "@/config/env";
+import { useTrack } from "@/logging";
 
  const API_BASE_URL = getApiUrl();
 
@@ -25,6 +26,7 @@ const OpportunitiesPage: React.FC = () => {
   const { logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  
   
   // Get current date for header
   const currentDate = new Date().toLocaleDateString("en-US", {
@@ -63,7 +65,76 @@ const OpportunitiesPage: React.FC = () => {
   const resultsListRef = useRef<HTMLDivElement>(null);
   const [userProfile, setUserProfile] = useState<{ companyUrl?: string; companyDescription?: string }>({});
   const [open, setOpen] = useState(false);
+  const isRestoringRef = useRef<boolean>(true);
+  const hasRunInitialFilterEffectRef = useRef<boolean>(false);
+  const hasRunInitialSortEffectRef = useRef<boolean>(false);
 
+  const track = useTrack();
+
+  useEffect(() => {
+    track({
+      event_name: "opportunities",
+      event_type: "View",
+      metadata: {search_query: null, stage: null, opportunity_id: null, naics_code: null, rfp_title: null}    // explicitly pass empty metadata
+    });
+  }, [track]);
+  // Restore last search state on mount without refetching
+  useEffect(() => {
+    // Check if this is a page reload (not navigation)
+    const isPageReload = !window.performance.getEntriesByType('navigation')[0] || 
+      (window.performance.getEntriesByType('navigation')[0] as any).type === 'reload';
+    
+    if (isPageReload) {
+      // Clear search state on page reload
+      sessionStorage.removeItem("lastOpportunitiesSearchState");
+      sessionStorage.removeItem("aiRecommendations");
+      sessionStorage.removeItem("allOpportunitiesForExport");
+      return;
+    }
+    
+    try {
+      const saved = sessionStorage.getItem("lastOpportunitiesSearchState");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Only restore if the saved state belongs to the current user
+        const currentUserId = tokenService.getUserIdFromToken();
+        if (!currentUserId || parsed.userId !== currentUserId) {
+          sessionStorage.removeItem("lastOpportunitiesSearchState");
+        } else {
+          // Set filters and sort first while searchQuery is still empty to avoid auto-fetch
+          if (parsed.filters) {
+            setFilterValues((prev) => ({
+              ...prev,
+              ...parsed.filters,
+            }));
+          }
+          if (parsed.sortBy) {
+            setSortBy(parsed.sortBy);
+          }
+          // Now set query and results
+          setSearchQuery(parsed.query || "");
+          if (Array.isArray(parsed.results)) {
+            setOpportunities(parsed.results);
+            setHasSearched(parsed.results.length > 0);
+          }
+          setTotalResults(parsed.total || 0);
+          setTotalPages(parsed.totalPages || 1);
+          setCurrentPage(1);
+          setRefinedQuery(parsed.refinedQuery || "");
+          setShowRefinedQuery(!!parsed.refinedQuery);
+        }
+      }
+    } catch (e) {
+      // Ignore corrupted saved state
+      console.warn("Failed to restore last opportunities search state", e);
+    } finally {
+      // Defer releasing the guard to the next tick to ensure effects triggered by
+      // the above state updates do not auto-fetch.
+      setTimeout(() => {
+        isRestoringRef.current = false;
+      }, 0);
+    }
+  }, []);
 
   useEffect(() => {
     // Apply filters when filter values change and we have an active search
@@ -524,16 +595,21 @@ const OpportunitiesPage: React.FC = () => {
         .eq("title", opportunity.title);
 
       if (existingTrackers && existingTrackers.length > 0) {
-        toast.info("This opportunity is already being tracked", {
-          description: "You can view it in your Pursuits dashboard",
-          duration: 4000,
-          style: {
-            background: "#f0f9ff",
-            border: "1px solid #0ea5e9",
-            color: "#0c4a6e",
-          },
-          icon: "📋",
-        });
+        // Already tracked → toggle OFF by deleting
+        const trackerId = existingTrackers[0].id;
+        const { error: deleteError } = await supabase
+          .from("trackers")
+          .delete()
+          .eq("id", trackerId)
+          .eq("user_id", user.id);
+        if (deleteError) throw deleteError;
+        setPursuitCount((prev) => Math.max(0, prev - 1));
+        try {
+          toast.success("Removed from Tracker", {
+            description: "This opportunity is no longer being tracked.",
+            duration: 2500,
+          });
+        } catch {}
         return;
       }
 
@@ -543,7 +619,7 @@ const OpportunitiesPage: React.FC = () => {
 
       const { data, error } = await supabase
         .from("trackers")
-        .insert([{ id: newId, title: opportunity.title, description: opportunity.description || "", stage: "Assessment", user_id: user.id, due_date: opportunity.response_date, opportunity_id: opportunity.id }])
+        .insert([{ id: newId, title: opportunity.title, description: opportunity.description || "", stage: "Review", user_id: user.id, due_date: opportunity.response_date, opportunity_id: opportunity.id }])
         .select();
       if (error) throw error;
 
@@ -551,32 +627,95 @@ const OpportunitiesPage: React.FC = () => {
         setShowNotification(true);
         setTimeout(() => setShowNotification(false), 3000);
         setPursuitCount((prev) => prev + 1);
+        // Immediate feedback toast
+        try {
+          toast.success("Added to Tracker", {
+            description: "This opportunity is now being tracked in My Tracker.",
+            duration: 2500,
+          });
+        } catch {}
       }
     } catch (error) {
       console.error("Error adding to tracker:", error);
     }
   };
 
-  const handleBeginResponse = (contractId: string, contractData: Opportunity) => {
-    const contract = {
-      id: contractId,
-      title: contractData.title,
-      department: contractData.agency,
-      noticeId: contractData.id,
-      dueDate: contractData.response_date || "2025-01-01",
-      response_date: contractData.response_date || "2025-01-01",
-      published_date: contractData.published_date || "",
-      value: contractData.budget || "0",
-      status: contractData.active === false ? "Inactive" : "Active",
-      naicsCode: contractData.naics_code || "000000",
-      solicitation_number: contractData.solicitation_number || "",
-      description: contractData.description || "",
-      external_url: contractData.external_url || "",
-      budget: contractData.budget || "",
-    };
-    sessionStorage.setItem("currentContract", JSON.stringify(contract));
-    navigate(`/contracts/rfp/${contractData.id}`);
+  const handleBeginResponse = async (contractId: string, contractData: Opportunity) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+  
+      // 1) Do we already have a tracker for this title?
+      let pursuitId: string | undefined;
+      const { data: existingTrackers } = await supabase
+        .from("trackers")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("title", contractData.title);
+  
+      if (existingTrackers && existingTrackers.length > 0) {
+        pursuitId = existingTrackers[0].id;
+      } else {
+        // Always create a new tracker if not found
+        const newId =
+          (typeof window !== "undefined" && window.crypto && "randomUUID" in window.crypto)
+            ? window.crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+  
+        // Wait for the insert to finish and check for errors
+        const { error: insertError } = await supabase.from("trackers").insert([{
+          id: newId,
+          title: contractData.title,
+          description: contractData.description || "",
+          stage: "Review",
+          user_id: user.id,
+          due_date: contractData.response_date,
+          opportunity_id: contractData.id,
+        }]);
+        if (insertError) {
+          toast.error("Failed to create tracker. Please try again.");
+          return;
+        }
+        // Optionally, you can add a small delay to ensure DB consistency
+        // await new Promise(res => setTimeout(res, 200));
+        pursuitId = newId;
+      }
+  
+      // 2) Save contract + pursuit_id (this is what the RFP page will read)
+      const contract = {
+        id: contractId,
+        title: contractData.title,
+        department: contractData.agency,
+        noticeId: contractData.id,
+        dueDate: contractData.response_date || "2025-01-01",
+        response_date: contractData.response_date || "2025-01-01",
+        published_date: contractData.published_date || "",
+        value: contractData.budget || "0",
+        status: contractData.active === false ? "Inactive" : "Active",
+        naicsCode: contractData.naics_code || "000000",
+        solicitation_number: contractData.solicitation_number || "",
+        description: contractData.description || "",
+        external_url: contractData.external_url || "",
+        budget: contractData.budget || "",
+        pursuit_id: pursuitId, // <<< IMPORTANT
+      };
+  
+      sessionStorage.setItem("currentContract", JSON.stringify(contract));
+      // Gentle confirmation toast before navigating
+      try {
+        toast.success("Tracking started", {
+          description: "Opening RFP Builder for this opportunity.",
+          duration: 1500,
+        });
+      } catch {}
+      navigate(`/contracts/rfp/${contractData.id}`);
+    } catch (error) {
+      console.error("Error adding to tracker:", error);
+      toast.error("An error occurred. Please try again.");
+    }
   };
+  
+  
 
   const handleViewDetails = (opportunity: Opportunity) => {
     const url = opportunity.external_url || (opportunity.platform === "sam.gov" ? `https://sam.gov/opp/${opportunity.id}/view` : "");

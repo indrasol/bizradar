@@ -3,28 +3,35 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../components/Auth/useAuth";
 import { toast } from "sonner";
 import { Radar, LogOut } from "lucide-react";
+import { useTrack } from "@/logging";
 
 const Logout = () => {
   const { logout } = useAuth();
   const navigate = useNavigate();
+  const track = useTrack();
 
   useEffect(() => {
     const performLogout = async () => {
       try {
+        console.log("Logout called");
         await logout();
+
+        // mark that we should log the event once we land on "/"
+        sessionStorage.setItem("pendingLogoutTrack", "1");
+
         toast.success("You have been successfully logged out");
-        
-        // Redirect to home page after logout
-        setTimeout(() => {
-          navigate("/");
-        }, 2000);
       } catch (error) {
         console.error("Logout error:", error);
+        track({
+          event_name: "logout-failure",
+          event_type: "button_click",
+          metadata: {search_query: null, stage: null, opportunity_id: null, naics_code: null, rfp_title: null}
+        });
         toast.error("There was a problem logging out. Please try again.");
-        
-        // Redirect to home page even on error
+      } finally {
+        // Redirect to home page after logout (consistent landing point)
         setTimeout(() => {
-          navigate("/");
+          navigate("/", { replace: true });
         }, 2000);
       }
     };
@@ -54,22 +61,22 @@ const Logout = () => {
           {/* Decorative Elements */}
           <div className="absolute -top-10 -right-10 w-24 h-24 bg-gradient-to-bl from-blue-100 to-transparent transform rotate-12 rounded-xl"></div>
           <div className="absolute -bottom-10 -left-10 w-24 h-24 bg-gradient-to-tr from-green-50 to-transparent transform -rotate-12 rounded-xl"></div>
-          
+
           <div className="text-center relative z-10">
             <div className="mx-auto w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mb-6">
               <LogOut className="h-10 w-10 text-blue-600" />
             </div>
-            
+
             <h2 className="text-2xl font-bold text-gray-800 mb-3">Logging Out</h2>
             <p className="text-gray-600 mb-8">
               Please wait while we securely sign you out of your account...
             </p>
-            
-            {/* Loader - using Tailwind's built-in animation */}
+
+            {/* Loader */}
             <div className="relative h-2 bg-gray-100 rounded-full overflow-hidden mb-8 mx-auto max-w-xs">
               <div className="absolute inset-0 w-full bg-gradient-to-r from-blue-500 to-green-400 rounded-full animate-pulse"></div>
             </div>
-            
+
             <p className="text-sm text-gray-500">
               You'll be redirected to the homepage in a moment.
             </p>

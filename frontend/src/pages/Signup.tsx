@@ -17,7 +17,7 @@ import * as z from "zod";
 import { toast } from "sonner";
 import AuthContext from "../components/Auth/AuthContext";
 import { ResponsivePatterns, AuthTemplate } from "../utils/responsivePatterns";
-
+import { useTrack } from "@/logging";
 // Signup form schema validation
 const signupFormSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
@@ -53,6 +53,7 @@ const Signup = ({
   const [error, setError] = useState<string | null>(null);
   const { register: authRegister } = useContext(AuthContext);
   const navigate = useNavigate();
+  const track = useTrack();
 
   // Initialize signup form
   const signupForm = useForm<SignupFormValues>({
@@ -119,6 +120,7 @@ const Signup = ({
       // Attempt registration via AuthContext
       await authRegister(values.firstName, values.lastName, values.email, values.password);
 
+      track({ event_name: "signup-success", event_type: "button_click", metadata: {} });
       // Success notification
       toast.success("Account created successfully!", ResponsivePatterns.toast.config);
       onOpenChange(false);

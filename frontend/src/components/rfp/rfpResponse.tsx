@@ -39,25 +39,19 @@ import '@react-pdf-viewer/default-layout/lib/styles/index.css';
 import { Worker, Viewer } from '@react-pdf-viewer/core';
 import { defaultLayoutPlugin } from '@react-pdf-viewer/default-layout';
 import { API_ENDPOINTS } from '@/config/apiEndpoints';
-
+import { useTrack } from "@/logging"; // tracking for downloads etc.
 
 const cleanEmptyParagraphs = (html: string): string => {
   return html.replace(/<p><br(?: class="[^"]*")?\s*\/?><\/p>/g, '');
 };
 
 const renderTemplate = (template: string, data: any): string => {
-  // First handle for loops
   template = processForLoops(template, data);
-  
-  // Then handle conditionals
   template = processConditionals(template, data);
-  
-  // Finally handle simple variable substitution
   let rendered = template.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
     const value = key.split('.').reduce((obj, k) => obj?.[k.trim()], data);
     return value !== undefined ? String(value) : match;
   });
-  // Clean empty paragraphs
   rendered = cleanEmptyParagraphs(rendered);
   return rendered;
 };
@@ -84,7 +78,6 @@ const processForLoops = (template: string, data: any): string => {
     let openCount = 1;
     let endIndex = -1;
 
-    // Find the matching endfor by counting nested loops
     while (cursor < remaining.length) {
       const nextStart = remaining.slice(cursor).search(forStartTag);
       const nextEnd = remaining.slice(cursor).search(endTag);
@@ -134,9 +127,7 @@ const processForLoops = (template: string, data: any): string => {
 };
 
 const processConditionals = (template: string, data: any): string => {
-  // Match {% if condition %} ... {% endif %}
   const ifRegex = /\{%\s*if\s+([^%]+)\s*%\}([\s\S]*?)\{%\s*endif\s*%\}/g;
-  
   return template.replace(ifRegex, (match, condition, content) => {
     const isTrue = evaluateCondition(condition, data);
     return isTrue ? content : '';
@@ -144,39 +135,25 @@ const processConditionals = (template: string, data: any): string => {
 };
 
 const evaluateCondition = (condition: string, data: any): boolean => {
-  // Simple condition evaluation
-  // Supports: variable, variable == value, variable != value, variable.length > 0
-  
   const trimmedCondition = condition.trim();
-  
-  // Check if it's a simple variable existence check
   if (!trimmedCondition.includes(' ')) {
     const value = trimmedCondition.split('.').reduce((obj, k) => obj?.[k.trim()], data);
     return value !== undefined && value !== null && value !== '';
-  }
-  
-  // Check for equality/inequality
+    }
   const equalityMatch = trimmedCondition.match(/^(.+)\s*(==|!=)\s*(.+)$/);
   if (equalityMatch) {
     const [, left, operator, right] = equalityMatch;
     const leftValue = left.trim().split('.').reduce((obj, k) => obj?.[k.trim()], data);
-    const rightValue = right.trim().replace(/['"]/g, ''); // Remove quotes
-    
-    if (operator === '==') {
-      return String(leftValue) === rightValue;
-    } else if (operator === '!=') {
-      return String(leftValue) !== rightValue;
-    }
+    const rightValue = right.trim().replace(/['"]/g, '');
+    if (operator === '==') return String(leftValue) === rightValue;
+    if (operator === '!=') return String(leftValue) !== rightValue;
   }
-  
-  // Check for length comparisons
   const lengthMatch = trimmedCondition.match(/^(.+)\.length\s*(>|<|>=|<=)\s*(\d+)$/);
   if (lengthMatch) {
     const [, arrayPath, operator, length] = lengthMatch;
     const array = arrayPath.trim().split('.').reduce((obj, k) => obj?.[k.trim()], data);
     const arrayLength = Array.isArray(array) ? array.length : 0;
     const compareLength = parseInt(length);
-    
     switch (operator) {
       case '>': return arrayLength > compareLength;
       case '<': return arrayLength < compareLength;
@@ -184,14 +161,53 @@ const evaluateCondition = (condition: string, data: any): boolean => {
       case '<=': return arrayLength <= compareLength;
     }
   }
-  
   return false;
 };
 
-// API base URL and endpoints are centralized in API_ENDPOINTS
+// ---------- Stage Badge helpers ----------
+const getStageBadgeClasses = (stage: string) => {
+  const s = (stage || "").toLowerCase();
 
-const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; pursuitId: string; aiOpportunityId?: number }) => {
+  // Review
+  if (s.includes("review")) return "bg-amber-100 text-amber-800";
+
+  // In Progress
+  if (s.includes("in progress")) return "bg-blue-100 text-blue-800";
+
+  // Completed
+  if (s.includes("completed")) return "bg-emerald-100 text-emerald-800";
+
+  return "bg-gray-100 text-gray-800";
+};
+
+
+const StageBadge: React.FC<{ stage: string }> = ({ stage }) => (
+  <span className={`ml-2 px-2.5 py-1 rounded-full text-xs font-medium border ${getStageBadgeClasses(stage)} border-opacity-40`}>
+    {stage}
+  </span>
+);
+
+// ---------------- Component ----------------
+const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; pursuitId?: string; aiOpportunityId?: number }) => {
+
   const contentRef = useRef<HTMLDivElement>(null);
+  const track = useTrack();
+
+  // Read pursuit_id saved by Opportunities page
+const stored = (() => {
+  try {
+    return JSON.parse(sessionStorage.getItem("currentContract") || "{}");
+  } catch {
+    return {};
+  }
+})();
+const effectivePursuitId: string | undefined = pursuitId || stored?.pursuit_id;
+console.log('effectivePursuitId:', effectivePursuitId, typeof effectivePursuitId);
+
+if (!effectivePursuitId) {
+  console.warn("Missing pursuit_id. Open this page via 'Generate Response' so we know which tracker to save to.");
+}
+
 
   const exampleJob = contract || {
     title: 'DA10--Retail Merchandising System (RMS) and the Oracle Retail Store Inventory Management (SIM)',
@@ -205,7 +221,7 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
   const documentRef = useRef(null);
   const [showPreview, setShowPreview] = useState(false);
   const [showDownloadOptions, setShowDownloadOptions] = useState(false);
-  const [logo, setLogo] = useState(null);
+  const [logo, setLogo] = useState<any>(null);
   const [companyName, setCompanyName] = useState('');
   const [companyWebsite, setCompanyWebsite] = useState('');
   const [letterhead, setLetterhead] = useState('');
@@ -217,93 +233,40 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
   const [expandedSection, setExpandedSection] = useState(null);
   const [theme, setTheme] = useState('professional'); // professional, modern, classic
 
-  // Add new state for tracking saving and completion
   const [isSaving, setIsSaving] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const [lastSaved, setLastSaved] = useState(null);
+  const [lastSaved, setLastSaved] = useState<string | null>(null);
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
 
-  // Change these state variables
   const [naicsCode, setNaicsCode] = useState(contract?.naicsCode || '000000');
   const [solicitationNumber, setSolicitationNumber] = useState(contract?.solicitation_number || '');
 
-  // Add new state for modal and PDF URL
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [pdfUrl, setPdfUrl] = useState('');
 
-  // State for preview modal
   const [showMergedPreview, setShowMergedPreview] = useState(false);
   const [mergedPreviewContent, setMergedPreviewContent] = useState('');
 
-  // Ref for the DocumentEditor preview
-  const previewEditorRef = useRef(null);
+  const previewEditorRef = useRef<any>(null);
 
-  // Move the defaultTemplate function above the sections state declaration
+  // NEW: Stage state for UI pill
+  const [stage, setStage] = useState<string>("Review");
+
   const defaultTemplate = (job) => [
-    {
-      id: 1,
-      title: 'COVER PAGE',
-      content: '/rfp_templates/cover_page_template.docx',
-      icon: 'cover',
-      completed: false
-    },
-    {
-      id: 2,
-      title: 'TABLE OF CONTENTS',
-      content: '/rfp_templates/table_of_content_template.docx',
-      icon: 'toc',
-      completed: false
-    },
-    {
-      id: 3,
-      title: 'EXECUTIVE SUMMARY',
-      content: '/rfp_templates/executive_summary_template.docx',
-      icon: 'summary',
-      completed: false
-    },
-    {
-      id: 4,
-      title: 'COMPANY OVERVIEW',
-      content: '/rfp_templates/company_overview_template.docx',
-      icon: 'company',
-      completed: false
-    },
-    {
-      id: 5,
-      title: 'QUALIFICATIONS AND EXPERIENCE',
-      content: '/rfp_templates/qualifications_experience_template.docx',
-      icon: 'qualifications',
-      completed: false
-    },
-    {
-      id: 6,
-      title: 'TECHNICAL APPROACH',
-      content: '/rfp_templates/technical_approach_template.docx',
-      icon: 'technical',
-      completed: false
-    },
-    {
-      id: 7,
-      title: 'PRICING STRUCTURE',
-      content: '/rfp_templates/pricing_structure_template.docx',
-      icon: 'pricing',
-      completed: false
-    }
+    { id: 1, title: 'COVER PAGE', content: '/rfp_templates/cover_page_template.docx', icon: 'cover', completed: false },
+    { id: 2, title: 'TABLE OF CONTENTS', content: '/rfp_templates/table_of_content_template.docx', icon: 'toc', completed: false },
+    { id: 3, title: 'EXECUTIVE SUMMARY', content: '/rfp_templates/executive_summary_template.docx', icon: 'summary', completed: false },
+    { id: 4, title: 'COMPANY OVERVIEW', content: '/rfp_templates/company_overview_template.docx', icon: 'company', completed: false },
+    { id: 5, title: 'QUALIFICATIONS AND EXPERIENCE', content: '/rfp_templates/qualifications_experience_template.docx', icon: 'qualifications', completed: false },
+    { id: 6, title: 'TECHNICAL APPROACH', content: '/rfp_templates/technical_approach_template.docx', icon: 'technical', completed: false },
+    { id: 7, title: 'PRICING STRUCTURE', content: '/rfp_templates/pricing_structure_template.docx', icon: 'pricing', completed: false },
   ];
 
-  // Utility function to convert a docx file (by URL or path) to HTML using mammoth
-  // Note: This function assumes mammoth is available in the environment.
-  // Usage: const html = await docxToHtml('/path/to/file.docx');
   async function docxToHtml(docxUrl: string): Promise<string> {
     try {
-      // Fetch the docx file as an ArrayBuffer
       const response = await fetch(docxUrl);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch docx file: ${response.statusText}`);
-      }
+      if (!response.ok) throw new Error(`Failed to fetch docx file: ${response.statusText}`);
       const arrayBuffer = await response.arrayBuffer();
-
-      // Use mammoth to convert the ArrayBuffer to HTML
       // @ts-ignore
       const { value: html } = await mammoth.convertToHtml({ arrayBuffer });
       if (/<img\s/i.test(html)) {
@@ -322,14 +285,12 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
     }
   }
 
-  // Reusable function to load docx templates and set as HTML in sections
   const resetSectionsWithDocxHtml = async () => {
     const templateSections = defaultTemplate(exampleJob);
     const sectionsWithHtml = await Promise.all(
-      templateSections.map(async (section, idx) => {
+      templateSections.map(async (section) => {
         if (typeof section.content === 'string' && section.content.endsWith('.docx')) {
           const html = await docxToHtml(section.content);
-          // We'll set the content in the DocumentEditor after mount using useEffect
           return { ...section, content: html };
         }
         return section;
@@ -341,7 +302,6 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
   const [sections, setSections] = useState<any[]>([]);
 
   useEffect(() => {
-    // On mount, load docx templates as HTML for DocumentEditors
     resetSectionsWithDocxHtml();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -361,15 +321,14 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
     sections: defaultTemplate(exampleJob)
   });
 
-  // Add useEffect to log state changes
   useEffect(() => {
     console.log('isSubmitted state:', isSubmitted);
   }, [isSubmitted]);
 
-  // Modify the loadRfpData function to properly set isSubmitted and load profile data
+  // LOAD persisted response + stage and load profile data
   useEffect(() => {
     const loadRfpData = async () => {
-      if (!pursuitId) return;
+      if (!effectivePursuitId) return;
 
       try {
         console.log("Loading RFP data for pursuit ID:", pursuitId);
@@ -377,11 +336,14 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
         // Fetch user profile data first
         const userProfile = await fetchUserProfile();
 
-        // Fetch RFP response data for this pursuit
+        
+
+
+
         const { data: responses, error } = await supabase
           .from('rfp_responses')
           .select('*')
-          .eq('pursuit_id', pursuitId);
+          .eq('pursuit_id', effectivePursuitId);
 
         if (error) {
           console.error("Error loading RFP data:", error);
@@ -393,7 +355,6 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
           const data = responses[0];
           console.log("Loaded RFP data:", data);
 
-          // Set submission status first
           setIsSubmitted(data.is_submitted || false);
           console.log("Setting isSubmitted to:", data.is_submitted);
 
@@ -412,6 +373,7 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
             setIssuedDate(content.issuedDate || 'December 26th, 2024');
             setSubmittedBy(content.submittedBy || `${userProfile?.first_name || 'Admin'} ${userProfile?.last_name || 'User'}, ${userProfile?.company_name || 'BizRadar'}`);
             setTheme(content.theme || 'professional');
+
             if (Array.isArray(content.sections)) {
               setSections(content.sections);
             }
@@ -432,7 +394,6 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
             });
           }
 
-          // Set last saved timestamp
           if (data.updated_at) {
             setLastSaved(new Date(data.updated_at).toLocaleTimeString());
           }
@@ -441,6 +402,7 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
         } else {
           console.log("No existing RFP response found, loading templates and converting to HTML");
           // No saved data found, load DOCX templates and convert to HTML for editing
+          console.log("No existing RFP response found, using default template");
           setRfpTitle(contract?.title || 'Proposal for Cybersecurity Audit & Penetration Testing Services');
           setNaicsCode(contract?.naicsCode || '000000');
           setSolicitationNumber(contract?.solicitation_number || '');
@@ -468,6 +430,25 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
           }
           await resetSectionsWithDocxHtml();
         }
+
+        // --- AFTER reading rfp_responses, read the stage from trackers ---
+        try {
+          const { data: trackerRow, error: trackerErr } = await supabase
+            .from("trackers")
+            .select("stage")
+            .eq("id", effectivePursuitId)
+            .single();
+
+          if (!trackerErr && trackerRow?.stage) {
+            setStage(trackerRow.stage);
+          } else {
+            setStage("Review"); // default on first arrival
+          }
+        } catch {
+          setStage("Review");
+        }
+        // -----------------------------------------------------------------
+
       } catch (err) {
         console.error("Error in RFP data loading:", err);
         toast?.error("An unexpected error occurred while loading RFP data.");
@@ -475,12 +456,11 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
     };
 
     loadRfpData();
-  }, [pursuitId]);
+  }, [effectivePursuitId]);
 
-  // Auto-save feature
+  // Auto-save (unchanged)
   useEffect(() => {
-    if (!autoSaveEnabled || !pursuitId) return;
-
+    if (!autoSaveEnabled || !effectivePursuitId) return;
     const autoSaveTimer = setTimeout(() => {
       saveRfpData(false); // Don't show notification for auto-save
     }, 300000); // Auto-save every 5 minutes
@@ -489,7 +469,7 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
   }, [
     logo, companyName, companyWebsite, letterhead, phone,
     rfpTitle, rfpNumber, issuedDate, submittedBy, theme, sections,
-    autoSaveEnabled, pursuitId
+    autoSaveEnabled, effectivePursuitId
   ]);
 
   // Function to fetch user profile data
@@ -521,7 +501,22 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
     }
   };
 
-  // Function to save RFP data to the database
+
+
+
+
+  // Function to fetch user profile data
+  
+
+  // Function to fetch user profile data
+  
+
+  // Helper: bump UI stage to Initiated on any edit attempt
+  const markInitiated = () => {
+    setStage("In Progress");
+  };
+
+  // SAVE: update trackers.stage and local UI stage based on completion
   const saveRfpData = async (showNotification = true) => {
     try {
       setIsSaving(true);
@@ -542,18 +537,18 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
       console.log('User profile data:', userProfile);
       
       // Calculate completion percentage
+
       const completedSections = sections.filter(section => section.completed).length;
       const totalSections = sections.length;
       const completionPercentage = totalSections > 0 ? Math.round((completedSections / totalSections) * 100) : 0;
 
-      // Determine stage based on completion
-      let stageToSet;
+      let stageToSet: string;
       if (completedSections === totalSections && totalSections > 0) {
-        stageToSet = "RFP Response Completed";
-      } else if (completedSections > 0) {
-        stageToSet = "RFP Response Initiated";
+        stageToSet = "Completed";
+      } else if (completedSections > 0 || stage === "In Progress") {
+        stageToSet = "In Progress";
       } else {
-        stageToSet = "Assessment";
+        stageToSet = "Review";
       }
 
       // Prepare the content object to save with profile data
@@ -575,21 +570,19 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
       
       console.log('Content to save:', contentToSave);
 
-      // Update stage in trackers table
+      // Persist stage to trackers
       const { error: trackerError } = await supabase
         .from('trackers')
         .update({ stage: stageToSet })
-        .eq('id', pursuitId);
+        .eq('id', effectivePursuitId);
 
-      if (trackerError) {
-        throw trackerError;
-      }
+      if (trackerError) throw trackerError;
 
-      // Save to rfp_responses table
+      // Save RFP content
       const { error: rfpError } = await supabase
         .from('rfp_responses')
         .upsert({
-          pursuit_id: pursuitId,
+          pursuit_id: effectivePursuitId,
           user_id: user?.id,
           content: contentToSave,
           is_submitted: isSubmitted,
@@ -599,18 +592,29 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
           onConflict: 'pursuit_id'
         });
 
-      if (rfpError) {
-        throw rfpError;
+      if (rfpError) throw rfpError;
+
+      setLastSaved(new Date().toLocaleTimeString());
+      setStage(stageToSet); // reflect on UI
+
+      if (showNotification && stageToSet === "Completed") {
+        try {
+          track({
+            event_name: "generate_rfp",
+            event_type: "button_click",
+            metadata: {
+              stage: "rfp_completed",
+              pursuit_id: pursuitId,
+              solicitation: contract?.solicitation_number,
+              rfp_title: contract?.title,
+            },
+          });
+        } catch {}
       }
 
-      // Update last saved timestamp
-      setLastSaved(new Date().toLocaleTimeString());
-
-      // Show success notification
       if (showNotification) {
         toast?.success(`Saved with stage: ${stageToSet}`);
       }
-
     } catch (error) {
       console.error("Error saving RFP data:", error);
       if (showNotification) {
@@ -622,24 +626,41 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
   };
 
   const handleLogoUpload = (e) => {
-    if (!isEditingAllowed()) {
-      console.log('Editing not allowed - proposal is submitted');
-      return;
-    }
+    if (!isEditingAllowed()) return;
     const file = e.target.files[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => setLogo(reader.result);
       reader.readAsDataURL(file);
+      markInitiated();
     }
   };
 
-  // Update proposalData when logo changes
+  const handleSubmittedToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const checked = e.target.checked;
+    setIsSubmitted(checked);
+  
+    if (checked) {
+      try {
+        track({
+          event_name: "generate_rfp",
+          event_type: "button_click",
+          metadata: {
+            query: null,
+            stage: "rfp_submitted",
+            pursuit_id: pursuitId,
+            solicitation: contract?.solicitation_number,
+            rfp_title: contract?.title,
+          },
+        });
+      } catch {}
+      // Optional: persist immediately
+      // setTimeout(() => saveRfpData(true), 0);
+    }
+  };
+
   useEffect(() => {
-    setProposalData((prev) => ({
-      ...prev,
-      logo: logo, // Update logo in proposalData
-    }));
+    setProposalData((prev) => ({ ...prev, logo }));
   }, [logo]);
 
   useEffect(() => {
@@ -655,7 +676,7 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
       issuedDate,
       submittedBy,
       theme,
-      sections, // Ensure sections is included and updated
+      sections,
     });
   }, [
     logo,
@@ -669,44 +690,34 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
     issuedDate,
     submittedBy,
     theme,
-    sections, // Add sections to the dependency array
+    sections,
   ]);
 
   const updateField = (index, field, value) => {
-    if (!isEditingAllowed()) {
-      console.log('Editing not allowed - proposal is submitted');
-      return;
-    }
+    if (!isEditingAllowed()) return;
     const copy = [...sections];
     copy[index][field] = value;
-    console.log("Updated field:", copy[index][field]);
     setSections(copy);
+    markInitiated();
   };
 
   const toggleCompleted = (index) => {
-    if (!isEditingAllowed()) {
-      console.log('Editing not allowed - proposal is submitted');
-      return;
-    }
+    if (!isEditingAllowed()) return;
     const copy = [...sections];
     copy[index].completed = !copy[index].completed;
     setSections(copy);
+    markInitiated();
   };
 
   const deleteSection = (id) => {
-    if (!isEditingAllowed()) {
-      console.log('Editing not allowed - proposal is submitted');
-      return;
-    }
+    if (!isEditingAllowed()) return;
     const updated = sections.filter((s) => s.id !== id);
     setSections(updated.map((s, i) => ({ ...s, id: i + 1 })));
+    markInitiated();
   };
 
   const addSectionBelow = (index) => {
-    if (!isEditingAllowed()) {
-      console.log('Editing not allowed - proposal is submitted');
-      return;
-    }
+    if (!isEditingAllowed()) return;
     const newSection = {
       id: sections.length + 1,
       title: 'CUSTOM SECTION',
@@ -717,46 +728,37 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
     const updated = [...sections.slice(0, index + 1), newSection, ...sections.slice(index + 1)];
     setSections(updated.map((s, i) => ({ ...s, id: i + 1 })));
     setExpandedSection(newSection.id);
+    markInitiated();
   };
 
   const moveSection = (id, direction) => {
-    if (!isEditingAllowed()) {
-      console.log('Editing not allowed - proposal is submitted');
-      return;
-    }
+    if (!isEditingAllowed()) return;
     const index = sections.findIndex(s => s.id === id);
     if ((direction === 'up' && index === 0) ||
       (direction === 'down' && index === sections.length - 1)) {
       return;
     }
-
     const newIndex = direction === 'up' ? index - 1 : index + 1;
     const copy = [...sections];
     const temp = copy[index];
     copy[index] = copy[newIndex];
     copy[newIndex] = temp;
-
     setSections(copy.map((s, i) => ({ ...s, id: i + 1 })));
+    markInitiated();
   };
 
-  // Modify the toggleSection function to allow expansion/collapse regardless of submission status
   const toggleSection = (id) => {
     setExpandedSection(expandedSection === id ? null : id);
   };
 
-  // Add a separate function for checking if editing is allowed
   const isEditingAllowed = () => {
-    console.log('Checking if editing is allowed. isSubmitted:', isSubmitted);
     return !isSubmitted;
   };
 
-  // Add event handlers for input changes that check isSubmitted
   const handleInputChange = (setter) => (e) => {
-    if (!isEditingAllowed()) {
-      console.log('Editing not allowed - proposal is submitted');
-      return;
-    }
+    if (!isEditingAllowed()) return;
     setter(e.target.value);
+    markInitiated();
   };
 
   const getSectionIcon = (icon) => {
@@ -856,11 +858,11 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
   const colors = getThemeColors();
 
   const downloadPDF = async () => {
+    try { track({ event_name: "Download RFP as PDF", event_type: "button_click", metadata: {query: null, stage: null, opportunity_id: null, naics_code: null, rfp_title: null} }); } catch {}
     try {
       const contentElement = contentRef.current;
       if (!contentElement) throw new Error('Content element not found');
 
-      // Store original styles
       const originalStyles = {
         position: contentElement.style.position,
         left: contentElement.style.left,
@@ -872,7 +874,6 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
         color: contentElement.style.color,
       };
 
-      // Temporarily adjust contentElement to ensure rendering
       contentElement.style.position = 'fixed';
       contentElement.style.left = '-9999px';
       contentElement.style.top = '0';
@@ -882,10 +883,8 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
       contentElement.style.color = '#000000';
       contentElement.style.zIndex = '-1000';
 
-      // Force a repaint to ensure content is rendered
       window.getComputedStyle(contentElement).height;
 
-      // Create a PDF
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'in',
@@ -897,7 +896,6 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
       const scale = 1.5;
       const maxPageHeightPx = pageHeight * 96 * scale;
 
-      // Get all section elements
       const sectionElements = Array.from(contentElement.querySelectorAll('div.section')) as HTMLElement[];
       if (sectionElements.length === 0) {
         throw new Error('No sections found in content');
@@ -907,7 +905,6 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
       let currentPageElements: HTMLElement[] = [];
       let pageIndex = 0;
 
-      // Create a temporary container for rendering each page
       const tempContainer = document.createElement('div');
       tempContainer.style.position = 'fixed';
       tempContainer.style.top = '0';
@@ -923,10 +920,8 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
         const clonedSection = section.cloneNode(true) as HTMLElement;
         clonedSection.style.display = 'block';
 
-        // Append to measure height
         tempContainer.appendChild(clonedSection);
 
-        // Force a repaint
         const computedStyle = window.getComputedStyle(clonedSection);
         console.log(`Section ${i + 1} computed styles:`, {
           display: computedStyle.display,
@@ -952,13 +947,11 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
             tempContainer.appendChild(element);
           });
 
-          // Force a repaint
           const firstElement = tempContainer.firstChild as HTMLElement;
           if (firstElement) {
             window.getComputedStyle(firstElement).height;
           }
 
-          // Minimal delay to ensure rendering
           await new Promise((resolve) => setTimeout(resolve, 100));
 
           const canvas = await html2canvas(tempContainer, {
@@ -1015,13 +1008,11 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
           tempContainer.appendChild(element);
         });
 
-        // Force a repaint
         const firstElement = tempContainer.firstChild as HTMLElement;
         if (firstElement) {
           window.getComputedStyle(firstElement).height;
         }
 
-        // Minimal delay to ensure rendering
         await new Promise((resolve) => setTimeout(resolve, 100));
 
         console.log('Last page elements:', currentPageElements.map(el => el.outerHTML));
@@ -1073,6 +1064,7 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
   };
 
   const downloadWord = async () => {
+    try { track({ event_name: "Download RFP as Word", event_type: "button_click", metadata: {query: null, stage: null, opportunity_id: null, naics_code: null, rfp_title: null} }); } catch {}
     let contentElement: HTMLDivElement | null = null;
     let originalStyles: { [key: string]: string } | null = null;
 
@@ -1093,10 +1085,7 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
       window.getComputedStyle(contentElement).height;
 
       const sectionElements = Array.from(contentElement.querySelectorAll('div.section')) as HTMLElement[];
-      if (sectionElements.length === 0) {
-        throw new Error('No sections found in content');
-      }
-      console.log('Section elements:', sectionElements.map(s => s.outerHTML));
+      if (sectionElements.length === 0) throw new Error('No sections found in content');
 
       const alignmentMap: { [key: string]: typeof AlignmentType[keyof typeof AlignmentType] } = {
         center: AlignmentType.CENTER,
@@ -1110,8 +1099,7 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
         none: 'none',
       };
 
-      const paragraphs = sectionElements.flatMap((section, sectionIndex) => {
-        // Include div.whitespace-pre-line in the selector
+      const paragraphs = sectionElements.flatMap((section) => {
         const textElements = Array.from(section.querySelectorAll('h1, h2, h3, p, div.whitespace-pre-line')) as HTMLElement[];
         if (textElements.length === 0) return [];
 
@@ -1143,20 +1131,16 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
           let defaultFontSize = 20;
           let defaultBold = false;
           if (element.tagName === 'H1') {
-            defaultFontSize = 24;
-            defaultBold = true;
+            defaultFontSize = 24; defaultBold = true;
           } else if (element.tagName === 'H2') {
-            defaultFontSize = 22;
-            defaultBold = true;
+            defaultFontSize = 22; defaultBold = true;
           } else if (element.tagName === 'H3') {
-            defaultFontSize = 20;
-            defaultBold = true;
+            defaultFontSize = 20; defaultBold = true;
           }
 
-          // If the element is div.whitespace-pre-line, split its content on newlines
           if (element.classList.contains('whitespace-pre-line')) {
             const lines = (element.textContent || '').split('\n').map(line => line.trim()).filter(line => line);
-            lines.forEach((line) => {
+            lines.forEach((line) =>
               sectionParagraphs.push(
                 new Paragraph({
                   alignment: alignmentMap[textAlign] || AlignmentType.LEFT,
@@ -1172,10 +1156,9 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
                   ],
                   spacing: { after: spacingAfter },
                 })
-              );
-            });
+              )
+            );
           } else {
-            // Handle h1, h2, h3, p as before
             sectionParagraphs.push(
               new Paragraph({
                 alignment: alignmentMap[textAlign] || AlignmentType.LEFT,
@@ -1201,11 +1184,7 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
       Object.assign(contentElement.style, originalStyles);
 
       const doc = new Document({
-        sections: [
-          {
-            children: paragraphs,
-          },
-        ],
+        sections: [{ children: paragraphs }],
       });
 
       const blob = await Packer.toBlob(doc);
@@ -1220,31 +1199,24 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
     setShowDownloadOptions(false);
   };
 
-  // Utility function to convert RGB to 6-digit hex
   const rgbToHex = (rgb: string): string | null => {
     const rgbMatch = rgb.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/i);
     if (!rgbMatch) return null;
-
     const r = parseInt(rgbMatch[1], 10);
     const g = parseInt(rgbMatch[2], 10);
     const b = parseInt(rgbMatch[3], 10);
-
-    // Convert to hex and ensure 2 digits per channel
     const toHex = (value: number) => {
       const hex = value.toString(16);
       return hex.length === 1 ? '0' + hex : hex;
     };
-
     return `${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
   };
 
   const enhanceWithAI = async (sectionsToEnhance: any[]) => {
     try {
-      // Show loading state
       toast?.info("Enhancing RFP with AI...");
-
-      // Get current user
       const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
 
       if (!user) {
         throw new Error("User not authenticated");
@@ -1276,37 +1248,27 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
       // Call the backend API
       const response = await fetch(`${API_ENDPOINTS.ENHANCE_RFP_WITH_AI}`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           profile_id,
           ai_opportunity_id,
-          pursuitId,
+          pursuitId: effectivePursuitId,
           userId: user?.id
         }),
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
       const result = await response.json();
 
       if (result.success && result.enhanced_data) {
-        // Process the enhanced data and update the sections
         const enhancedData = result.enhanced_data;
-        // const pdf_download_url = result.pdf_download_url;
-        // const docx_download_url = result.docx_download_url;
-
-        // For each section to enhance, treat the current HTML as a template, render with enhancedData, and set it back
         const enhancedSections = sectionsToEnhance.map((section) => {
           const template = section.content;
           const rendered = renderTemplate(template, enhancedData);
           return { ...section, content: rendered };
         });
 
-        // Update only the relevant sections in the main sections state
         setSections((prevSections) =>
           prevSections.map((section) => {
             const match = enhancedSections.find((s) => s.id === section.id);
@@ -1315,33 +1277,19 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
         );
 
         toast?.success("RFP enhanced successfully with AI!");
-
-        // Auto-save the enhanced content
-        setTimeout(() => {
-          saveRfpData(true);
-        }, 1000);
-
-        // Set PDF URL but do not show the PDF modal
-        // if (pdf_download_url) {
-        //   setPdfUrl(pdf_download_url);
-        // }
-
+        setTimeout(() => { saveRfpData(true); }, 1000);
+        markInitiated();
       } else {
         throw new Error(result.message || 'Failed to enhance RFP');
       }
-
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error enhancing RFP with AI:', error);
       toast?.error(`Failed to enhance RFP: ${error.message}`);
     }
   };
 
-  // Show preview screen
   const handlePreview = () => {
-    // Merge all section contents with a horizontal rule or page break
     const merged = sections.map(s => s.content).join('<hr style="page-break-after:always; margin:32px 0;"/>');
-    
-    // Use the preview editor ref to set content with image handling
     if (previewEditorRef.current) {
       setDocxHtmlInEditor(merged, previewEditorRef);
     } else {
@@ -1350,21 +1298,17 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
     setShowMergedPreview(true);
   };
 
-  // Calculate completion percentage
   const completionPercentage = Math.round(
     (sections.filter(section => section.completed).length / sections.length) * 100
   );
 
-  // Function to close the RFP builder
   const closeRfpBuilder = (): void => {
-    // Check if there's a current RFP pursuit ID
     if (pursuitId) {
-      const savedData = localStorage.getItem(`rfp_response_${pursuitId}`);
+      const savedData = localStorage.getItem(`rfp_response_${effectivePursuitId}`);
       if (savedData) {
         try {
           const parsedData = JSON.parse(savedData);
           if (parsedData.stage) {
-            // Update the pursuit stage in the local state
             setSections(prevSections =>
               prevSections.map(section =>
                 section.id === pursuitId
@@ -1378,13 +1322,10 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
         }
       }
     }
-
-    // Close the RFP builder and reset the current pursuit ID
     setShowPreview(false);
     setExpandedSection(null);
   };
 
-  // Calculate due date proximity for display
   const getDueDateProximity = () => {
     if (!contract?.dueDate || contract.dueDate === "Not specified") return null;
 
@@ -1406,22 +1347,18 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
   };
 
   const dueDateInfo = getDueDateProximity();
-
   const defaultLayoutPluginInstance = defaultLayoutPlugin();
 
-  // Handler to download the preview as PDF
   const handleDownloadPreviewPDF = async () => {
-    // Find the editor content DOM node
     const editorElement = document.querySelector('.ProseMirror');
     if (!editorElement) return;
 
-    // Create a temporary container for PDF rendering
     const tempContainer = document.createElement('div');
     tempContainer.style.position = 'absolute';
     tempContainer.style.left = '-9999px';
     tempContainer.style.background = 'white';
     tempContainer.style.padding = '32px';
-    tempContainer.style.width = '794px'; // A4 width in px at 96 DPI
+    tempContainer.style.width = '794px';
     tempContainer.style.fontFamily = 'Times New Roman, serif';
     tempContainer.style.fontSize = '16px';
     tempContainer.style.lineHeight = '1.6';
@@ -1503,43 +1440,31 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
     pdf.save('proposal-preview.pdf');
   };
 
-  // Add a ref to store DocumentEditor refs for each section
-  const editorRefs = useRef([]);
+  const editorRefs = useRef<any[]>([]);
 
-  // Utility to set docx HTML in DocumentEditor with image compatibility
   function setDocxHtmlInEditor(html, editorRef) {
-    console.log('html after fn call', html);
     if (!editorRef?.current) return;
     const { editor, insertImageHtmlString } = editorRef.current;
     if (!editor) return;
 
-    // Parse HTML and extract images
     const parser = new window.DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
     const images = Array.from(doc.querySelectorAll('img'));
     images.forEach(img => img.parentNode?.removeChild(img));
     const htmlWithoutImages = doc.body.innerHTML;
 
-    // Set HTML without images
     editor.commands.setContent(htmlWithoutImages);
-    console.log('htmlWithoutImages', htmlWithoutImages);
-    // Insert images at the end
     images.forEach(img => {
       insertImageHtmlString(img.outerHTML);
     });
-    console.log('images', images);
   }
 
   useEffect(() => {
-    console.log("Sections being enhanced");
     sections.forEach((section, idx) => {
-      console.log("Section:", section);
       if (typeof section.content === 'string' && /<img/i.test(section.content)) {
         const editorRef = editorRefs.current[idx];
-        console.log("Editor ref:", editorRef);
         if (editorRef && editorRef.current) {
           setDocxHtmlInEditor(section.content, editorRef);
-          console.log("Set docx HTML in editor for section:", section.id);
         }
       }
     });
@@ -1554,24 +1479,19 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
           <div style={{ position: 'absolute', left: '-9999px' }} ref={contentRef}>
             <RfpPreviewContent {...proposalData} />
           </div>
-          {/* Preview Modal */}
-          {showPreview && (
-            <RfpPreview
-              {...proposalData}
-              closeRfpBuilder={() => setShowPreview(false)}
-            />
-          )}
 
-          {/* Page Header with Contract Info */}
+          {/* Header card */}
           <div className="bg-white rounded-xl shadow-md p-6 mb-6 border border-gray-200">
             <div className="flex justify-between items-start flex-wrap md:flex-nowrap gap-4">
-              {/* Contract Title and Details */}
               <div className="flex-1">
-                <h1 className="text-xl md:text-2xl font-bold text-gray-800 mb-2">{contract?.title || 'Create RFP Response'}</h1>
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-600 mt-2">
+                <h1 className="text-xl md:text-2xl font-bold text-gray-800 mb-2">
+                  {contract?.title || 'Create RFP Response'}
+                </h1>
+
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-900 mt-2">
                   {contract?.department && (
                     <div className="flex items-center gap-1.5">
-                      <FileText className="w-4 h-4 text-gray-400" />
+                      <FileText className="w-4 h-4 text-gray-900" />
                       <span>{contract.department}</span>
                     </div>
                   )}
@@ -1585,46 +1505,140 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
 
                   {contract?.naicsCode && (
                     <div className="flex items-center gap-1.5">
-                      <span className="text-gray-400">#</span>
+                      <span className="text-gray-900">#</span>
                       <span>NAICS: {contract.naicsCode}</span>
                     </div>
                   )}
 
                   {contract?.solicitation_number && (
                     <div className="flex items-center gap-1.5">
-                      <span className="text-gray-400">#</span>
+                      <span className="text-gray-900">#</span>
                       <span>Solicitation: {contract.solicitation_number}</span>
+
+                      <span
+                        className="ml-2 text-sm text-gray-900 flex items-center gap-1"
+                        title="Review: not started • In progress: you're editing • Completed: all sections checked • Submitted: you confirmed submission"
+                      >
+                        Stage:
+                      </span>
+
+                      <StageBadge stage={stage} />
+
+                      {/* Submitted checkbox with stronger border + conditional tooltip */}
+                      {(() => {
+                        const canSubmit = stage === "Completed";
+                        const tip = canSubmit
+                          ? "I have completed and reviewed all sections, I am ready to submit."
+                          : "Please tick and save all sections to complete.";
+
+                        return (
+                          <label
+                            className={`flex items-center gap-1.5 ml-2 ${
+                              canSubmit ? "cursor-pointer" : "cursor-not-allowed"
+                            }`}
+                            title={tip}
+                          >
+                          <input
+                              type="checkbox"
+                              disabled={stage !== "Completed"}
+                              checked={!!isSubmitted}
+                              onChange={handleSubmittedToggle}
+                              className="h-4 w-4 rounded border-2 border-gray-700 bg-white accent-emerald-600 focus:ring-0 focus:outline-none
+                                        disabled:opacity-100 disabled:border-gray-700 disabled:bg-white disabled:cursor-not-allowed"
+                            />
+                            <span
+                              className={`text-sm ${stage !== "Completed" ? "text-gray-600" : "text-gray-700"}`}
+                              title={tip}
+                            >
+                              Submitted
+                            </span>
+                          </label>
+                        );
+                      })()}
+                    </div>
+                  )}
+
+                  {!contract?.solicitation_number && (
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className="ml-2 text-sm text-gray-600 flex items-center gap-1"
+                        title="Review: not started • In progress: you’re editing • Completed: all sections checked • Submitted: you confirmed submission"
+                      >
+                      Stage:
+                      </span>
+                      <StageBadge stage={stage} />
+                    <label
+                    className="flex items-center gap-1.5 ml-2 cursor-pointer"
+                    title="Please check the box if you have submitted your RFP Proposal."
+                    >
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-2 border-gray-700 bg-white outline-none disabled:opacity-100 disabled:border-gray-700 disabled:bg-white disabled:cursor-not-allowed"
+                        disabled={stage !== "Completed"}
+                        checked={!!isSubmitted}
+                        onChange={handleSubmittedToggle}
+                      />
+                      <span className={`text-sm ${stage !== "Completed" ? "text-gray-600" : "text-gray-700"}`}>
+                        Submitted
+                      </span>
+                    </label>
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Completion Status */}
+              {/* Completion indicator */}
               <div className="flex flex-col items-end">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="text-sm font-medium">
                     <span className="text-gray-600">Completion:</span>
                     <span className={`ml-1 ${completionPercentage === 100 ? 'text-green-600' : completionPercentage > 50 ? 'text-blue-600' : 'text-amber-600'}`}>
-                      {completionPercentage}%
+                      {/* {completionPercentage}% */}
                     </span>
                   </div>
-                  <div className="h-8 w-8 rounded-full flex items-center justify-center text-white shadow-sm"
-                    style={{
-                      background: `conic-gradient(#10B981 ${completionPercentage}%, #F3F4F6 0)`
-                    }}>
-                    <div className="h-6 w-6 rounded-full bg-white flex items-center justify-center">
-                      <span className="text-xs font-semibold text-gray-700">{completionPercentage}%</span>
-                    </div>
+                  <div
+                    className="h-16 w-16 rounded-full flex items-center justify-center text-white shadow-sm border-4 border-gray-200"
+                    style={{ background: `conic-gradient(#10B981 ${completionPercentage}%, #F3F4F6 0)` }}
+                  >
+                  <div className="h-12 w-12 rounded-full bg-white flex items-center justify-center">    
+                    <span className="text-xs font-semibold text-gray-700">{completionPercentage}%</span>
                   </div>
+                </div>
                 </div>
                 <div className="text-xs text-gray-500">
                   {sections.filter(s => s.completed).length} of {sections.length} sections completed
+                </div>
+                {/* Instruction / next-step callout */}
+                {/* Instruction / next-step callout */}
+                <div className="mt-3 max-w-[320px]">
+                  <div
+                    className={`flex items-start gap-2 rounded-lg border px-3 py-2 shadow-sm text-xs
+                      ${completionPercentage === 100
+                        ? "bg-green-50 border-green-200 text-green-700"
+                        : "bg-amber-50 border-amber-200 text-amber-800"
+                      }`}
+                  >
+                    <AlertCircle
+                      className={`w-4 h-4 flex-shrink-0
+                        ${completionPercentage === 100 ? "text-green-600" : "text-amber-600"}`}
+                    />
+                    <div>
+                      <div className="font-medium">
+                        {completionPercentage === 100 ? "Ready to submit" : "Mark all sections to complete response"}
+                      </div>
+                      <div className="mt-0.5">
+                        {completionPercentage === 100
+                          ? "All sections done—tick “Submitted” to confirm your RFP response."
+                          : "Tap ○ to mark ✓ when a section is completed."}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Top Header with Action Buttons */}
+          {/* Top controls */}
           <div className="bg-white rounded-xl shadow-md p-5 mb-6 border border-gray-200">
             <div className="flex justify-between items-center flex-wrap gap-4">
               <div className="flex items-center gap-3">
@@ -1634,7 +1648,6 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
                 <h1 className="text-lg md:text-xl font-bold text-gray-800">RFP Response Builder</h1>
               </div>
               <div className="flex gap-3 items-center flex-wrap">
-                {/* Save button and indicator */}
                 <button
                   onClick={() => saveRfpData(true)}
                   disabled={isSaving || isSubmitted}
@@ -1657,6 +1670,7 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
                         const currentIndex = themes.indexOf(theme);
                         const nextIndex = (currentIndex + 1) % themes.length;
                         setTheme(themes[nextIndex]);
+                        markInitiated();
                       }}
                       disabled={isSubmitted}
                       className={`inline-flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-3 py-2 rounded-lg shadow-sm ${isSubmitted ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50 hover:border-gray-400'} transition-all`}
@@ -1671,7 +1685,7 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
                     <Eye className="w-4 h-4" /> Preview
                   </button>
                   <button
-                    onClick={() => enhanceWithAI(sections)}//Top action enhancewithai
+                    onClick={() => enhanceWithAI(sections)}
                     disabled={isSubmitted}
                     className={`inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-2 rounded-lg shadow-sm hover:shadow transition-all hover:from-blue-700 hover:to-blue-800 ${isSubmitted ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
@@ -1683,7 +1697,7 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Left Column - Company Info */}
+            {/* Left column */}
             <div className="md:col-span-1">
               <div className={`bg-white rounded-xl shadow-sm p-6 mb-6 border border-gray-200 transition-all hover:shadow-md ${isSubmitted ? 'opacity-75' : ''}`}>
                 <h2 className="text-lg font-semibold text-gray-800 mb-5 flex items-center gap-2">
@@ -1704,7 +1718,7 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
                       <img src={logo} alt="Company Logo" className="max-h-20 object-contain mb-3 p-2 border border-gray-100 rounded-lg bg-white shadow-sm" />
                       {!isSubmitted && (
                         <button
-                          onClick={() => setLogo(null)}
+                          onClick={() => { setLogo(null); markInitiated(); }}
                           className="text-sm text-gray-500 hover:text-red-500 flex items-center gap-1 mt-1 px-2 py-1 rounded-lg hover:bg-red-50 transition-colors"
                         >
                           <X className="w-3 h-3" /> Remove Logo
@@ -1864,12 +1878,12 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
                       <Plus className="w-4 h-4" /> Add Section
                     </button>
                   )}
-                  {/* Reset Button */}
                   <button
                     onClick={async () => {
                       if (isSubmitted) return;
-                      if (window.confirm('Are you sure you want to reset all Proposal Sections to the default template? This will erase all current section content.')) {
+                      if (window.confirm('Reset all Proposal Sections to the default template? This will erase current content.')) {
                         await resetSectionsWithDocxHtml();
+                        markInitiated();
                       }
                     }}
                     disabled={isSubmitted}
@@ -1900,9 +1914,7 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (!isSubmitted) {
-                              toggleCompleted(index);
-                            }
+                            if (!isSubmitted) toggleCompleted(index);
                           }}
                           className="focus:outline-none transition-transform hover:scale-110"
                         >
@@ -1930,12 +1942,7 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
                       <div className="flex items-center gap-2">
                         <div className="flex -space-x-1">
                           <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (!isSubmitted) {
-                                moveSection(section.id, 'up');
-                              }
-                            }}
+                            onClick={(e) => { e.stopPropagation(); if (!isSubmitted) moveSection(section.id, 'up'); }}
                             className={`w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 hover:text-blue-600 ${index === 0 || isSubmitted ? 'opacity-30 cursor-not-allowed' : ''}`}
                             disabled={index === 0 || isSubmitted}
                             title="Move Up"
@@ -1943,12 +1950,7 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
                             <ChevronUp className="w-5 h-5" />
                           </button>
                           <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (!isSubmitted) {
-                                moveSection(section.id, 'down');
-                              }
-                            }}
+                            onClick={(e) => { e.stopPropagation(); if (!isSubmitted) moveSection(section.id, 'down'); }}
                             className={`w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 hover:text-blue-600 ${index === sections.length - 1 || isSubmitted ? 'opacity-30 cursor-not-allowed' : ''}`}
                             disabled={index === sections.length - 1 || isSubmitted}
                             title="Move Down"
@@ -1957,12 +1959,7 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
                           </button>
                         </div>
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (!isSubmitted) {
-                              deleteSection(section.id);
-                            }
-                          }}
+                          onClick={(e) => { e.stopPropagation(); if (!isSubmitted) deleteSection(section.id); }}
                           className={`w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-red-100 hover:text-red-600 transition-colors ${isSubmitted ? 'opacity-30 cursor-not-allowed' : ''}`}
                           disabled={isSubmitted}
                           title="Delete Section"
@@ -1971,10 +1968,7 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
                         </button>
                         <button
                           className="w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-blue-100 hover:text-blue-600 transition-colors"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleSection(section.id);
-                          }}
+                          onClick={(e) => { e.stopPropagation(); toggleSection(section.id); }}
                         >
                           {expandedSection === section.id ? (
                             <ChevronUp className="w-5 h-5" />
@@ -2015,7 +2009,7 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
                               )}
                             </button>
                             <button
-                              onClick={() => enhanceWithAI([section])}// Sectional enhance with AI
+                              onClick={() => enhanceWithAI([section])}
                               disabled={isSubmitted}
                               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors
                                 ${isSubmitted ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -2038,7 +2032,7 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
                 ))}
               </div>
 
-              {/* Buttons at bottom */}
+              {/* Bottom buttons */}
               <div className="mt-8 flex justify-center gap-4">
                 <button
                   onClick={handlePreview}
@@ -2099,7 +2093,7 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
             </div>
           </div>
 
-          {/* Merged DocumentEditor Preview Modal */}
+          {/* Merged preview modal */}
           {showMergedPreview && (
             <div
               className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center"
@@ -2119,12 +2113,12 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
                 </button>
                 <h2 className="text-lg font-bold mb-4">Proposal Preview</h2>
                 <div className="w-full mb-4 flex-1 overflow-y-auto">
-                  <DocumentEditor 
+                  <DocumentEditor
                     ref={previewEditorRef}
-                    value={mergedPreviewContent} 
-                    onChange={setMergedPreviewContent} 
-                    disabled={false} 
-                    className="preview-editor" 
+                    value={mergedPreviewContent}
+                    onChange={setMergedPreviewContent}
+                    disabled={false}
+                    className="preview-editor"
                     data-component-content="preview"
                   />
                 </div>
@@ -2138,19 +2132,3 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
 };
 
 export default RfpResponse;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

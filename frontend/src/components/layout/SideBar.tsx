@@ -211,7 +211,7 @@ const Sidebar = () => {
   const handleLogout = async () => {
     try {
       await logout();
-      navigate('/register');
+      navigate('/logout');
     } catch (error) {
       console.error('Logout error:', error);
     }
@@ -708,7 +708,7 @@ const Sidebar = () => {
             )}
           </div>
 
-          {/* Bizradar AI - Moved from bottom */}
+          {/* Bizradar AI - Moved from bottom
           <Link
             to="#"
             onClick={handleOpenModal}
@@ -727,7 +727,7 @@ const Sidebar = () => {
                 Bizradar AI
               </div>
             )}
-          </Link>
+          </Link> */}
           
           {/* Theme Toggle */}
           <div className={`${collapsed ? 'flex justify-center' : 'px-3'} py-2`}>

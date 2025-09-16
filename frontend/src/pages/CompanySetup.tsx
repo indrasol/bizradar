@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../components/Auth/useAuth';
 import { Radar } from 'lucide-react';
 import { toast } from 'sonner';
@@ -8,17 +8,32 @@ import { companyApi, CompanySetupData } from '../api/company';
 import { ResponsivePatterns } from '../utils/responsivePatterns';
 
 const CompanySetup: React.FC = () => {
+  // Short-circuit if this navigation came from a login flow
+  // Expectation: Login sets sessionStorage.setItem("auth_flow", "login")
+  const location = useLocation();
+  const flow = typeof window !== 'undefined' ? sessionStorage.getItem('auth_flow') : null;
+  const postAuthRedirect =
+    typeof window !== 'undefined'
+      ? sessionStorage.getItem('post_auth_redirect') || '/opportunities'
+      : '/opportunities';
+
+  if (flow === 'login') {
+    // Clean up so it does not persist
+    sessionStorage.removeItem('auth_flow');
+    return <Navigate to={postAuthRedirect} replace state={{ from: location }} />;
+  }
+
   const { user } = useAuth();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
-  
-  // Form state - removed role field as it will be set to 'user' by default
+
+  // Form state
   const [formData, setFormData] = useState({
     name: '',
     url: '',
     description: ''
   });
-  
+
   // Check if user is authenticated and if they already have a company setup
   useEffect(() => {
     const checkUserAndCompany = async () => {
@@ -27,81 +42,62 @@ const CompanySetup: React.FC = () => {
         navigate('/login');
         return;
       }
-      
-      // Check if user already has a company setup using the new API
+
       try {
         const hasSetup = await companyApi.hasCompanySetup(session.user.id);
         if (hasSetup) {
-          // User already has company setup, redirect to dashboard
           navigate('/dashboard');
         }
       } catch (error) {
         console.error('Error checking company setup:', error);
-        // Continue with setup if there's an error
+        // Continue with setup if there is an error
       }
     };
-    
+
     checkUserAndCompany();
   }, [navigate]);
-  
+
   // Handle input changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
-  
+
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    
+
     try {
       if (!user) {
         throw new Error('User not authenticated');
       }
-      
+
       console.log('Setting up company with data:', formData);
-      
-      // Prepare company setup data
+
       const setupData: CompanySetupData = {
         user_id: user.id,
         company_name: formData.name,
         company_url: formData.url || undefined,
         company_description: formData.description || undefined,
-        user_role: 'user' // Default role
+        user_role: 'user'
       };
-      
-      // Call the new backend API for complete company setup
-      const result = await companyApi.setupCompany(setupData);
-      
-      if (result.success) {
-        console.log('Company setup completed:', result.data);
-        
-        // Success notification
-        toast.success('Company setup completed successfully! You now have access to the Free Tier.', 
-          ResponsivePatterns.toast.config
-        );
-        
-        // Set flag to show welcome message on dashboard
-        sessionStorage.setItem('showWelcomeMessage', 'true');
-        
-        // Redirect to dashboard instead of opportunities
-        navigate('/dashboard');
-      } else {
-        throw new Error(result.message || 'Company setup failed');
-      }
-      
+
+      // Save intent and navigate immediately to loader page
+      sessionStorage.setItem('pendingCompanySetup', JSON.stringify(setupData));
+      sessionStorage.setItem('showWelcomeMessage', 'true');
+      navigate('/setup-complete');
     } catch (error: any) {
       console.error('Error setting up company:', error);
-      toast.error(error.message || 'Failed to set up company. Please try again.', 
+      toast.error(
+        error.message || 'Failed to set up company. Please try again.',
         ResponsivePatterns.toast.config
       );
     } finally {
       setIsLoading(false);
     }
   };
-  
-  
+
   return (
     <div className="flex justify-center items-center min-h-screen w-full bg-gradient-to-b from-white to-gray-50 relative overflow-hidden px-4 sm:px-6 lg:px-8">
       {/* Background decorative elements */}
@@ -113,7 +109,7 @@ const CompanySetup: React.FC = () => {
         <div className="absolute top-1/5 left-1/3 w-40 sm:w-52 lg:w-64 h-40 sm:h-52 lg:h-64 rounded-full bg-blue-50 blur-3xl opacity-50"></div>
         <div className="absolute bottom-1/3 right-1/4 w-24 sm:w-32 lg:w-40 h-24 sm:h-32 lg:h-40 rounded-full bg-emerald-50 blur-3xl opacity-60"></div>
       </div>
-      
+
       <div className="relative z-10 w-full max-w-sm sm:max-w-lg lg:max-w-2xl xl:max-w-3xl">
         <div className="bg-white/90 backdrop-blur-md rounded-xl overflow-hidden shadow-lg border border-gray-200 p-4 sm:p-6 lg:p-8">
           {/* Logo & Title */}
@@ -125,7 +121,7 @@ const CompanySetup: React.FC = () => {
               </div>
               <span className="text-2xl font-semibold bg-blue-600 bg-clip-text text-transparent">Bizradar</span>
             </div>
-            
+
             <h2 className="text-2xl font-medium text-gray-800 ml-4 relative">
               <div className="absolute -left-4 top-1/2 transform -translate-y-1/2 w-2 h-8 bg-emerald-400 rounded-r-md"></div>
               Complete Your Profile
@@ -134,7 +130,7 @@ const CompanySetup: React.FC = () => {
               Tell us about your company to get started. This information will be displayed in your profile.
             </p>
           </div>
-          
+
           {/* Company Setup Form */}
           <form className="space-y-6" onSubmit={handleSubmit}>
             {/* Company Name */}
@@ -153,7 +149,7 @@ const CompanySetup: React.FC = () => {
                 required
               />
             </div>
-            
+
             {/* Company URL */}
             <div>
               <label htmlFor="url" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 ml-1">
@@ -170,7 +166,7 @@ const CompanySetup: React.FC = () => {
                 required
               />
             </div>
-            
+
             {/* Company Description */}
             <div>
               <label htmlFor="description" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 ml-1">
@@ -186,7 +182,7 @@ const CompanySetup: React.FC = () => {
                 placeholder="Brief description of your company..."
               ></textarea>
             </div>
-            
+
             {/* Action Button */}
             <div className="pt-4">
               <button
