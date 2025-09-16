@@ -214,6 +214,10 @@ export const Settings = () => {
   const [cancelLoading, setCancelLoading] = useState(false);
   const [availablePlans, setAvailablePlans] = useState([]);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [billingHistory, setBillingHistory] = useState<any[]>([]);
+
+
+
   // --- Add state for backup codes and recent devices ---
   const [backupCodes, setBackupCodes] = useState<string[]>([]);
   const [showBackupModal, setShowBackupModal] = useState(false);
@@ -290,9 +294,24 @@ export const Settings = () => {
       setAvailablePlans([]);
     }
   };
+
+
+  const loadBillingHistory = async () => {
+    try {
+      if (!user) return;
+      const res = await fetch(API_ENDPOINTS.BILLING_HISTORY(user.id));
+      if (!res.ok) throw new Error('Failed to fetch billing history');
+      const data = await res.json();
+      setBillingHistory(Array.isArray(data.invoices) ? data.invoices : []);
+    } catch (e) {
+      setBillingHistory([]);
+    }
+  };
+
   useEffect(() => {
     loadCurrentSubscription();
     loadAvailablePlans();
+    loadBillingHistory();
   }, []);
   // Handle logout
   const handleLogout = async () => {
@@ -1725,80 +1744,52 @@ export const Settings = () => {
                         </h3>
                       </div>
                     </div>
+
                     <div className="p-6">
                       <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                          <thead>
-                            <tr>
-                              <th
-                                scope="col"
-                                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                              >
-                                Invoice
-                              </th>
-                              <th
-                                scope="col"
-                                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                              >
-                                Date
-                              </th>
-                              <th
-                                scope="col"
-                                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                              >
-                                Amount
-                              </th>
-                              <th
-                                scope="col"
-                                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                              >
-                                Status
-                              </th>
-                              <th
-                                scope="col"
-                                className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
-                              ></th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-200 bg-white">
-                            {isLoadingInvoices ? (
+
+                        {billingHistory.length === 0 ? (
+                          <div className="text-sm text-gray-500">No billing history found.</div>
+                        ) : (
+                          <table className="min-w-full divide-y divide-gray-200">
+                            <thead>
                               <tr>
-                                <td colSpan={5} className="px-4 py-4 text-sm text-gray-500">Loading...</td>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"></th>
                               </tr>
-                            ) : invoices.length === 0 ? (
-                              <tr>
-                                <td colSpan={5} className="px-4 py-4 text-sm text-gray-500">No invoices found</td>
-                              </tr>
-                            ) : (
-                              invoices.map((inv: any) => (
+                            </thead>
+                            <tbody className="divide-y divide-gray-200 bg-white">
+                              {billingHistory.map((inv) => (
                                 <tr key={inv.id}>
-                                  <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                    {inv.number || inv.id}
-                                  </td>
-                                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    {inv.created ? new Date((typeof inv.created === 'number' ? inv.created : Date.parse(inv.created)) * (typeof inv.created === 'number' ? 1000 : 1)).toLocaleDateString() : ""}
-                                  </td>
+                                  <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{inv.number || inv.id}</td>
+                                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{inv.created ? new Date(inv.created * 1000).toLocaleDateString() : 'N/A'}</td>
                                   <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                                    {typeof inv.amount_due === 'number' ? `$${(inv.amount_due / 100).toFixed(2)}` : (inv.total ? `$${(inv.total / 100).toFixed(2)}` : '')}
+                                    ${((inv.amount_paid ?? inv.amount_due ?? 0) / 100).toFixed(2)}
                                   </td>
                                   <td className="px-4 py-4 whitespace-nowrap">
-                                    <span className={`px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${inv.status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                                      {inv.status ? String(inv.status).charAt(0).toUpperCase() + String(inv.status).slice(1) : ''}
-                                    </span>
+                                    <span className="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">{inv.status || 'paid'}</span>
                                   </td>
                                   <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
                                     {inv.invoice_pdf ? (
-                                      <a href={inv.invoice_pdf} target="_blank" rel="noreferrer" className="text-blue-600 hover:text-blue-900 inline-flex items-center gap-1">
+                                      <a href={inv.invoice_pdf} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-900 inline-flex items-center gap-1">
                                         <Download className="h-4 w-4" />
                                         <span>PDF</span>
+                                      </a>
+                                    ) : inv.hosted_invoice_url ? (
+                                      <a href={inv.hosted_invoice_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-900 inline-flex items-center gap-1">
+                                        <Download className="h-4 w-4" />
+                                        <span>View</span>
                                       </a>
                                     ) : null}
                                   </td>
                                 </tr>
-                              ))
-                            )}
-                          </tbody>
-                        </table>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
                       </div>
                     </div>
                   </div>

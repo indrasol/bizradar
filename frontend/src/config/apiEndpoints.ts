@@ -3,8 +3,8 @@
 import { getApiUrl, isDevelopment } from "@/config/env";
 
 // Get the appropriate base URL from the environment configuration
-// const API_BASE_URL = `${getApiUrl()}`;
-const API_BASE_URL = `http://localhost:8000`;
+const API_BASE_URL = `${getApiUrl()}`;
+// const API_BASE_URL = `http://localhost:8000`;
 // Log the API base URL being used
 if (isDevelopment) {
   console.log(`Using API base URL: ${API_BASE_URL}`);
@@ -12,14 +12,7 @@ if (isDevelopment) {
 
 
 // Stripe price IDs
-export const STRIPE_PRICES = {
-  pro_monthly: 'price_1RqIaWFKTK8ICUprZJJh44Hc',
-  pro_annual: 'price_1RqIcWFKTK8ICUprtagiVbzf',
-  premium_monthly: 'price_1RqIdGFKTK8ICUprDEo5P7AB',
-  premium_annual: 'price_1RqIdxFKTK8ICUprSgy50avW',
-  enterprise_monthly: 'price_1RqIebFKTK8ICUpr6QN0hZ9a',
-  enterprise_annual: 'price_1RqIewFKTK8ICUprSvBvDwvg',
-};
+// Stripe price IDs are now resolved from backend API (subscriptions table)
 
 // Supabase table names
 export const SUPABASE_TABLES = {
@@ -33,6 +26,7 @@ export const API_ENDPOINTS = {
   // Subscription endpoints
   CHECKOUT_SESSION: `${API_BASE_URL}/api/create-checkout-session`,
   SUBSCRIPTION_PAYMENT_INTENT: `${API_BASE_URL}/api/subscription/payment-intent`,
+  STRIPE_PRICE_ID: (planType: string, billingCycle: 'monthly' | 'annual') => `${API_BASE_URL}/api/stripe/price-id?plan_type=${encodeURIComponent(planType)}&billing_cycle=${encodeURIComponent(billingCycle)}`,
   SUBSCRIPTION_STATUS: `${API_BASE_URL}/api/subscription/status`,
   SUBSCRIPTION_TIERS: `${API_BASE_URL}/api/subscription/tiers`,
   SUBSCRIPTION_UPGRADE: `${API_BASE_URL}/api/subscription/upgrade`,
@@ -51,6 +45,7 @@ export const API_ENDPOINTS = {
   PAYMENT_METHOD_BY_ID: (paymentMethodId: string) => `${API_BASE_URL}/api/payment-methods/${paymentMethodId}`,
   SET_DEFAULT_PAYMENT_METHOD: (paymentMethodId: string) => `${API_BASE_URL}/api/payment-methods/${paymentMethodId}/set-default`,
   SETUP_INTENT: `${API_BASE_URL}/api/create-setup-intent`,
+  BILLING_HISTORY: (userId: string) => `${API_BASE_URL}/api/stripe/billing-history?user_id=${encodeURIComponent(userId)}`,
   INVOICES: `${API_BASE_URL}/api/invoices`,
   
   // Company endpoints
