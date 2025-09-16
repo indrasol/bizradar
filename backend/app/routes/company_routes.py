@@ -3,17 +3,29 @@ Company setup and management routes
 Handles company profile updates and subscription initialization using only the profiles table
 """
 from fastapi import APIRouter, HTTPException, Request, Query
+import json
 from pydantic import BaseModel
 from typing import Optional, Dict, Any
 from app.database.supabase import get_supabase_client
 from app.utils.supabase_subscription import subscription_manager
 from app.utils.logger import get_logger
-from app.services.company_scraper import generate_company_markdown
+from app.services.parse_website import parse_company_website_mcp
+from app.services.profile_embeddings import update_profile_embedding
+from app.services.profile_opportunity_rag import get_top_matches_for_profile
 
 # Initialize logger
 logger = get_logger(__name__)
 
 router = APIRouter()
+
+def _strip_embeddings(obj: Dict[str, Any]) -> Dict[str, Any]:
+    obj.pop("embedding", None)
+    obj.pop("embeddings", None)
+    obj.pop("search_tsv", None)
+    obj.pop("embedding_text", None)
+    obj.pop("embedding_model", None)
+    obj.pop("embedding_version", None)
+    return obj
 
 class CompanySetupRequest(BaseModel):
     user_id: str
@@ -30,7 +42,7 @@ async def setup_company(request: CompanySetupRequest):
     Complete company setup flow using only profiles table:
     1. Update user profile with company information and names
     2. Initialize free tier subscription
-    3. Generate company markdown if URL provided
+    3. Optionally parse company website (if URL provided) to populate structured company_data
     """
     try:
         supabase = get_supabase_client()
@@ -46,6 +58,15 @@ async def setup_company(request: CompanySetupRequest):
             "role": request.user_role or "user"
         }
         
+        # If URL provided, parse website via MCP and store structured data
+        company_data = None
+        if request.company_url:
+            try:
+                company_data = await parse_company_website_mcp(request.company_url)
+                profile_updates["company_data"] = company_data
+            except Exception as e:
+                logger.error(f"Failed to parse website via MCP for {request.company_url}: {str(e)}")
+        
         # Add names if provided
         if request.first_name:
             profile_updates["first_name"] = request.first_name
@@ -53,13 +74,19 @@ async def setup_company(request: CompanySetupRequest):
             profile_updates["last_name"] = request.last_name
         
         logger.info(f"Updating profile for user {user_id} with company data: {list(profile_updates.keys())}")
-        
-        profile_result = supabase.table('profiles').update(profile_updates).eq('id', user_id).execute()
-        
-        if not profile_result.data:
-            logger.error(f"Failed to update profile for user {user_id}")
-            raise HTTPException(status_code=500, detail="Failed to update user profile with company information")
-        
+
+        # Ensure company_data matches DB type (character varying) by JSON-stringifying objects
+        if isinstance(profile_updates.get("company_data"), (dict, list)):
+            profile_updates["company_data"] = json.dumps(profile_updates["company_data"], ensure_ascii=False)
+
+        # Update only; do not insert missing rows (email is NOT NULL in DB)
+        supabase.table('profiles').update(profile_updates).eq('id', user_id).execute()
+
+        # Fetch the row to confirm write and existence
+        sel = supabase.table('profiles').select('*').eq('id', user_id).single().execute()
+        if not sel or not sel.data:
+            logger.error(f"Profile row not found for user {user_id}; cannot create because email is NOT NULL")
+            raise HTTPException(status_code=400, detail="User profile not found. Please sign in to create a profile or include required fields (e.g., email).")
         logger.info(f"Successfully updated profile for user {user_id}")
         
         # Step 2: Initialize free tier subscription
@@ -72,31 +99,15 @@ async def setup_company(request: CompanySetupRequest):
             # Don't fail the entire setup if subscription creation fails
             subscription = {"error": str(e)}
         
-        # Step 3: Generate company markdown if URL provided (background task)
-        markdown_content = None
-        markdown_generated = False
-        if request.company_url:
-            try:
-                logger.info(f"Generating markdown for company URL: {request.company_url}")
-                markdown_content = await generate_company_markdown(request.company_url)
-                
-                # Update profile with markdown content
-                markdown_update = supabase.table('profiles').update({
-                    "company_markdown": markdown_content
-                }).eq('id', user_id).execute()
-                
-                if markdown_update.data:
-                    logger.info(f"Updated profile for user {user_id} with markdown content")
-                    markdown_generated = True
-                else:
-                    logger.warning(f"Failed to update profile for user {user_id} with markdown")
-                    
-            except Exception as e:
-                logger.error(f"Failed to generate markdown for {request.company_url}: {str(e)}")
-                # Don't fail setup if markdown generation fails
-        
+        # Update embeddings after all profile updates
+        try:
+            updated_row = update_profile_embedding(supabase, user_id)
+        except Exception as e:
+            logger.error(f"Embedding update failed for user {user_id}: {str(e)}")
+            updated_row = None
+
         # Get the updated profile to return
-        updated_profile = profile_result.data[0] if profile_result.data else {}
+        updated_profile = (updated_row or sel.data)
         
         return {
             "success": True,
@@ -109,7 +120,7 @@ async def setup_company(request: CompanySetupRequest):
                     "role": request.user_role
                 },
                 "subscription": subscription,
-                "markdown_generated": markdown_generated,
+                "company_data": company_data,
                 "profile": updated_profile
             }
         }
@@ -180,8 +191,12 @@ async def update_company(request: CompanySetupRequest):
             "company_name": request.company_name,
             "company_url": request.company_url or "",
             "company_description": request.company_description or "",
-            "user_role": request.user_role or "user"
+            "role": request.user_role or "user"
         }
+        if request.company_url:
+            company_data = await parse_company_website_mcp(request.company_url)
+            profile_updates["company_data"] = company_data
+
         
         # Add names if provided
         if request.first_name:
@@ -189,35 +204,24 @@ async def update_company(request: CompanySetupRequest):
         if request.last_name:
             profile_updates["last_name"] = request.last_name
         
+        
         profile_result = supabase.table('profiles').update(profile_updates).eq('id', user_id).execute()
+
         
         if not profile_result.data:
             raise HTTPException(status_code=500, detail="Failed to update company information")
         
         logger.info(f"Successfully updated company information for user {user_id}")
         
-        # Generate new markdown if URL provided
-        markdown_generated = False
-        if request.company_url:
-            try:
-                logger.info(f"Generating new markdown for URL: {request.company_url}")
-                markdown_content = await generate_company_markdown(request.company_url)
-                
-                markdown_update = supabase.table('profiles').update({
-                    "company_markdown": markdown_content
-                }).eq('id', user_id).execute()
-                
-                if markdown_update.data:
-                    logger.info(f"Updated markdown for user {user_id}")
-                    markdown_generated = True
-                else:
-                    logger.warning(f"Failed to update markdown for user {user_id}")
-                    
-            except Exception as e:
-                logger.error(f"Failed to generate markdown for {request.company_url}: {str(e)}")
-        
+        # Update embeddings after profile changes
+        try:
+            updated_row = update_profile_embedding(supabase, user_id)
+        except Exception as e:
+            logger.error(f"Embedding update failed for user {user_id}: {str(e)}")
+            updated_row = None
+
         # Get updated profile to return
-        updated_profile = profile_result.data[0] if profile_result.data else {}
+        updated_profile = (updated_row or (profile_result.data[0] if profile_result.data else {}))
         
         return {
             "success": True,
@@ -229,7 +233,7 @@ async def update_company(request: CompanySetupRequest):
                     "description": request.company_description,
                     "role": request.user_role
                 },
-                "markdown_generated": markdown_generated,
+                "markdown_generated": company_data,
                 "profile": updated_profile
             }
         }
@@ -239,3 +243,20 @@ async def update_company(request: CompanySetupRequest):
     except Exception as e:
         logger.error(f"Error updating company for user {request.user_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to update company: {str(e)}")
+
+
+
+@router.get("/recommendations")
+async def get_recommendations(user_id: str = Query(...), limit: int = Query(5)):
+    try:
+        limit = int(limit) if isinstance(limit, int) else 5
+        if limit <= 0:
+            limit = 5
+        matches = get_top_matches_for_profile(user_id=user_id, top_n=limit, only_active=True)
+        results = [_strip_embeddings(doc) for doc in matches][:limit]
+        return {"results": results, "count": len(results)}
+    except Exception as e:
+        logger.error(f"Error fetching recommendations for user {user_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch recommendations")
+
+
