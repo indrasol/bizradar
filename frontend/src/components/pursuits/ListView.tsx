@@ -27,6 +27,29 @@ const formatDate = (dateString: string) => {
   return isValid(fallbackDate) ? format(fallbackDate, 'MM/dd/yyyy') : dateString;
 };
 
+const isOverdue = (dueDateString: string): boolean => {
+  if (!dueDateString || dueDateString === "TBD") return false;
+  
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Reset time to start of day for accurate comparison
+  
+  // Try to parse as ISO, fallback to Date constructor
+  const dueDate = parseISO(dueDateString);
+  if (isValid(dueDate)) {
+    dueDate.setHours(0, 0, 0, 0);
+    return dueDate < today;
+  }
+  
+  // fallback for non-ISO strings
+  const fallbackDate = new Date(dueDateString);
+  if (isValid(fallbackDate)) {
+    fallbackDate.setHours(0, 0, 0, 0);
+    return fallbackDate < today;
+  }
+  
+  return false;
+};
+
 export const ListView: React.FC<ListViewProps> = ({
   pursuits,
   onPursuitSelect,
@@ -160,6 +183,7 @@ export const ListView: React.FC<ListViewProps> = ({
               {pursuits.map((pursuit, index) => {
                 const isHighlighted = highlightedPursuitId === pursuit.id;
                 const isFadingOut = fadingOutPursuitId === pursuit.id;
+                const isOverduePursuit = isOverdue(pursuit.dueDate);
                 return (
                   <tr 
                     key={pursuit.id} 
@@ -167,8 +191,10 @@ export const ListView: React.FC<ListViewProps> = ({
                     className={`group ${
                       isHighlighted 
                         ? 'bg-blue-100 border-2 border-blue-400' 
-                        : index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                    } hover:bg-blue-50 cursor-pointer`}
+                        : isOverduePursuit
+                        ? 'bg-red-50 dark:bg-red-900/20 border-l-4 border-red-300 dark:border-red-600'
+                        : index % 2 === 0 ? 'bg-white dark:bg-background' : 'bg-gray-50 dark:bg-muted/40'
+                    } hover:bg-blue-50 dark:hover:bg-primary/10 cursor-pointer`}
                     style={{
                       transition: 'all 0.5s ease-out',
                       ...(isFadingOut && {
@@ -192,13 +218,17 @@ export const ListView: React.FC<ListViewProps> = ({
                     {formatDate(pursuit.created)}
                   </td>
                   <td className="px-4 py-4 whitespace-nowrap">
-                    <div className="text-sm text-red-600 font-medium">
+                    <div className={`text-sm font-medium ${
+                      isOverduePursuit 
+                        ? 'text-red-700 dark:text-red-400 font-bold' 
+                        : 'text-red-600'
+                    }`}>
                       {formatDate(pursuit.dueDate)}
                     </div>
                   </td>
                   <td className="px-4 py-4 whitespace-nowrap text-sm text-center w-28">
                     {pursuit.is_submitted ? (
-                      <CheckSquare className="w-5 h-5 text-green-600 mx-auto" />
+                      <CheckSquare className="w-5 h-5 text-green-600 dark:text-green-400 mx-auto" />
                     ) : pursuit.stage === "RFP Response Completed" ? (
                       <div className="flex justify-center">
                         <button
@@ -206,15 +236,15 @@ export const ListView: React.FC<ListViewProps> = ({
                             e.stopPropagation();
                             onToggleSubmission(pursuit.id);
                           }}
-                          className="w-5 h-5 border border-gray-300 rounded flex items-center justify-center hover:bg-gray-100 transition-colors"
+                          className="w-5 h-5 border border-gray-300 dark:border-gray-400 rounded flex items-center justify-center bg-white dark:bg-gray-900/50 hover:bg-gray-100 dark:hover:bg-gray-800/70 transition-colors dark:ring-1 dark:ring-white/40 dark:hover:ring-white/60"
                           title="Mark as submitted"
                         >
-                          <div className="w-3 h-3 rounded"></div>
+                          <div className="w-3 h-3 rounded bg-gray-200 dark:bg-white"></div>
                         </button>
                       </div>
                     ) : (
                       <div className="flex justify-center tooltip relative">
-                        <div className="w-5 h-5 border border-gray-200 rounded bg-gray-100 opacity-60 cursor-not-allowed"></div>
+                        <div className="w-5 h-5 border border-gray-200 dark:border-gray-400 rounded bg-gray-100 dark:bg-gray-700/70 opacity-90 cursor-not-allowed dark:ring-1 dark:ring-white/25"></div>
                         <div className="tooltip-text opacity-0 group-hover:opacity-100 absolute mt-8 -translate-x-1/2 left-1/2 p-2 bg-gray-800 text-white text-xs rounded w-48 transition-all pointer-events-none">
                           Please complete the RFP before submitting
                         </div>

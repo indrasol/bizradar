@@ -66,6 +66,7 @@ export default function Pursuits(): JSX.Element {
   const [dueDateFilter, setDueDateFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('due_date');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [highlightedPursuitId, setHighlightedPursuitId] = useState<string | null>(() => {
     // Initialize highlighted pursuit ID from URL parameter
     const searchParams = new URLSearchParams(location.search);
@@ -755,7 +756,14 @@ export default function Pursuits(): JSX.Element {
   };
 
   const handleSortChange = (sort: string) => {
-    setSortBy(sort);
+    if (sortBy === sort) {
+      // If clicking the same sort option, toggle direction
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      // If clicking a different sort option, set it and default to ascending
+      setSortBy(sort);
+      setSortDirection('asc');
+    }
   };
 
   const handleViewAnalytics = () => {
@@ -918,25 +926,34 @@ export default function Pursuits(): JSX.Element {
 
     // Sort the filtered results
     filtered.sort((a, b) => {
+      let comparison = 0;
+      
       switch (sortBy) {
         case 'due_date':
-          if (a.dueDate === 'TBD' && b.dueDate === 'TBD') return 0;
-          if (a.dueDate === 'TBD') return 1;
-          if (b.dueDate === 'TBD') return -1;
-          return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+          if (a.dueDate === 'TBD' && b.dueDate === 'TBD') comparison = 0;
+          else if (a.dueDate === 'TBD') comparison = 1;
+          else if (b.dueDate === 'TBD') comparison = -1;
+          else comparison = new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+          break;
         case 'created_at':
-          return new Date(b.created).getTime() - new Date(a.created).getTime();
+          comparison = new Date(a.created).getTime() - new Date(b.created).getTime();
+          break;
         case 'title':
-          return a.title.localeCompare(b.title);
+          comparison = a.title.localeCompare(b.title);
+          break;
         case 'stage':
-          return a.stage.localeCompare(b.stage);
+          comparison = a.stage.localeCompare(b.stage);
+          break;
         default:
-          return 0;
+          comparison = 0;
       }
+      
+      // Apply sort direction
+      return sortDirection === 'desc' ? -comparison : comparison;
     });
 
     return filtered;
-  }, [pursuits, searchQuery, statusFilter, dueDateFilter, sortBy]);
+  }, [pursuits, searchQuery, statusFilter, dueDateFilter, sortBy, sortDirection]);
 
   // Show error state
   if (error) {
@@ -1044,6 +1061,7 @@ export default function Pursuits(): JSX.Element {
             dueDateFilter={dueDateFilter}
             statusFilter={statusFilter}
             sortBy={sortBy}
+            sortDirection={sortDirection}
           />
 
           <ViewSelector

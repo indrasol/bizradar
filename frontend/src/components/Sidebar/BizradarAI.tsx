@@ -21,13 +21,9 @@ import {
 } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/utils/supabase';
+import { subscriptionApi } from '@/api/subscription';
+import { API_ENDPOINTS } from '@/config/apiEndpoints';
 
-const isDevelopment =
-  window.location.hostname === "localhost" ||
-  window.location.hostname === "127.0.0.1";
-const API_BASE_URL = isDevelopment
-  ? "http://localhost:5000"
-  : import.meta.env.VITE_API_BASE_URL;
 
 // Define types
 interface Message {
@@ -60,21 +56,28 @@ interface LocationState {
   pursuitContext?: PursuitContext;
 }
 
-// Sample conversation history
-const initialConversations: Conversation[] = [
-  { 
-    id: 1, 
-    title: "Market Research for Federal Contracts", 
-    lastActive: "1 hour ago",
-    messages: []
-  },
-  { 
-    id: 2, 
-    title: "Competitor Analysis for Cybersecurity RFP", 
-    lastActive: "Yesterday",
-    messages: []
+// Simple plan status type (frontend-only)
+interface PlanStatus {
+  plan_type?: string;
+  status?: string;
+  start_date?: string;
+  end_date?: string;
+}
+
+// Reuse the plan icon logic used in the dashboard sidebar
+const getPlanVisuals = (planType?: string) => {
+  const normalized = (planType || 'free').toLowerCase();
+  switch (normalized) {
+    case 'free':
+      return { bgColor: 'bg-gradient-to-br from-blue-500 to-blue-600', textColor: 'text-white' };
+    case 'pro':
+      return { bgColor: 'bg-gradient-to-br from-purple-500 to-purple-600', textColor: 'text-white' };
+    case 'premium':
+      return { bgColor: 'bg-gradient-to-br from-amber-500 to-amber-600', textColor: 'text-white' };
+    default:
+      return { bgColor: 'bg-gradient-to-br from-blue-500 to-blue-600', textColor: 'text-white' };
   }
-];
+};
 
 // Sample suggestions
 const suggestions: string[] = [
@@ -90,7 +93,10 @@ const BizradarAI: React.FC = () => {
   const locationState = location.state as LocationState | null;
   
   const [activeConversation, setActiveConversation] = useState<number | null>(null);
-  const [conversations, setConversations] = useState<Conversation[]>(initialConversations);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [isLoadingConversations, setIsLoadingConversations] = useState<boolean>(true);
+  const [planStatus, setPlanStatus] = useState<PlanStatus | null>(null);
+  const [isLoadingPlan, setIsLoadingPlan] = useState<boolean>(true);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState<string>('');
   const [isTyping, setIsTyping] = useState<boolean>(false);
@@ -100,7 +106,6 @@ const BizradarAI: React.FC = () => {
   const [documentsContext, setDocumentsContext] = useState<{ file_name: string; text: string }[]>([]);
   const [isDragging, setIsDragging] = useState<boolean>(false);
   
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropAreaRef = useRef<HTMLDivElement>(null);
@@ -137,9 +142,46 @@ const BizradarAI: React.FC = () => {
     }
   }, [locationState]);
 
+  // Load conversations (frontend-only fetch; show empty state if none/error)
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    const loadConversations = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        const userId = user?.id ? `?user_id=${encodeURIComponent(user.id)}` : '';
+        const resp = await fetch(`${API_ENDPOINTS.AI_CONVERSATIONS}${userId}`);
+        if (!resp.ok) throw new Error(`Failed ${resp.status}`);
+        const data = await resp.json();
+        // Expecting an array of conversations
+        if (Array.isArray(data)) {
+          setConversations(data as Conversation[]);
+        } else if (Array.isArray(data?.conversations)) {
+          setConversations(data.conversations as Conversation[]);
+        } else {
+          setConversations([]);
+        }
+      } catch (e) {
+        setConversations([]);
+      } finally {
+        setIsLoadingConversations(false);
+      }
+    };
+    loadConversations();
+  }, []);
+
+  // Load plan/subscription status using shared subscription API
+  useEffect(() => {
+    const loadPlan = async () => {
+      try {
+        const subscription = await subscriptionApi.getCurrentSubscription();
+        setPlanStatus(subscription as PlanStatus);
+      } catch (e) {
+        setPlanStatus(null);
+      } finally {
+        setIsLoadingPlan(false);
+      }
+    };
+    loadPlan();
+  }, []);
 
   // Setup drag and drop event listeners
   useEffect(() => {
@@ -178,12 +220,17 @@ const BizradarAI: React.FC = () => {
     }
   }, []);
 
+  // Auto-resize textarea to avoid inner scrollbars
+  useEffect(() => {
+    if (inputRef.current) {
+      const el = inputRef.current;
+      el.style.height = 'auto';
+      el.style.height = `${el.scrollHeight}px`;
+    }
+  }, [newMessage]);
+
   const handleGoBack = (): void => {
     navigate(-1);
-  };
-
-  const scrollToBottom = (): void => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   // Get icon based on file type
@@ -232,7 +279,7 @@ const BizradarAI: React.FC = () => {
     const { data: { user } } = await supabase.auth.getUser();
     const userId = pursuitContext?.userId || user?.id;
 
-    const resp = await fetch(`${API_BASE_URL}/process-documents`, {
+    const resp = await fetch(`${API_ENDPOINTS.AI_PROCESS_DOCUMENTS}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -287,7 +334,7 @@ const BizradarAI: React.FC = () => {
         documents: documentsContext, // Include documents context here
       };
       
-      const response = await fetch(`${API_BASE_URL}/ask-bizradar-ai`, {
+      const response = await fetch(`${API_ENDPOINTS.AI_ASK}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -430,44 +477,55 @@ const BizradarAI: React.FC = () => {
           {/* Attachments Section - Removed from sidebar since we're now displaying them in chat area */}
           
           <div className="flex-1 overflow-y-auto">
-            {conversations.map(conversation => (
-              <div 
-                key={conversation.id}
-                onClick={() => setActiveConversation(conversation.id)}
-                className={`p-2 sm:p-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${
-                  activeConversation === conversation.id ? 'bg-emerald-50 border-l-4 border-l-emerald-500' : ''
-                }`}
-              >
-                <div className="flex items-start">
-                  <div className="p-1 sm:p-1.5 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-sm mr-2 sm:mr-3 flex-shrink-0">
-                    <Bot className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white" />
+            {isLoadingConversations ? (
+              <div className="p-3 text-xs text-gray-500">Loading conversations…</div>
+            ) : conversations.length === 0 ? (
+              <div className="p-3 text-xs text-gray-500">No conversations found</div>
+            ) : (
+              conversations.map(conversation => (
+                <div 
+                  key={conversation.id}
+                  onClick={() => setActiveConversation(conversation.id)}
+                  className={`p-2 sm:p-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${
+                    activeConversation === conversation.id ? 'bg-emerald-50 border-l-4 border-l-emerald-500' : ''
+                  }`}
+                >
+                  <div className="flex items-start">
+                    <div className="p-1 sm:p-1.5 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-sm mr-2 sm:mr-3 flex-shrink-0">
+                      <Bot className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-xs sm:text-sm font-medium text-gray-800 truncate">{conversation.title}</h3>
+                      <p className="text-xs text-gray-500">{conversation.lastActive}</p>
+                    </div>
+                    <button className="p-0.5 sm:p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 flex-shrink-0">
+                      <MoreHorizontal size={12} className="sm:w-[14px] sm:h-[14px]" />
+                    </button>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-xs sm:text-sm font-medium text-gray-800 truncate">{conversation.title}</h3>
-                    <p className="text-xs text-gray-500">{conversation.lastActive}</p>
-                  </div>
-                  <button className="p-0.5 sm:p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 flex-shrink-0">
-                    <MoreHorizontal size={12} className="sm:w-[14px] sm:h-[14px]" />
-                  </button>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
           
-          <div className="p-2 sm:p-3 border-t border-gray-200 bg-gray-50">
-            <Link to="/billing" className="flex items-center gap-1 sm:gap-2 p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 transition-colors">
-              <div className="p-0.5 sm:p-1 bg-emerald-100 rounded-md flex-shrink-0">
-                <Zap size={12} className="sm:w-[14px] sm:h-[14px] text-emerald-600" />
-              </div>
+          {/* Plan status hidden for v2 */}
+          {/* <div className="p-2 sm:p-3 border-t border-gray-200 bg-gray-50">
+            <Link to="/billing" className="flex items-center gap-2 p-2 rounded-lg border border-blue-200 bg-gradient-to-r from-blue-50 to-white shadow-sm hover:shadow-md transition-all duration-300">
+              {(() => {
+                const visuals = getPlanVisuals(planStatus?.plan_type);
+                return (
+                  <div className={`p-1 rounded-lg ${visuals.bgColor} shadow-sm`}>
+                    <Zap size={12} className={`sm:w-[14px] sm:h-[14px] ${visuals.textColor}`} />
+                  </div>
+                );
+              })()}
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-gray-800">Pro Plan</p>
-                <div className="w-full bg-gray-200 rounded-full h-1 sm:h-1.5 mt-0.5 sm:mt-1">
-                  <div className="bg-emerald-500 h-1 sm:h-1.5 rounded-full" style={{ width: '65%' }}></div>
-                </div>
+                <span className="text-xs font-medium text-blue-600">
+                  {isLoadingPlan ? 'Loading...' : (planStatus?.plan_type ? `${planStatus.plan_type.charAt(0).toUpperCase() + planStatus.plan_type.slice(1)} Plan` : 'Basic Plan')}
+                </span>
               </div>
-              <span className="text-xs text-gray-500 flex-shrink-0">65%</span>
+              <span className="px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded-full text-[10px] font-medium">Upgrade</span>
             </Link>
-          </div>
+          </div> */}
         </div>
       )}
       
@@ -631,7 +689,7 @@ const BizradarAI: React.FC = () => {
               </div>
             )}
             
-            <div ref={messagesEndRef} />
+            {/* removed auto-scroll anchor */}
           </div>
         </div>
         
@@ -716,7 +774,7 @@ const BizradarAI: React.FC = () => {
                 onChange={(e) => setNewMessage(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Message BizradarAI or drag files here..."
-                className="w-full px-3 sm:px-4 py-2 sm:py-3 pl-8 sm:pl-12 pr-10 sm:pr-14 border border-border bg-background text-foreground rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none h-10 sm:h-12 min-h-10 sm:min-h-12 max-h-24 sm:max-h-32 shadow-sm text-sm sm:text-base placeholder:text-muted-foreground"
+                className="w-full px-3 sm:px-4 py-2 sm:py-3 pl-8 sm:pl-12 pr-10 sm:pr-14 border border-border bg-background text-foreground rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none overflow-hidden min-h-10 sm:min-h-12 shadow-sm text-sm sm:text-base placeholder:text-muted-foreground"
                 rows={1}
               />
               <button 

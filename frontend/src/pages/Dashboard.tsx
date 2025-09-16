@@ -1174,11 +1174,11 @@ const BizRadarDashboard = () => {
 
               {/* Dashboard layout - 3 rows */}
               
-              {/* Row 1: Top 3 widgets - Equal columns */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+              {/* Row 1: Opportunities + Tracker Stats */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                 
                 {/* Opportunities Widget */}
-                <div className="bg-card p-4 sm:p-6 rounded-xl shadow-md border border-border transition-all hover:shadow-lg relative overflow-hidden h-96 flex flex-col">
+                <div className="bg-card p-4 sm:p-6 rounded-xl shadow-md border border-border transition-all hover:shadow-lg relative overflow-hidden h-72 flex flex-col">
                   {/* Header with navigation - Centered and Responsive */}
                   <div className="flex flex-col sm:flex-row items-center justify-center mb-4 space-y-2 sm:space-y-0 flex-shrink-0">
                     <div className="flex items-center justify-center gap-2 sm:gap-3">
@@ -1259,14 +1259,16 @@ const BizRadarDashboard = () => {
                 </div>
 
                 {/* Tracker Stats Widget */}
-                <TrackerStatsWidget className="h-96" />
-
-                {/* Submitted Pursuits Widget */}
-                <SubmittedPursuitsWidget className="h-96" />
+                <TrackerStatsWidget className="h-72" />
 
               </div>
 
-              {/* Row 2: Radar Matches - Full width */}
+              {/* Row 2: Submitted Pursuits - Full width */}
+              <div className="mb-6">
+                <SubmittedPursuitsWidget className="h-80" />
+              </div>
+
+              {/* Row 3: Radar Matches - Full width */}
               <div className="mb-6">
                 <div className="bg-card rounded-xl shadow-sm border border-border p-6 h-64 flex flex-col overflow-hidden">
                   <div className="flex justify-between items-center mb-5 flex-shrink-0">

@@ -51,6 +51,7 @@ export const API_ENDPOINTS = {
   PAYMENT_METHOD_BY_ID: (paymentMethodId: string) => `${API_BASE_URL}/api/payment-methods/${paymentMethodId}`,
   SET_DEFAULT_PAYMENT_METHOD: (paymentMethodId: string) => `${API_BASE_URL}/api/payment-methods/${paymentMethodId}/set-default`,
   SETUP_INTENT: `${API_BASE_URL}/api/create-setup-intent`,
+  INVOICES: `${API_BASE_URL}/api/invoices`,
   
   // Company endpoints
   COMPANY_SETUP: `${API_BASE_URL}/api/company/setup`,
@@ -80,4 +81,8 @@ export const API_ENDPOINTS = {
   PROFILE_UPDATE_PERSONAL: (userId: string) => `${API_BASE_URL}/api/profile/personal?user_id=${encodeURIComponent(userId)}`,
   PROFILE_UPDATE_COMPANY: (userId: string) => `${API_BASE_URL}/api/profile/company?user_id=${encodeURIComponent(userId)}`,
   
+  // Bizradar AI endpoints (frontend-only wiring)
+  AI_CONVERSATIONS: `${API_BASE_URL}/api/ai/conversations`,
+  AI_ASK: `${API_BASE_URL}/ask-bizradar-ai`,
+  AI_PROCESS_DOCUMENTS: `${API_BASE_URL}/process-documents`,
 };

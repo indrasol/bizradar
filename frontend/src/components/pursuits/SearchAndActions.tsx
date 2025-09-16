@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, Filter, ChevronDown, Check, ArrowUpDown, Calendar, Clock } from 'lucide-react';
+import { Search, Filter, ChevronDown, Check, ArrowUpDown, Calendar, Clock, ArrowUp, ArrowDown } from 'lucide-react';
 
 interface SearchAndActionsProps {
   onSearch: (query: string) => void;
@@ -10,6 +10,7 @@ interface SearchAndActionsProps {
   dueDateFilter: string;
   statusFilter: string;
   sortBy: string;
+  sortDirection: 'asc' | 'desc';
 }
 
 export const SearchAndActions: React.FC<SearchAndActionsProps> = ({
@@ -20,6 +21,7 @@ export const SearchAndActions: React.FC<SearchAndActionsProps> = ({
   dueDateFilter,
   statusFilter,
   sortBy,
+  sortDirection,
 }) => {
   const [dueDateDropdownOpen, setDueDateDropdownOpen] = useState(false);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
@@ -159,7 +161,11 @@ export const SearchAndActions: React.FC<SearchAndActionsProps> = ({
             className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors min-w-[130px] justify-between"
           >
             <div className="flex items-center gap-2">
-              <ArrowUpDown className="h-4 w-4 text-gray-500" />
+              {sortDirection === 'asc' ? (
+                <ArrowUp className="h-4 w-4 text-gray-500" />
+              ) : (
+                <ArrowDown className="h-4 w-4 text-gray-500" />
+              )}
               <span>{getSelectedLabel(sortBy, sortOptions)}</span>
             </div>
             <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${sortDropdownOpen ? 'rotate-180' : ''}`} />

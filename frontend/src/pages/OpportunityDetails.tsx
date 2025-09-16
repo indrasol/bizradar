@@ -408,16 +408,16 @@ const OpportunityDetails: React.FC = () => {
                 {/* Right Column - Details */}
                 <div className="space-y-6">
                   {/* Timeline Card - Replaces Key Information */}
-                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-6 border border-blue-200">
-                    <h3 className="text-base font-semibold text-blue-900 mb-4 flex items-center gap-2">
+                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl p-6 border border-blue-200 dark:border-blue-800">
+                    <h3 className="text-base font-semibold text-blue-900 dark:text-blue-200 mb-4 flex items-center gap-2">
                       <Clock size={18} />
                       Timeline
                     </h3>
                     
                     {/* Published Date */}
                     <div className="mb-5">
-                      <div className="text-sm text-blue-600 uppercase tracking-wide mb-2">Published</div>
-                      <div className="font-medium text-blue-900 text-base">
+                      <div className="text-sm text-blue-600 dark:text-blue-300 uppercase tracking-wide mb-2 dark:font-bold">Published</div>
+                      <div className="font-medium text-blue-900 dark:text-blue-100 text-base">
                         {opportunity.published_date || "Recent"}
                       </div>
                     </div>
@@ -425,8 +425,8 @@ const OpportunityDetails: React.FC = () => {
                     {/* Due Date */}
                     {opportunity.response_date && (
                       <div className="mb-5">
-                        <div className="text-sm text-blue-600 uppercase tracking-wide mb-2">Due Date</div>
-                        <div className="font-medium text-blue-900 text-base mb-3">
+                        <div className="text-sm text-blue-600 dark:text-blue-300 uppercase tracking-wide mb-2 dark:font-bold">Due Date</div>
+                        <div className="font-medium text-blue-900 dark:text-blue-100 text-base mb-3">
                           {opportunity.response_date}
                         </div>
                         

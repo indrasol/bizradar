@@ -6,6 +6,10 @@ export const paymentApi = {
     const data = await apiClient.get(`${API_ENDPOINTS.PAYMENT_METHODS}?user_id=${userId}`);
     return data.payment_methods;
   },
+  async listInvoices(userId: string) {
+    const data = await apiClient.get(`${API_ENDPOINTS.INVOICES}?user_id=${encodeURIComponent(userId)}`);
+    return data.invoices || [];
+  },
   async addPaymentMethod(paymentMethodId: string, userId: string) {
     const data = await apiClient.post(API_ENDPOINTS.PAYMENT_METHODS, { 
       payment_method_id: paymentMethodId, 

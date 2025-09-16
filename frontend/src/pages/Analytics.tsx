@@ -444,14 +444,14 @@ const Analytics = () => {
             </button>
           </div> */}
           {/* Deadline Risk Assessment - Full Width */}
-          <div className="mb-8">
+          {/* <div className="mb-8">
             <DeadlineRiskWidget />
-          </div>
+          </div> */}
 
           {/* Performance Metrics - Full Width */}
-          <div className="mb-8">
+          {/* <div className="mb-8">
             <PerformanceMetricsWidget />
-          </div>
+          </div> */}
 
           {/* Charts Row */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
