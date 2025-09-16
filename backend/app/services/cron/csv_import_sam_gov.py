@@ -415,7 +415,7 @@ async def process_csv_file(csv_file_path: str, batch_size: int = 1000) -> Dict[s
                 cols = df.columns.tolist()
                 # Filter: Published within last 3 days, and deadline today or later
                 today = datetime.utcnow().date()
-                three_days_ago = today - timedelta(days=3)
+                three_days_ago = today - timedelta(days=7)
 
                 # Create parsed date helper columns without overwriting originals used later
                 posted = df.get("PostedDate")
@@ -666,8 +666,11 @@ async def import_from_csv(csv_file_path: str = None) -> Dict[str, Any]:
         Dictionary with results summary
     """
     if csv_file_path is None:
-        # Default path - CSV file is in the bizradar root directory
-        csv_file_path = "ContractOpportunitiesFullCSV.csv"
+        # Prefer env var if present; fallback to default filename at CWD
+        csv_file_path = os.getenv("CSV_PATH") or "ContractOpportunitiesFullCSV.csv"
+    # If a directory path was provided, append the default filename
+    if os.path.isdir(csv_file_path):
+        csv_file_path = os.path.join(csv_file_path, "ContractOpportunitiesFullCSV.csv")
     
     logger.info(f"Starting CSV import process from: {csv_file_path}")
     
