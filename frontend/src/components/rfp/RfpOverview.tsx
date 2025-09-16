@@ -90,7 +90,7 @@ export function RfpOverview({
   };
 
   return (
-    <div className="max-w-9xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200 transition-all hover:shadow-xl">
+    <div className="max-w-9xl mx-auto bg-card rounded-xl shadow-lg overflow-hidden border border-border transition-all hover:shadow-xl">
       {/* Header with title and status */}
       <div className="bg-gradient-to-r from-blue-50 via-blue-50 to-white p-8 border-b border-gray-200">
         <div className="flex justify-between items-start mb-4">

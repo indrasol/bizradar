@@ -5,7 +5,7 @@ import { SearchBarProps } from "@/models/opportunities";
 const SearchBar: React.FC<SearchBarProps> = ({ searchQuery, setSearchQuery, handleSearch, clearSearch }) => {
 
   return (
-    <div className="p-2 border-b border-gray-200 bg-white sticky top-0 z-20">
+    <div className="p-2 border-gray-200 bg-white sticky top-0 z-20">
       <form onSubmit={handleSearch} className="flex items-center gap-3">
         <div className="relative flex-1">
           <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">

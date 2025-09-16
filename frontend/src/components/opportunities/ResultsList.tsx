@@ -83,7 +83,7 @@ const ResultsList: React.FC<ResultsListProps & { onScroll?: (scrollTop: number) 
 
   return (
     <div ref={refToUse} className="flex-1 overflow-y-auto p-2 results-container">
-      <div className="border-b border-gray-200 px-5 py-2 bg-white flex items-center justify-between">
+      <div className="border-b border-gray-200 px-5 py-2 bg-white flex items-center justify-between mb-2 rounded-lg">
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-2">
             <HelpCircle size={16} className="text-blue-500" />

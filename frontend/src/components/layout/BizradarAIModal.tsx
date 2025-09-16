@@ -8,7 +8,7 @@ interface BizradarAIModalProps {
 const BizradarAIModal: React.FC<BizradarAIModalProps> = ({ onClose }) => {
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-50">
-      <div className="bg-white rounded-lg shadow-xl w-[750px] relative">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-[750px] mx-4 relative max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-blue-700">How to Use BizradarAI</h2>
@@ -22,7 +22,7 @@ const BizradarAIModal: React.FC<BizradarAIModalProps> = ({ onClose }) => {
         </div>
         
         {/* Content area */}
-        <div className="p-4">
+        <div className="p-4 overflow-y-auto">
           {/* Instructions */}
           <div className="mb-5">
             <div className="space-y-2.5">

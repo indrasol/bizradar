@@ -1,17 +1,28 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, Filter, ChevronDown, Check, ArrowUpDown, Calendar, Clock } from 'lucide-react';
+import { Search, Filter, ChevronDown, Check, ArrowUpDown, Calendar, Clock, ArrowUp, ArrowDown } from 'lucide-react';
 
 interface SearchAndActionsProps {
   onSearch: (query: string) => void;
   onNewTracker?: () => void; // Made optional since we're removing it
+  onDueDateFilterChange: (filter: string) => void;
+  onStatusFilterChange: (filter: string) => void;
+  onSortChange: (sort: string) => void;
+  dueDateFilter: string;
+  statusFilter: string;
+  sortBy: string;
+  sortDirection: 'asc' | 'desc';
 }
 
 export const SearchAndActions: React.FC<SearchAndActionsProps> = ({
   onSearch,
+  onDueDateFilterChange,
+  onStatusFilterChange,
+  onSortChange,
+  dueDateFilter,
+  statusFilter,
+  sortBy,
+  sortDirection,
 }) => {
-  const [dueDateFilter, setDueDateFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<string>('due_date');
   const [dueDateDropdownOpen, setDueDateDropdownOpen] = useState(false);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
   const [sortDropdownOpen, setSortDropdownOpen] = useState(false);
@@ -65,7 +76,7 @@ export const SearchAndActions: React.FC<SearchAndActionsProps> = ({
   };
 
   return (
-    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-5 border-b border-gray-200 bg-white gap-4">
+    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-5  border-gray-200 bg-white gap-4">
       <div className="relative flex-1 max-w-md">
         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
           <Search size={18} className="text-gray-400" />
@@ -93,12 +104,12 @@ export const SearchAndActions: React.FC<SearchAndActionsProps> = ({
           </button>
           
           {dueDateDropdownOpen && (
-            <div className="absolute top-full mt-1 left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg z-10 py-1">
+            <div className="absolute top-full mt-1 left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1">
               {dueDateOptions.map((option) => (
                 <button
                   key={option.value}
                   onClick={() => {
-                    setDueDateFilter(option.value);
+                    onDueDateFilterChange(option.value);
                     setDueDateDropdownOpen(false);
                   }}
                   className="w-full px-4 py-2 text-sm text-left hover:bg-gray-50 flex items-center justify-between transition-colors"
@@ -125,12 +136,12 @@ export const SearchAndActions: React.FC<SearchAndActionsProps> = ({
           </button>
           
           {statusDropdownOpen && (
-            <div className="absolute top-full mt-1 left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg z-10 py-1">
+            <div className="absolute top-full mt-1 left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1">
               {statusOptions.map((option) => (
                 <button
                   key={option.value}
                   onClick={() => {
-                    setStatusFilter(option.value);
+                    onStatusFilterChange(option.value);
                     setStatusDropdownOpen(false);
                   }}
                   className="w-full px-4 py-2 text-sm text-left hover:bg-gray-50 flex items-center justify-between transition-colors"
@@ -150,19 +161,23 @@ export const SearchAndActions: React.FC<SearchAndActionsProps> = ({
             className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors min-w-[130px] justify-between"
           >
             <div className="flex items-center gap-2">
-              <ArrowUpDown className="h-4 w-4 text-gray-500" />
+              {sortDirection === 'asc' ? (
+                <ArrowUp className="h-4 w-4 text-gray-500" />
+              ) : (
+                <ArrowDown className="h-4 w-4 text-gray-500" />
+              )}
               <span>{getSelectedLabel(sortBy, sortOptions)}</span>
             </div>
             <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${sortDropdownOpen ? 'rotate-180' : ''}`} />
           </button>
           
           {sortDropdownOpen && (
-            <div className="absolute top-full mt-1 left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg z-10 py-1">
+            <div className="absolute top-full mt-1 left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1">
               {sortOptions.map((option) => (
                 <button
                   key={option.value}
                   onClick={() => {
-                    setSortBy(option.value);
+                    onSortChange(option.value);
                     setSortDropdownOpen(false);
                   }}
                   className="w-full px-4 py-2 text-sm text-left hover:bg-gray-50 flex items-center justify-between transition-colors"

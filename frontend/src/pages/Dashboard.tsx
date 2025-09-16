@@ -43,6 +43,7 @@ import { subscriptionApi } from "@/api/subscription";
 import { API_ENDPOINTS } from "@/config/apiEndpoints";
 import DeadlinesNextWidget from "@/components/dashboard/DeadlinesNextWidget";
 import TrackerStatsWidget from "@/components/dashboard/TrackerStatsWidget";
+import SubmittedPursuitsWidget from "@/components/dashboard/SubmittedPursuitsWidget";
 
 
 // const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -107,8 +108,6 @@ const BizRadarDashboard = () => {
     completed: 0,
   });
 
-  // First, add this state for submitted pursuits
-  const [submittedPursuits, setSubmittedPursuits] = useState([]);
 
   // --- AI Recommendations State ---
   const [aiRecommendations, setAiRecommendations] = useState([]);
@@ -120,11 +119,6 @@ const BizRadarDashboard = () => {
   // Add state to store fetched opportunities for use in rendering
   const [dashboardOpportunities, setDashboardOpportunities] = useState([]);
 
-  // --- Add state for follow-up modal and notes ---
-  const [showFollowUpModal, setShowFollowUpModal] = useState(false);
-  const [followUpPursuit, setFollowUpPursuit] = useState(null);
-  const [followUpNotes, setFollowUpNotes] = useState([]);
-  const [newFollowUpNote, setNewFollowUpNote] = useState("");
 
   // Add these new state variables for the modal and opportunities
   const [showMonthOpportunitiesModal, setShowMonthOpportunitiesModal] = useState(false);
@@ -527,100 +521,8 @@ const BizRadarDashboard = () => {
     }
   };
 
-  // Add this function to fetch submitted pursuits
-  const fetchSubmittedPursuits = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
 
-      if (!user) return;
 
-      const { data, error } = await supabase
-        .from('trackers')
-        .select('id, title, stage, updated_at, is_submitted')
-        .eq('user_id', user.id)
-        .eq('is_submitted', true)
-        .order('updated_at', { ascending: false });
-
-      if (error) throw error;
-
-      setSubmittedPursuits(data || []);
-    } catch (error) {
-      console.error("Error fetching submitted pursuits:", error);
-      toast.error("Failed to load submitted pursuits");
-    }
-  };
-
-  // Add this to your useEffect
-  useEffect(() => {
-    fetchSubmittedPursuits();
-  }, []);
-
-  // Add this helper function for formatting time ago
-  const formatTimeAgo = (timestamp: string): string => {
-    try {
-      const date = new Date(timestamp);
-      if (isNaN(date.getTime())) {
-        return 'Invalid date';
-      }
-
-      const now = new Date();
-      const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-      const minutes = Math.floor(seconds / 60);
-      const hours = Math.floor(minutes / 60);
-      const days = Math.floor(hours / 24);
-      const months = Math.floor(days / 30);
-      const years = Math.floor(days / 365);
-
-      if (years > 0) return `${years} ${years === 1 ? 'year' : 'years'} ago`;
-      if (months > 0) return `${months} ${months === 1 ? 'month' : 'months'} ago`;
-      if (days > 0) return `${days} ${days === 1 ? 'day' : 'days'} ago`;
-      if (hours > 0) return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`;
-      if (minutes > 0) return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} ago`;
-      return 'just now';
-    } catch (error) {
-      console.error('Error formatting date:', error);
-      return 'Date unavailable';
-    }
-  };
-
-  // --- Update handleFollowUp to open the follow-up modal ---
-  const handleFollowUp = async (pursuit) => {
-    setFollowUpPursuit(pursuit);
-    setShowFollowUpModal(true);
-    setNewFollowUpNote("");
-    if (!user) {
-      setFollowUpNotes([]);
-      return;
-    }
-    const { data, error } = await supabase
-      .from("tracker_followup_notes")
-      .select("note, created_at")
-      .eq("tracker_id", pursuit.id)
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-    if (error) {
-      setFollowUpNotes([]);
-    } else {
-      setFollowUpNotes(data || []);
-    }
-  };
-
-  // --- Save new note to Supabase ---
-  const handleSaveFollowUpNote = async () => {
-    if (!newFollowUpNote.trim() || !user || !followUpPursuit) return;
-    const noteText = newFollowUpNote.trim();
-    const { data, error } = await supabase
-      .from("tracker_followup_notes")
-      .insert({
-        tracker_id: followUpPursuit.id,
-        user_id: user.id,
-        note: noteText,
-      });
-    if (!error) {
-      setFollowUpNotes([{ note: noteText, created_at: new Date().toISOString() }, ...followUpNotes]);
-      setNewFollowUpNote("");
-    }
-  };
 
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   
@@ -1070,54 +972,6 @@ const BizRadarDashboard = () => {
         </div>
       )}
 
-      {showFollowUpModal && followUpPursuit && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md relative">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-800">
-                Follow Up on: {followUpPursuit.title}
-              </h3>
-              <button
-                onClick={() => setShowFollowUpModal(false)}
-                className="text-gray-400 hover:text-gray-500"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <div className="p-6">
-              <textarea
-                placeholder="Add your follow-up note here..."
-                className="w-full p-2 border-b border-gray-200 text-sm mb-4 focus:outline-none focus:border-blue-500 min-h-24"
-                value={newFollowUpNote}
-                onChange={e => setNewFollowUpNote(e.target.value)}
-              ></textarea>
-              <button
-                onClick={handleSaveFollowUpNote}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 w-full mb-4"
-              >
-                Save Note
-              </button>
-              <div className="mt-4">
-                <h4 className="font-medium text-gray-700 mb-2">Previous Follow-ups</h4>
-                <div className="max-h-48 overflow-y-auto space-y-2">
-                  {followUpNotes.length === 0 ? (
-                    <div className="text-gray-400 text-sm">No follow-up notes yet.</div>
-                  ) : (
-                    <ul>
-                      {followUpNotes.map((note, idx) => (
-                        <li key={idx} className="bg-gray-50 p-3 rounded border border-gray-200">
-                          <div className="text-xs text-gray-500 mb-1">{new Date(note.created_at).toLocaleString()}</div>
-                          <div className="text-gray-800 text-sm">{note.note}</div>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {showMonthOpportunitiesModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
@@ -1278,20 +1132,20 @@ const BizRadarDashboard = () => {
           <div className={DashboardTemplate.content}>
             <div className="w-full">
               {/* User greeting - moved to top for seamless UI */}
-              <div className="flex items-center mb-6 bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+              <div className="flex items-center mb-6 bg-card rounded-xl p-6 shadow-sm border border-border">
                 <div className="mr-6 w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center text-white text-xl font-bold shadow-md">
                   {firstName.substring(0, 1)}
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold text-gray-900">
+                  <h1 className="text-2xl font-bold text-foreground">
                     Welcome back, {firstName}!
                   </h1>
-                  <div className="flex items-center mt-1 text-sm text-gray-500">
+                  <div className="flex items-center mt-1 text-sm text-muted-foreground">
                     <Calendar className="h-4 w-4 mr-1" />
                     <span>{currentDate}</span>
                     <span className="mx-2">•</span>
                     <span className="flex items-center">
-                      <Target className="h-4 w-4 mr-1 text-blue-500" />
+                      <Target className="h-4 w-4 mr-2 text-blue-500" />
                       Home
                     </span>
                   </div>
@@ -1318,196 +1172,164 @@ const BizRadarDashboard = () => {
                 </div>
               </div>
 
-              {/* Dashboard layout - 2 columns */}
-              <div className="grid grid-cols-4 gap-6">
-                {/* Main column - 3/4 width */}
-                <div className="col-span-3 space-y-6">
-                  {/* Metrics */}
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="bg-white p-4 sm:p-6 rounded-xl shadow-md border border-gray-200 transition-all hover:shadow-lg relative overflow-hidden">
-                      {/* Header with navigation - Centered and Responsive */}
-                      <div className="flex flex-col sm:flex-row items-center justify-center mb-4 sm:mb-6 space-y-2 sm:space-y-0">
-                        <div className="flex items-center justify-center gap-2 sm:gap-3">
+              {/* Dashboard layout - 3 rows */}
+              
+              {/* Row 1: Opportunities + Tracker Stats */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                
+                {/* Opportunities Widget */}
+                <div className="bg-card p-4 sm:p-6 rounded-xl shadow-md border border-border transition-all hover:shadow-lg relative overflow-hidden h-72 flex flex-col">
+                  {/* Header with navigation - Centered and Responsive */}
+                  <div className="flex flex-col sm:flex-row items-center justify-center mb-4 space-y-2 sm:space-y-0 flex-shrink-0">
+                    <div className="flex items-center justify-center gap-2 sm:gap-3">
+                      <button
+                        onClick={navigateToPreviousMonth}
+                        className="p-1.5 sm:p-2 rounded-full hover:bg-gray-100 text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-300 flex-shrink-0 transition-colors"
+                      >
+                        <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
+                      </button>
+                      
+                      <div className="flex flex-col sm:flex-row items-center justify-center relative" ref={monthDropdownRef}>
+                        <div className="flex items-center justify-center mb-1 sm:mb-0 sm:mr-2">
+                          <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-blue-500 flex-shrink-0" />
+                        </div>
+                        <h2 className="text-base sm:text-lg font-semibold text-foreground flex items-center text-center">
+                          <span className="inline">Opportunities in </span>
                           <button
-                            onClick={navigateToPreviousMonth}
-                            className="p-1.5 sm:p-2 rounded-full hover:bg-gray-100 text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-300 flex-shrink-0 transition-colors"
+                            onClick={() => setShowMonthDropdown(!showMonthDropdown)}
+                            className="text-blue-600 font-bold hover:text-blue-700 transition-colors inline-flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-blue-300 rounded px-2 py-1 ml-1"
                           >
-                            <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
-                          </button>
-                          
-                          <div className="flex flex-col sm:flex-row items-center justify-center text-center sm:text-left relative" ref={monthDropdownRef}>
-                            <div className="flex items-center justify-center mb-1 sm:mb-0 sm:mr-2">
-                              <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-blue-500 flex-shrink-0" />
-                            </div>
-                            <h2 className="text-base sm:text-lg lg:text-xl font-semibold text-gray-700">
-                              <span className="block sm:inline">Opportunities in </span>
-                              <button
-                                onClick={() => setShowMonthDropdown(!showMonthDropdown)}
-                                className="text-blue-600 font-bold hover:text-blue-700 transition-colors inline-flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-blue-300 rounded px-2 py-1"
-                              >
-                                {monthlyPursuits.month} {monthlyPursuits.year}
-                                {showMonthDropdown ? (
-                                  <ChevronUp className="h-3 w-3" />
-                                ) : (
-                                  <ChevronDown className="h-3 w-3" />
-                                )}
-                              </button>
-                            </h2>
-                            
-                            {/* Month Dropdown */}
-                            {showMonthDropdown && (
-                              <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[200px] max-h-60 overflow-y-auto">
-                                {generateMonthOptions().map((option) => (
-                                  <button
-                                    key={option.value}
-                                    onClick={() => handleMonthSelect(option)}
-                                    className={`w-full text-left px-4 py-2 hover:bg-gray-50 transition-colors text-sm ${
-                                      option.month === monthlyPursuits.month && option.year === monthlyPursuits.year
-                                        ? 'bg-blue-50 text-blue-600 font-medium'
-                                        : 'text-gray-700'
-                                    }`}
-                                  >
-                                    {option.label}
-                                  </button>
-                                ))}
-                              </div>
+                            {monthlyPursuits.month} {monthlyPursuits.year}
+                            {showMonthDropdown ? (
+                              <ChevronUp className="h-3 w-3" />
+                            ) : (
+                              <ChevronDown className="h-3 w-3" />
                             )}
-                          </div>
-                          
-                          <button
-                            onClick={navigateToNextMonth}
-                            className="p-1.5 sm:p-2 rounded-full hover:bg-gray-100 text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-300 flex-shrink-0 transition-colors"
-                          >
-                            <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
                           </button>
-                        </div>
-                      </div>
-
-                      {/* Count display */}
-                      {isLoading ? (
-                        <div className="flex items-center justify-center h-32">
-                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                        </div>
-                      ) : (
-                                            <div className="flex flex-col items-center my-3 sm:my-4">
-                      <div className="flex items-center">
-                        <div>
-                          <div 
-                            className="text-5xl sm:text-6xl font-bold text-gray-800 transition-all cursor-pointer hover:text-blue-600" 
-                            onClick={handleMonthlyCountClick} 
-                            title="View opportunities"
-                          >
-                            {monthlyPursuits.count}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="mt-2 text-sm sm:text-base text-gray-500 font-medium text-center">
-                        New Opportunities Added
-                      </div>
-                    </div>
-                      )}
-
-                      {/* Historical data chart */}
-                      {isChartVisible && (
-                        <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-gray-100">
-                          <div className="flex justify-between items-end h-24 sm:h-32 px-1 sm:px-2">
-                            {monthlyStats.map((month, index) => (
-                              <div
-                                key={index}
-                                className="flex flex-col items-center group cursor-pointer"
+                        </h2>
+                        
+                        {/* Month Dropdown */}
+                        {showMonthDropdown && (
+                          <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[200px] max-h-60 overflow-y-auto">
+                            {generateMonthOptions().map((option) => (
+                              <button
+                                key={option.value}
+                                onClick={() => handleMonthSelect(option)}
+                                className={`w-full text-left px-4 py-2 hover:bg-gray-50 transition-colors text-sm ${
+                                  option.month === monthlyPursuits.month && option.year === monthlyPursuits.year
+                                    ? 'bg-blue-50 text-blue-600 font-medium'
+                                    : 'text-gray-700'
+                                }`}
                               >
-                                <div
-                                  className="w-6 sm:w-8 bg-blue-400 hover:bg-blue-600 rounded-t-sm transition-all"
-                                  style={{
-                                    height: `${Math.max(8, (month.count / (Math.max(...monthlyStats.map(m => m.count)) || 1)) * 70)}px`
-                                  }}
-                                ></div>
-                                <div className="text-xs font-medium text-gray-500 mt-1 whitespace-nowrap">
-                                  {month.month}
-                                </div>
-                                <div className="absolute bottom-full mb-2 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                                  <div className="font-bold">{month.month} {month.year}</div>
-                                  <div>{month.count} {month.count === 1 ? 'Opportunity' : 'Opportunities'}</div>
-                                </div>
-                              </div>
+                                {option.label}
+                              </button>
                             ))}
                           </div>
-                          <Link
-                            to="/analytics"
-                            className="text-center text-xs text-blue-600 mt-2 hover:underline cursor-pointer block font-medium"
-                          >
-                            View detailed analytics
-                          </Link>
-                        </div>
-                      )}
+                        )}
+                      </div>
+                      
+                      <button
+                        onClick={navigateToNextMonth}
+                        className="p-1.5 sm:p-2 rounded-full hover:bg-gray-100 text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-300 flex-shrink-0 transition-colors"
+                      >
+                        <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
+                      </button>
                     </div>
-
-                    {/* Tracker Stats Widget */}
-                    <TrackerStatsWidget />
-
                   </div>
 
-                  {/* Radar Matches */}
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 overflow-hidden">
-                    <div className="flex justify-between items-center mb-5">
-                      <div className="flex items-center space-x-3">
-                        <div className="p-2 bg-emerald-50 text-emerald-500 rounded-lg">
-                          <Sparkles className="h-5 w-5" />
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <h2 className="text-lg font-semibold text-gray-700">
-                            Radar Matches - Personalized opportunities updated daily
-                          </h2>
-                          {!hasProAccess() && (
-                            <div className="p-1.5 bg-gradient-to-r from-blue-100 to-purple-100 text-blue-600 rounded-full border border-blue-200">
-                              <Lock className="h-4 w-4" />
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      {hasProAccess() ? (
-                        <Link to="/settings" className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors shadow-sm">
-                          <Settings className="mr-2 h-4 w-4" />
-                          Edit settings
-                        </Link>
-                      ) : (
-                        <button
-                          onClick={() => setUpgradeOpen(true)}
-                          className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm font-medium rounded-lg shadow-md hover:shadow-lg transition-all hover:scale-105"
+                  {/* Content */}
+                  <div className="flex-1 flex flex-col justify-center items-center">
+                    {isLoading ? (
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                    ) : (
+                      <>
+                        <div 
+                          className="text-4xl sm:text-5xl font-bold text-gray-800 transition-all cursor-pointer hover:text-blue-600" 
+                          onClick={handleMonthlyCountClick} 
+                          title="View opportunities"
                         >
-                          <Crown className="mr-2 h-4 w-4" />
-                          Upgrade
-                        </button>
-                      )}
-                    </div>
+                          {monthlyPursuits.count}
+                        </div>
+                        <div className="mt-2 text-sm text-gray-500 font-medium text-center">
+                          New Opportunities Added
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
 
-                    {/* Content */}
-                    <div className="relative">
-                      {/* Feature Preview for Non-Pro Users */}
-                      {!hasProAccess() && (
-                        <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg">
-                          <div className="space-y-2">
-                            <div className="flex items-center text-sm text-gray-700">
-                              <CheckCircle2 className="h-4 w-4 text-green-500 mr-3" />
-                              <div className="flex items-center flex-wrap gap-2">
-                                <span>Get daily AI-powered opportunity recommendations tailored to your company profile</span>
-                                <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium border border-blue-200">
-                                  Pro Plan
-                                </span>
-                              </div>
+                {/* Tracker Stats Widget */}
+                <TrackerStatsWidget className="h-72" />
+
+              </div>
+
+              {/* Row 2: Submitted Pursuits - Full width */}
+              <div className="mb-6">
+                <SubmittedPursuitsWidget className="h-80" />
+              </div>
+
+              {/* Row 3: Radar Matches - Full width */}
+              <div className="mb-6">
+                <div className="bg-card rounded-xl shadow-sm border border-border p-6 h-64 flex flex-col overflow-hidden">
+                  <div className="flex justify-between items-center mb-5 flex-shrink-0">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 bg-emerald-50 text-emerald-500 rounded-lg">
+                        <Sparkles className="h-5 w-5" />
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <h2 className="text-lg font-semibold text-foreground">
+                          Radar Matches - Personalized opportunities updated daily
+                        </h2>
+                        {!hasProAccess() && (
+                          <div className="p-1.5 bg-gradient-to-r from-blue-100 to-purple-100 text-blue-600 rounded-full border border-blue-200">
+                            <Lock className="h-4 w-4" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {hasProAccess() ? (
+                      <Link to="/settings" className="inline-flex items-center px-4 py-2 border border-input text-sm font-medium rounded-lg text-foreground bg-background hover:bg-muted transition-colors shadow-sm">
+                        <Settings className="mr-2 h-4 w-4" />
+                        Edit settings
+                      </Link>
+                    ) : (
+                      <button
+                        onClick={() => setUpgradeOpen(true)}
+                        className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm font-medium rounded-lg shadow-md hover:shadow-lg transition-all hover:scale-105"
+                      >
+                        <Crown className="mr-2 h-4 w-4" />
+                        Upgrade
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Content */}
+                  <div className="relative flex-1 flex flex-col overflow-hidden">
+                    {/* Feature Preview for Non-Pro Users */}
+                    {!hasProAccess() && (
+                      <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg">
+                        <div className="space-y-2">
+                          <div className="flex items-center text-sm text-gray-700">
+                            <CheckCircle2 className="h-4 w-4 text-green-500 mr-3" />
+                            <div className="flex items-center flex-wrap gap-2">
+                              <span>Get daily AI-powered opportunity recommendations tailored to your company profile</span>
+                              <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium border border-blue-200">
+                                Pro Plan
+                              </span>
                             </div>
-                            <div className="flex items-center text-sm text-gray-700">
-                              <CheckCircle2 className="h-4 w-4 text-green-500 mr-3" />
-                              <div className="flex items-center flex-wrap gap-2">
-                                <span>Receive priority alerts for high-match opportunities</span>
-                                <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs font-medium border border-purple-200">
-                                  Premium Plan
-                                </span>
-                              </div>
+                          </div>
+                          <div className="flex items-center text-sm text-gray-700">
+                            <CheckCircle2 className="h-4 w-4 text-green-500 mr-3" />
+                            <div className="flex items-center flex-wrap gap-2">
+                              <span>Receive priority alerts for high-match opportunities</span>
+                              <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs font-medium border border-purple-200">
+                                Premium Plan
+                              </span>
                             </div>
                           </div>
                         </div>
-                      )}
+                      </div>
+                    )}
 
                     {/* Recommendations Loading/Empty/Results - Only for Pro users */}
                     {hasProAccess() && (
@@ -1530,205 +1352,125 @@ const BizRadarDashboard = () => {
                             </div>
                           </div>
                         ) : (
-                      <div className="space-y-5">
-                        {aiRecommendations.map((rec, idx) => {
-                          // Always use the opportunityIndex to look up the correct opportunity in dashboardOpportunities
-                          let externalUrl = rec.external_url;
-                          if (!externalUrl && typeof rec.opportunityIndex === 'number' && Array.isArray(dashboardOpportunities)) {
-                            const opp = dashboardOpportunities[rec.opportunityIndex];
-                            if (opp && opp.external_url) {
-                              externalUrl = opp.external_url;
-                            }
-                          }
-                          // If the index is out of bounds or missing, do not make the card clickable
-                          const isClickable = externalUrl && externalUrl !== '#' && typeof rec.opportunityIndex === 'number' && dashboardOpportunities[rec.opportunityIndex];
-                          externalUrl = isClickable ? externalUrl : null;
-                          return (
-                            <div
-                              key={rec.id || idx}
-                              className={`rounded-lg border border-gray-200 overflow-hidden transition-all hover:shadow-md group ${isClickable ? 'cursor-pointer hover:bg-blue-50' : 'cursor-default'}`}
-                              onClick={() => {
-                                if (isClickable) {
-                                  window.open(externalUrl, '_blank', 'noopener,noreferrer');
+                          <div className="space-y-5 overflow-y-auto flex-1">
+                            {aiRecommendations.map((rec, idx) => {
+                              let externalUrl = rec.external_url;
+                              if (!externalUrl && typeof rec.opportunityIndex === 'number' && Array.isArray(dashboardOpportunities)) {
+                                const opp = dashboardOpportunities[rec.opportunityIndex];
+                                if (opp && opp.external_url) {
+                                  externalUrl = opp.external_url;
                                 }
-                              }}
-                              tabIndex={isClickable ? 0 : -1}
-                              role="button"
-                              onKeyDown={e => {
-                                if (isClickable && e.key === 'Enter') {
-                                  window.open(externalUrl, '_blank', 'noopener,noreferrer');
-                                }
-                              }}
-                            >
-                              <div className="p-5">
-                                <div className="flex items-start justify-between">
-                                  <div className="flex-1">
-                                    <h3 className="text-lg font-medium text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
-                                      {typeof rec.opportunityIndex === 'number' && dashboardOpportunities[rec.opportunityIndex]
-                                        ? dashboardOpportunities[rec.opportunityIndex].title
-                                        : rec.title}
-                                    </h3>
-                                    <p className="text-sm text-gray-600 mb-3">
-                                      {rec.description || rec.matchReason || "No description available."}
-                                    </p>
-                                    <div className="flex flex-wrap items-center gap-4 text-xs">
-                                      {rec.agency && (
-                                        <div className="flex items-center text-gray-500">
-                                          <Shield className="h-3 w-3 mr-1 text-blue-500" />
-                                          {rec.agency}
+                              }
+                              const isClickable = externalUrl && externalUrl !== '#' && typeof rec.opportunityIndex === 'number' && dashboardOpportunities[rec.opportunityIndex];
+                              externalUrl = isClickable ? externalUrl : null;
+                              return (
+                                <div
+                                  key={rec.id || idx}
+                                  className={`rounded-lg border border-gray-200 overflow-hidden transition-all hover:shadow-md group ${isClickable ? 'cursor-pointer hover:bg-blue-50' : 'cursor-default'}`}
+                                  onClick={() => {
+                                    if (isClickable) {
+                                      window.open(externalUrl, '_blank', 'noopener,noreferrer');
+                                    }
+                                  }}
+                                  tabIndex={isClickable ? 0 : -1}
+                                  role="button"
+                                  onKeyDown={e => {
+                                    if (isClickable && e.key === 'Enter') {
+                                      window.open(externalUrl, '_blank', 'noopener,noreferrer');
+                                    }
+                                  }}
+                                >
+                                  <div className="p-5">
+                                    <div className="flex items-start justify-between">
+                                      <div className="flex-1">
+                                        <h3 className="text-lg font-medium text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
+                                          {typeof rec.opportunityIndex === 'number' && dashboardOpportunities[rec.opportunityIndex]
+                                            ? dashboardOpportunities[rec.opportunityIndex].title
+                                            : rec.title}
+                                        </h3>
+                                        <p className="text-sm text-gray-600 mb-3">
+                                          {rec.description || rec.matchReason || "No description available."}
+                                        </p>
+                                        <div className="flex flex-wrap items-center gap-4 text-xs">
+                                          {rec.agency && (
+                                            <div className="flex items-center text-gray-500">
+                                              <Shield className="h-3 w-3 mr-1 text-blue-500" />
+                                              {rec.agency}
+                                            </div>
+                                          )}
+                                          {rec.published_date && (
+                                            <div className="flex items-center text-gray-500">
+                                              <Clock className="h-3 w-3 mr-1" />
+                                              Released: {new Date(rec.published_date).toLocaleDateString()}
+                                            </div>
+                                          )}
+                                          {rec.response_date && (
+                                            <div className="flex items-center px-2 py-1 bg-amber-50 text-amber-700 rounded-full">
+                                              <Clock className="h-3 w-3 mr-1" />
+                                              Due: {new Date(rec.response_date).toLocaleDateString()}
+                                            </div>
+                                          )}
                                         </div>
-                                      )}
-                                      {rec.published_date && (
-                                        <div className="flex items-center text-gray-500">
-                                          <Clock className="h-3 w-3 mr-1" />
-                                          Released: {new Date(rec.published_date).toLocaleDateString()}
-                                        </div>
-                                      )}
-                                      {rec.response_date && (
-                                        <div className="flex items-center px-2 py-1 bg-amber-50 text-amber-700 rounded-full">
-                                          <Clock className="h-3 w-3 mr-1" />
-                                          Due: {new Date(rec.response_date).toLocaleDateString()}
-                                        </div>
-                                      )}
+                                      </div>
+                                      <div className="ml-4 flex flex-col items-end">
+                                        {rec.matchScore && (
+                                          <div className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium mb-2">
+                                            {rec.matchScore}% Match
+                                          </div>
+                                        )}
+                                        {isClickable && (
+                                          <a
+                                            href={externalUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-gray-400 group-hover:text-blue-500 transition-colors"
+                                            onClick={e => e.stopPropagation()}
+                                          >
+                                            <ExternalLink className="h-4 w-4" />
+                                          </a>
+                                        )}
+                                      </div>
                                     </div>
                                   </div>
-                                  <div className="ml-4 flex flex-col items-end">
-                                    {rec.matchScore && (
-                                      <div className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium mb-2">
-                                        {rec.matchScore}% Match
-                                      </div>
-                                    )}
-                                    {isClickable && (
-                                      <a
-                                        href={externalUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-gray-400 group-hover:text-blue-500 transition-colors"
-                                        onClick={e => e.stopPropagation()}
-                                      >
-                                        <ExternalLink className="h-4 w-4" />
-                                      </a>
-                                    )}
+                                  <div className="border-t border-gray-200 px-5 py-3 bg-gray-50 flex justify-between items-center">
+                                    <div className="text-xs text-gray-500">
+                                      Estimated value: {rec.budget ? <span className="font-medium">{rec.budget}</span> : <span>N/A</span>}
+                                    </div>
+                                    <button
+                                      className={`inline-flex items-center px-4 py-1.5 border border-gray-300 text-xs font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 hover:text-blue-600 transition-colors shadow-sm ${addingPursuitId === rec.id ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                      onClick={e => {
+                                        e.stopPropagation();
+                                        handleAddToTracker(rec);
+                                      }}
+                                      disabled={addingPursuitId === rec.id}
+                                    >
+                                      {addingPursuitId === rec.id ? (
+                                        <span className="flex items-center"><span className="animate-spin h-4 w-4 mr-2 border-b-2 border-blue-500 rounded-full"></span>Adding...</span>
+                                      ) : (
+                                        <>Add to Pursuits</>
+                                      )}
+                                    </button>
                                   </div>
                                 </div>
-                              </div>
-                              <div className="border-t border-gray-200 px-5 py-3 bg-gray-50 flex justify-between items-center">
-                                <div className="text-xs text-gray-500">
-                                  Estimated value: {rec.budget ? <span className="font-medium">{rec.budget}</span> : <span>N/A</span>}
-                                </div>
-                                <button
-                                  className={`inline-flex items-center px-4 py-1.5 border border-gray-300 text-xs font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 hover:text-blue-600 transition-colors shadow-sm ${addingPursuitId === rec.id ? 'opacity-60 cursor-not-allowed' : ''}`}
-                                  onClick={e => {
-                                    e.stopPropagation();
-                                    handleAddToTracker(rec);
-                                  }}
-                                  disabled={addingPursuitId === rec.id}
-                                >
-                                  {addingPursuitId === rec.id ? (
-                                    <span className="flex items-center"><span className="animate-spin h-4 w-4 mr-2 border-b-2 border-blue-500 rounded-full"></span>Adding...</span>
-                                  ) : (
-                                    <>Add to Pursuits</>
-                                  )}
-                                </button>
-                              </div>
+                              );
+                            })}
+                            <div className="flex justify-center pt-2">
+                              <Link to="/opportunities" className="text-blue-600 hover:text-blue-800 text-sm font-medium inline-flex items-center">
+                                View more opportunities
+                                <ChevronRight className="h-4 w-4 ml-1" />
+                              </Link>
                             </div>
-                          );
-                        })}
-                        <div className="flex justify-center pt-2">
-                          <Link to="/opportunities" className="text-blue-600 hover:text-blue-800 text-sm font-medium inline-flex items-center">
-                            View more opportunities
-                            <ChevronRight className="h-4 w-4 ml-1" />
-                          </Link>
-                        </div>
-                      </div>
+                          </div>
                         )}
                       </>
                     )}
-                    </div>
                   </div>
-
-                  {/* Deadlines Next Widget */}
-                  <DeadlinesNextWidget />
                 </div>
+              </div>
 
-                {/* Right sidebar - 1/4 width */}
-                <div className="space-y-4">
-                  {/* Submission Status */}
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                    <div className="px-4 py-3 border-b border-gray-100">
-                      <div className="flex items-center space-x-2">
-                        <div className="p-1.5 bg-blue-100 text-blue-600 rounded-lg">
-                          <CheckCircle2 className="h-4 w-4" />
-                        </div>
-                        <h2 className="text-base font-semibold text-gray-700">
-                          Submission Status
-                        </h2>
-                        <div className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
-                          {submittedPursuits.length}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="h-[300px] overflow-y-auto">
-                      <div className="p-4 space-y-3">
-                        {submittedPursuits.map((pursuit) => (
-                          <div key={pursuit.id} className="rounded-lg border border-gray-200 p-4 hover:shadow-sm transition-all group">
-                            <div className="flex items-start">
-                              <div className="flex-shrink-0 p-2 bg-green-100 text-green-600 rounded-lg mr-3">
-                                <CheckCircle2 className="h-4 w-4" />
-                              </div>
-                              <div className="flex-1">
-                                <h3 className="text-md font-medium text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
-                                  {pursuit.title}
-                                </h3>
-                                <div className="mb-2 flex items-center text-xs font-medium text-gray-600 bg-gray-100 px-3 py-1 rounded-full w-fit">
-                                  <Clock className="h-3 w-3 mr-1 text-green-500" />
-                                  <span>
-                                    {`Submitted ${formatTimeAgo(pursuit.updated_at)}`}
-                                  </span>
-                                </div>
-                                <div className="flex items-center space-x-2 text-xs text-gray-500">
-                                  <span className="flex items-center">
-                                    <FileText className="h-3 w-3 mr-1" />
-                                    Pursuit
-                                  </span>
-                                  <span>•</span>
-                                  <span>{pursuit.stage}</span>
-                                </div>
-                              </div>
-                              <button
-                                className="ml-2 p-2 text-gray-400 hover:text-blue-500 transition-colors rounded-lg hover:bg-blue-50"
-                                title="Follow up"
-                                onClick={() => handleFollowUp(pursuit)}
-                              >
-                                <MessageSquare className="h-5 w-5" />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-
-                        {submittedPursuits.length === 0 && (
-                          <div className="text-center py-6 text-gray-500">
-                            No submitted pursuits yet
-                          </div>
-                        )}
-                      </div>
-
-                      {submittedPursuits.length > 0 && (
-                        <div className="p-3 text-center border-t border-gray-100 sticky bottom-0 bg-white">
-                          <Link
-                            to="/pursuits?filter=submitted"
-                            className="text-blue-600 hover:text-blue-800 text-sm font-medium inline-flex items-center"
-                          >
-                            View all submitted pursuits
-                            <ChevronRight className="h-4 w-4 ml-1" />
-                          </Link>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                </div>
+              {/* Row 3: Deadlines Widget - Full width */}
+              <div>
+                <DeadlinesNextWidget className="h-64" />
               </div>
             </div>
           </div>

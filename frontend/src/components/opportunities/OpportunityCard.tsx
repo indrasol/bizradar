@@ -216,16 +216,16 @@ const OpportunityCard: React.FC<OpportunityCardProps> = ({
 
           {/* Right Side - Timeline Information */}
           <div className="w-48 flex-shrink-0">
-            <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4 border border-blue-200 h-fit">
-              <h3 className="text-sm font-semibold text-blue-900 mb-3 flex items-center gap-2">
+            <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800 h-fit">
+              <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-200 mb-3 flex items-center gap-2">
                 <Clock size={14} />
                 Timeline
               </h3>
               
               {/* Published Date */}
               <div className="mb-4">
-                <div className="text-xs text-blue-600 uppercase tracking-wide mb-1">Published</div>
-                <div className="font-medium text-blue-900 text-sm">
+                <div className="text-xs text-blue-600 dark:text-blue-300 uppercase tracking-wide mb-1 dark:font-bold">Published</div>
+                <div className="font-medium text-blue-900 dark:text-blue-100 text-sm">
                   {opportunity.published_date || "Recent"}
                 </div>
               </div>
@@ -233,8 +233,8 @@ const OpportunityCard: React.FC<OpportunityCardProps> = ({
               {/* Due Date */}
               {opportunity.response_date && (
                 <div className="mb-4">
-                  <div className="text-xs text-blue-600 uppercase tracking-wide mb-1">Due Date</div>
-                  <div className="font-medium text-blue-900 text-sm mb-2">
+                  <div className="text-xs text-blue-600 dark:text-blue-300 uppercase tracking-wide mb-1 dark:font-bold">Due Date</div>
+                  <div className="font-medium text-blue-900 dark:text-blue-100 text-sm mb-2">
                     {opportunity.response_date}
                   </div>
                   

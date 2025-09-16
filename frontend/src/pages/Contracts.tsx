@@ -9,9 +9,9 @@ const Contracts = () => {
   return (
     <DashboardLayout>
       <div className="space-y-8">
-        <div className="bg-white py-12 border-b">
+        <div className="bg-card py-12 border-b border-border">
           <div className="max-w-3xl mx-auto text-center space-y-6">
-            <h1 className="text-3xl font-bold tracking-tight">Discover Business Opportunities</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">Discover Business Opportunities</h1>
             <div className="max-w-xl mx-auto">
               <SearchBar 
                 selectionType="default" 
