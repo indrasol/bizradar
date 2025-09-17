@@ -28,7 +28,7 @@ export const CreateTrackerDialog: React.FC<CreateTrackerDialogProps> = ({
   const [newTracker, setNewTracker] = useState({
     title: "",
     description: "",
-    stage: "Assessment",
+    stage: "Review",
     due_date: null as string | null,
     tags: [] as string[],
     isFederalContract: false,
@@ -100,7 +100,7 @@ export const CreateTrackerDialog: React.FC<CreateTrackerDialogProps> = ({
     setNewTracker({
       title: "",
       description: "",
-      stage: "Assessment",
+      stage: "Review",
       due_date: null,
       tags: [],
       isFederalContract: false,

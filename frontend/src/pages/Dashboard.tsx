@@ -43,12 +43,13 @@ import { API_ENDPOINTS } from "@/config/apiEndpoints";
 import DeadlinesNextWidget from "@/components/dashboard/DeadlinesNextWidget";
 import TrackerStatsWidget from "@/components/dashboard/TrackerStatsWidget";
 import SubmittedPursuitsWidget from "@/components/dashboard/SubmittedPursuitsWidget";
-
+import { useTrack } from "@/logging"; // ← ADDED
 
 // const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 const BizRadarDashboard = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const track = useTrack(); // ← ADDED
   const firstName = user?.user_metadata?.first_name || "";
   const currentDate = new Date().toLocaleDateString("en-US", {
     weekday: "long",
@@ -80,9 +81,15 @@ const BizRadarDashboard = () => {
   const handleLogout = async () => {
     try {
       setIsDisabled(true);
+  
+      // mark that we should log the event once we land on "/"
+      sessionStorage.setItem("pendingLogoutTrack", "1");
+  
       await logout();
+  
+      // UI feedback and redirect to home (public)
       toast.success("Logging out...", ResponsivePatterns.toast.config);
-      navigate("/logout");
+      navigate("/", { replace: true });
     } catch (error) {
       console.error("Logout error:", error);
       toast.error("There was a problem logging out", ResponsivePatterns.toast.config);
@@ -1410,11 +1417,11 @@ const BizRadarDashboard = () => {
                                       }}
                                       disabled={addingPursuitId === rec.id}
                                     >
-                                      {addingPursuitId === rec.id ? (
+                                      {/* {addingPursuitId === rec.id ? (
                                         <span className="flex items-center"><span className="animate-spin h-4 w-4 mr-2 border-b-2 border-blue-500 rounded-full"></span>Adding...</span>
                                       ) : (
                                         <>Add to Pursuits</>
-                                      )}
+                                      )} */}
                                     </button>
                                   </div>
                                 </div>

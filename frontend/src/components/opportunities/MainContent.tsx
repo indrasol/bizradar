@@ -68,15 +68,7 @@ const MainContent: React.FC<MainContentProps & { userProfile: { companyUrl?: str
           </motion.div>
         )}
         </AnimatePresence> */}
-        {hasSearched && (
-          <RecommendationsPanel
-            opportunities={opportunities}
-            userProfile={userProfile}
-            onExpand={() => {}}
-            onMinimize={() => {}}
-            isExpanded={false}
-          />
-        )}
+        {hasSearched}
         <ResultsList
           opportunities={opportunities}
           isSearching={isSearching}

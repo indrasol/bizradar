@@ -25,6 +25,10 @@ from collections import deque
 from app.services.filter_service import apply_filters_to_results, sort_results
 import asyncio
 from typing import List
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+
+
 # from utils.doc_generation import generate_merge_and_convert_report
 
 # Configure logging
@@ -108,6 +112,10 @@ def get_or_generate_refined_query(query, contract_type, platform, user_id):
         refined_query = refine_query(query, contract_type, platform)
         redis_client.set_json(cache_key, {"refined_query": refined_query}, expiry=86400)
     return refined_query
+
+
+
+
 
 @search_router.post("/process-documents")
 async def process_documents(request: Request):
