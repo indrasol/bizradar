@@ -541,28 +541,82 @@ export default function Pursuits(): JSX.Element {
     }
   }, [highlightedPursuitId, location.search, location.pathname, navigate]);
   
-  // Modify the handlePursuitSelect function
+  // Modify the handlePursuitSelect function to open internal detail page
   const handlePursuitSelect = async (pursuit: Pursuit): Promise<void> => {
     try {
+      // Try to fetch the full opportunity from ai_enhanced_opportunities
       const { data, error } = await supabase
         .from('ai_enhanced_opportunities')
-        .select('notice_id')
+        .select(`
+          id,
+          title,
+          department,
+          description,
+          url,
+          naics_code,
+          published_date,
+          response_date,
+          funding,
+          solicitation_number,
+          active,
+          additional_description,
+          objective,
+          expected_outcome,
+          eligibility,
+          key_facts,
+          notice_id
+        `)
         .eq('title', pursuit.title)
         .limit(1)
         .maybeSingle();
 
       if (error) {
-        console.error("Error fetching noticeId:", error);
-        toast?.error("Failed to fetch notice ID. Please try again.");
+        console.error("Error fetching opportunity:", error);
+        toast?.error("Failed to fetch opportunity details.");
         return;
       }
 
       if (data) {
-        const noticeId = data.notice_id;
-        // window.location.href = `https://sam.gov/opp/${noticeId}/view`;
-        window.open(`https://sam.gov/opp/${noticeId}/view`);
+        // Map DB row to Opportunity shape expected by details page
+        const mapped = {
+          id: String(data.id),
+          title: data.title,
+          agency: data.department || "",
+          description: data.description || "",
+          platform: "sam_gov",
+          external_url: data.url || "",
+          naics_code: data.naics_code != null ? String(data.naics_code) : "",
+          published_date: data.published_date || "",
+          response_date: data.response_date || null,
+          budget: data.funding || undefined,
+          solicitation_number: data.solicitation_number || undefined,
+          active: data.active ?? true,
+          type: undefined,
+          additional_description: data.additional_description || undefined,
+          summary: undefined,
+          summary_ai: undefined,
+          objective: data.objective || undefined,
+          expected_outcome: data.expected_outcome || undefined,
+          eligibility: data.eligibility || undefined,
+          key_facts: data.key_facts || undefined,
+        } as any;
+
+        sessionStorage.setItem("selectedOpportunity", JSON.stringify(mapped));
+        window.open(`/opportunities/${mapped.id}/details`, '_blank');
       } else {
-        toast?.error("No notice ID found for the selected pursuit.");
+        // Fallback: open SAM.gov if we have a notice_id from previous logic
+        const { data: noticeRow } = await supabase
+          .from('ai_enhanced_opportunities')
+          .select('notice_id')
+          .eq('title', pursuit.title)
+          .limit(1)
+          .maybeSingle();
+
+        if (noticeRow?.notice_id) {
+          window.open(`https://sam.gov/opp/${noticeRow.notice_id}/view`);
+        } else {
+          toast?.error("No details found for the selected pursuit.");
+        }
       }
     } catch (error) {
       console.error("Error in handlePursuitSelect:", error);

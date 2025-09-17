@@ -131,6 +131,14 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
     return type.endsWith('_annual') ? ' (Annual)' : '';
   };
 
+  const formatPlanType = (planType: string) => {
+    return planType
+      .replace(/[_-]+/g, ' ')
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
   const getPlanIcon = (planType: string) => {
     switch (planType) {
       case 'free':
@@ -180,7 +188,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
             <div className="mb-4">Loading your current subscription...</div>
           ) : currentSubscription ? (
             <div className="mb-4 p-3 bg-blue-50 text-blue-700 rounded-md">
-              Current Plan: <strong>{currentSubscription.plan_type}</strong>
+              Current Plan: <strong>{formatPlanType(currentSubscription.plan_type)}</strong>
             </div>
           ) : (
             <div className="mb-4 p-3 bg-gray-50 text-gray-700 rounded-md">
@@ -250,7 +258,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                       </div>
                       {selectedPlan === plan.type && (
                         <div className="bg-blue-500 text-white p-1 rounded-full">
-                          <Check size={16} />
+                          <Check className="w-4 h-4" />
                         </div>
                       )}
                     </div>
@@ -268,7 +276,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                     <ul className="space-y-2">
                       {plan.features.map((feature, index) => (
                         <li key={index} className="flex items-center text-gray-600">
-                          <Check size={16} className="text-green-500 mr-2" />
+                          <Check className="w-4 h-4 text-green-500 mr-2 shrink-0" />
                           {feature}
                         </li>
                       ))}

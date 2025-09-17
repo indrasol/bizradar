@@ -84,14 +84,16 @@ const ResultsList: React.FC<ResultsListProps & { onScroll?: (scrollTop: number) 
   return (
     <div ref={refToUse} className="flex-1 overflow-y-auto p-2 results-container">
       <div className="border-b border-gray-200 px-5 py-2 bg-white flex items-center justify-between mb-2 rounded-lg">
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2">
-            <HelpCircle size={16} className="text-blue-500" />
-            <span className="text-sm text-gray-600">
-              Need help finding opportunities? Try below <a href="#" className="text-blue-600 font-medium">guided popular searches wizard</a>.
-            </span>
+        {!hasSearched && (
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2">
+              <HelpCircle size={16} className="text-blue-500" />
+              <span className="text-sm text-gray-600">
+                Need help finding opportunities? Try below <a href="#" className="text-blue-600 font-medium">guided popular searches wizard</a>.
+              </span>
+            </div>
           </div>
-        </div>
+        )}
         {hasSearched && !isSearching && (
           <div className="flex items-center gap-3">
             <div className="py-1 px-3 bg-blue-100 text-blue-700 text-sm font-medium rounded-full">
