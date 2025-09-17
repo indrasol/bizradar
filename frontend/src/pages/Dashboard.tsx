@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import {
+import { 
   Bell,
   Settings,
   Search,
@@ -19,7 +19,6 @@ import {
   ChevronUp,
   Info,
   CheckCircle2,
-  ExternalLink,
   X,
   Sparkle,
   Sparkles,
@@ -594,120 +593,104 @@ const BizRadarDashboard = () => {
 
   // --- Fetch Opportunities and Recommendations on Load ---
   useEffect(() => {
+    const controller = new AbortController();
+
     const fetchRecommendations = async () => {
       // Only fetch recommendations for Pro users
       if (!hasProAccess()) {
         setIsLoadingRecommendations(false);
         setAiRecommendations([]);
+        setDashboardOpportunities([]);
         return;
       }
-      
+
       setIsLoadingRecommendations(true);
-
-      // 1. Get user profile and userId for searchQuery
-      let companyUrl = "";
-      let companyDescription = "";
       try {
-        const userProfileStr = sessionStorage.getItem("userProfile");
-        if (userProfileStr) {
-          const userProfile = JSON.parse(userProfileStr);
-          companyUrl = userProfile.companyUrl || "";
-          companyDescription = userProfile.companyDescription || "";
-        }
-      } catch (e) {}
-      let userId = null;
-      try {
-        const tokenService = (await import("../utils/tokenService")).default;
-        userId = tokenService.getUserIdFromToken();
-      } catch (e) {}
-
-      // 2. Generate searchQuery
-      // const searchQuery = `${companyUrl || ""}|${companyDescription || ""}|${userId || ""}`;
-      const searchQuery = "";
-
-      // 3. Check cache first
-      const cache = sessionStorage.getItem('dashboardAiRecommendations');
-      if (cache) {
-        const parsed = JSON.parse(cache);
-        if (
-          parsed.searchQuery === searchQuery &&
-          parsed.recommendations &&
-          parsed.dashboardOpportunities &&
-          Date.now() - parsed.timestamp < 60 * 60 * 1000 // 1 hour
-        ) {
-          setAiRecommendations(parsed.recommendations.slice(0, 3));
-          setDashboardOpportunities(parsed.dashboardOpportunities);
-          setIsLoadingRecommendations(false);
+        const userId = user?.id || null;
+        if (!userId) {
+          setAiRecommendations([]);
+          setDashboardOpportunities([]);
           return;
         }
-      }
 
-      // 4. If not cached, fetch opportunities and proceed as before
-      const API_BASE_URL = window.location.hostname === "localhost"
-        ? "http://localhost:5000"
-        : import.meta.env.VITE_API_BASE_URL;
-      const response = await fetch(API_ENDPOINTS.SEARCH_OPPORTUNITIES, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          page: 1,
-          page_size: 10,
+        // Cache: 1 hour TTL, scoped by user
+        const cacheKey = `dashboardAiRecommendations:${userId}`;
+        const cached = sessionStorage.getItem(cacheKey);
+        if (cached) {
+          try {
+            const parsed = JSON.parse(cached);
+            if (parsed?.timestamp && Date.now() - parsed.timestamp < 60 * 60 * 1000 && Array.isArray(parsed.results)) {
+              const normalized = parsed.results;
+              setDashboardOpportunities(normalized);
+              const top = normalized.slice(0, 5).map((opp, idx) => ({ ...opp, opportunityIndex: idx }));
+              setAiRecommendations(top);
+              return;
+            }
+          } catch {}
+        }
+
+        // Optional auth header
+        const { data: { session } } = await supabase.auth.getSession();
+        const headers = {} as Record<string, string>;
+        if (session?.access_token) headers["Authorization"] = `Bearer ${session.access_token}`;
+
+        // Call recommendations API
+        const url = `${API_ENDPOINTS.AI_RECOMMENDATIONS}?${new URLSearchParams({
           user_id: userId,
-          query: "",
-          is_new_search: true,
-        }),
-      });
-      const data = await response.json();
-      if (!data.success || !Array.isArray(data.results) || data.results.length === 0) {
-        setAiRecommendations([]);
-        setIsLoadingRecommendations(false);
-        return;
-      }
-      const opportunities = data.results;
+          limit: '10',
+        }).toString()}`;
 
-      // Filter for future response_date
-      const now = new Date();
-      const futureOpportunities = opportunities.filter(opp => {
-        if (!opp.response_date) return false;
-        const respDate = new Date(opp.response_date);
-        return respDate > now;
-      });
-      setDashboardOpportunities(futureOpportunities);
+        const res = await fetch(url, { method: 'GET', headers, signal: controller.signal });
+        const json = await res.json();
+        if (!res.ok) {
+          throw new Error(json?.detail || json?.message || `Recommendations failed: ${res.status}`);
+        }
 
-      // 5. Call AI recommendations API
-      const recResponse = await fetch(API_ENDPOINTS.AI_RECOMMENDATIONS, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          companyUrl,
-          companyDescription,
-          opportunities: futureOpportunities.slice(0, 10),
-          responseFormat: "json",
-          includeMatchReason: true,
-          userId,
-          searchQuery,
-        }),
-      });
-      const recData = await recResponse.json();
-      if (recData && Array.isArray(recData.recommendations)) {
-        const sortedRecs = [...recData.recommendations].sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0));
-        setAiRecommendations(sortedRecs.slice(0, 3));
+        const list = Array.isArray(json?.results) ? json.results : [];
+
+        // Normalize shape to UI schema
+        const normalize = (r: any) => {
+          return {
+            id: r?.id ?? r?.notice_id ?? r?.solicitation_number ?? null,
+            title: r?.title || 'Untitled Opportunity',
+            description: r?.description || r?.additional_description || r?.objective || r?.expected_outcome || '',
+            agency: r?.department || '',
+            external_url: r?.url || r?.external_url || '',
+            published_date: r?.published_date || null,
+            response_date: r?.response_date || r?.due_date || null,
+            budget: r?.funding || '',
+            active: typeof r?.active === 'boolean' ? r.active : true,
+            naics_code: r?.naics_code ?? null,
+          };
+        };
+
+        const normalizedAll = list.map(normalize);
+
+        // Keep only future (or undated) to match prior UX
+        const now = new Date();
+        const future = normalizedAll.filter(o => !o.response_date || new Date(o.response_date) > now);
+
+        setDashboardOpportunities(future);
+
+        const top = future.slice(0, 5).map((item, idx) => ({ ...item, opportunityIndex: idx }));
+        setAiRecommendations(top);
+
         sessionStorage.setItem(
-          'dashboardAiRecommendations',
-          JSON.stringify({
-            recommendations: sortedRecs,
-            dashboardOpportunities: futureOpportunities,
-            timestamp: Date.now(),
-            searchQuery,
-          })
+          cacheKey,
+          JSON.stringify({ results: future, timestamp: Date.now() })
         );
-      } else {
+      } catch (e) {
+        console.error('fetchRecommendations error:', e);
         setAiRecommendations([]);
+        setDashboardOpportunities([]);
+      } finally {
+        setIsLoadingRecommendations(false);
       }
-      setIsLoadingRecommendations(false);
     };
+
     fetchRecommendations();
-  }, [currentSubscription]);
+    return () => controller.abort();
+  }, [currentSubscription, user]);
 
   // Add to Trackers handler
   const handleAddToTracker = async (opportunity) => {
@@ -1272,12 +1255,12 @@ const BizRadarDashboard = () => {
 
               {/* Row 2: Submitted Pursuits - Full width */}
               <div className="mb-6">
-                <SubmittedPursuitsWidget className="h-80" />
+                <SubmittedPursuitsWidget className="h-[36rem]" />
               </div>
 
               {/* Row 3: Radar Matches - Full width */}
               <div className="mb-6">
-                <div className="bg-card rounded-xl shadow-sm border border-border p-6 h-64 flex flex-col overflow-hidden">
+                <div className="bg-card rounded-xl shadow-sm border border-border p-6 h-[36rem] flex flex-col overflow-hidden">
                   <div className="flex justify-between items-center mb-5 flex-shrink-0">
                     <div className="flex items-center space-x-3">
                       <div className="p-2 bg-emerald-50 text-emerald-500 rounded-lg">
@@ -1285,7 +1268,7 @@ const BizRadarDashboard = () => {
                       </div>
                       <div className="flex items-center space-x-2">
                         <h2 className="text-lg font-semibold text-foreground">
-                          Radar Matches - Personalized opportunities updated daily
+                          AI Radar Matches - Personalized opportunities updated daily
                         </h2>
                         {!hasProAccess() && (
                           <div className="p-1.5 bg-gradient-to-r from-blue-100 to-purple-100 text-blue-600 rounded-full border border-blue-200">
@@ -1325,7 +1308,7 @@ const BizRadarDashboard = () => {
                               </span>
                             </div>
                           </div>
-                          <div className="flex items-center text-sm text-gray-700">
+                          {/* <div className="flex items-center text-sm text-gray-700">
                             <CheckCircle2 className="h-4 w-4 text-green-500 mr-3" />
                             <div className="flex items-center flex-wrap gap-2">
                               <span>Receive priority alerts for high-match opportunities</span>
@@ -1333,7 +1316,7 @@ const BizRadarDashboard = () => {
                                 Premium Plan
                               </span>
                             </div>
-                          </div>
+                          </div> */}
                         </div>
                       </div>
                     )}
@@ -1347,13 +1330,13 @@ const BizRadarDashboard = () => {
                             <span className="ml-4 text-gray-600 font-medium">Generating recommendations...</span>
                           </div>
                         ) : aiRecommendations.length === 0 ? (
-                          <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-yellow-800 flex items-start">
+                          <div className="mb-6 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4 text-yellow-800 dark:text-yellow-200 flex items-start">
                             <AlertTriangle className="h-5 w-5 mr-3 flex-shrink-0 mt-0.5" />
                             <div>
                               <p className="font-medium mb-1">
                                 No highly relevant matches found
                               </p>
-                              <p className="text-sm text-yellow-700">
+                              <p className="text-sm text-yellow-700 dark:text-yellow-300">
                                 We couldn't find any highly relevant new opportunities for your organization. Please check back tomorrow!
                               </p>
                             </div>
@@ -1361,29 +1344,25 @@ const BizRadarDashboard = () => {
                         ) : (
                           <div className="space-y-5 overflow-y-auto flex-1">
                             {aiRecommendations.map((rec, idx) => {
-                              let externalUrl = rec.external_url;
-                              if (!externalUrl && typeof rec.opportunityIndex === 'number' && Array.isArray(dashboardOpportunities)) {
-                                const opp = dashboardOpportunities[rec.opportunityIndex];
-                                if (opp && opp.external_url) {
-                                  externalUrl = opp.external_url;
-                                }
-                              }
-                              const isClickable = externalUrl && externalUrl !== '#' && typeof rec.opportunityIndex === 'number' && dashboardOpportunities[rec.opportunityIndex];
-                              externalUrl = isClickable ? externalUrl : null;
+                              const targetOpp = (typeof rec.opportunityIndex === 'number' && Array.isArray(dashboardOpportunities))
+                                ? dashboardOpportunities[rec.opportunityIndex]
+                                : rec;
+                              const detailsPath = targetOpp && targetOpp.id ? `/opportunities/${targetOpp.id}/details` : null;
+                              const isClickable = !!detailsPath;
                               return (
                                 <div
                                   key={rec.id || idx}
                                   className={`rounded-lg border border-gray-200 overflow-hidden transition-all hover:shadow-md group ${isClickable ? 'cursor-pointer hover:bg-blue-50' : 'cursor-default'}`}
                                   onClick={() => {
-                                    if (isClickable) {
-                                      window.open(externalUrl, '_blank', 'noopener,noreferrer');
+                                    if (isClickable && detailsPath) {
+                                      navigate(detailsPath);
                                     }
                                   }}
                                   tabIndex={isClickable ? 0 : -1}
                                   role="button"
                                   onKeyDown={e => {
-                                    if (isClickable && e.key === 'Enter') {
-                                      window.open(externalUrl, '_blank', 'noopener,noreferrer');
+                                    if (isClickable && e.key === 'Enter' && detailsPath) {
+                                      navigate(detailsPath);
                                     }
                                   }}
                                 >
@@ -1395,9 +1374,7 @@ const BizRadarDashboard = () => {
                                             ? dashboardOpportunities[rec.opportunityIndex].title
                                             : rec.title}
                                         </h3>
-                                        <p className="text-sm text-gray-600 mb-3">
-                                          {rec.description || rec.matchReason || "No description available."}
-                                        </p>
+                                        {/* Description intentionally hidden for a cleaner, more professional look */}
                                         <div className="flex flex-wrap items-center gap-4 text-xs">
                                           {rec.agency && (
                                             <div className="flex items-center text-gray-500">
@@ -1424,17 +1401,6 @@ const BizRadarDashboard = () => {
                                           <div className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium mb-2">
                                             {rec.matchScore}% Match
                                           </div>
-                                        )}
-                                        {isClickable && (
-                                          <a
-                                            href={externalUrl}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="text-gray-400 group-hover:text-blue-500 transition-colors"
-                                            onClick={e => e.stopPropagation()}
-                                          >
-                                            <ExternalLink className="h-4 w-4" />
-                                          </a>
                                         )}
                                       </div>
                                     </div>

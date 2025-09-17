@@ -124,11 +124,28 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
   };
 
   const getPlanPrice = (basePrice: number) => {
-    return billingCycle === 'annual' ? basePrice * 12 * 0.8 : basePrice; // 20% discount for annual
+    if (billingCycle === 'annual') {
+      // Use fixed annual pricing for specific monthly tiers
+      // if (Math.abs(basePrice - 29.99) < 0.01) return 299.99;
+      // if (Math.abs(basePrice - 99.99) < 0.01) return 999.99;
+      // Fallback to standard 20% off annual pricing
+      const annualDiscounted = basePrice * 10 + 0.09;
+      if (Math.abs(annualDiscounted - 1) < 1) return 0.00;
+      return Math.round(annualDiscounted * 100) / 100;
+    }
+    return basePrice;
   };
 
   const getPlanSuffix = (type: string) => {
     return type.endsWith('_annual') ? ' (Annual)' : '';
+  };
+
+  const formatPlanType = (planType: string) => {
+    return planType
+      .replace(/[_-]+/g, ' ')
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
   };
 
   const getPlanIcon = (planType: string) => {
@@ -180,7 +197,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
             <div className="mb-4">Loading your current subscription...</div>
           ) : currentSubscription ? (
             <div className="mb-4 p-3 bg-blue-50 text-blue-700 rounded-md">
-              Current Plan: <strong>{currentSubscription.plan_type}</strong>
+              Current Plan: <strong>{formatPlanType(currentSubscription.plan_type)}</strong>
             </div>
           ) : (
             <div className="mb-4 p-3 bg-gray-50 text-gray-700 rounded-md">
@@ -250,13 +267,13 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                       </div>
                       {selectedPlan === plan.type && (
                         <div className="bg-blue-500 text-white p-1 rounded-full">
-                          <Check size={16} />
+                          <Check className="w-4 h-4" />
                         </div>
                       )}
                     </div>
 
                     <div className="mb-4">
-                      <span className="text-3xl font-bold">${displayPrice}</span>
+                      <span className="text-3xl font-bold">${displayPrice.toFixed(2)}</span>
                       <span className="text-gray-600">/{displaySuffix}</span>
                       {isAnnual && plan.type !== 'free' && (
                         <div className="text-sm text-green-600 mt-1">
@@ -268,7 +285,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                     <ul className="space-y-2">
                       {plan.features.map((feature, index) => (
                         <li key={index} className="flex items-center text-gray-600">
-                          <Check size={16} className="text-green-500 mr-2" />
+                          <Check className="w-4 h-4 text-green-500 mr-2 shrink-0" />
                           {feature}
                         </li>
                       ))}

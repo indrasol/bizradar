@@ -1647,7 +1647,7 @@ async def enhance_rfp_with_ai(request: Request):
         Return the enhanced data in the same JSON format."""
         logger.info("OpenAI client initialized successfully")
         response = client.chat.completions.create(
-            model="gpt-4-turbo-preview",
+            model="gpt-4.1-mini",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}

@@ -56,7 +56,7 @@ export const API_ENDPOINTS = {
   
   // Search and opportunities endpoints
   SEARCH_OPPORTUNITIES: `${API_BASE_URL}/search-opportunities`,
-  AI_RECOMMENDATIONS: `${API_BASE_URL}/ai-recommendations`,
+  AI_RECOMMENDATIONS: `${API_BASE_URL}/api/company/recommendations`,
   ENHANCED_VECTOR_SEARCH: `${API_BASE_URL}/api/enhanced/vector-search`,
   ENHANCE_RFP_WITH_AI: `${API_BASE_URL}/enhance-rfp-with-ai`,
   

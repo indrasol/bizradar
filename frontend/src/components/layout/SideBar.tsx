@@ -441,11 +441,11 @@ const Sidebar = () => {
               <Home className={`w-5 h-5 transition-transform duration-300 ${getNavItemState('/dashboard').isPending ? 'scale-110' : ''}`} />
             </div>
             {!collapsed && (
-              <span className="font-medium transition-all duration-300">Home</span>
+              <span className="font-medium transition-all duration-300">Dashboard</span>
             )}
             {collapsed && (
               <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none whitespace-nowrap z-[10000] shadow-lg">
-                Home
+                Dashboard
               </div>
             )}
           </Link>
@@ -638,7 +638,7 @@ const Sidebar = () => {
           </Link>
           
           {/* Admin Zone - Visible to all but styled differently for non-admins */}
-          <div className="relative group">
+          {/* <div className="relative group">
             <Link
               to="/admin"
               onClick={(e) => {
@@ -694,10 +694,10 @@ const Sidebar = () => {
                   {!isAdmin && " (Restricted)"}
                 </div>
               )}
-            </Link>
+            </Link> */}
             
             {/* Tooltip for non-admins */}
-            {!isAdmin && !collapsed && (
+            {/* {!isAdmin && !collapsed && (
               <div className="absolute left-2 -bottom-2 translate-y-full w-48 bg-gray-800 text-white text-xs rounded py-1.5 px-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-50 shadow-lg">
                 <div className="absolute -top-1 left-4 w-2 h-2 bg-gray-800 transform rotate-45"></div>
                 <div className="flex items-center gap-1.5">
@@ -706,10 +706,12 @@ const Sidebar = () => {
                 </div>
               </div>
             )}
-          </div>
+          </div> */}
+
 
           {/* Bizradar AI - Moved from bottom
           <Link
+
             to="#"
             onClick={handleOpenModal}
             className={`group flex items-center ${collapsed ? 'justify-center' : 'gap-3'} px-3 py-2.5 rounded-lg transition-all duration-300 transform text-gray-700 hover:bg-gray-100 hover:scale-[1.01] mb-2`}

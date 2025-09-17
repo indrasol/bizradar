@@ -517,11 +517,99 @@ if (!effectivePursuitId) {
   };
 
   // SAVE: update trackers.stage and local UI stage based on completion
+
+  // Helper function to check if a tracker exists
+  const trackerExists = async (trackerId: string): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase
+        .from('trackers')
+        .select('id')
+        .eq('id', trackerId)
+        .single();
+      
+      return !error && !!data;
+    } catch (error) {
+      console.error('Error checking tracker existence:', error);
+      return false;
+    }
+  };
+
+  // Helper function to ensure a tracker exists for this opportunity
+  const ensureTrackerExists = async (contractData: any): Promise<string> => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Try to find existing tracker by opportunity_id or title
+      const { data: existingByOpp } = await supabase
+        .from('trackers')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('opportunity_id', contractData.noticeId || contractData.id)
+        .maybeSingle();
+
+      if (existingByOpp?.id) {
+        return existingByOpp.id;
+      }
+
+      // Try by title as fallback
+      const { data: existingByTitle } = await supabase
+        .from('trackers')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('title', contractData.title)
+        .maybeSingle();
+
+      if (existingByTitle?.id) {
+        return existingByTitle.id;
+      }
+
+      // Create new tracker if none exists
+      const newId = (typeof window !== 'undefined' && (window as any).crypto && 'randomUUID' in (window as any).crypto)
+        ? (window as any).crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+
+      const { data: created, error: createError } = await supabase
+        .from('trackers')
+        .insert([{
+          id: newId,
+          title: contractData.title,
+          description: contractData.description || '',
+          stage: 'Assessment',
+          user_id: user.id,
+          due_date: contractData.dueDate || contractData.response_date,
+          opportunity_id: contractData.noticeId || contractData.id
+        }])
+        .select();
+
+      if (createError || !created?.length) {
+        throw new Error('Failed to create tracker');
+      }
+
+      return created[0].id;
+    } catch (error) {
+      console.error('Error ensuring tracker exists:', error);
+      throw error;
+    }
+  };
+
+  // Function to save RFP data to the database
+
   const saveRfpData = async (showNotification = true) => {
     try {
       setIsSaving(true);
       const { data: { user } } = await supabase.auth.getUser();
       const userId = user?.id;
+      
+      // Ensure tracker exists before saving RFP response
+      let currentPursuitId = pursuitId;
+      if (!currentPursuitId || !(await trackerExists(currentPursuitId))) {
+        console.log('Creating or finding tracker for opportunity...');
+        currentPursuitId = await ensureTrackerExists(contract);
+        console.log('Tracker ID set to:', currentPursuitId);
+      }
       
       // Fetch user profile data
       const userProfile = await fetchUserProfile();
@@ -574,7 +662,9 @@ if (!effectivePursuitId) {
       const { error: trackerError } = await supabase
         .from('trackers')
         .update({ stage: stageToSet })
-        .eq('id', effectivePursuitId);
+
+        .eq('id', currentPursuitId);
+
 
       if (trackerError) throw trackerError;
 
@@ -582,7 +672,9 @@ if (!effectivePursuitId) {
       const { error: rfpError } = await supabase
         .from('rfp_responses')
         .upsert({
-          pursuit_id: effectivePursuitId,
+
+
+          pursuit_id: currentPursuitId,
           user_id: user?.id,
           content: contentToSave,
           is_submitted: isSubmitted,

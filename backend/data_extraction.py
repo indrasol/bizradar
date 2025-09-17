@@ -1,4 +1,5 @@
 import time
+import os
 from pathlib import Path
 from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
 
@@ -40,7 +41,13 @@ def scroll_terms_and_accept(page):
     page.get_by_role("button", name="Accept").click()
 
 def main():
-    dest_path = Path.cwd() / DEST_FILENAME
+    csv_env = os.getenv("CSV_PATH")
+    if csv_env:
+        dest_path = Path(csv_env)
+        if dest_path.is_dir():
+            dest_path = dest_path / DEST_FILENAME
+    else:
+        dest_path = Path.cwd() / DEST_FILENAME
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
