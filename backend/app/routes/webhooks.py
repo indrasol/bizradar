@@ -21,6 +21,39 @@ logger.info(f"STRIPE_WEBHOOK_SECRET: {STRIPE_WEBHOOK_SECRET}")
 logger.info(f"######################################################")
 
 
+def hydrate_event_if_needed(event: Dict[str, Any]) -> Dict[str, Any]:
+    """If the incoming event is a thin payload, attempt to hydrate it to a snapshot event.
+
+    Strategy:
+    - If event.object == 'event' and event.data exists, return as-is (already a snapshot)
+    - Otherwise, try stripe.Event.retrieve(event.id) to fetch a full snapshot
+    - If retrieval fails, return the original event so we can still safely no-op or log
+    """
+    try:
+        obj_type = event.get("object") if isinstance(event, dict) else getattr(event, "object", None)
+        has_data = False
+        if isinstance(event, dict):
+            has_data = isinstance(event.get("data"), dict) and "object" in (event.get("data") or {})
+        else:
+            data_val = getattr(event, "data", None)
+            has_data = isinstance(data_val, dict) and "object" in data_val
+
+        if obj_type == "event" and has_data:
+            return event
+
+        evt_id = event.get("id") if isinstance(event, dict) else getattr(event, "id", None)
+        if evt_id:
+            try:
+                full_evt = stripe.Event.retrieve(evt_id)
+                return full_evt
+            except Exception as retrieve_error:
+                logger.warning(f"Failed to hydrate thin event {evt_id}: {str(retrieve_error)}")
+        return event
+    except Exception as e:
+        logger.warning(f"hydrate_event_if_needed error: {str(e)}")
+        return event
+
+
 def get_plan_by_price_id(price_id: str) -> Optional[Dict[str, Any]]:
     """Resolve plan by Stripe price_id from public.subscriptions, returns { 'id', 'plan_type', 'plan_period' }."""
     try:
@@ -234,19 +267,82 @@ async def stripe_webhook(request: Request):
         logger.error(f"Invalid signature: {str(e)}")
         raise HTTPException(status_code=400, detail="Invalid signature")
     
+    # Keep original for potential thin-payload helpers, then hydrate if possible
+    original_event = event
+    event = hydrate_event_if_needed(event)
+
     # Handle the event
-    event_type = event["type"]
+    try:
+        event_type = event["type"]
+    except Exception:
+        event_type = getattr(event, "type", None) or getattr(original_event, "type", None) or "unknown"
     logger.info(f"Received event: {event_type}")
     
     if event_type == "checkout.session.completed":
-        session = event["data"]["object"]
+        # Prefer snapshot payload
+        session = None
+        try:
+            session = event.get("data", {}).get("object")  # type: ignore[attr-defined]
+        except Exception:
+            pass
+
+        # If thin payload, try to retrieve session via related_object
+        if not session:
+            try:
+                related = None
+                if isinstance(original_event, dict):
+                    related = original_event.get("related_object")
+                else:
+                    related = getattr(original_event, "related_object", None)
+                if isinstance(related, dict):
+                    ro_type = (related.get("type") or "").lower()
+                    ro_id = related.get("id")
+                    if ro_id and "checkout.session" in ro_type:
+                        session = stripe.checkout.Session.retrieve(ro_id)
+            except Exception as e:
+                logger.warning(f"Unable to hydrate checkout session from thin payload: {str(e)}")
+
+        if not session:
+            logger.error("Missing session data for checkout.session.completed")
+            return {"status": "success"}
         await handle_checkout_session_completed(session)
     elif event_type in [
         "customer.subscription.updated", 
         "customer.subscription.deleted"
     ]:
-        subscription = event["data"]["object"]
+        subscription = None
+        try:
+            subscription = event.get("data", {}).get("object")  # type: ignore[attr-defined]
+        except Exception:
+            pass
+
+        # If thin payload, try to retrieve subscription via related_object
+        if not subscription:
+            try:
+                related = None
+                if isinstance(original_event, dict):
+                    related = original_event.get("related_object")
+                else:
+                    related = getattr(original_event, "related_object", None)
+                if isinstance(related, dict):
+                    ro_type = (related.get("type") or "").lower()
+                    ro_id = related.get("id")
+                    if ro_id and "subscription" in ro_type:
+                        subscription = stripe.Subscription.retrieve(ro_id)
+            except Exception as e:
+                logger.warning(f"Unable to hydrate subscription from thin payload: {str(e)}")
+
+        if not subscription:
+            logger.error(f"No subscription object available for event {event_type}")
+            return {"status": "success"}
         await handle_subscription_updated(subscription)
+    else:
+        # Gracefully handle unrelated thin events (e.g., billing.meter) without failing
+        obj_type = original_event.get("object") if isinstance(original_event, dict) else getattr(original_event, "object", None)
+        if obj_type == "v2.core.event":
+            logger.info(f"Thin event received and ignored (no handler): {event_type}")
+        else:
+            logger.info(f"Event received and ignored (no handler): {event_type}")
     
     return {"status": "success"}
 

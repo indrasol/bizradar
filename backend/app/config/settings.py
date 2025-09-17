@@ -82,12 +82,12 @@ SUPABASE_ANON_KEY=os.getenv("SUPABASE_ANON_KEY_BIZ")
 SUPABASE_SERVICE_KEY=os.getenv("SUPABASE_SERVICE_KEY_BIZ")
 # Stripe
 # Print Stripe keys for debugging
-print(f"Loading Stripe keys - Secret: {'*' * 20}{os.getenv('STRIPE_SECRET_KEY', '')[-4:] if os.getenv('STRIPE_SECRET_KEY') else 'Not set'}")
-print(f"Loading Stripe keys - Publishable: {os.getenv('STRIPE_PUBLISHABLE_KEY', '')[:8]}...")
+print(f"Loading Stripe keys - Secret: {'*' * 20}{os.getenv('STRIPE_SECRET_KEY_BIZ', '')[-4:] if os.getenv('STRIPE_SECRET_KEY_BIZ') else 'Not set'}")
+print(f"Loading Stripe keys - Publishable: {os.getenv('STRIPE_PUBLISHABLE_KEY_BIZ', '')[:8]}...")
 
-STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
-STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY")
-STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY_BIZ")
+STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY_BIZ")
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET_BIZ")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
 # Verify Stripe keys are loaded
@@ -103,11 +103,11 @@ REDIS_USERNAME = os.getenv("REDISUSERNAMEBIZ")
 REDIS_PASSWORD = os.getenv("REDISPASSWORDBIZ")
 
 # Stripe
-STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY")
-STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
-STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
+STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY_BIZ")
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY_BIZ")
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET_BIZ")
 def get_stripe_secret_key():
-    return os.getenv('STRIPE_SECRET_KEY', '')
+    return os.getenv('STRIPE_SECRET_KEY_BIZ', '')
 #OTHERS
 IMPORT_USER=os.getenv("IMPORTUSERBIZ")
 
@@ -116,8 +116,8 @@ SENDGRID_API_KEY = os.getenv("SENDGRIDAPIKEYBIZ")
 # SENDGRID_FROM_EMAIL = os.getenv("SENDGRID_FROM_EMAIL", "noreply@bizradar.com")
 
 #Stripe
-STRIPE_SECRET_KEY=os.getenv("STRIPESECRETKEYBIZ")
-STRIPE_PUBLISHABLE_KEY=os.getenv("STRIPEPUBLISHABLEKEYBIZ")
+STRIPE_SECRET_KEY=os.getenv("STRIPE_SECRET_KEY_BIZ")
+STRIPE_PUBLISHABLE_KEY=os.getenv("STRIPE_PUBLISHABLE_KEY_BIZ")
 
 
 # Trial duration config (minutes)
