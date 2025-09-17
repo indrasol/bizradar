@@ -1248,12 +1248,12 @@ const BizRadarDashboard = () => {
 
               {/* Row 2: Submitted Pursuits - Full width */}
               <div className="mb-6">
-                <SubmittedPursuitsWidget className="h-80" />
+                <SubmittedPursuitsWidget className="h-[36rem]" />
               </div>
 
               {/* Row 3: Radar Matches - Full width */}
               <div className="mb-6">
-                <div className="bg-card rounded-xl shadow-sm border border-border p-6 h-64 flex flex-col overflow-hidden">
+                <div className="bg-card rounded-xl shadow-sm border border-border p-6 h-[36rem] flex flex-col overflow-hidden">
                   <div className="flex justify-between items-center mb-5 flex-shrink-0">
                     <div className="flex items-center space-x-3">
                       <div className="p-2 bg-emerald-50 text-emerald-500 rounded-lg">
@@ -1261,7 +1261,7 @@ const BizRadarDashboard = () => {
                       </div>
                       <div className="flex items-center space-x-2">
                         <h2 className="text-lg font-semibold text-foreground">
-                          Radar Matches - Personalized opportunities updated daily
+                          AI Radar Matches - Personalized opportunities updated daily
                         </h2>
                         {!hasProAccess() && (
                           <div className="p-1.5 bg-gradient-to-r from-blue-100 to-purple-100 text-blue-600 rounded-full border border-blue-200">
@@ -1301,7 +1301,7 @@ const BizRadarDashboard = () => {
                               </span>
                             </div>
                           </div>
-                          <div className="flex items-center text-sm text-gray-700">
+                          {/* <div className="flex items-center text-sm text-gray-700">
                             <CheckCircle2 className="h-4 w-4 text-green-500 mr-3" />
                             <div className="flex items-center flex-wrap gap-2">
                               <span>Receive priority alerts for high-match opportunities</span>
@@ -1309,7 +1309,7 @@ const BizRadarDashboard = () => {
                                 Premium Plan
                               </span>
                             </div>
-                          </div>
+                          </div> */}
                         </div>
                       </div>
                     )}
@@ -1323,13 +1323,13 @@ const BizRadarDashboard = () => {
                             <span className="ml-4 text-gray-600 font-medium">Generating recommendations...</span>
                           </div>
                         ) : aiRecommendations.length === 0 ? (
-                          <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-yellow-800 flex items-start">
+                          <div className="mb-6 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4 text-yellow-800 dark:text-yellow-200 flex items-start">
                             <AlertTriangle className="h-5 w-5 mr-3 flex-shrink-0 mt-0.5" />
                             <div>
                               <p className="font-medium mb-1">
                                 No highly relevant matches found
                               </p>
-                              <p className="text-sm text-yellow-700">
+                              <p className="text-sm text-yellow-700 dark:text-yellow-300">
                                 We couldn't find any highly relevant new opportunities for your organization. Please check back tomorrow!
                               </p>
                             </div>

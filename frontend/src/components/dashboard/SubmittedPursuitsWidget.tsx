@@ -114,13 +114,20 @@ const SubmittedPursuitsWidget: React.FC<SubmittedPursuitsWidgetProps> = ({ class
 
   // Get stage color coding
   const getStageColor = (stage: string) => {
-    switch (stage.toLowerCase()) {
+    const s = (stage || '').toLowerCase();
+    if (s.includes('rfp response completed') || s === 'completed') {
+      return { bg: 'bg-emerald-100', text: 'text-emerald-700' };
+    }
+    if (s.includes('rfp response initiated') || s.includes('initiated')) {
+      return { bg: 'bg-blue-100', text: 'text-blue-700' };
+    }
+    switch (s) {
       case 'submitted':
         return { bg: 'bg-blue-100', text: 'text-blue-700' };
       case 'under review':
         return { bg: 'bg-amber-100', text: 'text-amber-700' };
       case 'awarded':
-        return { bg: 'bg-green-100', text: 'text-green-700' };
+        return { bg: 'bg-emerald-100', text: 'text-emerald-700' };
       case 'rejected':
         return { bg: 'bg-red-100', text: 'text-red-700' };
       default:

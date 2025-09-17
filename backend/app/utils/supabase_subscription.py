@@ -24,8 +24,7 @@ TIER_CONFIGS = {
         "ai_rfp_responses": 2,
         "features": [
             "Unlimited opportunity searches",
-            "AI Search Boost - up to 5 smart suggestions per search",
-            "Starter tracking",
+            "Basic tracking",
             "Basic dashboard",
             "2 AI-assisted RFP drafts per month"
         ],
@@ -37,10 +36,9 @@ TIER_CONFIGS = {
         "ai_rfp_responses": 5,
         "features": [
             "Unlimited opportunity searches",
-            "AI Search Boost — up to 5 smart suggestions per search",
-            "Tracking with Bizradar AI Assistant",
-            "Radar Matches — daily AI-picked opportunities for your company",
-            "Advanced dashboard",
+            "Bizradar AI Assistant",
+            "Radar Matches+ — daily AI-picked opportunities with priority alerts for your company",
+            "Analytics dashboard",
             "5 AI-assisted RFP drafts per month"
         ],
         "price": 29.99
@@ -51,11 +49,10 @@ TIER_CONFIGS = {
         "ai_rfp_responses": 10,
         "features": [
             "Unlimited opportunity searches",
-            "AI Search Boost — up to 5 smart suggestions per search",
-            "Tracking with Bizradar AI Assistant",
-            "Radar Matches+ — matches with priority alerts",
+            "Bizradar AI Assistant",
+            "Radar Matches+ — daily AI-picked opportunities with priority alerts for your company",
             "Tracking alerts — deadlines updates",
-            "Advanced dashbaord with analytics",
+            "Analytics dashboard",
             "10 AI-assisted RFP drafts per month"
         ],
         "price": 99.99
