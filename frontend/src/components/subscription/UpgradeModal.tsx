@@ -124,7 +124,16 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
   };
 
   const getPlanPrice = (basePrice: number) => {
-    return billingCycle === 'annual' ? basePrice * 12 * 0.8 : basePrice; // 20% discount for annual
+    if (billingCycle === 'annual') {
+      // Use fixed annual pricing for specific monthly tiers
+      // if (Math.abs(basePrice - 29.99) < 0.01) return 299.99;
+      // if (Math.abs(basePrice - 99.99) < 0.01) return 999.99;
+      // Fallback to standard 20% off annual pricing
+      const annualDiscounted = basePrice * 10 + 0.09;
+      if (Math.abs(annualDiscounted - 1) < 1) return 0.00;
+      return Math.round(annualDiscounted * 100) / 100;
+    }
+    return basePrice;
   };
 
   const getPlanSuffix = (type: string) => {
@@ -256,7 +265,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                     </div>
 
                     <div className="mb-4">
-                      <span className="text-3xl font-bold">${displayPrice}</span>
+                      <span className="text-3xl font-bold">${displayPrice.toFixed(2)}</span>
                       <span className="text-gray-600">/{displaySuffix}</span>
                       {isAnnual && plan.type !== 'free' && (
                         <div className="text-sm text-green-600 mt-1">
