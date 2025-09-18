@@ -18,7 +18,10 @@ stripe.api_key = settings.get_stripe_secret_key()
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 logger = logging.getLogger(__name__)
 logger.info(f"######################################################")
-logger.info(f"STRIPE_WEBHOOK_SECRET: {STRIPE_WEBHOOK_SECRET}")
+# Sanitize webhook secret to avoid trailing/leading whitespace issues
+WEBHOOK_SECRET = (STRIPE_WEBHOOK_SECRET or "").strip()
+masked_whsec = ("******" + WEBHOOK_SECRET[-4:]) if WEBHOOK_SECRET else "None"
+logger.info(f"STRIPE_WEBHOOK_SECRET (masked): {masked_whsec}")
 logger.info(f"######################################################")
 
 def validate_stripe_config():
@@ -263,39 +266,36 @@ async def stripe_webhook(request: Request):
     """Handle Stripe webhook events"""
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature")
-    if not sig_header:
-        logger.error("Missing Stripe-Signature header")
-        raise HTTPException(status_code=400, detail="Missing Stripe-Signature header")
+    content_type = request.headers.get("content-type")
+    logger.info(f"Webhook received: content-type={content_type}, body_len={len(payload)}, sig_header_present={bool(sig_header)}")
 
-    # Stripe expects the raw body as a UTF-8 string for signature verification
-    try:
-        payload_str = payload.decode('utf-8')
-    except Exception:
-        logger.error("Unable to decode request body as UTF-8")
-        raise HTTPException(status_code=400, detail="Invalid payload encoding")
+    # Only require signature header if a webhook secret is configured
+    if WEBHOOK_SECRET and not sig_header:
+        logger.error("Missing Stripe-Signature header while secret is configured")
+        raise HTTPException(status_code=400, detail="Missing Stripe-Signature header")
     
     # Validate webhook secret is configured
-    if not STRIPE_WEBHOOK_SECRET:
+    if not WEBHOOK_SECRET:
         logger.error("STRIPE_WEBHOOK_SECRET is not configured")
         logger.warning("Attempting to parse webhook without signature verification")
         try:
             # Parse without signature verification (for development/testing)
-            event = json.loads(payload_str)
+            event = json.loads(payload.decode('utf-8'))
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse webhook payload as JSON: {str(e)}")
             raise HTTPException(status_code=400, detail="Invalid payload format")
     else:
         try:
-            event = stripe.Webhook.construct_event(
-                payload_str, sig_header, STRIPE_WEBHOOK_SECRET
-            )
+            # Pass raw bytes. The library will handle encoding. This avoids subtle string mutations.
+            event = stripe.Webhook.construct_event(payload, sig_header, WEBHOOK_SECRET)
         except ValueError as e:
             # Invalid payload
             logger.error(f"Invalid payload: {str(e)}")
             raise HTTPException(status_code=400, detail="Invalid payload")
         except stripe.error.SignatureVerificationError as e:
             # Invalid signature
-            logger.error(f"Invalid signature: {str(e)}")
+            # Log short diagnostics to help differentiate bad secret vs altered body
+            logger.error(f"Invalid signature: {str(e)} | body_len={len(payload)} | sig_prefix={(sig_header or '')[:16]}")
             raise HTTPException(status_code=400, detail="Invalid signature")
     
     # Keep original for potential thin-payload helpers, then hydrate if possible
