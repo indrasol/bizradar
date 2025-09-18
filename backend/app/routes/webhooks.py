@@ -88,9 +88,9 @@ def verify_stripe_signature_manual(payload: bytes, sig_header: str, webhook_secr
         event_time = int(timestamp)
         time_diff = abs(current_time - event_time)
         
-        logger.info(f"Current time: {current_time}")
-        logger.info(f"Event time: {event_time}")
-        logger.info(f"Time difference: {time_diff} seconds")
+        print(f"Current time: {current_time}")
+        print(f"Event time: {event_time}")
+        print(f"Time difference: {time_diff} seconds")
         
         if time_diff > 300:  # 5 minutes tolerance
             logger.error(f"Timestamp too old: {time_diff} seconds difference")
@@ -101,9 +101,9 @@ def verify_stripe_signature_manual(payload: bytes, sig_header: str, webhook_secr
         logger.info(f"Payload length: {len(payload)} bytes")
         logger.info(f"Webhook secret length: {len(webhook_secret)} chars")
         logger.info(f"Webhook secret starts with: {webhook_secret[:10]}...")
-        logger.info(f"Payload preview: {payload[:100].decode('utf-8', errors='ignore')}...")
-        logger.info(f"Current time: {int(time.time())}")
-        logger.info(f"Time difference: {int(time.time()) - int(timestamp)} seconds")
+        print(f"Payload preview: {payload[:100].decode('utf-8', errors='ignore')}...")
+        print(f"Current time: {int(time.time())}")
+        print(f"Time difference: {int(time.time()) - int(timestamp)} seconds")
         
         # Try v1 signature first (preferred)
         v1_sig = sig_data.get('v1')
@@ -390,9 +390,9 @@ async def stripe_webhook(request: Request):
     sig_header = request.headers.get("stripe-signature")
     
     # Enhanced logging for debugging
-    logger.info(f"Webhook received - Payload size: {len(payload)} bytes")
-    logger.info(f"Signature header: {sig_header[:50] if sig_header else 'None'}...")
-    logger.info(f"Webhook secret configured: {bool(STRIPE_WEBHOOK_SECRET)}")
+    print(f"Webhook received - Payload size: {len(payload)} bytes")
+    print(f"Signature header: {sig_header[:50] if sig_header else 'None'}...")
+    print(f"Webhook secret configured: {bool(STRIPE_WEBHOOK_SECRET)}")
     
     # Validate webhook secret format
     if STRIPE_WEBHOOK_SECRET:
