@@ -5,7 +5,8 @@ FROM python:3.11-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
-    PORT=8000
+    PORT=8000 \
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 WORKDIR /src
 
@@ -34,6 +35,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgtk-3-0 \
  && rm -rf /var/lib/apt/lists/*
 
+# Install Node.js (for npx to run @playwright/mcp)
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+ && apt-get update && apt-get install -y --no-install-recommends nodejs \
+ && node -v && npm -v \
+ && rm -rf /var/lib/apt/lists/*
+
 # Copy requirements first to leverage cache
 COPY backend/app/requirements.txt ./app/requirements.txt
 RUN pip install --no-cache-dir -r ./app/requirements.txt
@@ -46,7 +53,8 @@ COPY backend/app/ ./app/
 
 # Non-root user
 RUN useradd --create-home --shell /bin/bash appuser \
- && chown -R appuser:appuser /src
+ && mkdir -p ${PLAYWRIGHT_BROWSERS_PATH} \
+ && chown -R appuser:appuser /src ${PLAYWRIGHT_BROWSERS_PATH}
 USER appuser
 
 # App Service probes default to this; still useful for docs
