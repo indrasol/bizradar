@@ -456,15 +456,18 @@ def get_billing_history(user_id: str):
     """Return up to 3 recent Stripe invoices for the given user_id."""
     try:
         supabase = get_supabase_connection(use_service_key=True)
+        print(f"Getting billing history for user {user_id}")
         prof = supabase.table('profiles').select('stripe_customer_id').eq('id', user_id).limit(1).execute()
+        print(f"Profile: {prof}")
         data = getattr(prof, 'data', None) or []
         if not data or not data[0].get('stripe_customer_id'):
             raise HTTPException(status_code=404, detail="Stripe customer not found for user")
         customer_id = data[0]['stripe_customer_id']
-
+        print(f"Customer ID: {customer_id}")
         invoices = stripe.Invoice.list(customer=customer_id, limit=3)
         items = []
         for inv in invoices.data:
+            print(f"Invoice: {inv}")
             items.append({
                 "id": inv.id,
                 "number": getattr(inv, 'number', None),
@@ -476,6 +479,7 @@ def get_billing_history(user_id: str):
                 "invoice_pdf": getattr(inv, 'invoice_pdf', None),
                 "currency": getattr(inv, 'currency', 'usd')
             })
+        print(f"Items: {items}")
         return { "invoices": items }
     except HTTPException:
         raise
