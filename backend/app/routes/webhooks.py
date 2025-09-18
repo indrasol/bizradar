@@ -86,8 +86,14 @@ def verify_stripe_signature_manual(payload: bytes, sig_header: str, webhook_secr
         # Check timestamp (prevent replay attacks)
         current_time = int(time.time())
         event_time = int(timestamp)
-        if abs(current_time - event_time) > 300:  # 5 minutes tolerance
-            logger.error(f"Timestamp too old: {current_time - event_time} seconds difference")
+        time_diff = abs(current_time - event_time)
+        
+        logger.info(f"Current time: {current_time}")
+        logger.info(f"Event time: {event_time}")
+        logger.info(f"Time difference: {time_diff} seconds")
+        
+        if time_diff > 300:  # 5 minutes tolerance
+            logger.error(f"Timestamp too old: {time_diff} seconds difference")
             return False
         
         # Debug logging
@@ -95,6 +101,9 @@ def verify_stripe_signature_manual(payload: bytes, sig_header: str, webhook_secr
         logger.info(f"Payload length: {len(payload)} bytes")
         logger.info(f"Webhook secret length: {len(webhook_secret)} chars")
         logger.info(f"Webhook secret starts with: {webhook_secret[:10]}...")
+        logger.info(f"Payload preview: {payload[:100].decode('utf-8', errors='ignore')}...")
+        logger.info(f"Current time: {int(time.time())}")
+        logger.info(f"Time difference: {int(time.time()) - int(timestamp)} seconds")
         
         # Try v1 signature first (preferred)
         v1_sig = sig_data.get('v1')
@@ -108,6 +117,8 @@ def verify_stripe_signature_manual(payload: bytes, sig_header: str, webhook_secr
                 hashlib.sha256
             ).hexdigest()
             
+            logger.info(f"v1 - Signed payload length: {len(signed_payload)}")
+            logger.info(f"v1 - Signed payload preview: {signed_payload[:100]}...")
             logger.info(f"v1 - Expected: {expected_sig}")
             logger.info(f"v1 - Received: {v1_sig}")
             logger.info(f"v1 - Match: {expected_sig == v1_sig}")
