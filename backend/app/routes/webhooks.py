@@ -69,14 +69,27 @@ def verify_stripe_signature_manual(payload: bytes, sig_header: str, webhook_secr
             logger.error(f"Timestamp too old: {current_time - event_time} seconds difference")
             return False
         
+        # Debug logging
+        logger.info(f"Timestamp: {timestamp}")
+        logger.info(f"Payload length: {len(payload)} bytes")
+        logger.info(f"Webhook secret length: {len(webhook_secret)} chars")
+        logger.info(f"Webhook secret starts with: {webhook_secret[:10]}...")
+        
         # Try v1 signature first (preferred)
         v1_sig = sig_data.get('v1')
         if v1_sig:
+            # For v1, we need to create the signed payload as "timestamp.payload"
+            payload_str = payload.decode('utf-8')
+            signed_payload = f"{timestamp}.{payload_str}"
             expected_sig = hmac.new(
                 webhook_secret.encode('utf-8'),
-                f"{timestamp}.{payload.decode('utf-8')}".encode('utf-8'),
+                signed_payload.encode('utf-8'),
                 hashlib.sha256
             ).hexdigest()
+            
+            logger.info(f"v1 - Expected: {expected_sig}")
+            logger.info(f"v1 - Received: {v1_sig}")
+            logger.info(f"v1 - Match: {expected_sig == v1_sig}")
             
             if hmac.compare_digest(expected_sig, v1_sig):
                 logger.info("v1 signature verification successful")
@@ -92,6 +105,10 @@ def verify_stripe_signature_manual(payload: bytes, sig_header: str, webhook_secr
                 payload,
                 hashlib.sha256
             ).hexdigest()
+            
+            logger.info(f"v0 - Expected: {expected_sig}")
+            logger.info(f"v0 - Received: {v0_sig}")
+            logger.info(f"v0 - Match: {expected_sig == v0_sig}")
             
             if hmac.compare_digest(expected_sig, v0_sig):
                 logger.info("v0 signature verification successful")
@@ -361,28 +378,42 @@ async def stripe_webhook(request: Request):
             logger.error(f"Failed to parse webhook payload as JSON: {str(e)}")
             raise HTTPException(status_code=400, detail="Invalid payload format")
     else:
-        # Use manual signature verification that supports both v0 and v1
-        if not verify_stripe_signature_manual(payload, sig_header, STRIPE_WEBHOOK_SECRET):
-            logger.error("Manual signature verification failed")
-            logger.error(f"Received signature: {sig_header}")
+        # Try manual signature verification first
+        manual_verification_success = verify_stripe_signature_manual(payload, sig_header, STRIPE_WEBHOOK_SECRET)
+        
+        if not manual_verification_success:
+            logger.warning("Manual signature verification failed, trying Stripe library method as fallback")
             
-            # Check if this might be a development/test scenario
-            if not sig_header or sig_header.strip() == "":
-                logger.warning("No signature header provided - attempting to parse as development webhook")
-                try:
-                    event = json.loads(payload.decode('utf-8'))
-                    logger.warning("Webhook processed without signature verification - DEVELOPMENT MODE")
-                except json.JSONDecodeError as json_e:
-                    logger.error(f"Failed to parse webhook payload as JSON: {str(json_e)}")
-                    raise HTTPException(status_code=400, detail="Invalid payload format")
-            else:
-                # Real signature verification failure
-                raise HTTPException(status_code=400, detail="Invalid signature")
+            # Try the original Stripe library method as fallback
+            try:
+                event = stripe.Webhook.construct_event(
+                    payload, sig_header, STRIPE_WEBHOOK_SECRET
+                )
+                logger.info("Stripe library signature verification successful")
+            except ValueError as e:
+                logger.error(f"Invalid payload: {str(e)}")
+                raise HTTPException(status_code=400, detail="Invalid payload")
+            except stripe.error.SignatureVerificationError as e:
+                logger.error(f"Stripe library signature verification also failed: {str(e)}")
+                logger.error(f"Received signature: {sig_header}")
+                
+                # Check if this might be a development/test scenario
+                if not sig_header or sig_header.strip() == "":
+                    logger.warning("No signature header provided - attempting to parse as development webhook")
+                    try:
+                        event = json.loads(payload.decode('utf-8'))
+                        logger.warning("Webhook processed without signature verification - DEVELOPMENT MODE")
+                    except json.JSONDecodeError as json_e:
+                        logger.error(f"Failed to parse webhook payload as JSON: {str(json_e)}")
+                        raise HTTPException(status_code=400, detail="Invalid payload format")
+                else:
+                    # Both verification methods failed
+                    raise HTTPException(status_code=400, detail="Invalid signature")
         else:
-            # Signature verified successfully, parse the event
+            # Manual verification succeeded, parse the event
             try:
                 event = json.loads(payload.decode('utf-8'))
-                logger.info("Webhook signature verified and event parsed successfully")
+                logger.info("Manual signature verification successful and event parsed")
             except json.JSONDecodeError as e:
                 logger.error(f"Failed to parse webhook payload as JSON: {str(e)}")
                 raise HTTPException(status_code=400, detail="Invalid payload format")
