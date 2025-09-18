@@ -88,15 +88,15 @@ print(f"Loading Stripe keys - Publishable: {os.getenv('STRIPE_PUBLISHABLE_KEY_BI
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY_BIZ")
 STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY_BIZ")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET_BIZ")
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+REDIRECT_URL = os.getenv("REDIRECT_URL_BIZ", "http://localhost:3000")
 
 # Verify Stripe keys are loaded
-if not STRIPE_SECRET_KEY:
-    print("WARNING: STRIPE_SECRET_KEY is not set in environment variables")
-if not STRIPE_PUBLISHABLE_KEY:
-    print("WARNING: STRIPE_PUBLISHABLE_KEY is not set in environment variables")
-if not STRIPE_WEBHOOK_SECRET:
-    print("WARNING: STRIPE_WEBHOOK_SECRET is not set in environment variables")
+# if not STRIPE_SECRET_KEY:
+#     print("WARNING: STRIPE_SECRET_KEY is not set in environment variables")
+# if not STRIPE_PUBLISHABLE_KEY:
+#     print("WARNING: STRIPE_PUBLISHABLE_KEY is not set in environment variables")
+# if not STRIPE_WEBHOOK_SECRET:
+#     print("WARNING: STRIPE_WEBHOOK_SECRET is not set in environment variables")
 
 # CACHE DB REDIS
 REDIS_HOST = os.getenv("REDISHOSTBIZ")
@@ -105,9 +105,9 @@ REDIS_USERNAME = os.getenv("REDISUSERNAMEBIZ")
 REDIS_PASSWORD = os.getenv("REDISPASSWORDBIZ")
 
 # Stripe
-STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY_BIZ")
-STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY_BIZ")
-STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET_BIZ")
+# STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY_BIZ")
+# STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY_BIZ")
+# STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET_BIZ")
 def get_stripe_secret_key():
     key = os.getenv('STRIPE_SECRET_KEY_BIZ', '')
     if not key:

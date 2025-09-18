@@ -16,7 +16,7 @@ stripe.api_key = settings.get_stripe_secret_key()
 logger.info(f"Stripe API key initialized (first 5 chars): {settings.get_stripe_secret_key()[:5]}...")
 
 # Import other settings after stripe is initialized
-from config.settings import JWT_SECRET, SUPABASE_URL, SUPABASE_ANON_KEY
+from config.settings import JWT_SECRET, SUPABASE_URL, SUPABASE_ANON_KEY, REDIRECT_URL
 
 def validate_stripe_config():
     """Validate that Stripe is properly configured"""
@@ -185,8 +185,8 @@ async def create_checkout_session(
                     'quantity': 1,
                 }],
                 mode='subscription',
-                success_url=f"{os.getenv('FRONTEND_URL', 'http://localhost:8080')}/dashboard?session_id={{CHECKOUT_SESSION_ID}}",
-                cancel_url=f"{os.getenv('FRONTEND_URL', 'http://localhost:8080')}/pricing?cancelled=true",
+                success_url=f"{REDIRECT_URL}/dashboard?session_id={{CHECKOUT_SESSION_ID}}",
+                cancel_url=f"{REDIRECT_URL}/pricing?cancelled=true",
                 metadata={
                     'plan_type': request.planType,
                     'user_id': user['id']
