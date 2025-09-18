@@ -40,7 +40,7 @@ const SubmittedPursuitsWidget: React.FC<SubmittedPursuitsWidgetProps> = ({ class
   // RFP Builder state
   const [showRfpBuilder, setShowRfpBuilder] = useState(false);
   const [selectedPursuit, setSelectedPursuit] = useState<SubmittedPursuit | null>(null);
-  
+
   // Fetch submitted pursuits
   const fetchSubmittedPursuits = async () => {
     if (!user) {
@@ -159,20 +159,28 @@ const SubmittedPursuitsWidget: React.FC<SubmittedPursuitsWidgetProps> = ({ class
     fetchSubmittedPursuits();
   }, [user]);
 
+  // Calculate dynamic height based on content
+  const getWidgetHeight = () => {
+    if (isLoading) return 'h-32'; // Loading state
+    if (filteredPursuits.length === 0) return 'h-48'; // Empty state
+    // For 1 or more items, expand to show viewport for ~3 items; if more, container will scroll
+    return 'h-[36rem]';
+  };
+
   return (
     <>
-      <div className={`bg-card rounded-2xl shadow-lg border border-border overflow-hidden flex flex-col ${className}`}>
+      <div className={`bg-card rounded-2xl shadow-lg border border-border overflow-hidden flex flex-col ${getWidgetHeight()} ${className}`}>
         {/* Header */}
         <div className="px-6 py-4 border-b border-border flex-shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <div className="p-2 bg-muted rounded-lg">
-                <CheckCircle2 className="h-5 w-5 text-muted-foreground" />
+                <CheckCircle2 className="h-5 w-5 text-green-600" />
               </div>
               <div>
                 <h2 className="text-lg font-semibold text-foreground">
-                  RFPs Submitted
-                </h2>
+            RFPs Submitted
+          </h2>
                 <p className="text-muted-foreground text-xs">Your successful submissions</p>
               </div>
             </div>
@@ -184,7 +192,7 @@ const SubmittedPursuitsWidget: React.FC<SubmittedPursuitsWidgetProps> = ({ class
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4">
-          {isLoading ? (
+        {isLoading ? (
             <div className="flex items-center justify-center h-32">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-muted-foreground"></div>
             </div>
@@ -195,8 +203,8 @@ const SubmittedPursuitsWidget: React.FC<SubmittedPursuitsWidgetProps> = ({ class
               </div>
               <p className="text-muted-foreground font-medium">No submitted pursuits yet</p>
               <p className="text-muted-foreground/70 text-sm mt-1">Your submitted RFPs will appear here</p>
-            </div>
-          ) : (
+          </div>
+        ) : (
             <div className="space-y-3">
               {filteredPursuits.map((pursuit) => {
                 const stageColors = getStageColor(pursuit.stage);
@@ -207,8 +215,8 @@ const SubmittedPursuitsWidget: React.FC<SubmittedPursuitsWidgetProps> = ({ class
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex-1 min-w-0">
                           <h3 className="text-sm font-semibold text-foreground group-hover:text-muted-foreground transition-colors line-clamp-2">
-                            {pursuit.title}
-                          </h3>
+                        {pursuit.title}
+                      </h3>
                           <div className="flex items-center text-xs text-muted-foreground mt-2">
                             <Clock className="h-3 w-3 mr-1.5" />
                             <span>Submitted {formatTimeAgo(pursuit.updated_at)}</span>
@@ -225,7 +233,7 @@ const SubmittedPursuitsWidget: React.FC<SubmittedPursuitsWidgetProps> = ({ class
                         <div className="flex items-center space-x-3">
                           <div className="flex items-center text-xs text-muted-foreground">
                             <div className="w-6 h-6 bg-muted rounded-full flex items-center justify-center text-muted-foreground text-xs font-bold mr-2 shadow-sm">
-                              <CheckCircle2 className="h-3 w-3" />
+                              <CheckCircle2 className="h-3 w-3 text-green-600" />
                             </div>
                             <span className="font-medium">Successfully Submitted</span>
                           </div>
@@ -245,21 +253,21 @@ const SubmittedPursuitsWidget: React.FC<SubmittedPursuitsWidgetProps> = ({ class
                   </div>
                 );
               })}
+                </div>
+              )}
             </div>
-          )}
-        </div>
 
         {/* Footer */}
         {filteredPursuits.length > 0 && (
           <div className="px-6 py-4 bg-muted/20 backdrop-blur-sm border-t border-border flex-shrink-0">
             <div className="flex items-center justify-between">
-              <Link
+                <Link
                 to="/trackers?filter=submitted"
                 className="text-muted-foreground hover:text-foreground text-sm font-semibold inline-flex items-center group"
-              >
+                >
                 View all submitted RFPs
                 <ChevronRight className="h-4 w-4 ml-1 group-hover:translate-x-0.5 transition-transform" />
-              </Link>
+                </Link>
               <button
                 onClick={handleExportCSV}
                 className="text-muted-foreground hover:text-foreground text-sm font-medium inline-flex items-center hover:bg-muted/50 px-3 py-1.5 rounded-lg transition-all"
@@ -267,7 +275,7 @@ const SubmittedPursuitsWidget: React.FC<SubmittedPursuitsWidgetProps> = ({ class
                 <Download className="h-4 w-4 mr-1.5" />
                 Export CSV
               </button>
-            </div>
+              </div>
           </div>
         )}
       </div>
@@ -280,13 +288,13 @@ const SubmittedPursuitsWidget: React.FC<SubmittedPursuitsWidgetProps> = ({ class
             <div className="flex-1 flex flex-col overflow-hidden">
               <div className="sticky top-0 z-10 p-4 border-b flex justify-between items-center bg-white flex-shrink-0">
                 <h2 className="text-lg sm:text-xl font-bold">RFP Response Builder</h2>
-                <button
+              <button
                   onClick={closeRfpBuilder}
                   className="text-gray-500 hover:text-gray-700 p-1 bg-gray-100 rounded-full"
-                >
+              >
                   <X className="w-5 h-5 sm:w-6 sm:h-6" />
-                </button>
-              </div>
+              </button>
+            </div>
               
               <div className="flex-1 overflow-y-auto">
                 <RfpResponse 

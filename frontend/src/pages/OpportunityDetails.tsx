@@ -130,6 +130,74 @@ const OpportunityDetails: React.FC = () => {
     }
   };
 
+  // Opens the original opportunity posting in a new browser tab
+  const handleViewOriginalPosting = () => {
+    if (opportunity?.external_url) {
+      window.open(opportunity.external_url, '_blank', 'noopener,noreferrer');
+    }
+  };
+
+  // Formats the opportunity description into readable paragraphs without headings.
+  const formatDescription = (description: string) => {
+    if (!description) return '';
+    
+    // Normalize whitespace
+    let text = description
+      .replace(/\r\n?/g, '\n')
+      .replace(/\t+/g, ' ')
+      .replace(/ +/g, ' ')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+    
+    // If the source already has blank lines, honor them as paragraphs
+    if (/\n\n/.test(text)) {
+      return text
+        .split('\n')
+        .map(line => line.trim())
+        .join('\n')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+    }
+
+    // Otherwise, create paragraphs at safe sentence boundaries
+    // Protect common abbreviations from being split
+    const placeholders: Record<string, string> = {
+      'U.S.C.': '<<USC>>',
+      'U.S.': '<<US>>',
+      'e.g.': '<<EG>>',
+      'i.e.': '<<IE>>',
+    };
+    for (const [k, v] of Object.entries(placeholders)) {
+      const re = new RegExp(k.replace(/\./g, '\\.'), 'g');
+      text = text.replace(re, v);
+    }
+
+    const sentences = text.split(/(?<=[.!?])\s+(?=[A-Z0-9])/);
+    // Restore placeholders
+    const restore = (s: string) => s
+      .replace(/<<USC>>/g, 'U.S.C.')
+      .replace(/<<US>>/g, 'U.S.')
+      .replace(/<<EG>>/g, 'e.g.')
+      .replace(/<<IE>>/g, 'i.e.');
+
+    const paragraphs: string[] = [];
+    let current = '';
+    const target = 500; // target paragraph length
+    for (const raw of sentences) {
+      const sentence = restore(raw).trim();
+      if (!sentence) continue;
+      if ((current + ' ' + sentence).trim().length > target && current) {
+        paragraphs.push(current.trim());
+        current = sentence;
+      } else {
+        current = (current ? current + ' ' : '') + sentence;
+      }
+    }
+    if (current.trim()) paragraphs.push(current.trim());
+
+    return paragraphs.join('\n\n');
+  };
+
   // ————— EFFECTS & HELPERS —————
 
   useEffect(() => {
@@ -188,9 +256,9 @@ const OpportunityDetails: React.FC = () => {
     return (
       <div className="h-screen flex flex-col bg-gray-50">
         <div className="flex flex-1">
-          <SideBar />
+          {/* <SideBar /> */}
           <div className="flex flex-1 flex-col">
-            <Header logout={logout} pursuitCount={pursuitCount} />
+            {/* <Header logout={logout} pursuitCount={pursuitCount} /> */}
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center">
                 <h2 className="text-xl font-semibold text-gray-900 mb-2">Loading opportunity details...</h2>
@@ -208,53 +276,55 @@ const OpportunityDetails: React.FC = () => {
   return (
     <div className="h-screen flex flex-col bg-gray-50 text-gray-800">
       <div className="flex flex-1 overflow-hidden">
-        <SideBar />
+        {/* <SideBar /> */}
         <div className="flex flex-1 flex-col overflow-hidden">
-          <Header logout={logout} pursuitCount={pursuitCount} />
+          {/* <Header logout={logout} pursuitCount={pursuitCount} /> */}
 
           <div className="flex-1 overflow-y-auto">
             <div className="p-6 w-full px-8">
-              <Button
+              {/* Commented out Back button to return to the Opportunities list */}
+              {/* <Button
                 variant="ghost"
                 onClick={() => navigate("/opportunities")}
                 className="mb-6 flex items-center gap-2"
               >
                 <ArrowLeft size={16} />
                 Back to Opportunities
-              </Button>
+              </Button> */}
 
               <div className="mb-8">
-                <div className="flex items-center justify-between mb-4">
-                  <h1 className="text-3xl font-bold text-gray-900">{opportunity.title}</h1>
-                  <div className="flex items-center gap-3">
+                <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between mb-4 gap-4">
+                  <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 flex-1 min-w-0 break-words">{opportunity.title}</h1>
+                  <div className="flex flex-wrap items-center gap-2 lg:gap-3 flex-shrink-0">
                     <button
                       onClick={handleAddToPursuits}
                       disabled={adding || !user?.id}
-                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-lg text-xs font-medium transition-colors shadow-sm flex items-center gap-1"
+                      className="px-2 lg:px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-lg text-xs font-medium transition-colors shadow-sm flex items-center gap-1"
                     >
                       <Plus size={14} />
-                      <span>{adding ? "Adding..." : "Add to Pursuits"}</span>
+                      <span className="hidden sm:inline">{adding ? "Adding..." : "Add to Tracker"}</span>
+                      <span className="sm:hidden">{adding ? "Adding..." : "Add"}</span>
                     </button>
 
                     <button
                       onClick={handleGenerateResponse}
                       disabled={generating || !user?.id}
-                      className="px-3 py-1.5 bg-green-50 text-green-600 hover:bg-green-100 disabled:opacity-60 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 border border-green-200"
+                      className="px-2 lg:px-3 py-1.5 bg-green-50 text-green-600 hover:bg-green-100 disabled:opacity-60 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 border border-green-200"
                     >
                       <FileText size={14} />
-                      <span>{generating ? "Preparing..." : "Generate Response"}</span>
+                      <span className="hidden sm:inline">{generating ? "Preparing..." : "Generate Response"}</span>
+                      <span className="sm:hidden">{generating ? "Preparing..." : "Generate"}</span>
                     </button>
 
                     {opportunity.external_url && (
-                      <a
-                        href={opportunity.external_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="px-3 py-1.5 bg-gray-50 text-gray-700 hover:bg-gray-100 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 border border-gray-200"
+                      <button
+                        onClick={handleViewOriginalPosting}
+                        className="px-2 lg:px-3 py-1.5 bg-gray-50 text-gray-700 hover:bg-gray-100 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 border border-gray-200"
                       >
                         <Globe size={14} />
-                        <span>View Original Posting</span>
-                      </a>
+                        <span className="hidden sm:inline">View Original Posting</span>
+                        <span className="sm:hidden">View Original</span>
+                      </button>
                     )}
                   </div>
                 </div>
@@ -301,8 +371,8 @@ const OpportunityDetails: React.FC = () => {
                     </CardHeader>
                     <CardContent>
                       {opportunity.description ? (
-                        <div className="prose prose-sm max-w-none text-gray-700 whitespace-pre-wrap">
-                          {opportunity.description}
+                        <div className="text-gray-700 leading-relaxed whitespace-pre-line">
+                          {formatDescription(opportunity.description)}
                         </div>
                       ) : (
                         <p className="text-gray-500 italic">No detailed description available</p>
@@ -370,32 +440,32 @@ const OpportunityDetails: React.FC = () => {
                 </div>
 
                 <div className="space-y-6">
-                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-6 border border-blue-200">
-                    <h3 className="text-base font-semibold text-blue-900 mb-4 flex items-center gap-2">
+                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl p-6 border border-blue-200 dark:border-blue-800">
+                    <h3 className="text-base font-semibold text-blue-900 dark:text-blue-200 mb-4 flex items-center gap-2">
                       <Clock size={18} />
                       Timeline
                     </h3>
 
                     <div className="mb-5">
-                      <div className="text-sm text-blue-600 uppercase tracking-wide mb-2">Published</div>
-                      <div className="font-medium text-blue-900 text-base">
+                      <div className="text-sm text-blue-600 dark:text-blue-300 uppercase tracking-wide mb-2 dark:font-bold">Published</div>
+                      <div className="font-medium text-blue-900 dark:text-blue-100 text-base">
                         {opportunity.published_date || "Recent"}
                       </div>
                     </div>
 
                     {opportunity.response_date && (
                       <div className="mb-5">
-                        <div className="text-sm text-blue-600 uppercase tracking-wide mb-2">Due Date</div>
-                        <div className="font-medium text-blue-900 text-base mb-3">
+                        <div className="text-sm text-blue-600 dark:text-blue-300 uppercase tracking-wide mb-2 dark:font-bold">Due Date</div>
+                        <div className="font-medium text-blue-900 dark:text-blue-100 text-base mb-3">
                           {opportunity.response_date}
                         </div>
                         {isPastDue ? (
-                          <div className="inline-flex items-center gap-1 px-3 py-2 bg-red-100 text-red-700 rounded-lg text-sm font-medium border border-red-200 w-full">
+                          <div className="inline-flex items-center gap-1 px-3 py-2 bg-red-100 text-red-700 rounded-lg text-sm font-medium border border-red-200 w-full dark:bg-red-900/30 dark:text-red-300 dark:border-red-700">
                             <AlertTriangle size={14} />
                             <span>Past Due Date</span>
                           </div>
                         ) : (
-                          <div className="inline-flex items-center gap-1 px-3 py-2 bg-emerald-100 text-emerald-700 rounded-lg text-sm font-medium border border-emerald-200 w-full">
+                          <div className="inline-flex items-center gap-1 px-3 py-2 bg-emerald-100 text-emerald-700 rounded-lg text-sm font-medium border border-emerald-200 w-full dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700">
                             <Clock size={14} />
                             <span>{days} day{days !== 1 ? "s" : ""} to respond</span>
                           </div>

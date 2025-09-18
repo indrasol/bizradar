@@ -297,26 +297,28 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
             </div>
           )}
 
-          <div className="mt-8 flex justify-end">
-            <button
-              onClick={handleUpgrade}
-              disabled={!selectedPlan || loading}
-              className={`w-full py-3 px-6 rounded-lg font-medium text-white transition-colors flex items-center justify-center ${
-                !selectedPlan || loading
-                  ? 'bg-gray-400 cursor-not-allowed'
-                  : 'bg-blue-600 hover:bg-blue-700'
-              }`}
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" />
-                  Processing...
-                </>
-              ) : (
-                'Upgrade Now'
-              )}
-            </button>
-          </div>
+          {selectedPlan && selectedPlan !== 'free' && (
+            <div className="mt-8 flex justify-end">
+              <button
+                onClick={handleUpgrade}
+                disabled={loading}
+                className={`w-full py-3 px-6 rounded-lg font-medium text-white transition-colors flex items-center justify-center ${
+                  loading
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-blue-600 hover:bg-blue-700'
+                }`}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" />
+                    Processing...
+                  </>
+                ) : (
+                  'Upgrade Now'
+                )}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

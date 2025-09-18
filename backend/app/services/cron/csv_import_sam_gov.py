@@ -308,7 +308,7 @@ def is_allowed_naics(naics_code):
         return False
     
     # Convert to string for comparison (CSV stores NAICS codes as strings)
-    naics_str = str(naics_code).strip()
+    naics_str = str(naics_code).replace(".0", "").strip()
     return naics_str in ALLOWED_NAICS_CODES
 
 def process_csv_row(row: Dict[str, str]) -> Dict[str, Any]:
@@ -323,6 +323,7 @@ def process_csv_row(row: Dict[str, str]) -> Dict[str, Any]:
     """
     # Get NAICS code (keep as string for comparison, convert to int for database)
     naics = row.get("NaicsCode")
+    # print(f"Naics code: {naics}")
     if not is_allowed_naics(naics):
         return None  # Skip this row
     
@@ -441,7 +442,7 @@ async def process_csv_file(csv_file_path: str, batch_size: int = 1000) -> Dict[s
 
                 before_count = len(df)
                 mask = (
-                    (df["PostedDate_dt"] >= three_days_ago) &
+                    # (df["PostedDate_dt"] >= three_days_ago) &
                     (df["ResponseDeadLine_dt"] >= today)
                 )
                 df = df.loc[mask, cols].copy()
@@ -470,6 +471,7 @@ async def process_csv_file(csv_file_path: str, batch_size: int = 1000) -> Dict[s
             for _, row in batch_df.iterrows():
                 # Convert pandas row to dictionary
                 row_dict = row.to_dict()
+                # print(f"Row dict: {row_dict}")
                 
                 # Process the row
                 processed_row = process_csv_row(row_dict)

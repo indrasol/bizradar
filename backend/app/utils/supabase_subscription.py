@@ -19,7 +19,7 @@ SubscriptionStatus = Literal["active", "expired", "cancelled", "trial"]
 # Tier configurations
 TIER_CONFIGS = {
     "free": {
-        "name": "Free Tier",
+        "name": "Free Plan",
         "monthly_searches": -1,  # Unlimited
         "ai_rfp_responses": 2,
         "features": [
