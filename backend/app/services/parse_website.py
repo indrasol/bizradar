@@ -61,11 +61,14 @@ async def parse_company_website_mcp(url: str) -> Dict[str, Any]:
     )
 
     try:
+        # Prefer globally installed MCP; fallback to npx
+        mcp_cmd = os.getenv("MCP_CMD", "playwright-mcp")
+        mcp_args = os.getenv("MCP_ARGS", "").split(" ") if os.getenv("MCP_ARGS", "") else []
         async with MCPServerStdio(
             name="Playwright-mcp",
-            params={"command": "npx", "args": ["-y", "@playwright/mcp@latest"]},
+            params={"command": mcp_cmd, "args": mcp_args},
         ) as server:
-            logger.info("parse_company_website_mcp: MCP server started via npx @playwright/mcp@latest")
+            logger.info("parse_company_website_mcp: MCP server started via %s %s", mcp_cmd, " ".join(mcp_args))
             agent = Agent(
                 name="Playwright-mcp",
                 model="gpt-4.1-mini",
@@ -103,4 +106,28 @@ async def parse_company_website_mcp(url: str) -> Dict[str, Any]:
 __all__ = [
     "parse_company_website_mcp",
 ]
+
+
+async def check_mcp_readiness(timeout_seconds: float = 15.0) -> bool:
+    """
+    Attempt to start the MCP server and immediately close it to verify availability.
+    Returns True if the server starts without error, False otherwise.
+    """
+    logger = get_logger(__name__)
+    try:
+        mcp_cmd = os.getenv("MCP_CMD", "playwright-mcp")
+        mcp_args = os.getenv("MCP_ARGS", "").split(" ") if os.getenv("MCP_ARGS", "") else []
+        logger.debug("check_mcp_readiness: command=%s args=%s", mcp_cmd, mcp_args)
+        start = time.time()
+        async with MCPServerStdio(
+            name="Playwright-mcp",
+            params={"command": mcp_cmd, "args": mcp_args},
+        ) as server:
+            # No-op interaction, just ensure startup succeeds
+            pass
+        logger.info("check_mcp_readiness: MCP started in %.2fs", time.time() - start)
+        return True
+    except Exception as e:
+        logger.exception("check_mcp_readiness: MCP startup failed: %s", str(e))
+        return False
 

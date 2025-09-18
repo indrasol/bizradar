@@ -43,6 +43,10 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
  && node -v && npm -v \
  && rm -rf /var/lib/apt/lists/*
 
+# Pre-install Playwright MCP globally to avoid runtime fetch via npx
+RUN npm install -g @playwright/mcp@latest \
+ && which playwright-mcp || true
+
 # Copy requirements first to leverage cache
 COPY backend/app/requirements.txt ./app/requirements.txt
 RUN pip install --no-cache-dir -r ./app/requirements.txt
