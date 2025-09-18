@@ -61,5 +61,4 @@ CMD ["sh","-c","python -m uvicorn app.main:app \
   --host 0.0.0.0 \
   --port ${PORT:-8000} \
   --workers ${UVICORN_WORKERS:-2} \
-  --log-level ${LOG_LEVEL:-info} \
-  --log-config python:logging.config.dictConfig"]
+  --log-level ${LOG_LEVEL:-info}"]
