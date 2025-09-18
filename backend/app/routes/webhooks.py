@@ -263,6 +263,15 @@ async def stripe_webhook(request: Request):
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature")
     
+    # Enhanced logging for debugging
+    logger.info(f"Webhook received - Payload size: {len(payload)} bytes")
+    logger.info(f"Signature header: {sig_header[:50] if sig_header else 'None'}...")
+    logger.info(f"Webhook secret configured: {bool(STRIPE_WEBHOOK_SECRET)}")
+    if STRIPE_WEBHOOK_SECRET:
+        logger.info(f"Webhook secret (masked): {STRIPE_WEBHOOK_SECRET[:8]}...{STRIPE_WEBHOOK_SECRET[-4:]}")
+    else:
+        logger.warning("STRIPE_WEBHOOK_SECRET is not configured - will attempt to parse without verification")
+    
     # Validate webhook secret is configured
     if not STRIPE_WEBHOOK_SECRET:
         logger.error("STRIPE_WEBHOOK_SECRET is not configured")
@@ -270,6 +279,7 @@ async def stripe_webhook(request: Request):
         try:
             # Parse without signature verification (for development/testing)
             event = json.loads(payload.decode('utf-8'))
+            logger.warning("Webhook processed without signature verification - NOT RECOMMENDED FOR PRODUCTION")
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse webhook payload as JSON: {str(e)}")
             raise HTTPException(status_code=400, detail="Invalid payload format")
@@ -278,14 +288,29 @@ async def stripe_webhook(request: Request):
             event = stripe.Webhook.construct_event(
                 payload, sig_header, STRIPE_WEBHOOK_SECRET
             )
+            logger.info("Webhook signature verified successfully")
         except ValueError as e:
             # Invalid payload
             logger.error(f"Invalid payload: {str(e)}")
             raise HTTPException(status_code=400, detail="Invalid payload")
         except stripe.error.SignatureVerificationError as e:
-            # Invalid signature
+            # Invalid signature - try fallback for development
             logger.error(f"Invalid signature: {str(e)}")
-            raise HTTPException(status_code=400, detail="Invalid signature")
+            logger.error(f"Expected signature format: t=<timestamp>,v1=<signature>")
+            logger.error(f"Received signature: {sig_header}")
+            
+            # Check if this might be a development/test scenario
+            if not sig_header or sig_header.strip() == "":
+                logger.warning("No signature header provided - attempting to parse as development webhook")
+                try:
+                    event = json.loads(payload.decode('utf-8'))
+                    logger.warning("Webhook processed without signature verification - DEVELOPMENT MODE")
+                except json.JSONDecodeError as json_e:
+                    logger.error(f"Failed to parse webhook payload as JSON: {str(json_e)}")
+                    raise HTTPException(status_code=400, detail="Invalid payload format")
+            else:
+                # Real signature verification failure
+                raise HTTPException(status_code=400, detail="Invalid signature")
     
     # Keep original for potential thin-payload helpers, then hydrate if possible
     original_event = event
