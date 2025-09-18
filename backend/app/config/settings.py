@@ -95,6 +95,8 @@ if not STRIPE_SECRET_KEY:
     print("WARNING: STRIPE_SECRET_KEY is not set in environment variables")
 if not STRIPE_PUBLISHABLE_KEY:
     print("WARNING: STRIPE_PUBLISHABLE_KEY is not set in environment variables")
+if not STRIPE_WEBHOOK_SECRET:
+    print("WARNING: STRIPE_WEBHOOK_SECRET is not set in environment variables")
 
 # CACHE DB REDIS
 REDIS_HOST = os.getenv("REDISHOSTBIZ")

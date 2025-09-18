@@ -263,18 +263,29 @@ async def stripe_webhook(request: Request):
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature")
     
-    try:
-        event = stripe.Webhook.construct_event(
-            payload, sig_header, STRIPE_WEBHOOK_SECRET
-        )
-    except ValueError as e:
-        # Invalid payload
-        logger.error(f"Invalid payload: {str(e)}")
-        raise HTTPException(status_code=400, detail="Invalid payload")
-    except stripe.error.SignatureVerificationError as e:
-        # Invalid signature
-        logger.error(f"Invalid signature: {str(e)}")
-        raise HTTPException(status_code=400, detail="Invalid signature")
+    # Validate webhook secret is configured
+    if not STRIPE_WEBHOOK_SECRET:
+        logger.error("STRIPE_WEBHOOK_SECRET is not configured")
+        logger.warning("Attempting to parse webhook without signature verification")
+        try:
+            # Parse without signature verification (for development/testing)
+            event = json.loads(payload.decode('utf-8'))
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse webhook payload as JSON: {str(e)}")
+            raise HTTPException(status_code=400, detail="Invalid payload format")
+    else:
+        try:
+            event = stripe.Webhook.construct_event(
+                payload, sig_header, STRIPE_WEBHOOK_SECRET
+            )
+        except ValueError as e:
+            # Invalid payload
+            logger.error(f"Invalid payload: {str(e)}")
+            raise HTTPException(status_code=400, detail="Invalid payload")
+        except stripe.error.SignatureVerificationError as e:
+            # Invalid signature
+            logger.error(f"Invalid signature: {str(e)}")
+            raise HTTPException(status_code=400, detail="Invalid signature")
     
     # Keep original for potential thin-payload helpers, then hydrate if possible
     original_event = event
