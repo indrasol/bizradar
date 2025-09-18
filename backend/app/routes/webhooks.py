@@ -2,7 +2,7 @@ from fastapi import APIRouter, Request, HTTPException, Depends
 import stripe
 import os
 from config.settings import STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import json
 from datetime import datetime, timezone
 import logging
