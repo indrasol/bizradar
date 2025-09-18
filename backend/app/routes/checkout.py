@@ -71,7 +71,7 @@ async def get_stripe_publishable_key():
     return {"publishable_key": STRIPE_PUBLISHABLE_KEY}
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class CreateCheckoutSessionRequest(BaseModel):
