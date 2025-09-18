@@ -3,8 +3,7 @@
 import { getApiUrl, isDevelopment } from "@/config/env";
 
 // Get the appropriate base URL from the environment configuration
-const API_BASE_URL = `${getApiUrl()}`;
-// const API_BASE_URL = `http://localhost:8000`;
+const API_BASE_URL = getApiUrl();
 // Log the API base URL being used
 if (isDevelopment) {
   console.log(`Using API base URL: ${API_BASE_URL}`);
@@ -47,6 +46,9 @@ export const API_ENDPOINTS = {
   SETUP_INTENT: `${API_BASE_URL}/api/create-setup-intent`,
   BILLING_HISTORY: (userId: string) => `${API_BASE_URL}/api/stripe/billing-history?user_id=${encodeURIComponent(userId)}`,
   INVOICES: `${API_BASE_URL}/api/invoices`,
+  
+  // Stripe configuration endpoints
+  STRIPE_PUBLISHABLE_KEY: `${API_BASE_URL}/api/stripe/publishable-key`,
   
   // Company endpoints
   COMPANY_SETUP: `${API_BASE_URL}/api/company/setup`,

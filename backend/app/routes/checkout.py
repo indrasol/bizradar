@@ -18,41 +18,57 @@ logger.info(f"Stripe API key initialized (first 5 chars): {settings.get_stripe_s
 # Import other settings after stripe is initialized
 from config.settings import JWT_SECRET, SUPABASE_URL, SUPABASE_ANON_KEY
 
+def validate_stripe_config():
+    """Validate that Stripe is properly configured"""
+    if not stripe.api_key or stripe.api_key == '':
+        raise HTTPException(
+            status_code=500, 
+            detail="Stripe API key not configured. Please check environment variables."
+        )
+
 # Add a test endpoint to verify Stripe connection
 @router.get("/test-stripe")
 async def test_stripe():
     try:
+        validate_stripe_config()
+        
         # Debug information
         debug_info = {
             "stripe_api_key_set": bool(stripe.api_key),
             "stripe_api_key_prefix": stripe.api_key[:5] + '...' if stripe.api_key else None,
             "settings_stripe_key_available": bool(settings.get_stripe_secret_key()),
-            "settings_stripe_key_prefix": settings.get_stripe_secret_key()[:5] + '...' if settings.get_stripe_secret_key() else None
+            "settings_stripe_key_prefix": settings.get_stripe_secret_key()[:5] + '...' if settings.get_stripe_secret_key() else None,
+            "environment_check": {
+                "STRIPE_SECRET_KEY_BIZ": bool(os.getenv('STRIPE_SECRET_KEY_BIZ')),
+                "STRIPE_SECRET_KEY": bool(os.getenv('STRIPE_SECRET_KEY'))
+            }
         }
         
-        if not stripe.api_key:
-            return {
-                "status": "error",
-                "message": "Stripe API key is not set in stripe.api_key",
-                "debug": debug_info
-            }
-            
         # Try to list customers (limit 1 to minimize API calls)
         customers = stripe.Customer.list(limit=1)
         return {
             "status": "success",
             "message": "Successfully connected to Stripe",
             "customer_count": len(customers.data),
-            "stripe_api_key_set": bool(stripe.api_key)
+            "debug": debug_info
         }
     except Exception as e:
         logger.error(f"Stripe test failed: {str(e)}")
         return {
             "status": "error",
-            "message": f"Failed to connect to Stripe: {str(e)}",
-            "stripe_api_key_set": bool(stripe.api_key),
-            "stripe_api_key_prefix": stripe.api_key[:5] + '...' if stripe.api_key else None
+            "message": f"Stripe connection failed: {str(e)}",
+            "debug": debug_info if 'debug_info' in locals() else None
         }
+
+@router.get("/stripe/publishable-key")
+async def get_stripe_publishable_key():
+    """Return the Stripe publishable key for frontend use."""
+    from config.settings import STRIPE_PUBLISHABLE_KEY
+    
+    if not STRIPE_PUBLISHABLE_KEY:
+        raise HTTPException(status_code=500, detail="Stripe publishable key not configured")
+    
+    return {"publishable_key": STRIPE_PUBLISHABLE_KEY}
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
