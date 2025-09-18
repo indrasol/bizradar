@@ -14,7 +14,7 @@ router = APIRouter()
 stripe.api_key = settings.get_stripe_secret_key()
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 logger = logging.getLogger(__name__)
 logger.info(f"######################################################")
 logger.info(f"STRIPE_WEBHOOK_SECRET: {STRIPE_WEBHOOK_SECRET}")
