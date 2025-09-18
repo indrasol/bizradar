@@ -58,12 +58,13 @@ origins = [
     "https://bizradar1.netlify.app",  # Your production frontend domain
     "https://dev--bizradar1.netlify.app",  # Add missing domain without trailing slash
     "https://dev--bizradar1.netlify.app/", # Add missing domain with trailing slash
+    "https://bizradar.indrasol.com/",
     # "*"  # Temporarily allow all origins during development
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins temporarily
+    allow_origins=origins,  # Allow all origins temporarily
     allow_credentials=False,  # Must be False when using wildcard origins
     allow_methods=["*"],
     allow_headers=["*"],
