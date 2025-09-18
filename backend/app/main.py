@@ -56,7 +56,8 @@ origins = [
     "https://bizradar.netlify.app/",     # Include trailing slash version
     "http://bizradar.netlify.app",       # Include HTTP version
     "https://bizradar1.netlify.app",  # Your production frontend domain
-    "https://dev--bizradar1.netlify.app/",
+    "https://dev--bizradar1.netlify.app",  # Add missing domain without trailing slash
+    "https://dev--bizradar1.netlify.app/", # Add missing domain with trailing slash
     # "*"  # Temporarily allow all origins during development
 ]
 

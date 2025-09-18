@@ -20,6 +20,15 @@ logger.info(f"######################################################")
 logger.info(f"STRIPE_WEBHOOK_SECRET: {STRIPE_WEBHOOK_SECRET}")
 logger.info(f"######################################################")
 
+def validate_stripe_config():
+    """Validate that Stripe is properly configured"""
+    if not stripe.api_key or stripe.api_key == '':
+        logger.error("Stripe API key not configured")
+        raise HTTPException(
+            status_code=500, 
+            detail="Stripe API key not configured. Please check environment variables."
+        )
+
 
 def hydrate_event_if_needed(event: Dict[str, Any]) -> Dict[str, Any]:
     """If the incoming event is a thin payload, attempt to hydrate it to a snapshot event.
@@ -455,6 +464,7 @@ def get_stripe_price_id(plan_type: str, billing_cycle: str = "monthly"):
 def get_billing_history(user_id: str):
     """Return up to 3 recent Stripe invoices for the given user_id."""
     try:
+        validate_stripe_config()
         supabase = get_supabase_connection(use_service_key=True)
         print(f"Getting billing history for user {user_id}")
         prof = supabase.table('profiles').select('stripe_customer_id').eq('id', user_id).limit(1).execute()
