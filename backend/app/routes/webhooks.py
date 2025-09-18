@@ -7,6 +7,9 @@ import calendar
 import json
 from datetime import datetime, timezone
 import logging
+import hmac
+import hashlib
+import time
 from utils.db_utils import get_supabase_connection
 from config import settings
 
@@ -28,6 +31,80 @@ def validate_stripe_config():
             status_code=500, 
             detail="Stripe API key not configured. Please check environment variables."
         )
+
+
+def verify_stripe_signature_manual(payload: bytes, sig_header: str, webhook_secret: str) -> bool:
+    """
+    Manually verify Stripe webhook signature, supporting both v0 and v1 signatures.
+    
+    Args:
+        payload: Raw request body
+        sig_header: Stripe-Signature header value
+        webhook_secret: Webhook secret from Stripe dashboard
+        
+    Returns:
+        bool: True if signature is valid, False otherwise
+    """
+    if not sig_header:
+        logger.error("No signature header provided")
+        return False
+    
+    try:
+        # Parse signature header
+        elements = sig_header.split(',')
+        sig_data = {}
+        for element in elements:
+            key, value = element.split('=', 1)
+            sig_data[key] = value
+        
+        timestamp = sig_data.get('t')
+        if not timestamp:
+            logger.error("No timestamp in signature header")
+            return False
+        
+        # Check timestamp (prevent replay attacks)
+        current_time = int(time.time())
+        event_time = int(timestamp)
+        if abs(current_time - event_time) > 300:  # 5 minutes tolerance
+            logger.error(f"Timestamp too old: {current_time - event_time} seconds difference")
+            return False
+        
+        # Try v1 signature first (preferred)
+        v1_sig = sig_data.get('v1')
+        if v1_sig:
+            expected_sig = hmac.new(
+                webhook_secret.encode('utf-8'),
+                f"{timestamp}.{payload.decode('utf-8')}".encode('utf-8'),
+                hashlib.sha256
+            ).hexdigest()
+            
+            if hmac.compare_digest(expected_sig, v1_sig):
+                logger.info("v1 signature verification successful")
+                return True
+            else:
+                logger.warning("v1 signature verification failed")
+        
+        # Fallback to v0 signature
+        v0_sig = sig_data.get('v0')
+        if v0_sig:
+            expected_sig = hmac.new(
+                webhook_secret.encode('utf-8'),
+                payload,
+                hashlib.sha256
+            ).hexdigest()
+            
+            if hmac.compare_digest(expected_sig, v0_sig):
+                logger.info("v0 signature verification successful")
+                return True
+            else:
+                logger.warning("v0 signature verification failed")
+        
+        logger.error("No valid signature found")
+        return False
+        
+    except Exception as e:
+        logger.error(f"Error verifying signature: {str(e)}")
+        return False
 
 
 def hydrate_event_if_needed(event: Dict[str, Any]) -> Dict[str, Any]:
@@ -284,19 +361,9 @@ async def stripe_webhook(request: Request):
             logger.error(f"Failed to parse webhook payload as JSON: {str(e)}")
             raise HTTPException(status_code=400, detail="Invalid payload format")
     else:
-        try:
-            event = stripe.Webhook.construct_event(
-                payload, sig_header, STRIPE_WEBHOOK_SECRET
-            )
-            logger.info("Webhook signature verified successfully")
-        except ValueError as e:
-            # Invalid payload
-            logger.error(f"Invalid payload: {str(e)}")
-            raise HTTPException(status_code=400, detail="Invalid payload")
-        except stripe.error.SignatureVerificationError as e:
-            # Invalid signature - try fallback for development
-            logger.error(f"Invalid signature: {str(e)}")
-            logger.error(f"Expected signature format: t=<timestamp>,v1=<signature>")
+        # Use manual signature verification that supports both v0 and v1
+        if not verify_stripe_signature_manual(payload, sig_header, STRIPE_WEBHOOK_SECRET):
+            logger.error("Manual signature verification failed")
             logger.error(f"Received signature: {sig_header}")
             
             # Check if this might be a development/test scenario
@@ -311,6 +378,14 @@ async def stripe_webhook(request: Request):
             else:
                 # Real signature verification failure
                 raise HTTPException(status_code=400, detail="Invalid signature")
+        else:
+            # Signature verified successfully, parse the event
+            try:
+                event = json.loads(payload.decode('utf-8'))
+                logger.info("Webhook signature verified and event parsed successfully")
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse webhook payload as JSON: {str(e)}")
+                raise HTTPException(status_code=400, detail="Invalid payload format")
     
     # Keep original for potential thin-payload helpers, then hydrate if possible
     original_event = event
