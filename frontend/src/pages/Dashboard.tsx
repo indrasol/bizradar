@@ -1255,12 +1255,20 @@ const BizRadarDashboard = () => {
 
               {/* Row 2: Submitted Pursuits - Full width */}
               <div className="mb-6">
-                <SubmittedPursuitsWidget className="h-[36rem]" />
+                <SubmittedPursuitsWidget />
               </div>
 
               {/* Row 3: Radar Matches - Full width */}
               <div className="mb-6">
-                <div className="bg-card rounded-xl shadow-sm border border-border p-6 h-[36rem] flex flex-col overflow-hidden">
+                <div className={`bg-card rounded-xl shadow-sm border border-border p-6 flex flex-col overflow-hidden ${
+                  !hasProAccess()
+                  ?'h-48' //Non-pro users see upgrade prompt
+                  :isLoadingRecommendations
+                    ?'h-32' //Loading state
+                    :aiRecommendations.length === 0
+                      ?'h-48' //Empty state
+                      :'h-[36rem]' //For 1+ recommendations, expand to show ~3; scroll for more
+                }`}>
                   <div className="flex justify-between items-center mb-5 flex-shrink-0">
                     <div className="flex items-center space-x-3">
                       <div className="p-2 bg-emerald-50 text-emerald-500 rounded-lg">
