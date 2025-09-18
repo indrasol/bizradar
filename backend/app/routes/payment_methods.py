@@ -2,9 +2,8 @@ from fastapi import APIRouter, Request, Query, HTTPException
 from pydantic import BaseModel
 import os
 import stripe
-from config.settings import STRIPE_SECRET_KEY as stripe_api_key
-from utils.db_utils import get_db_connection
-from supabase import create_client, Client
+from config.settings import STRIPE_SECRET_KEY as stripe_api_key, REDIRECT_URL
+from utils.db_utils import get_supabase_connection
 import json
 
 router = APIRouter()
@@ -118,8 +117,8 @@ def create_checkout_session(body: SubscriptionCheckoutRequest):
                 'quantity': 1,
             }],
             mode='subscription',
-            success_url=os.getenv('FRONTEND_URL', 'http://localhost:5173') + '/dashboard?payment=success',
-            cancel_url=os.getenv('FRONTEND_URL', 'http://localhost:5173') + '/dashboard?payment=cancel',
+            success_url=f"{REDIRECT_URL}/dashboard?payment=success",
+            cancel_url=f"{REDIRECT_URL}/dashboard?payment=cancel",
         )
         return {'url': session.url}
     except Exception as e:

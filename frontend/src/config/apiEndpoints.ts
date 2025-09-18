@@ -3,8 +3,7 @@
 import { getApiUrl, isDevelopment } from "@/config/env";
 
 // Get the appropriate base URL from the environment configuration
-const API_BASE_URL = `${getApiUrl()}`;
-// const API_BASE_URL = `http://localhost:8000`;
+const API_BASE_URL = getApiUrl();
 // Log the API base URL being used
 if (isDevelopment) {
   console.log(`Using API base URL: ${API_BASE_URL}`);
@@ -51,6 +50,11 @@ export const API_ENDPOINTS = {
   PAYMENT_METHOD_BY_ID: (paymentMethodId: string) => `${API_BASE_URL}/api/payment-methods/${paymentMethodId}`,
   SET_DEFAULT_PAYMENT_METHOD: (paymentMethodId: string) => `${API_BASE_URL}/api/payment-methods/${paymentMethodId}/set-default`,
   SETUP_INTENT: `${API_BASE_URL}/api/create-setup-intent`,
+  BILLING_HISTORY: (userId: string) => `${API_BASE_URL}/api/stripe/billing-history?user_id=${encodeURIComponent(userId)}`,
+  INVOICES: `${API_BASE_URL}/api/invoices`,
+  
+  // Stripe configuration endpoints
+  STRIPE_PUBLISHABLE_KEY: `${API_BASE_URL}/api/stripe/publishable-key`,
   
   // Company endpoints
   COMPANY_SETUP: `${API_BASE_URL}/api/company/setup`,
@@ -60,7 +64,7 @@ export const API_ENDPOINTS = {
   
   // Search and opportunities endpoints
   SEARCH_OPPORTUNITIES: `${API_BASE_URL}/search-opportunities`,
-  AI_RECOMMENDATIONS: `${API_BASE_URL}/ai-recommendations`,
+  AI_RECOMMENDATIONS: `${API_BASE_URL}/api/company/recommendations`,
   ENHANCED_VECTOR_SEARCH: `${API_BASE_URL}/api/enhanced/vector-search`,
   ENHANCE_RFP_WITH_AI: `${API_BASE_URL}/enhance-rfp-with-ai`,
   
@@ -80,4 +84,8 @@ export const API_ENDPOINTS = {
   PROFILE_UPDATE_PERSONAL: (userId: string) => `${API_BASE_URL}/api/profile/personal?user_id=${encodeURIComponent(userId)}`,
   PROFILE_UPDATE_COMPANY: (userId: string) => `${API_BASE_URL}/api/profile/company?user_id=${encodeURIComponent(userId)}`,
   
+  // Bizradar AI endpoints (frontend-only wiring)
+  AI_CONVERSATIONS: `${API_BASE_URL}/api/ai/conversations`,
+  AI_ASK: `${API_BASE_URL}/ask-bizradar-ai`,
+  AI_PROCESS_DOCUMENTS: `${API_BASE_URL}/process-documents`,
 };

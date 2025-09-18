@@ -2,7 +2,6 @@
 import os
 import sys
 import psycopg2
-from dotenv import load_dotenv
 
 # Add the app directory to Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -74,34 +73,40 @@ def get_db_connection():
 
 def get_supabase_connection(use_service_key: bool = True):
     """
-    Initialize and return a Supabase client using environment variables.
+    Initialize and return a Supabase client using settings from config.
     Prefers service key for elevated privileges when available.
 
-    Expected env vars:
-      - SUPABASE_URL_BIZ
-      - SUPABASE_SERVICE_KEY_BIZ (preferred for writes)
-      - SUPABASE_ANON_KEY_BIZ (fallback)
+    Expected settings:
+      - SUPABASE_URL
+      - SUPABASE_SERVICE_KEY (preferred for writes)
+      - SUPABASE_ANON_KEY (fallback)
     """
     try:
-        # Ensure env variables are loaded
-        load_dotenv()
+        # Import settings from the config module
+        try:
+            from app.config.settings import SUPABASE_URL, SUPABASE_SERVICE_KEY, SUPABASE_ANON_KEY
+        except ImportError:
+            from config.settings import SUPABASE_URL, SUPABASE_SERVICE_KEY, SUPABASE_ANON_KEY
 
-        url = os.getenv("SUPABASE_URL_BIZ") or os.getenv("SUPABASE_URL")
-        service_key = os.getenv("SUPABASE_SERVICE_KEY_BIZ")
-        anon_key = os.getenv("SUPABASE_ANON_KEY_BIZ")
-
+        url = SUPABASE_URL
+        service_key = SUPABASE_SERVICE_KEY
+        print(f"Service key: {service_key}")
+        anon_key = SUPABASE_ANON_KEY
+        print(f"Anon key: {anon_key}")
         key = service_key if (use_service_key and service_key) else (anon_key or service_key)
-
+        print(f"Key: {key}")
         if not url or not key:
             raise MissingEnvironmentVariableError(
-                "Missing SUPABASE_URL_BIZ and/or SUPABASE_*_KEY_BIZ env vars"
+                "Missing SUPABASE_URL and/or SUPABASE_*_KEY settings"
             )
         if create_client is None:
             raise RuntimeError(
                 "Supabase client not installed. Please install with: pip install supabase"
             )
-
+        print(f"URL: {url}")
+        print(f"Key: {key}")
         client = create_client(url, key)
+        print(f"Client: {client}")
         logger.info("Supabase client initialized")
         return client
     except Exception as e:

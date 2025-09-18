@@ -1,5 +1,9 @@
 import React, { useState, useEffect, Suspense, lazy, useMemo } from "react";
+
 import { useAuth } from "../components/Auth/useAuth";
+
+import { useTheme } from "../contexts/ThemeContext";
+import ThemeToggle from "../components/ThemeToggle";
 import {
   Pencil,
   LogOut,
@@ -41,33 +45,52 @@ import {
   Power,
   Link as LinkIcon,
   ExternalLink,
+  Sun,
+  Moon,
 } from "lucide-react";
-import { toast } from "sonner";
-import { supabase } from "../utils/supabase";
-import { profileApi, UserProfile, PersonalInfo, CompanyInfo } from "../api/profile";
-import { useNavigate, Link } from "react-router-dom";
-import SideBar from "../components/layout/SideBar";
-import { ResponsivePatterns, DashboardTemplate } from "../utils/responsivePatterns";
-import { subscriptionApi } from "@/api/subscription";
-import { paymentApi } from '@/api/payment';
-import { loadStripe } from '@stripe/stripe-js';
-import { Elements } from '@stripe/react-stripe-js';
-import PageLoadingSkeleton from "@/components/ui/PageLoadingSkeleton";
-import { API_ENDPOINTS } from "@/config/apiEndpoints";
 
+import { toast } from "sonner";
+
+import { supabase } from "../utils/supabase";
+
+import { profileApi, UserProfile, PersonalInfo, CompanyInfo } from "../api/profile";
+
+import { useNavigate, Link } from "react-router-dom";
+
+import SideBar from "../components/layout/SideBar";
+
+import { ResponsivePatterns, DashboardTemplate } from "../utils/responsivePatterns";
+
+import { subscriptionApi } from "@/api/subscription";
+
+import { paymentApi } from '@/api/payment';
+
+import { loadStripe } from '@stripe/stripe-js';
+
+import { Elements } from '@stripe/react-stripe-js';
+
+import PageLoadingSkeleton from "@/components/ui/PageLoadingSkeleton";
+
+import { API_ENDPOINTS } from "@/config/apiEndpoints";
 // Lazy load heavy components
+
 const PasswordManagement = lazy(() => import("@/components/passwordmanager/PasswordManager"));
+
 const UpdatePhoneNumber = lazy(() => import("@/components/TwoFA/UpdatePhoneNumber"));
+
 const UpgradeModal = lazy(() => import("@/components/subscription/UpgradeModal").then(mod => ({ default: mod.UpgradeModal })));
+
 const NotificationDropdown = lazy(() => import('@/components/notifications/NotificationDropdown').then(mod => ({ default: mod.NotificationDropdown })));
+
 const PaymentMethodManager = lazy(() => import("@/components/payment/PaymentMethodManager"));
+
 const StripePaymentVerifier = lazy(() => import('@/components/ui/StripePaymentVerifier'));
 
 const stripePromise = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY 
   ? loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY)
   : Promise.resolve(null);
-
 // Global cache for settings data
+
 const settingsCache = {
   profile: null,
   company: null,
@@ -94,52 +117,42 @@ export const Settings = () => {
   const [progressiveLoading, setProgressiveLoading] = useState(true);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const [backgroundRefresh, setBackgroundRefresh] = useState(false);
-
   // Add state for active tab with persistence
   const [activeTab, setActiveTab] = useState(() => {
     // Try to restore from sessionStorage
     const savedTab = sessionStorage.getItem("settingsActiveTab");
     return savedTab || "Account";
   });
-
   // Edit states
   const [editingPersonal, setEditingPersonal] = useState(false);
   const [editingPreferences, setEditingPreferences] = useState(false);
-
   // Form states
   const [personalInfo, setPersonalInfo] = useState({
     first_name: "",
     last_name: "",
     email: "",
   });
-
   const [companyInfo, setCompanyInfo] = useState({
     name: "",
     url: "",
     description: "",
     role: "",
-
   });
-
   const [preferences, setPreferences] = useState({
     language: "English (US)",
     time_zone: "Eastern Time (US & Canada)",
     date_format: "MM/DD/YYYY",
-    theme: "Light",
   });
-
   // Add state for security settings
   const [securityInfo, setSecurityInfo] = useState({
     twoFactorEnabled: false,
     loginNotifications: true,
   });
-
   // Add state for security settings
   const [securityPhoneInfo, setSecurityPhoneInfo] = useState({
     phoneNumber: "",
     phoneVerified: false
   });
-
   // Add state for notification settings
   const [notificationSettings, setNotificationSettings] = useState({
     emailNotifications: true,
@@ -154,32 +167,56 @@ export const Settings = () => {
     teamCollaboration: true,
     statusChanges: true,
     upcomingDeadlines: true
-
   });
-
   // Add state for billing information
   const [billingInfo, setBillingInfo] = useState({
-    plan: "Business Pro",
-    billingCycle: "Annual",
-    nextBillingDate: "May 15, 2025",
+    plan: "",
+    billingCycle: "",
+    nextBillingDate: "",
     paymentMethod: {
-      type: "Credit Card",
-      last4: "4242",
-      expiryDate: "05/27",
+      type: "",
+      last4: "",
+      expiryDate: "",
     },
   });
-
+  // Invoices state
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [isLoadingInvoices, setIsLoadingInvoices] = useState<boolean>(false);
+  // Tax info state
+  const [taxInfo, setTaxInfo] = useState<{ ein: string; billingAddress: string; country: string }>({
+    ein: "",
+    billingAddress: "",
+    country: "",
+  });
+  useEffect(() => {
+    const fetchInvoices = async () => {
+      try {
+        if (!user?.id) return;
+        setIsLoadingInvoices(true);
+        const data = await paymentApi.listInvoices(user.id);
+        setInvoices(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Failed to load invoices", err);
+        setInvoices([]);
+      } finally {
+        setIsLoadingInvoices(false);
+      }
+    };
+    fetchInvoices();
+  }, [user?.id]);
   // Add state for password visibility
   const [showPassword, setShowPassword] = useState(false);
   const [showPhoneModal, setShowPhoneModal] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
-
   // Subscription state
   const [currentSubscription, setCurrentSubscription] = useState(null);
   const [subLoading, setSubLoading] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
   const [availablePlans, setAvailablePlans] = useState([]);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [billingHistory, setBillingHistory] = useState<any[]>([]);
+
+
 
   // --- Add state for backup codes and recent devices ---
   const [backupCodes, setBackupCodes] = useState<string[]>([]);
@@ -187,10 +224,8 @@ export const Settings = () => {
   const [recentDevices, setRecentDevices] = useState<any[]>([]);
   const [devicesLoading, setDevicesLoading] = useState(false);
   const [codesLoading, setCodesLoading] = useState(false);
-
   // Add at the top, after other useState declarations
   const [showContactSalesModal, setShowContactSalesModal] = useState(false);
-
   // Fetch backup codes and recent devices from Supabase
   const fetchSecurityExtras = async () => {
     if (!user) return;
@@ -207,11 +242,9 @@ export const Settings = () => {
     setDevicesLoading(false);
     setCodesLoading(false);
   };
-
   useEffect(() => {
     if (user) fetchSecurityExtras();
   }, [user]);
-
   // --- Backup code generation disabled ---
   const generateBackupCodes = async () => {
     if (!user) return;
@@ -219,12 +252,10 @@ export const Settings = () => {
     // Backup codes feature disabled - using Supabase Auth built-in recovery methods
     toast.info('Backup codes feature disabled. Use Supabase Auth built-in password reset for account recovery.', ResponsivePatterns.toast.config);
   };
-
   const handleCopyBackupCodes = () => {
     navigator.clipboard.writeText(backupCodes.join('\n'));
     toast.success('Backup codes copied to clipboard!', ResponsivePatterns.toast.config);
   };
-
   const handleDownloadBackupCodes = () => {
     const element = document.createElement('a');
     const file = new Blob([backupCodes.join('\n')], { type: 'text/plain' });
@@ -235,7 +266,6 @@ export const Settings = () => {
     document.body.removeChild(element);
     toast.success('Backup codes downloaded!', ResponsivePatterns.toast.config);
   };
-
   // --- Device management disabled ---
   const handleRemoveDevice = async (id: string) => {
     if (!user) return;
@@ -243,7 +273,6 @@ export const Settings = () => {
     // Device management disabled - using Supabase Auth built-in session management
     toast.info('Device management disabled. Use Supabase Auth dashboard to manage sessions.', ResponsivePatterns.toast.config);
   };
-
   // Fetch current subscription
   const loadCurrentSubscription = async () => {
     setSubLoading(true);
@@ -256,7 +285,6 @@ export const Settings = () => {
       setSubLoading(false);
     }
   };
-
   // Fetch available plans
   const loadAvailablePlans = async () => {
     try {
@@ -267,11 +295,23 @@ export const Settings = () => {
     }
   };
 
+
+  const loadBillingHistory = async () => {
+    try {
+      if (!user) return;
+      const res = await fetch(API_ENDPOINTS.BILLING_HISTORY(user.id));
+      if (!res.ok) throw new Error('Failed to fetch billing history');
+      const data = await res.json();
+      setBillingHistory(Array.isArray(data.invoices) ? data.invoices : []);
+    } catch (e) {
+      setBillingHistory([]);
+    }
+  };
+
   useEffect(() => {
     loadCurrentSubscription();
     loadAvailablePlans();
   }, []);
-
   // Handle logout
   const handleLogout = async () => {
     try {
@@ -283,11 +323,9 @@ export const Settings = () => {
       toast.error("There was a problem logging out", ResponsivePatterns.toast.config);
     }
   };
-
   // Fetch user data with caching and progressive loading
   const fetchUserData = async (forceRefresh = false) => {
     if (!user) return;
-
     // Start progressive loading
     setProgressiveLoading(true);
     
@@ -397,21 +435,18 @@ export const Settings = () => {
         console.error("Error fetching user profile:", error);
         // Continue with existing cached data or defaults
       }
-
       // Security settings disabled - using Supabase Auth built-in security
       console.log("Custom security settings disabled - using Supabase Auth defaults");
       setSecurityInfo({
         twoFactorEnabled: false, // Managed by Supabase Auth
         loginNotifications: true, // Default enabled
       });
-
       // Fetch user's primary company
       const { data: userCompanyData, error: userCompanyError } =
         await supabase
           .from("user_companies")
           .select("*")
           .eq("user_id", user.id);
-
       if (
         !userCompanyError &&
         userCompanyData &&
@@ -420,7 +455,6 @@ export const Settings = () => {
         // Get primary company or first one
         const primaryCompany =
           userCompanyData.find((c) => c.is_primary) || userCompanyData[0];
-
         // Fetch the company details
         const { data: companyDetails, error: companyDetailsError } =
           await supabase
@@ -428,7 +462,6 @@ export const Settings = () => {
             .select("*")
             .eq("id", primaryCompany.company_id)
             .single();
-
         if (!companyDetailsError && companyDetails) {
           const company = {
             id: companyDetails.id,
@@ -438,7 +471,6 @@ export const Settings = () => {
             role: primaryCompany.role || "",
             is_primary: primaryCompany.is_primary || true,
           };
-
           // Update cache
           settingsCache.company = company;
           
@@ -450,7 +482,6 @@ export const Settings = () => {
             description: company.description || "",
             role: company.role || "",
           });
-
           // Save to sessionStorage for use in recommendations
           if (company.description) {
             sessionStorage.setItem(
@@ -464,7 +495,6 @@ export const Settings = () => {
           }
         }
       }
-
       // Fetch user preferences (DISABLED - table not available)
       // try {
       //   const { data: preferencesData, error: preferencesError } =
@@ -473,7 +503,6 @@ export const Settings = () => {
       //       .select("*")
       //       .eq("user_id", user.id)
       //       .single();
-
       //   if (!preferencesError && preferencesData) {
       //     // Update cache
       //     settingsCache.preferences = preferencesData;
@@ -494,10 +523,8 @@ export const Settings = () => {
           language: "English (US)",
           time_zone: "Eastern Time (US & Canada)",
           date_format: "MM/DD/YYYY",
-          theme: "Light",
         });
       // }
-
       // Fetch notification settings (DISABLED - table not available)
       // try {
       //   const { data: notificationData, error: notificationError } =
@@ -506,7 +533,6 @@ export const Settings = () => {
       //       .select("*")
       //       .eq("user_id", user.id)
       //       .single();
-
       //   if (!notificationError && notificationData) {
       //     setNotificationSettings({
       //       emailNotifications: notificationData.email_notifications ?? true,
@@ -554,26 +580,22 @@ export const Settings = () => {
       setBackgroundRefresh(false);
     }
   };
-
   // Fetch user data on mount and when user changes
   useEffect(() => {
     if (user) {
       fetchUserData();
     }
   }, [user]);
-
   // Update handlers
   const handlePersonalSubmit = async (e) => {
     e.preventDefault();
     if (!user) return;
-
     try {
       // Update profile using new robust API
       await profileApi.updatePersonalInfo(user.id, {
         first_name: personalInfo.first_name,
         last_name: personalInfo.last_name,
       });
-
       // Update company information using profile API
       await profileApi.updateCompanyInfo(user.id, {
         company_name: companyInfo.name,
@@ -581,7 +603,6 @@ export const Settings = () => {
         company_description: companyInfo.description,
         role: companyInfo.role,
       });
-
       // Generate company markdown if URL is provided
       if (companyInfo.url) {
         try {
@@ -593,12 +614,10 @@ export const Settings = () => {
               body: JSON.stringify({ companyUrl: companyInfo.url }),
             }
           );
-
           const result = await response.json();
           if (response.ok) {
             toast.success("Company website scraped and markdown generated.");
             console.log("Scrape result:", result);
-
             // Update company with markdown if successful
             if (userCompany?.id) {
               const { error: markdownError } = await supabase
@@ -607,7 +626,6 @@ export const Settings = () => {
                   markdown_content: result.markdown,
                 })
                 .eq("id", userCompany.id);
-
               if (markdownError) {
                 console.error("Error updating markdown:", markdownError);
                 toast.error("Failed to save company markdown");
@@ -624,7 +642,6 @@ export const Settings = () => {
           toast.error("Could not reach scraper service");
         }
       }
-
       // Save to sessionStorage for use in recommendations
       if (!companyInfo.description) {
         console.warn(
@@ -643,10 +660,8 @@ export const Settings = () => {
         );
         console.log("Saved user profile to sessionStorage");
       }
-
       toast.success("Personal information updated successfully");
       setEditingPersonal(false);
-
       // Reload to reflect updated company info
       window.location.reload();
     } catch (error) {
@@ -654,11 +669,9 @@ export const Settings = () => {
       toast.error("Failed to update personal information");
     }
   };
-
   const handlePreferencesSubmit = async (e) => {
     e.preventDefault();
     if (!user) return;
-
     try {
       // Update or create preferences (DISABLED - table not available)
       // try {
@@ -678,10 +691,8 @@ export const Settings = () => {
       //   console.warn("User preferences table not available, settings not saved:", dbError);
       //   // Continue without error - settings will be lost on refresh but UI still works
       // }
-
       toast.success("Preferences updated successfully");
       setEditingPreferences(false);
-
       // Refresh user data
       window.location.reload();
     } catch (error) {
@@ -689,7 +700,6 @@ export const Settings = () => {
       toast.error("Failed to update preferences");
     }
   };
-
   const handlePersonalChange = (e) => {
     const { name, value } = e.target;
     if (name.startsWith("company_")) {
@@ -701,16 +711,13 @@ export const Settings = () => {
       setPersonalInfo({ ...personalInfo, [name]: value });
     }
   };
-
   const handlePreferencesChange = (e) => {
     const { name, value } = e.target;
     setPreferences({ ...preferences, [name]: value });
   };
-
   // Handle security settings change
   const handleSecurityChange = async (setting, value) => {
     if (!user) return;
-
     try {
       let colName: string = 'two_factor_enabled';
       switch (setting) {
@@ -723,29 +730,23 @@ export const Settings = () => {
         default:
           break;
       }
-
       // Security settings updates disabled - using Supabase Auth built-in features
       console.log("Security setting update disabled:", setting, "=", value);
-
       setSecurityInfo((prev) => ({
         ...prev,
         [setting]: value,
       }));
-
       toast.success("Security settings updated successfully");
     } catch (error) {
       console.error("Error updating security settings:", error);
       toast.error("Failed to update security settings");
     }
   };
-
   // Handle notification settings change
   const handleNotificationChange = async (setting, value) => {
     if (!user) return;
-
     try {
       let colName: string = 'two_factor_enabled';
-
       switch (setting) {
         case 'emailNotifications':
           colName = 'email_notifications';
@@ -798,42 +799,35 @@ export const Settings = () => {
       //         onConflict: 'user_id'
       //       }
       //     );
-
       //   if (error) throw error;
       // } catch (dbError) {
       //   console.warn("User notifications table not available, settings not saved:", dbError);
       //   // Continue without error - settings will be lost on refresh but UI still works
       // }
-
       setNotificationSettings((prev) => ({
         ...prev,
         [setting]: value,
       }));
-
       toast.success("Notification settings updated successfully");
     } catch (error) {
       console.error("Error updating notification settings:", error);
       toast.error("Failed to update notification settings");
     }
   };
-
   // Handle updating card information
   const handleUpdateCard = () => {
     toast.success("Payment method updated successfully");
   };
-
   // Handle changing subscription plan
   const handleChangePlan = () => {
     toast.success("You will be redirected to the subscription page");
   };
-
   const handleUpgradeSuccess = () => {
     setUpgradeOpen(false);
     toast.success('Your subscription has been upgraded successfully!');
     loadCurrentSubscription();
     setRefreshKey(k => k + 1);
   };
-
   // Cancel subscription handler
   const handleCancelSubscription = async () => {
     if (!window.confirm("Are you sure you want to cancel your subscription? This action cannot be undone.")) return;
@@ -849,7 +843,6 @@ export const Settings = () => {
       setCancelLoading(false);
     }
   };
-
   // Display progressive loading state
   if (progressiveLoading && !initialLoadComplete) {
     return (
@@ -868,9 +861,8 @@ export const Settings = () => {
       </div>
     );
   }
-
   return (
-    <div className={DashboardTemplate.wrapper}>
+    <div className={`${DashboardTemplate.wrapper} bg-background text-foreground`}>
       <Suspense fallback={null}>
         <StripePaymentVerifier />
       </Suspense>
@@ -878,12 +870,10 @@ export const Settings = () => {
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar Component */}
         <SideBar />
-
         {/* Main Content */}
         <div className={DashboardTemplate.main}>
-
           {/* Main Content Area */}
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-background">
             <div className="w-full max-w-full mx-auto">
               {/* Background refresh indicator */}
               {backgroundRefresh && (
@@ -894,27 +884,26 @@ export const Settings = () => {
               )}
               
               {/* Page Header - moved to top for seamless UI */}
-              <div className="flex items-center mb-6 bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+              <div className="flex items-center mb-6 bg-card rounded-xl p-6 shadow-sm border border-border">
                 <div className="mr-6 w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center text-white text-xl font-bold shadow-md">
                   <SettingsIcon className="h-8 w-8" />
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold text-gray-900">
+                  <h1 className="text-2xl font-bold text-foreground">
                     Account Settings
                   </h1>
-                  <div className="flex items-center mt-1 text-sm text-gray-500">
+                  <div className="flex items-center mt-1 text-sm text-muted-foreground">
                     <SettingsIcon className="h-4 w-4 mr-1 text-blue-500" />
                     <span>Manage your profile, company information, and preferences</span>
                   </div>
                 </div>
               </div>
-
               {/* Settings Navigation Tabs */}
-              <div className="flex border-b border-gray-200 mb-6">
+              <div className="flex border-b border-border mb-6">
                 <button
                   className={`px-4 py-2 ${activeTab === "Account"
                     ? "border-b-2 border-blue-500 text-blue-600 font-medium"
-                    : "text-gray-500 hover:text-gray-700"
+                    : "text-muted-foreground hover:text-foreground"
                     }`}
                   onClick={() => {
                     setActiveTab("Account");
@@ -926,7 +915,7 @@ export const Settings = () => {
                 <button
                   className={`px-4 py-2 ${activeTab === "Notifications"
                     ? "border-b-2 border-blue-500 text-blue-600 font-medium"
-                    : "text-gray-500 hover:text-gray-700"
+                    : "text-muted-foreground hover:text-foreground"
                     }`}
                   onClick={() => {
                     setActiveTab("Notifications");
@@ -938,7 +927,7 @@ export const Settings = () => {
                 <button
                   className={`px-4 py-2 ${activeTab === "Billing"
                     ? "border-b-2 border-blue-500 text-blue-600 font-medium"
-                    : "text-gray-500 hover:text-gray-700"
+                    : "text-muted-foreground hover:text-foreground"
                     }`}
                   onClick={() => {
                     setActiveTab("Billing");
@@ -948,22 +937,20 @@ export const Settings = () => {
                   Billing
                 </button>
               </div>
-
               {/* Account Tab Content */}
               {activeTab === "Account" && (
                 <>
                   {/* Personal Information Section */}
-                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-6 transition-all hover:shadow-md">
-                    <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100">
+                  <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden mb-6 transition-all hover:shadow-md">
+                    <div className="flex justify-between items-center px-6 py-4 border-b border-border">
                       <div className="flex items-center gap-3">
                         <div className="bg-blue-100 p-2 rounded-lg">
                           <User className="w-5 h-5 text-blue-500" />
                         </div>
-                        <h3 className="text-lg font-semibold text-gray-800">
+                        <h3 className="text-lg font-semibold text-foreground">
                           Personal Information
                         </h3>
                       </div>
-
                       {!editingPersonal ? (
                         <button
                           className="text-blue-500 hover:text-blue-700 flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors"
@@ -974,7 +961,6 @@ export const Settings = () => {
                         </button>
                       ) : null}
                     </div>
-
                     {editingPersonal ? (
                       <form onSubmit={handlePersonalSubmit} className="p-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -1023,7 +1009,6 @@ export const Settings = () => {
                             </div>
                           </div>
                         </div>
-
                         <div className="mb-6">
                           <label
                             htmlFor="email"
@@ -1046,7 +1031,6 @@ export const Settings = () => {
                             />
                           </div>
                         </div>
-
                         <div className="border-t border-gray-100 pt-6 mt-6">
                           <h4 className="text-lg font-medium text-gray-800 mb-4">
                             Company Information
@@ -1073,7 +1057,6 @@ export const Settings = () => {
                               />
                             </div>
                           </div>
-
                           <div className="mb-6">
                             <label
                               htmlFor="company_role"
@@ -1096,7 +1079,6 @@ export const Settings = () => {
                               />
                             </div>
                           </div>
-
                           <div className="mb-6">
                             <label
                               htmlFor="company_url"
@@ -1119,7 +1101,6 @@ export const Settings = () => {
                               />
                             </div>
                           </div>
-
                           <div className="mb-6">
                             <label
                               htmlFor="company_description"
@@ -1143,7 +1124,6 @@ export const Settings = () => {
                             </div>
                           </div>
                         </div>
-
                         <div className="flex justify-end space-x-4 pt-4 border-t border-gray-100">
                           <button
                             type="button"
@@ -1199,7 +1179,6 @@ export const Settings = () => {
                                 </div>
                               </div>
                             </div>
-
                             <div className="border-t border-gray-100 pt-6">
                               <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
                                 Company Information
@@ -1256,7 +1235,6 @@ export const Settings = () => {
                                 </div>
                               </div>
                             </div>
-
                             {(userProfile?.company_info?.company_description || userCompany?.description) && (
                               <div className="border-t border-gray-100 pt-6">
                                 <div className="flex items-start space-x-3">
@@ -1279,7 +1257,6 @@ export const Settings = () => {
                       </div>
                     )}
                   </div>
-
                   {/* Account Preferences Section */}
                   <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-6 transition-all hover:shadow-md">
                     <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100">
@@ -1291,7 +1268,6 @@ export const Settings = () => {
                           Account Preferences
                         </h3>
                       </div>
-
                       {!editingPreferences ? (
                         <button
                           className="text-blue-500 hover:text-blue-700 flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors"
@@ -1302,7 +1278,6 @@ export const Settings = () => {
                         </button>
                       ) : null}
                     </div>
-
                     {editingPreferences ? (
                       <form onSubmit={handlePreferencesSubmit} className="p-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -1346,7 +1321,6 @@ export const Settings = () => {
                               </div>
                             </div>
                           </div>
-
                           <div>
                             <label
                               htmlFor="time_zone"
@@ -1392,7 +1366,6 @@ export const Settings = () => {
                             </div>
                           </div>
                         </div>
-
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                           <div>
                             <label
@@ -1431,46 +1404,7 @@ export const Settings = () => {
                               </div>
                             </div>
                           </div>
-
-                          <div>
-                            <label
-                              htmlFor="theme"
-                              className="block text-sm font-medium text-gray-700 mb-2"
-                            >
-                              Theme
-                            </label>
-                            <div className="relative">
-                              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <PaintBucket className="h-5 w-5 text-gray-400" />
-                              </div>
-                              <select
-                                id="theme"
-                                name="theme"
-                                value={preferences.theme}
-                                onChange={handlePreferencesChange}
-                                className="pl-10 w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors appearance-none"
-                              >
-                                <option value="Light">Light</option>
-                                <option value="Dark">Dark</option>
-                                <option value="System">System</option>
-                              </select>
-                              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3">
-                                <svg
-                                  className="h-5 w-5 text-gray-400"
-                                  viewBox="0 0 20 20"
-                                  fill="currentColor"
-                                >
-                                  <path
-                                    fillRule="evenodd"
-                                    d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                                    clipRule="evenodd"
-                                  />
-                                </svg>
-                              </div>
-                            </div>
-                          </div>
                         </div>
-
                         <div className="flex justify-end space-x-4 pt-4 border-t border-gray-100">
                           <button
                             type="button"
@@ -1501,7 +1435,6 @@ export const Settings = () => {
                               </p>
                             </div>
                           </div>
-
                           <div className="flex items-center space-x-3">
                             <div className="flex-shrink-0 bg-blue-50 p-2 rounded-lg">
                               <Clock className="w-5 h-5 text-blue-500" />
@@ -1514,7 +1447,6 @@ export const Settings = () => {
                               </p>
                             </div>
                           </div>
-
                           <div className="flex items-center space-x-3">
                             <div className="flex-shrink-0 bg-blue-50 p-2 rounded-lg">
                               <Calendar className="w-5 h-5 text-blue-500" />
@@ -1528,27 +1460,20 @@ export const Settings = () => {
                               </p>
                             </div>
                           </div>
-
                           <div className="flex items-center space-x-3">
                             <div className="flex-shrink-0 bg-blue-50 p-2 rounded-lg">
                               <PaintBucket className="w-5 h-5 text-blue-500" />
                             </div>
-                            <div>
-                              <p className="text-sm text-gray-500">Theme</p>
-                              <p className="font-medium text-gray-900">
-                                {userPreferences?.theme || "Light"}
-                              </p>
+                            <div className="flex-1">
+                              <ThemeToggle />
                             </div>
                           </div>
                         </div>
                       </div>
                     )}
                   </div>
-
                 </>
               )}
-
-
               {/* Notifications Tab Content */}
               {activeTab === "Notifications" && (
                 <div className="flex items-center justify-center min-h-[600px]">
@@ -1563,13 +1488,17 @@ export const Settings = () => {
                         <span className="text-white text-xs font-bold">3</span>
                       </div>
                     </div>
-
                     {/* Coming Soon Badge */}
-                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full text-sm font-medium mb-6 shadow-lg">
-                      <Zap className="w-4 h-4" />
-                      <span>Coming Soon</span>
+                    <div 
+                      className="inline-flex items-center gap-2 px-6 py-3 rounded-lg font-medium mb-6 shadow-md hover:shadow-lg transition-all" 
+                      style={{ 
+                        background: 'linear-gradient(to right, #2563eb, #9333ea)',
+                        color: '#ffffff'
+                      }}
+                    >
+                      <Zap className="w-4 h-4" style={{ color: '#ffffff', fill: '#ffffff' }} />
+                      <span style={{ color: '#ffffff' }}>Coming Soon</span>
                     </div>
-
                     {/* Main Heading */}
                     <h2 className="text-3xl font-bold text-gray-900 mb-4">
                       Notification Center
@@ -1579,7 +1508,6 @@ export const Settings = () => {
                     <p className="text-gray-600 mb-8 leading-relaxed">
                       We're building an amazing notification system to keep you updated on opportunities, deadlines, and important updates. Stay tuned!
                     </p>
-
                     {/* Feature Preview Cards */}
                     <div className="grid grid-cols-1 gap-4 mb-8">
                       <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
@@ -1591,7 +1519,6 @@ export const Settings = () => {
                           <p className="text-sm text-gray-500">Get notified about new opportunities and updates</p>
                         </div>
                       </div>
-
                       <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
                         <div className="flex-shrink-0 w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
                           <Smartphone className="w-5 h-5 text-green-600" />
@@ -1601,7 +1528,6 @@ export const Settings = () => {
                           <p className="text-sm text-gray-500">Urgent notifications for time-sensitive opportunities</p>
                         </div>
                       </div>
-
                       <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
                         <div className="flex-shrink-0 w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
                           <Bell className="w-5 h-5 text-purple-600" />
@@ -1611,7 +1537,6 @@ export const Settings = () => {
                           <p className="text-sm text-gray-500">Real-time updates while using BizRadar</p>
                         </div>
                       </div>
-
                       <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
                         <div className="flex-shrink-0 w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
                           <Clock className="w-5 h-5 text-orange-600" />
@@ -1622,19 +1547,29 @@ export const Settings = () => {
                         </div>
                       </div>
                     </div>
-
                     {/* Call to Action */}
                     <div className="p-6 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border border-blue-100">
                       <h3 className="font-semibold text-gray-900 mb-2">Want to be notified when it's ready?</h3>
                       <p className="text-sm text-gray-600 mb-4">
                         We'll send you an email as soon as notification settings are available.
                       </p>
-                      <button className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 transition-all shadow-md hover:shadow-lg">
-                        <Megaphone className="w-4 h-4" />
-                        <span>Notify Me</span>
+                      <button 
+                        className="inline-flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all shadow-md hover:shadow-lg" 
+                        style={{ 
+                          background: 'linear-gradient(to right, #2563eb, #9333ea)',
+                          color: '#ffffff'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = 'linear-gradient(to right, #1d4ed8, #7e22ce)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'linear-gradient(to right, #2563eb, #9333ea)';
+                        }}
+                      >
+                        <Megaphone className="w-4 h-4" style={{ color: '#ffffff', fill: '#ffffff' }} />
+                        <span style={{ color: '#ffffff' }}>Notify Me</span>
                       </button>
                     </div>
-
                     {/* Progress Indicator */}
                     <div className="mt-8 pt-6 border-t border-gray-200">
                       <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
@@ -1650,7 +1585,6 @@ export const Settings = () => {
                   </div>
                 </div>
               )}
-
               {/* Billing Tab Content */}
               {activeTab === "Billing" && (
                 <>
@@ -1666,7 +1600,6 @@ export const Settings = () => {
                         </h3>
                       </div>
                     </div>
-
                     <div className="p-6">
                       {subLoading ? (
                         <div className="mb-4">Loading your current subscription...</div>
@@ -1737,7 +1670,6 @@ export const Settings = () => {
                       )}
                     </div>
                   </div>
-
                   {/* Enterprise Upgrade Section */}
                   <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-6 transition-all hover:shadow-md">
                     <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100">
@@ -1753,11 +1685,10 @@ export const Settings = () => {
                         Upgrade Available
                       </div>
                     </div>
-
                     <div className="p-6">
                       <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg text-white p-6">
-                        <h4 className="text-xl font-semibold mb-3">Need More Features?</h4>
-                        <p className="text-blue-100 mb-6 text-sm">
+                        <h4 className="text-xl font-semibold mb-3 text-gray-900 dark:text-white">Need More Features?</h4>
+                        <p className="mb-6 text-sm" style={{ color: '#60a5fa' }}>
                           Upgrade to our Enterprise plan for additional features and unlimited access to take your business to the next level.
                         </p>
                         <div className="flex flex-col sm:flex-row gap-3">
@@ -1777,7 +1708,6 @@ export const Settings = () => {
                       </div>
                     </div>
                   </div>
-
                   {/* Payment Method Section */}
                   <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-6 transition-all hover:shadow-md">
                     <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100">
@@ -1797,13 +1727,10 @@ export const Settings = () => {
                         <span>Update</span>
                       </button>
                     </div>
-
                     <div className="p-6">
                       <PaymentMethodManager />
                     </div>
                   </div>
-
-
                   {/* Billing History Section */}
                   <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-6 transition-all hover:shadow-md">
                     <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100">
@@ -1819,112 +1746,52 @@ export const Settings = () => {
 
                     <div className="p-6">
                       <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                          <thead>
-                            <tr>
-                              <th
-                                scope="col"
-                                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                              >
-                                Invoice
-                              </th>
-                              <th
-                                scope="col"
-                                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                              >
-                                Date
-                              </th>
-                              <th
-                                scope="col"
-                                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                              >
-                                Amount
-                              </th>
-                              <th
-                                scope="col"
-                                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                              >
-                                Status
-                              </th>
-                              <th
-                                scope="col"
-                                className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
-                              ></th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-200 bg-white">
-                            <tr>
-                              <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                INV-2025-003
-                              </td>
-                              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                                April 1, 2025
-                              </td>
-                              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                                $199.00
-                              </td>
-                              <td className="px-4 py-4 whitespace-nowrap">
-                                <span className="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                  Paid
-                                </span>
-                              </td>
-                              <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                <button className="text-blue-600 hover:text-blue-900 inline-flex items-center gap-1">
-                                  <Download className="h-4 w-4" />
-                                  <span>PDF</span>
-                                </button>
-                              </td>
-                            </tr>
-                            <tr>
-                              <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                INV-2025-002
-                              </td>
-                              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                                March 1, 2025
-                              </td>
-                              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                                $199.00
-                              </td>
-                              <td className="px-4 py-4 whitespace-nowrap">
-                                <span className="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                  Paid
-                                </span>
-                              </td>
-                              <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                <button className="text-blue-600 hover:text-blue-900 inline-flex items-center gap-1">
-                                  <Download className="h-4 w-4" />
-                                  <span>PDF</span>
-                                </button>
-                              </td>
-                            </tr>
-                            <tr>
-                              <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                INV-2025-001
-                              </td>
-                              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                                February 1, 2025
-                              </td>
-                              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                                $199.00
-                              </td>
-                              <td className="px-4 py-4 whitespace-nowrap">
-                                <span className="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                  Paid
-                                </span>
-                              </td>
-                              <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                <button className="text-blue-600 hover:text-blue-900 inline-flex items-center gap-1">
-                                  <Download className="h-4 w-4" />
-                                  <span>PDF</span>
-                                </button>
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
+
+                        {billingHistory.length === 0 ? (
+                          <div className="text-sm text-gray-500">No billing history found.</div>
+                        ) : (
+                          <table className="min-w-full divide-y divide-gray-200">
+                            <thead>
+                              <tr>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"></th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200 bg-white">
+                              {billingHistory.map((inv) => (
+                                <tr key={inv.id}>
+                                  <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{inv.number || inv.id}</td>
+                                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{inv.created ? new Date(inv.created * 1000).toLocaleDateString() : 'N/A'}</td>
+                                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                                    ${((inv.amount_paid ?? inv.amount_due ?? 0) / 100).toFixed(2)}
+                                  </td>
+                                  <td className="px-4 py-4 whitespace-nowrap">
+                                    <span className="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">{inv.status || 'paid'}</span>
+                                  </td>
+                                  <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    {inv.invoice_pdf ? (
+                                      <a href={inv.invoice_pdf} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-900 inline-flex items-center gap-1">
+                                        <Download className="h-4 w-4" />
+                                        <span>PDF</span>
+                                      </a>
+                                    ) : inv.hosted_invoice_url ? (
+                                      <a href={inv.hosted_invoice_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-900 inline-flex items-center gap-1">
+                                        <Download className="h-4 w-4" />
+                                        <span>View</span>
+                                      </a>
+                                    ) : null}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
                       </div>
                     </div>
                   </div>
-
                   {/* Tax Information Section */}
                   <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-6 transition-all hover:shadow-md">
                     <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100">
@@ -1941,7 +1808,6 @@ export const Settings = () => {
                         <span>Edit</span>
                       </button>
                     </div>
-
                     <div className="p-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
@@ -1952,31 +1818,28 @@ export const Settings = () => {
                             {companyInfo.name || "Not set"}
                           </p>
                         </div>
-
                         <div>
                           <p className="text-sm text-gray-500 mb-1">
                             Tax ID / EIN
                           </p>
                           <p className="font-medium text-gray-800">
-                            12-3456789
+                            {taxInfo.ein || "Not set"}
                           </p>
                         </div>
-
                         <div>
                           <p className="text-sm text-gray-500 mb-1">
                             Billing Address
                           </p>
                           <p className="font-medium text-gray-800">
-                            {"Not set"}
+                            {taxInfo.billingAddress || "Not set"}
                           </p>
                         </div>
-
                         <div>
                           <p className="text-sm text-gray-500 mb-1">
                             Country / Region
                           </p>
                           <p className="font-medium text-gray-800">
-                            United States
+                            {taxInfo.country || "Not set"}
                           </p>
                         </div>
                       </div>
@@ -1988,7 +1851,6 @@ export const Settings = () => {
           </div>
         </div>
       </div>
-
       {/* Phone Update Modal */}
       {showPhoneModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -2070,12 +1932,10 @@ export const Settings = () => {
 const ContactSalesModal = ({ onClose }) => {
   const [form, setForm] = useState({ name: '', email: '', message: '' });
   const [submitting, setSubmitting] = useState(false);
-
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
   };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
@@ -2086,7 +1946,6 @@ const ContactSalesModal = ({ onClose }) => {
       onClose();
     }, 1000);
   };
-
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>

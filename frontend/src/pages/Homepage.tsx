@@ -7,6 +7,7 @@ import { useState, useRef, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Toaster } from "@/components/ui/toaster";
 import { emailService } from "@/utils/emailService";
+import { useTrack } from "@/logging"; // <-- added
 
 // Image Carousel Component
 const ImageCarousel = ({ currentSlide, setCurrentSlide }) => {
@@ -143,6 +144,19 @@ const Layout = ({ children }) => {
   const heroRef = useRef(null);
   const featuresRef = useRef(null);
   const solutionsRef = useRef(null);
+
+  // 🔹 fire logout event if we just returned to "/"
+  const track = useTrack(); // <-- added
+  useEffect(() => {
+    if (sessionStorage.getItem("pendingLogoutTrack") === "1") {
+      track({
+        event_name: "logout-success",
+        event_type: "button_click",
+        metadata: {search_query: null, stage: null, opportunity_id: null, naics_code: null, rfp_title: null}
+      });
+      sessionStorage.removeItem("pendingLogoutTrack");
+    }
+  }, [track]); // <-- added
 
   // For scroll progress indicator
   const { scrollYProgress } = useScroll();

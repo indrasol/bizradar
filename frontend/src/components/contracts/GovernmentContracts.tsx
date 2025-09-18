@@ -13,6 +13,7 @@ import { DollarSign, Calendar, Building2, FileText } from "lucide-react";
 import { Link } from "react-router-dom";
 import { SearchBar } from "@/components/dashboard/SearchBar";
 import { useNavigate } from "react-router-dom";
+import { useTrack } from "@/logging";
 
 
 // Typewriter Animation Component
@@ -87,8 +88,22 @@ export const GovernmentContracts = () => {
 
   const navigate = useNavigate();
 
-  const handleGenerateRFP = (contract) => {
+  const track=useTrack();
+
+  const handleGenerateRFP = (contract: Contract) => {
     // Ensure you are passing the entire contract object correctly
+
+    track({
+      event_name: "generate_rfp",
+      event_type: "button_click",
+      metadata: {
+        search_query: null,
+        stage: null,
+        opportunity_id: contract.id,
+        title: contract.title,           // optional, handy for DEs
+        naics_code: contract.naicsCode,  // matches your schema naming
+      },
+    });
     navigate(`/contracts/rfp/${contract.id}`, { state: { contract } });
   };
   

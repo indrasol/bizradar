@@ -21,7 +21,9 @@ from app.routes.tracker_routes import router as tracker_router
 from app.routes.profile_routes import router as profile_router
 from app.config.settings import title, description, version
 from app.routes.enhanced_search import router as enhanced_search_router
-# from app.routes.profiles import router as company_router
+from app.routes.event_handler import event_router as events_router
+from app.routes.event_routes import events_router
+
 
 
 @asynccontextmanager
@@ -54,7 +56,8 @@ origins = [
     "https://bizradar.netlify.app/",     # Include trailing slash version
     "http://bizradar.netlify.app",       # Include HTTP version
     "https://bizradar1.netlify.app",  # Your production frontend domain
-    "https://dev-bizradar1.netlify.app/",
+    "https://dev--bizradar1.netlify.app",  # Add missing domain without trailing slash
+    "https://dev--bizradar1.netlify.app/", # Add missing domain with trailing slash
     # "*"  # Temporarily allow all origins during development
 ]
 
@@ -85,7 +88,10 @@ app.include_router(company_router, prefix="/api/company", tags=["company"])
 app.include_router(pursuit_router, prefix="/api/pursuits", tags=["pursuits"])
 app.include_router(tracker_router, prefix="/api/trackers", tags=["trackers"])
 app.include_router(profile_router, prefix="/api/profile", tags=["profile"])
-# app.include_router(company_router, prefix="/api", tags=["company"])
+# Events/session tracking routes
+app.include_router(events_router, prefix="/api/events", tags=["events"])
+# app.include_router(events_router,prefix="/api", tags=["events"])
+app.include_router(events_router)
 
 
 # Webhook endpoint - no /api prefix since it's called directly by Stripe

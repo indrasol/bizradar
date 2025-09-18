@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { toast } from "sonner";
 import AuthContext from "../components/Auth/AuthContext";
+import { useTrack } from "@/logging";
 
 // Login form schema validation
 const loginFormSchema = z.object({
@@ -28,6 +29,7 @@ const Login = ({ isOpen = true, onOpenChange = () => { }, onSwitchToRegister = (
   const [error, setError] = useState<string | null>(null);
   const { login, loginWithOAuth } = useContext(AuthContext);
   const navigate = useNavigate();
+  const track = useTrack();
 
   // Social login handlers
   const handleLinkedInLogin = () => {
@@ -74,6 +76,8 @@ const Login = ({ isOpen = true, onOpenChange = () => { }, onSwitchToRegister = (
       // Attempt login via AuthContext
       await login(values.identifier, values.password);
 
+      track({ event_name: "login-success", event_type: "button_click", metadata: {search_query: null, stage: null, opportunity_id: null, naics_code: null, rfp_title: null} });
+
       // Success notification and UI update
       toast.success("Login successful!", {
         closeButton: true,
@@ -89,6 +93,7 @@ const Login = ({ isOpen = true, onOpenChange = () => { }, onSwitchToRegister = (
     } catch (err: any) {
       console.error("Login error:", err);
       setError(err.message || "Login failed");
+      track({ event_name: "login-failure", event_type: "button_click", metadata: {} });
       toast.error(err.message || "Login failed", {
         closeButton: true,
         duration: 5000

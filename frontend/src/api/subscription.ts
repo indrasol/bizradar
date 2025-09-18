@@ -64,7 +64,7 @@ export const subscriptionApi = {
           features: [
             'Unlimited opportunity searches',
             'AI Search Boost - up to 5 smart suggestions per search',
-            'Starter tracking',
+            'Basic tracking',
             'Basic dashboard',
             '2 AI-assisted RFP drafts per month'
           ],

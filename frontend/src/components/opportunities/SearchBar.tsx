@@ -1,12 +1,31 @@
 import React from "react";
 import { Search, X, ArrowRight } from "lucide-react";
 import { SearchBarProps } from "@/models/opportunities";
+import { useTrack } from "@/logging";
 
 const SearchBar: React.FC<SearchBarProps> = ({ searchQuery, setSearchQuery, handleSearch, clearSearch }) => {
+  const track = useTrack();
+
+  const onSubmit = (e: React.FormEvent) => {
+    // Track the search submit (Enter key or button click)
+    track({
+      event_name: "search_initiated",
+      event_type: "btn_click",
+      metadata: {
+        search_query: searchQuery,
+        stage: null,
+        opportunity_id: null,
+        title: null,           
+        naics_code: null,
+      },
+    });
+    // Call original submit handler
+    handleSearch(e);
+  };
 
   return (
     <div className="p-2 border-b border-gray-200 bg-white sticky top-0 z-20">
-      <form onSubmit={handleSearch} className="flex items-center gap-3">
+      <form onSubmit={onSubmit} className="flex items-center gap-3">
         <div className="relative flex-1">
           <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
             <Search size={18} className="text-blue-400" />

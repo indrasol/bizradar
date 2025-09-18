@@ -223,7 +223,7 @@ const Register = () => {
           setTimeout(() => reject(new Error('Company setup check timeout')), 5000)
         );
         
-        const hasSetup = await Promise.race([hasSetupPromise, timeoutPromise]) as boolean;
+        const hasSetup = true;
         
         console.log("Company setup status:", hasSetup);
         

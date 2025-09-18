@@ -14,6 +14,7 @@ import { FilterValues, Opportunity, SearchParams } from "@/models/opportunities"
 import { ResponsivePatterns, DashboardTemplate } from "../utils/responsivePatterns";
 import { API_ENDPOINTS } from "@/config/apiEndpoints";
 import { getApiUrl } from "@/config/env";
+import { useTrack } from "@/logging";
 
  const API_BASE_URL = getApiUrl();
 
@@ -25,6 +26,7 @@ const OpportunitiesPage: React.FC = () => {
   const { logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  
   
   // Get current date for header
   const currentDate = new Date().toLocaleDateString("en-US", {
@@ -43,6 +45,8 @@ const OpportunitiesPage: React.FC = () => {
     opportunityType: "all",
     contractType: null,
     platform: null,
+    customPostedDateFrom: "",
+    customPostedDateTo: "",
   });
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalResults, setTotalResults] = useState<number>(0);
@@ -65,6 +69,15 @@ const OpportunitiesPage: React.FC = () => {
   const hasRunInitialFilterEffectRef = useRef<boolean>(false);
   const hasRunInitialSortEffectRef = useRef<boolean>(false);
 
+  const track = useTrack();
+
+  useEffect(() => {
+    track({
+      event_name: "opportunities",
+      event_type: "View",
+      metadata: {search_query: null, stage: null, opportunity_id: null, naics_code: null, rfp_title: null}    // explicitly pass empty metadata
+    });
+  }, [track]);
   // Restore last search state on mount without refetching
   useEffect(() => {
     // Check if this is a page reload (not navigation)
@@ -124,21 +137,17 @@ const OpportunitiesPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!hasRunInitialFilterEffectRef.current) {
-      hasRunInitialFilterEffectRef.current = true;
-      return;
+    // Apply filters when filter values change and we have an active search
+    if (searchQuery.trim() && hasSearched) {
+      applyFilters();
     }
-    if (isRestoringRef.current) return;
-    applyFilters();
   }, [filterValues.opportunityType, filterValues.dueDate, filterValues.postedDate, filterValues.naicsCode]);
 
   useEffect(() => {
-    if (!hasRunInitialSortEffectRef.current) {
-      hasRunInitialSortEffectRef.current = true;
-      return;
+    // Apply sort when sort value changes and we have an active search
+    if (searchQuery.trim() && hasSearched) {
+      applySort();
     }
-    if (isRestoringRef.current) return;
-    applySort();
   }, [sortBy]);
 
   useEffect(() => {
@@ -415,10 +424,6 @@ const OpportunitiesPage: React.FC = () => {
        throw new Error("Invalid data format received");
      }
 
-     // Save all_results to sessionStorage for export
-     if (Array.isArray(data.all_results)) {
-       sessionStorage.setItem("allOpportunitiesForExport", JSON.stringify(data.all_results));
-     }
 
      // Process results
      const processedResults = processSearchResults(data.results);
@@ -448,13 +453,6 @@ const OpportunitiesPage: React.FC = () => {
              setTotalPages(data.total_pages || 1);
        setCurrentPage(data.page || 1);
       setHasSearched(true);
-      // saveSearchStateToSession(
-      //   data.query,
-      //   summarized_results,
-      //   tot,
-      //   data.total_pages,
-      //   refinedQuery || ""
-      // );
       console.log("Adding results")
     }
          return {
@@ -482,9 +480,6 @@ const OpportunitiesPage: React.FC = () => {
     params: Partial<SearchParams>,
     query: string
   ) => {
-    if (isRestoringRef.current) {
-      return;
-    }
     setIsSearching(true);
     setHasSearched(false);
 
@@ -498,13 +493,6 @@ const OpportunitiesPage: React.FC = () => {
       setHasSearched(true);
       setRefinedQuery("");
       setShowRefinedQuery(false);
-      saveSearchStateToSession(
-        query,
-        result.opportunities,
-        result.total,
-        result.total_pages,
-        ""
-      );
     } catch (error: any) {
       toast.error(error.message || "An error occurred during search", ResponsivePatterns.toast.config);
       setOpportunities([]);
@@ -606,7 +594,24 @@ const OpportunitiesPage: React.FC = () => {
         .eq("user_id", user.id)
         .eq("title", opportunity.title);
 
-      if (existingTrackers && existingTrackers.length > 0) return;
+      if (existingTrackers && existingTrackers.length > 0) {
+        // Already tracked → toggle OFF by deleting
+        const trackerId = existingTrackers[0].id;
+        const { error: deleteError } = await supabase
+          .from("trackers")
+          .delete()
+          .eq("id", trackerId)
+          .eq("user_id", user.id);
+        if (deleteError) throw deleteError;
+        setPursuitCount((prev) => Math.max(0, prev - 1));
+        try {
+          toast.success("Removed from Tracker", {
+            description: "This opportunity is no longer being tracked.",
+            duration: 2500,
+          });
+        } catch {}
+        return;
+      }
 
       const newId = (typeof window !== 'undefined' && window.crypto && 'randomUUID' in window.crypto)
         ? window.crypto.randomUUID()
@@ -614,7 +619,7 @@ const OpportunitiesPage: React.FC = () => {
 
       const { data, error } = await supabase
         .from("trackers")
-        .insert([{ id: newId, title: opportunity.title, description: opportunity.description || "", stage: "Assessment", user_id: user.id, due_date: opportunity.response_date }])
+        .insert([{ id: newId, title: opportunity.title, description: opportunity.description || "", stage: "Review", user_id: user.id, due_date: opportunity.response_date, opportunity_id: opportunity.id }])
         .select();
       if (error) throw error;
 
@@ -622,32 +627,95 @@ const OpportunitiesPage: React.FC = () => {
         setShowNotification(true);
         setTimeout(() => setShowNotification(false), 3000);
         setPursuitCount((prev) => prev + 1);
+        // Immediate feedback toast
+        try {
+          toast.success("Added to Tracker", {
+            description: "This opportunity is now being tracked in My Tracker.",
+            duration: 2500,
+          });
+        } catch {}
       }
     } catch (error) {
       console.error("Error adding to tracker:", error);
     }
   };
 
-  const handleBeginResponse = (contractId: string, contractData: Opportunity) => {
-    const contract = {
-      id: contractId,
-      title: contractData.title,
-      department: contractData.agency,
-      noticeId: contractData.id,
-      dueDate: contractData.response_date || "2025-01-01",
-      response_date: contractData.response_date || "2025-01-01",
-      published_date: contractData.published_date || "",
-      value: contractData.budget || "0",
-      status: contractData.active === false ? "Inactive" : "Active",
-      naicsCode: contractData.naics_code || "000000",
-      solicitation_number: contractData.solicitation_number || "",
-      description: contractData.description || "",
-      external_url: contractData.external_url || "",
-      budget: contractData.budget || "",
-    };
-    sessionStorage.setItem("currentContract", JSON.stringify(contract));
-    navigate(`/contracts/rfp/${contractData.id}`);
+  const handleBeginResponse = async (contractId: string, contractData: Opportunity) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+  
+      // 1) Do we already have a tracker for this title?
+      let pursuitId: string | undefined;
+      const { data: existingTrackers } = await supabase
+        .from("trackers")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("title", contractData.title);
+  
+      if (existingTrackers && existingTrackers.length > 0) {
+        pursuitId = existingTrackers[0].id;
+      } else {
+        // Always create a new tracker if not found
+        const newId =
+          (typeof window !== "undefined" && window.crypto && "randomUUID" in window.crypto)
+            ? window.crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+  
+        // Wait for the insert to finish and check for errors
+        const { error: insertError } = await supabase.from("trackers").insert([{
+          id: newId,
+          title: contractData.title,
+          description: contractData.description || "",
+          stage: "Review",
+          user_id: user.id,
+          due_date: contractData.response_date,
+          opportunity_id: contractData.id,
+        }]);
+        if (insertError) {
+          toast.error("Failed to create tracker. Please try again.");
+          return;
+        }
+        // Optionally, you can add a small delay to ensure DB consistency
+        // await new Promise(res => setTimeout(res, 200));
+        pursuitId = newId;
+      }
+  
+      // 2) Save contract + pursuit_id (this is what the RFP page will read)
+      const contract = {
+        id: contractId,
+        title: contractData.title,
+        department: contractData.agency,
+        noticeId: contractData.id,
+        dueDate: contractData.response_date || "2025-01-01",
+        response_date: contractData.response_date || "2025-01-01",
+        published_date: contractData.published_date || "",
+        value: contractData.budget || "0",
+        status: contractData.active === false ? "Inactive" : "Active",
+        naicsCode: contractData.naics_code || "000000",
+        solicitation_number: contractData.solicitation_number || "",
+        description: contractData.description || "",
+        external_url: contractData.external_url || "",
+        budget: contractData.budget || "",
+        pursuit_id: pursuitId, // <<< IMPORTANT
+      };
+  
+      sessionStorage.setItem("currentContract", JSON.stringify(contract));
+      // Gentle confirmation toast before navigating
+      try {
+        toast.success("Tracking started", {
+          description: "Opening RFP Builder for this opportunity.",
+          duration: 1500,
+        });
+      } catch {}
+      navigate(`/contracts/rfp/${contractData.id}`);
+    } catch (error) {
+      console.error("Error adding to tracker:", error);
+      toast.error("An error occurred. Please try again.");
+    }
   };
+  
+  
 
   const handleViewDetails = (opportunity: Opportunity) => {
     const url = opportunity.external_url || (opportunity.platform === "sam.gov" ? `https://sam.gov/opp/${opportunity.id}/view` : "");
@@ -663,14 +731,15 @@ const OpportunitiesPage: React.FC = () => {
     setHasSearched(false);
     setShowRefinedQuery(false);
     setRefinedQuery("");
-    sessionStorage.removeItem("lastOpportunitiesSearchState");
     setFilterValues({
       dueDate: "none",
       postedDate: "all",
       naicsCode: "",
-      opportunityType: "All",
+      opportunityType: "all",
       contractType: null,
       platform: null,
+      customPostedDateFrom: "",
+      customPostedDateTo: "",
     });
   };
 
@@ -797,20 +866,6 @@ const OpportunitiesPage: React.FC = () => {
     }
   };
 
-  const saveSearchStateToSession = (query: string, results: Opportunity[], total: number, totalPages: number, refinedQuery: string) => {
-    const searchState = {
-      query,
-      results,
-      total,
-      totalPages,
-      refinedQuery,
-      filters: filterValues,
-      sortBy,
-      lastUpdated: new Date().toISOString(),
-      userId: tokenService.getUserIdFromToken(),
-    };
-    sessionStorage.setItem("lastOpportunitiesSearchState", JSON.stringify(searchState));
-  };
 
   // Handler for ResultsList scroll
   const handleResultsScroll = (scrollTop: number) => {
@@ -849,7 +904,7 @@ const OpportunitiesPage: React.FC = () => {
                     <span>{currentDate}</span>
                     <span className="mx-2">•</span>
                     <span className="flex items-center">
-                      <Target className="h-4 w-4 mr-1 text-blue-500" />
+                      <Target className="h-4 w-4 mr-2 text-blue-500" />
                       Discover Opportunities
                     </span>
                   </div>

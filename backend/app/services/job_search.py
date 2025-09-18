@@ -1,5 +1,4 @@
 from app.utils.pinecone_client import get_index
-from app.utils.sentence_transformer import get_model
 from app.utils.db_utils import get_db_connection
 from app.utils.logger import get_logger
 import re

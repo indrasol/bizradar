@@ -2,7 +2,9 @@ import React from "react";
 import { ChevronUp, ChevronDown } from "lucide-react";
 import { FilterSectionProps } from "@/models/opportunities";
 
-const FilterSection: React.FC<FilterSectionProps> = ({ title, icon, isActive, toggle, options, selectedValue, onChange }) => {
+const FilterSection: React.FC<FilterSectionProps> = ({ title, icon, isActive, toggle, options, selectedValue, onChange, onDateChange }) => {
+  const isCustomDate = selectedValue === "custom_date";
+  
   return (
     <div className="border-b border-gray-100">
       <div
@@ -32,6 +34,26 @@ const FilterSection: React.FC<FilterSectionProps> = ({ title, icon, isActive, to
               </li>
             ))}
           </ul>
+          {isCustomDate && onDateChange && (
+            <div className="mt-4 ml-7 space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">From Date</label>
+                <input
+                  type="date"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  onChange={(e) => onDateChange('from', e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">To Date</label>
+                <input
+                  type="date"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  onChange={(e) => onDateChange('to', e.target.value)}
+                />
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
