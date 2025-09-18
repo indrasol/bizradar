@@ -21,6 +21,9 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 logger.info(f"######################################################")
 logger.info(f"STRIPE_WEBHOOK_SECRET: {STRIPE_WEBHOOK_SECRET}")
+logger.info(f"STRIPE_WEBHOOK_SECRET length: {len(STRIPE_WEBHOOK_SECRET) if STRIPE_WEBHOOK_SECRET else 'None'}")
+logger.info(f"STRIPE_WEBHOOK_SECRET starts with: {STRIPE_WEBHOOK_SECRET[:10] if STRIPE_WEBHOOK_SECRET else 'None'}")
+logger.info(f"STRIPE_WEBHOOK_SECRET ends with: {STRIPE_WEBHOOK_SECRET[-10:] if STRIPE_WEBHOOK_SECRET else 'None'}")
 logger.info(f"######################################################")
 
 def validate_stripe_config():
@@ -31,6 +34,24 @@ def validate_stripe_config():
             status_code=500, 
             detail="Stripe API key not configured. Please check environment variables."
         )
+
+def validate_webhook_secret():
+    """Validate that the webhook secret is properly configured"""
+    logger.info(f"STRIPE_WEBHOOK_SECRET: {STRIPE_WEBHOOK_SECRET}")
+    if not STRIPE_WEBHOOK_SECRET:
+        logger.error("STRIPE_WEBHOOK_SECRET is not configured")
+        return False
+    
+    if not STRIPE_WEBHOOK_SECRET.startswith('whsec_'):
+        logger.error(f"Invalid webhook secret format. Should start with 'whsec_', got: {STRIPE_WEBHOOK_SECRET[:10]}...")
+        return False
+    
+    if len(STRIPE_WEBHOOK_SECRET) < 32:
+        logger.error(f"Webhook secret too short. Expected 32+ characters, got {len(STRIPE_WEBHOOK_SECRET)}")
+        return False
+    
+    logger.info(f"Webhook secret validation passed. Length: {len(STRIPE_WEBHOOK_SECRET)}")
+    return True
 
 
 def verify_stripe_signature_manual(payload: bytes, sig_header: str, webhook_secret: str) -> bool:
@@ -361,8 +382,13 @@ async def stripe_webhook(request: Request):
     logger.info(f"Webhook received - Payload size: {len(payload)} bytes")
     logger.info(f"Signature header: {sig_header[:50] if sig_header else 'None'}...")
     logger.info(f"Webhook secret configured: {bool(STRIPE_WEBHOOK_SECRET)}")
+    
+    # Validate webhook secret format
     if STRIPE_WEBHOOK_SECRET:
-        logger.info(f"Webhook secret (masked): {STRIPE_WEBHOOK_SECRET[:8]}...{STRIPE_WEBHOOK_SECRET[-4:]}")
+        if not validate_webhook_secret():
+            logger.error("Webhook secret validation failed - this will cause signature verification to fail")
+        else:
+            logger.info(f"Webhook secret (masked): {STRIPE_WEBHOOK_SECRET[:8]}...{STRIPE_WEBHOOK_SECRET[-4:]}")
     else:
         logger.warning("STRIPE_WEBHOOK_SECRET is not configured - will attempt to parse without verification")
     
