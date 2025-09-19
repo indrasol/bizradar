@@ -17,6 +17,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     wget \
     gnupg \
+    lsb-release \
+    ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
+# Debug step to check apt sources
+RUN apt-get update
+
+# Install Chrome dependencies
+RUN apt-get install -y --no-install-recommends \
     libnss3 \
     libatk1.0-0 \
     libatk-bridge2.0-0 \
@@ -40,7 +49,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxss1 \
     libappindicator3-1 \
     libindicator3-7 \
-    lsb-release \
  && rm -rf /var/lib/apt/lists/*
 
 # Install Google Chrome
