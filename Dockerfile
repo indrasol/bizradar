@@ -9,9 +9,6 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 ENV LOG_LEVEL=debug \
     PYTHONLOGLEVEL=DEBUG
-ENV CHROME_PATH=/usr/bin/google-chrome \
-    CHROME_BIN=/usr/bin/google-chrome
-ENV PLAYWRIGHT_MCP_BIN=/usr/local/bin/playwright-mcp
 
 WORKDIR /src
 
@@ -20,7 +17,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     wget \
     gnupg \
-    ca-certificates \
     libnss3 \
     libatk1.0-0 \
     libatk-bridge2.0-0 \
@@ -41,17 +37,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgtk-3-0 \
  && rm -rf /var/lib/apt/lists/*
 
-# Install Google Chrome stable
-RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-linux.gpg \
- && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-linux.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
- && apt-get update && apt-get install -y --no-install-recommends google-chrome-stable \
- && rm -rf /var/lib/apt/lists/*
-
-# Install Node.js (for npx to run @playwright/mcp) and preinstall MCP
+# Install Node.js (for npx to run @playwright/mcp)
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
  && apt-get update && apt-get install -y --no-install-recommends nodejs \
- && npm i -g @playwright/mcp@latest \
- && node -v && npm -v && playwright-mcp --version || true \
+ && node -v && npm -v \
  && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first to leverage cache

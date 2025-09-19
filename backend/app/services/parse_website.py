@@ -61,16 +61,9 @@ async def parse_company_website_mcp(url: str) -> Dict[str, Any]:
     )
 
     try:
-        # Prefer globally installed binary if present
-        mcp_bin = os.getenv("PLAYWRIGHT_MCP_BIN", "")
-        if mcp_bin and os.path.isfile(mcp_bin):
-            cmd = {"command": mcp_bin, "args": []}
-        else:
-            cmd = {"command": "npx", "args": ["-y", "@playwright/mcp@latest"]}
-
         async with MCPServerStdio(
             name="Playwright-mcp",
-            params=cmd,
+            params={"command": "npx", "args": ["-y", "@playwright/mcp@latest"]},
         ) as server:
             logger.info("parse_company_website_mcp: MCP server started via npx @playwright/mcp@latest")
             agent = Agent(
@@ -105,31 +98,6 @@ async def parse_company_website_mcp(url: str) -> Dict[str, Any]:
     except Exception as e:  # pragma: no cover
         logger.exception("parse_company_website_mcp: MCP execution failed: %s", str(e))
         raise
-
-
-async def check_mcp_readiness(timeout_seconds: float = 10.0) -> bool:
-    """
-    Attempt to start the MCP server and immediately shut it down.
-    Returns True if startup succeeded; False otherwise.
-    """
-    logger = get_logger(__name__)
-    mcp_bin = os.getenv("PLAYWRIGHT_MCP_BIN", "")
-    if mcp_bin and os.path.isfile(mcp_bin):
-        cmd = {"command": mcp_bin, "args": []}
-    else:
-        cmd = {"command": "npx", "args": ["-y", "@playwright/mcp@latest"]}
-
-    try:
-        start = time.time()
-        logger.info("check_mcp_readiness: starting MCP with %s", cmd["command"])
-        async with MCPServerStdio(name="Playwright-mcp", params=cmd) as server:
-            # If we got here, startup likely worked; don't run an Agent
-            elapsed = time.time() - start
-            logger.info("check_mcp_readiness: MCP started in %.2fs", elapsed)
-            return True
-    except Exception as e:
-        logger.exception("check_mcp_readiness: MCP failed to start: %s", str(e))
-        return False
 
 
 __all__ = [

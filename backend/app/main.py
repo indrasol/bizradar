@@ -24,7 +24,7 @@ from app.routes.enhanced_search import router as enhanced_search_router
 from app.routes.event_handler import event_router as events_router
 from app.routes.event_routes import events_router
 from app.utils.logger import get_logger
-from app.services.parse_website import parse_company_website_mcp, check_mcp_readiness
+from app.services.parse_website import parse_company_website_mcp
 import asyncio
 
 
@@ -91,11 +91,10 @@ async def healthz(deep: bool = Query(False)):
         return {"status": "ok"}
 
     try:
-        # Verify MCP can start at all (without a full parse)
-        ready = await asyncio.wait_for(check_mcp_readiness(timeout_seconds=15.0), timeout=20)
-        if not ready:
-            return {"status": "error", "mcp": "failed_to_start"}
-        logger.info("/healthz: deep MCP readiness (startup) passed")
+        # Do a very quick call that triggers MCP startup without heavy crawling
+        # We pass a simple, fast URL; the agent will still initialize MCP
+        await asyncio.wait_for(parse_company_website_mcp("https://example.com"), timeout=25)
+        logger.info("/healthz: deep MCP readiness check passed")
         return {"status": "ok", "mcp": "ready"}
     except asyncio.TimeoutError:
         logger.exception("/healthz: deep MCP readiness timed out")
