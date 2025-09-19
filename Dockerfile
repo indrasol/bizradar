@@ -35,6 +35,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libasound2 \
     fonts-liberation \
     libgtk-3-0 \
+    ca-certificates \
+    libcurl4 \
+    libxss1 \
+    libappindicator3-1 \
+    libindicator3-7 \
+    lsb-release \
+ && rm -rf /var/lib/apt/lists/*
+
+# Install Google Chrome
+RUN curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | apt-key add - \
+ && DISTRO=$(lsb_release -c | awk '{print $2}') \
+ && echo "deb [signed-by=/usr/share/keyrings/google-archive-keyring.gpg] https://dl.google.com/linux/chrome/deb/ stable main" | tee /etc/apt/sources.list.d/google-chrome.list \
+ && apt-get update && apt-get install -y --no-install-recommends google-chrome-stable \
  && rm -rf /var/lib/apt/lists/*
 
 # Install Node.js (for npx to run @playwright/mcp)
