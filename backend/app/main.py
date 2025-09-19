@@ -62,6 +62,7 @@ origins = [
     "https://dev--bizradar1.netlify.app",  # Add missing domain without trailing slash
     "https://dev--bizradar1.netlify.app/", # Add missing domain with trailing slash
     "https://bizradar.indrasol.com/",
+    "https://bizradar.indrasol.com",
     # "*"  # Temporarily allow all origins during development
 ]
 
