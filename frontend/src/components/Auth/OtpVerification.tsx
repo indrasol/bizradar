@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { ArrowRight, ArrowLeft, RotateCcw, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { useTrack } from "@/logging";
 
 interface OtpVerificationProps {
   email: string;
@@ -26,6 +27,8 @@ const OtpVerification: React.FC<OtpVerificationProps> = ({
   const [resendTimer, setResendTimer] = useState(60);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const { verifyEmailOtp, sendEmailOtp, signupWithOtp } = useAuth();
+  const track = useTrack();
+
 
   // Timer countdown for resend
   useEffect(() => {
@@ -114,9 +117,15 @@ const OtpVerification: React.FC<OtpVerificationProps> = ({
       
     } catch (err: any) {
       console.error("OTP verification error:", err);
+
       toast.error(err.message || "Invalid verification code", {
         closeButton: true,
         duration: 5000
+      });
+      track({
+        event_name: "login-failure",
+        event_type: "button_click",
+        metadata: {search_query: null, stage: null, section: null,opportunity_id: null, title: null, naics_code: null}
       });
       // Clear OTP on error
       setOtp(["", "", "", "", "", ""]);

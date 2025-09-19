@@ -235,11 +235,12 @@ const OpportunityCard: React.FC<OpportunityCardProps> = ({
                 event_name: "add_to_tracker",
                 event_type: "button_click",
                 metadata: {
+                  search_query: null,
+                  stage: "review",
+                  section: null,
                   opportunity_id: opportunity?.id,
                   title: opportunity?.title,
-                  platform: opportunity?.platform,
                   naics_code: opportunity?.naics_code ?? opportunity?.naics_code,
-                  source: "opportunity_card",
                 },
               });
               await handleAddToPursuit(opportunity);
@@ -271,12 +272,13 @@ const OpportunityCard: React.FC<OpportunityCardProps> = ({
                 event_name: "generate_rfp",
                 event_type: "button_click",
                 metadata: {
+                  search_query:"null",
+                  stage: "review",
+                  section: null,
                   opportunity_id: opportunity?.id,
                   title: opportunity?.title,
-                  platform: opportunity?.platform,
                   naics_code: opportunity?.naics_code ?? opportunity?.naics_code,
-                  source: "opportunity_card",
-                  stage: "assesment"
+                  
                 },
               });
               handleBeginResponse(opportunity.id, opportunity);

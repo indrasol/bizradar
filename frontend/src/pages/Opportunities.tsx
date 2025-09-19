@@ -75,7 +75,7 @@ const OpportunitiesPage: React.FC = () => {
     track({
       event_name: "opportunities",
       event_type: "View",
-      metadata: {search_query: null, stage: null, opportunity_id: null, naics_code: null, rfp_title: null}    // explicitly pass empty metadata
+      metadata: {search_query: null, stage: null, section: null, opportunity_id: null, title: null, naics_code: null}    // explicitly pass empty metadata
     });
   }, [track]);
   // Restore last search state on mount without refetching
@@ -645,50 +645,54 @@ const OpportunitiesPage: React.FC = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
   
-      // 1) Do we already have a tracker for this title?
-      let pursuitId: string | undefined;
-      const { data: existingTrackers } = await supabase
-        .from("trackers")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("title", contractData.title);
+      // 1) Generate a pursuit_id (needed for reports and contract linking)
+      const pursuitId =
+        (typeof window !== "undefined" && window.crypto && "randomUUID" in window.crypto)
+          ? window.crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
   
-      if (existingTrackers && existingTrackers.length > 0) {
-        pursuitId = existingTrackers[0].id;
-      } else {
-        // Always create a new tracker if not found
-        const newId =
-          (typeof window !== "undefined" && window.crypto && "randomUUID" in window.crypto)
-            ? window.crypto.randomUUID()
-            : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+      // 2) Ensure a 'reports' row exists for this pursuit
+      const { error: reportError } = await supabase
+        .from("reports")
+        .upsert(
+          [{
+            pursuit_id: pursuitId,
+            user_id: user.id,
+            content: {
+              logo: null,
+              companyName: "",
+              companyWebsite: "",
+              letterhead: "",
+              phone: "",
+              rfpTitle: contractData.title || "",
+              naicsCode: contractData.naics_code || "000000",
+              solicitationNumber: contractData.solicitation_number || "",
+              issuedDate: contractData.published_date || new Date().toISOString(),
+              submittedBy: "",
+              theme: "professional",
+              sections: [], // builder will fill with templates/content
+              isSubmitted: false
+            },
+            completion_percentage: 0,
+            is_submitted: false,
+            updated_at: new Date().toISOString()
+          }],
+          { onConflict: "pursuit_id" }
+        );
   
-        // Wait for the insert to finish and check for errors
-        const { error: insertError } = await supabase.from("trackers").insert([{
-          id: newId,
-          title: contractData.title,
-          description: contractData.description || "",
-          stage: "Review",
-          user_id: user.id,
-          due_date: contractData.response_date,
-          opportunity_id: contractData.id,
-        }]);
-        if (insertError) {
-          toast.error("Failed to create tracker. Please try again.");
-          return;
-        }
-        // Optionally, you can add a small delay to ensure DB consistency
-        // await new Promise(res => setTimeout(res, 200));
-        pursuitId = newId;
+      if (reportError) {
+        toast.error("Failed to initialize report. Please try again.");
+        return;
       }
   
-      // 2) Save contract + pursuit_id (this is what the RFP page will read)
+      // 3) Save contract + pursuit_id for the RFP page to read
       const contract = {
         id: contractId,
         title: contractData.title,
         department: contractData.agency,
         noticeId: contractData.id,
-        dueDate: contractData.response_date || "2025-01-01",
-        response_date: contractData.response_date || "2025-01-01",
+        dueDate: contractData.response_date || null,
+        response_date: contractData.response_date || null,
         published_date: contractData.published_date || "",
         value: contractData.budget || "0",
         status: contractData.active === false ? "Inactive" : "Active",
@@ -697,23 +701,25 @@ const OpportunitiesPage: React.FC = () => {
         description: contractData.description || "",
         external_url: contractData.external_url || "",
         budget: contractData.budget || "",
-        pursuit_id: pursuitId, // <<< IMPORTANT
+        pursuit_id: pursuitId, // still attached for linking
       };
   
       sessionStorage.setItem("currentContract", JSON.stringify(contract));
-      // Gentle confirmation toast before navigating
+  
       try {
-        toast.success("Tracking started", {
+        toast.success("Report initialized", {
           description: "Opening RFP Builder for this opportunity.",
           duration: 1500,
         });
       } catch {}
+  
       navigate(`/contracts/rfp/${contractData.id}`);
     } catch (error) {
-      console.error("Error adding to tracker:", error);
+      console.error("Error initializing report:", error);
       toast.error("An error occurred. Please try again.");
     }
   };
+  
   
   
 

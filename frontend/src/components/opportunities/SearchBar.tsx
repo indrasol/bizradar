@@ -14,6 +14,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ searchQuery, setSearchQuery, hand
       metadata: {
         search_query: searchQuery,
         stage: null,
+        section: null,
         opportunity_id: null,
         title: null,           
         naics_code: null,

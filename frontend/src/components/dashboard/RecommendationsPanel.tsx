@@ -250,6 +250,7 @@ const RecommendationsPanel = ({
       metadata: {
         search_query: null,
         stage: null,
+        section: null,
         opportunity_id: id,
         title: opportunity?.title,
         platform: opportunity?.platform,
