@@ -4,7 +4,6 @@ import { FileText, X, PenLine, CheckCircle, Target, Calendar } from "lucide-reac
 import SideBar from "../components/layout/SideBar";
 import { supabase } from "../utils/supabase";
 import { toast } from "sonner";
-import { trackersApi } from '@/api/trackers';
 import RfpResponse from "../components/rfp/rfpResponse";
 import { useAuth } from "@/components/Auth/useAuth";
 import { SearchAndActions } from "@/components/pursuits/SearchAndActions";
@@ -330,29 +329,40 @@ export default function Pursuits(): JSX.Element {
         formattedDueDate = new Date(trackerData.due_date).toISOString();
       }
 
-      const tracker = await trackersApi.createTracker({
-        title: trackerData.title || "Untitled",
-        description: trackerData.description || "",
-        stage: trackerData.stage || "Assessment",
-        due_date: formattedDueDate,
-      }, user.id);
+      const { data, error } = await supabase
+        .from("trackers")
+        .insert({
+          title: trackerData.title || "Untitled",
+          description: trackerData.description || "",
+          stage: trackerData.stage || "Assessment",
+          user_id: user.id,
+          due_date: formattedDueDate,
+        })
+        .select();
 
-      toast?.success("Tracker created successfully");
+      if (error) {
+        console.error("Insert error details:", error);
+        throw error;
+      }
 
-      const formattedPursuit: Pursuit = {
-        id: tracker.id,
-        title: tracker.title || "Untitled",
-        description: tracker.description || "",
-        stage: tracker.stage || "Assessment",
-        created: tracker.created_at,
-        dueDate: tracker.due_date ? tracker.due_date : "TBD",
-        assignee: "Unassigned",
-        assigneeInitials: "UA",
-        is_submitted: tracker.is_submitted || false,
-        naicscode: tracker.naicscode || ""
-      };
-      
-      setPursuits(prevPursuits => [formattedPursuit, ...prevPursuits]);
+      if (data && data.length > 0) {
+        toast?.success("Tracker created successfully");
+
+        const formattedPursuit: Pursuit = {
+          id: data[0].id,
+          title: data[0].title || "Untitled",
+          description: data[0].description || "",
+          stage: data[0].stage || "Assessment",
+          created: data[0].created_at,
+          dueDate: data[0].due_date ? data[0].due_date : "TBD",
+          assignee: "Unassigned",
+          assigneeInitials: "UA",
+          is_submitted: data[0].is_submitted || false,
+          naicscode: data[0].naicscode || ""
+        };
+        
+        setPursuits(prevPursuits => [formattedPursuit, ...prevPursuits]);
+      }
     } catch (error) {
       console.error("Error creating pursuit:", error);
       toast?.error("Failed to create tracker. Please try again.");
@@ -406,29 +416,39 @@ export default function Pursuits(): JSX.Element {
         setIsLoading(true);
       }
       
-      // Always fetch fresh data from the server using API
-      const isSubmitted = filter === 'submitted' ? true : undefined;
-      const response = await trackersApi.getTrackers(user.id, isSubmitted);
+      // Always fetch fresh data from the server (in background if we have cache)
+      let query = supabase
+        .from('trackers')
+        .select('id, title, description, stage, created_at, user_id, due_date, is_submitted, naicscode')
+        .eq('user_id', user.id);
+      
+      if (filter === 'submitted') {
+        query = query.eq('is_submitted', true);
+      }
+      
+      query = query.order('created_at', { ascending: false });
+      
+      const { data, error } = await query;
         
-      if (!response.success) {
-        console.error("Fetch error:", response.message);
-        setError(`Failed to fetch pursuits: ${response.message}`);
+      if (error) {
+        console.error("Fetch error:", error);
+        setError(`Failed to fetch pursuits: ${error.message}`);
         setIsLoading(false);
         setProgressiveLoading(false);
         return;
       }
       
-      const formattedPursuits: Pursuit[] = response.trackers.map(tracker => ({
-        id: tracker.id,
-        title: tracker.title || "Untitled",
-        description: tracker.description || "",
-        stage: tracker.stage || "Assessment",
-        created: tracker.created_at,
-        dueDate: tracker.due_date ? tracker.due_date : "TBD",
+      const formattedPursuits: Pursuit[] = data.map(pursuit => ({
+        id: pursuit.id,
+        title: pursuit.title || "Untitled",
+        description: pursuit.description || "",
+        stage: pursuit.stage || "Assessment",
+        created: pursuit.created_at,
+        dueDate: pursuit.due_date ? pursuit.due_date : "TBD",
         assignee: "Unassigned",
         assigneeInitials: "UA",
-        is_submitted: tracker.is_submitted || false,
-        naicscode: tracker.naicscode || ""
+        is_submitted: pursuit.is_submitted || false,
+        naicscode: pursuit.naicscode || ""
       }));
       
       // Update cache
@@ -752,13 +772,13 @@ export default function Pursuits(): JSX.Element {
   };
 
   useEffect(() => {
-    const handleRfpSaved = async (event: Event): Promise<void> => {
+    const handleRfpSaved = (event: Event): void => {
       const customEvent = event as CustomEvent<RfpSaveEventDetail>;
       const { pursuitId, stage, percentage } = customEvent.detail;
 
       console.log("RFP saved event received:", { pursuitId, stage, percentage });
 
-      // Update the pursuit in your list immediately for better UX
+      // Update the pursuit in your list
       setPursuits(prevPursuits => 
         prevPursuits.map(pursuit => 
           pursuit.id === pursuitId 
@@ -766,14 +786,6 @@ export default function Pursuits(): JSX.Element {
             : pursuit
         )
       );
-
-      // Also refresh data from server to ensure consistency
-      try {
-        await fetchTrackers(true); // Force refresh
-        console.log("Refreshed trackers data after RFP save");
-      } catch (error) {
-        console.error("Error refreshing trackers after RFP save:", error);
-      }
     };
 
     // Add event listener

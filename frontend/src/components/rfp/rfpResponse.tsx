@@ -674,22 +674,20 @@ useEffect(() => {
       console.log('Content to save:', contentToSave);
   
       // Update tracker stage (only if tracker exists)
-      try {
-        const { error: trackerError } = await supabase
-          .from('trackers')
-          .update({ stage: stageToSet })
-          .eq('id', effectivePursuitId)
-          .eq('user_id', user?.id);
+      // try {
+      //   const { error: trackerError } = await supabase
+      //     .from('trackers')
+      //     .update({ stage: stageToSet })
+      //     .eq('id', effectivePursuitId)
+      //     .eq('user_id', user?.id);
   
-        if (trackerError) {
-          console.warn("Could not update tracker stage:", trackerError);
-          // Don't fail the save if tracker update fails
-        } else {
-          console.log("Successfully updated tracker stage to:", stageToSet);
-        }
-      } catch (trackerErr) {
-        console.warn("Tracker update failed:", trackerErr);
-      }
+      //   if (trackerError) {
+      //     console.warn("Could not update tracker stage:", trackerError);
+      //     // Don't fail the save if tracker update fails
+      //   }
+      // } catch (trackerErr) {
+      //   console.warn("Tracker update failed:", trackerErr);
+      // }
   
       // Save RFP content to reports table
        const { error: reportError } = await supabase
@@ -710,19 +708,6 @@ useEffect(() => {
   
       setLastSaved(new Date().toLocaleTimeString());
       setStage(stageToSet); // reflect on UI
-
-      // Dispatch event to notify parent component about tracker update
-      if (effectivePursuitId) {
-        const event = new CustomEvent('rfp_saved', {
-          detail: {
-            pursuitId: effectivePursuitId,
-            stage: stageToSet,
-            percentage: completionPercentage
-          }
-        });
-        window.dispatchEvent(event);
-        console.log("Dispatched rfp_saved event:", { pursuitId: effectivePursuitId, stage: stageToSet, percentage: completionPercentage });
-      }
   
       if (showNotification && stageToSet === "Completed") {
         try {
