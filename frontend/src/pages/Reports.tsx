@@ -4,7 +4,7 @@ import ReportsList from "@/components/reports/ReportsList";
 
 export default function ReportsPage({ mode = "ongoing" }: { mode?: "ongoing" | "submitted" }) {
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="h-screen bg-gray-50 flex">
       <SideBar />
       <main className="flex-1 p-4 md:p-6">
         <ReportsList />

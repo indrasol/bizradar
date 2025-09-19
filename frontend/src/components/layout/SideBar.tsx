@@ -246,7 +246,7 @@ const Sidebar = () => {
   }, [profileLoading, profile, isAdmin, user, isNavigating]);
 
   return (
-    <div className={`h-full bg-gray-50 border-r border-gray-200 transition-all duration-300 flex flex-col ${collapsed ? 'w-20' : 'w-64'}`}>
+    <div className={`h-full min-h-0 bg-gray-50 border-r border-gray-200 transition-all duration-300 flex flex-col ${collapsed ? 'w-20' : 'w-64'}`}>
       {isNavigating && (
         <div className="absolute top-0 left-0 right-0 z-50">
           <div className="h-0.5 bg-blue-200 overflow-hidden">
@@ -260,7 +260,7 @@ const Sidebar = () => {
         </div>
       )}
 
-      <div className="flex flex-col h-full py-6 relative">
+      <div className="flex flex-col h-full min-h-0 py-6 relative">
         {/* Collapse toggle */}
         <button
           onClick={() => setCollapsed(!collapsed)}
@@ -320,7 +320,7 @@ const Sidebar = () => {
         </div>
 
         {/* Nav */}
-        <nav className={`flex-1 ${collapsed ? 'px-2' : 'px-4'} space-y-2`}>
+        <nav className={`flex-1 overflow-y-auto ${collapsed ? 'px-2' : 'px-4'} space-y-2`}>
           {/* Home */}
           <Link
             to="/dashboard"
@@ -597,7 +597,7 @@ const Sidebar = () => {
         </nav>
 
         {/* Bottom subscription */}
-        <div className={`${collapsed ? 'px-2' : 'px-4'} pt-4 border-t border-gray-200 mt-2`}>
+        <div className={`${collapsed ? 'px-2' : 'px-4'} pt-4 border-t border-gray-200 mt-auto mb-4`}>
           <button
             onClick={() => setUpgradeOpen(true)}
             className={`group flex ${collapsed ? 'flex-col items-center' : 'items-center gap-3'} px-3 py-3 rounded-xl border border-blue-200 bg-gradient-to-r from-blue-50 to-white shadow-sm hover:shadow-md transition-all duration-300 w-full`}

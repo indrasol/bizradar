@@ -23,6 +23,7 @@ from app.config.settings import title, description, version
 from app.routes.enhanced_search import router as enhanced_search_router
 from app.routes.event_handler import event_router as events_router
 from app.routes.event_routes import events_router
+from app.routes.reports_routes import router as reports_router
 
 
 
@@ -89,6 +90,8 @@ app.include_router(company_router, prefix="/api/company", tags=["company"])
 app.include_router(pursuit_router, prefix="/api/pursuits", tags=["pursuits"])
 app.include_router(tracker_router, prefix="/api/trackers", tags=["trackers"])
 app.include_router(profile_router, prefix="/api/profile", tags=["profile"])
+# Include reports routes
+app.include_router(reports_router, prefix="/api", tags=["reports"])
 # Events/session tracking routes
 app.include_router(events_router, prefix="/api/events", tags=["events"])
 # app.include_router(events_router,prefix="/api", tags=["events"])

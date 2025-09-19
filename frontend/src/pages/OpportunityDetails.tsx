@@ -11,28 +11,18 @@ import Header from "@/components/opportunities/Header";
 import { Opportunity } from "@/models/opportunities";
 import { useAuth } from "@/components/Auth/useAuth";
 import { useTrack } from "@/logging";
+import { reportsApi } from '@/api/reports';
+import { toast } from "sonner";
+import { supabase } from "@/utils/supabase";  // use shared client
 
 
 // —— Inline Supabase client (remove if you have a shared client) ——
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
-let _sb: SupabaseClient | null = null;
-function getSupabase(): SupabaseClient {
-  if (_sb) return _sb;
-  const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-  const anon = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
-  if (!url || !anon) {
-    throw new Error("Missing VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY");
-  }
-  _sb = createClient(url, anon, {
-    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
-  });
-  return _sb;
-}
 
 // Find an existing tracker for (user, opportunity); otherwise insert one.
 // Returns the tracker id. This is the only piece both buttons share.
 async function addToTracker(op: Opportunity, userId: string): Promise<number> {
-  const sb = getSupabase();
+  // use shared Supabase client
+  const sb = supabase;
   const oppId = Number(op.id);
 
   // 1) check if it already exists for this user+opportunity
@@ -41,7 +31,9 @@ async function addToTracker(op: Opportunity, userId: string): Promise<number> {
     .select("id")
     .eq("user_id", userId)
     .eq("opportunity_id", oppId)
-    .maybeSingle();
+    .limit(1)
+    .single();
+    // .maybeSingle();
   if (findErr) throw findErr;
   if (existing?.id) return existing.id as number;
 
@@ -95,86 +87,59 @@ const OpportunityDetails: React.FC = () => {
   };
 
   // Generate Response → **do the same add-to-tracker step**, then navigate
-  const handleGenerateResponse = async () => {
-    if (!opportunity || !user?.id) return;
-    try {
-      setGenerating(true);
-  
-      // Ensure a tracker exists (your existing helper)
-      const trackerId = await addToTracker(opportunity, user.id);
-      sessionStorage.setItem("currentTrackerId", String(trackerId));
-  
-      // REUSE existing draft for this user+title, else create one
-      const sb = getSupabase();
-      const { data: existing } = await sb
-        .from("reports")
-        .select("pursuit_id, is_submitted, content")
-        .eq("user_id", user.id)
-        .eq("is_submitted", false)
-        .contains("content", { rfpTitle: opportunity.title })
-        .limit(1)
-        .maybeSingle();
-  
-      let pursuitId: string;
-      if (existing?.pursuit_id) {
-        pursuitId = existing.pursuit_id;
-      } else {
-        pursuitId =
-          (crypto && "randomUUID" in crypto)
-            ? crypto.randomUUID()
-            : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
-  
-        const content = {
-          rfpTitle: opportunity.title,
-          dueDate: opportunity.response_date || null,
-          sections: [],
-          isSubmitted: false,
-        };
-  
-        const { error: repErr } = await sb.from("reports").upsert({
-          pursuit_id: pursuitId,
-          user_id: user.id,
-          content,
-          completion_percentage: 0,
-          is_submitted: false,
-          updated_at: new Date().toISOString(),
-        }, {
-          onConflict: 'user_id, pursuit_id'
-        });
-        if (repErr) throw repErr;
-        
-      }
-  
-      // Stash what the editor expects — include pursuit_id
-      const contract = {
-        id: opportunity.id,
-        title: opportunity.title,
-        department: opportunity.agency,
-        noticeId: opportunity.id,
-        dueDate: opportunity.response_date || "2025-01-01",
-        response_date: opportunity.response_date || "2025-01-01",
-        published_date: opportunity.published_date || "",
-        value: opportunity.budget || "0",
-        status: (opportunity as any).active === false ? "Inactive" : "Active",
-        naicsCode: opportunity.naics_code || "000000",
-        solicitation_number: opportunity.solicitation_number || "",
-        description: opportunity.description || "",
-        external_url: opportunity.external_url || "",
-        budget: opportunity.budget || "",
-        tracker_id: trackerId,
-        pursuit_id: pursuitId, // ← critical
-      } as any;
-  
-      sessionStorage.setItem("currentContract", JSON.stringify(contract));
-  
-      // Navigate BY pursuit_id so the editor loads the right row
-      navigate(`/contracts/rfp/${pursuitId}`);
-    } catch (e) {
-      console.error("Failed to generate response", e);
-    } finally {
-      setGenerating(false);
-    }
-  };
+// Replace the handleGenerateResponse function with this:
+const handleGenerateResponse = async () => {
+  if (!opportunity || !user?.id) return;
+  setGenerating(true);
+  // Log generate response event
+  track({
+    event_name: "generate_rfp",
+    event_type: "button_click",
+    metadata: {
+      search_query: null,
+      stage: "review",
+      section: null,
+      opportunity_id: opportunity.id,
+      title: opportunity.title,
+      naics_code: opportunity.naics_code ?? null,
+    },
+  });
+  try {
+    // 1) Generate a response_id (UUID)
+    const responseId =
+      crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+    // 2) Upsert report via backend API
+    await reportsApi.upsertReport(
+      responseId,
+      {
+        rfpTitle: opportunity.title,
+        dueDate: opportunity.response_date || null,
+        sections: [],
+        isSubmitted: false,
+      },
+      0,
+      false,
+      user.id
+    );
+
+    // 3) Store contract for RFP builder
+    const contract = {
+      ...opportunity,
+      pursuit_id: responseId,
+      id: opportunity.id,
+    };
+    sessionStorage.setItem("currentContract", JSON.stringify(contract));
+
+    // 4) Navigate to RFP builder
+    navigate(`/contracts/rfp/${responseId}`);
+  } catch (err) {
+    console.error("Failed to generate response", err);
+    toast.error("Failed to initialize report. Please try again.");
+  } finally {
+    setGenerating(false);
+  }
+};
   
   
 

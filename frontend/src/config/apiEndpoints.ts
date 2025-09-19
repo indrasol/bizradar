@@ -85,4 +85,10 @@ export const API_ENDPOINTS = {
   
   // Event tracking endpoints
   EVENTS: `${API_BASE_URL}/events`,
+
+  // Reports endpoints
+  REPORTS: `${API_BASE_URL}/api/reports`,
+  REPORTS_BY_RESPONSE_ID: (responseId: string) => `${API_BASE_URL}/api/reports/${responseId}`,
+  REPORTS_UPSERT: `${API_BASE_URL}/api/reports/upsert`,
+  REPORTS_TOGGLE_SUBMITTED: (responseId: string) => `${API_BASE_URL}/api/reports/${responseId}/toggle-submitted`,
 };
