@@ -150,9 +150,9 @@ const Layout = ({ children }) => {
   useEffect(() => {
     if (sessionStorage.getItem("pendingLogoutTrack") === "1") {
       track({
-        event_name: "logout-success",
+        event_name: "logout_success",
         event_type: "button_click",
-        metadata: {search_query: null, stage: null, opportunity_id: null, naics_code: null, rfp_title: null}
+        metadata: {search_query: null, stage: null, section: null, opportunity_id: null, title: null, naics_code: null}
       });
       sessionStorage.removeItem("pendingLogoutTrack");
     }

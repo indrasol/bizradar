@@ -13,6 +13,8 @@ import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import OtpVerification from "@/components/Auth/OtpVerification";
 import { supabase } from "../utils/supabase";
+import { useTrack } from "@/logging";
+
 
 // Registration modal form schema validation
 const registrationFormSchema = z.object({
@@ -41,6 +43,7 @@ const Register = () => {
   } | null>(null);
   const navigate = useNavigate();
   const { sendEmailOtp, signupWithOtp, checkUserExists } = useAuth();
+  const track = useTrack();
 
 
   // Initialize forms
@@ -150,6 +153,11 @@ const Register = () => {
       
     } catch (err: any) {
       console.error("Signup error:", err);
+      track({
+        event_name: "signup-failure",
+        event_type: "button_click",
+        metadata: {search_query: null, stage: null, section: null,opportunity_id: null, title: null, naics_code: null}
+      });
       setError(err.message || "Failed to send OTP");
       toast.error(err.message || "Failed to send OTP", {
         closeButton: true,
@@ -199,7 +207,14 @@ const Register = () => {
       // For new signups, always go to company setup first
       if (otpData?.isSignup) {
         console.log("New signup detected, navigating to company setup");
+
         navigate('/company-setup');
+        track({
+          event_name: "signup-success",
+          event_type: "button_click",
+          metadata: {search_query: null, stage: null, section: null, opportunity_id: null, title: null, naics_code: null}
+        });
+
         // Emergency fallback
         setTimeout(() => {
           if (window.location.pathname === '/register') {

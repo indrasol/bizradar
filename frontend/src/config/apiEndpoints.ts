@@ -82,4 +82,7 @@ export const API_ENDPOINTS = {
   AI_CONVERSATIONS: `${API_BASE_URL}/api/ai/conversations`,
   AI_ASK: `${API_BASE_URL}/ask-bizradar-ai`,
   AI_PROCESS_DOCUMENTS: `${API_BASE_URL}/process-documents`,
+  
+  // Event tracking endpoints
+  EVENTS: `${API_BASE_URL}/events`,
 };
