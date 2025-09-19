@@ -5,7 +5,7 @@ import sys
 import jwt
 from config import settings
 from pydantic import BaseModel
-from utils.db_utils import get_supabase_connection
+from utils.db_utils import get_db_connection
 import logging
 from typing import Dict, Any, Optional
 
@@ -120,24 +120,25 @@ async def get_current_user(authorization: Optional[str] = Header(None, descripti
                 headers={"WWW-Authenticate": "Bearer"}
             )
             
-        # Get user from Supabase
-        supabase = get_supabase_connection(use_service_key=True)
-        res = supabase.table('profiles').select('id, email, stripe_customer_id').eq('id', user_id).limit(1).execute()
-        data = getattr(res, 'data', None) or []
-        if data:
-            row = data[0]
-            return {
-                'id': row.get('id'),
-                'email': row.get('email'),
-                'stripe_customer_id': row.get('stripe_customer_id')
-            }
-        # Graceful fallback when profile is missing
-        logger.warning(f"User not found in profiles table: {user_id}. Falling back to JWT payload.")
-        return {
-            'id': user_id,
-            'email': payload.get('email'),
-            'stripe_customer_id': None
-        }
+        # Get user from database
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute('SELECT id, email, stripe_customer_id FROM profiles WHERE id = %s', (user_id,))
+                row = cursor.fetchone()
+                if not row:
+                    logger.error(f"User not found in database: {user_id}")
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="User not found"
+                    )
+                return {
+                    'id': row[0],
+                    'email': row[1],
+                    'stripe_customer_id': row[2]
+                }
+        finally:
+            conn.close()
             
     except jwt.ExpiredSignatureError:
         logger.error("Token expired")
@@ -153,9 +154,6 @@ async def get_current_user(authorization: Optional[str] = Header(None, descripti
             detail="Invalid token. Please log in again.",
             headers={"WWW-Authenticate": "Bearer"}
         )
-    except HTTPException as e:
-        # Propagate explicit HTTP errors without converting them to 500s
-        raise e
     except Exception as e:
         logger.error(f"Unexpected error in get_current_user: {str(e)}")
         raise HTTPException(
@@ -277,14 +275,21 @@ async def get_or_create_stripe_customer(user: Dict[str, Any]) -> str:
             }
         )
         
-        # Update the user's Stripe customer ID in Supabase
+        # Update the user's Stripe customer ID in the database
+        conn = get_db_connection()
         try:
-            supabase = get_supabase_connection(use_service_key=True)
-            supabase.table('profiles').update({ 'stripe_customer_id': customer.id }).eq('id', user['id']).execute()
-            logger.info(f"Updated user {user['id']} with Stripe customer ID: {customer.id}")
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    'UPDATE profiles SET stripe_customer_id = %s WHERE id = %s',
+                    (customer.id, user['id'])
+                )
+                conn.commit()
+                logger.info(f"Updated user {user['id']} with Stripe customer ID: {customer.id}")
         except Exception as db_error:
-            logger.error(f"Supabase error updating Stripe customer ID: {str(db_error)}")
-            # Don't fail the request if we can't update the database; Stripe customer is created
+            conn.rollback()
+            logger.error(f"Database error updating Stripe customer ID: {str(db_error)}")
+            # Don't fail the request if we can't update the database
+            # The customer was still created in Stripe
         return customer.id
             
     except stripe.error.StripeError as e:

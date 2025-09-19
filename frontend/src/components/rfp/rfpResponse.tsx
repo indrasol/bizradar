@@ -1352,28 +1352,82 @@ useEffect(() => {
         throw new Error("User not authenticated");
       }
 
-      // Determine profile_id from authenticated user
-      const profile_id = user.id;
+      // First, try to get company data from user_companies table
+      let companyData = null;
+      try {
+        const { data: userCompanies, error: userCompaniesError } = await supabase
+          .from('user_companies')
+          .select(`
+            *,
+            companies (
+              id,
+              name,
+              url,
+              description
+            )
+          `)
+          .eq('user_id', user.id)
+          .eq('is_primary', true)
+          .single();
 
-      // Resolve ai_enhanced_opportunities.id from prop or fallback lookup
-      let ai_opportunity_id: number | null = aiOpportunityId || null;
-      if (!ai_opportunity_id) {
-        try {
-          const { data: aiOpp, error: aiOppError } = await supabase
-            .from('ai_enhanced_opportunities')
-            .select('id')
-            .eq('title', contract?.title || rfpTitle)
-            .limit(1)
-            .maybeSingle();
-          if (!aiOppError && aiOpp && aiOpp.id) {
-            ai_opportunity_id = aiOpp.id;
-          }
-        } catch (e) {
-          // Ignore and proceed without id
+        if (!userCompaniesError && userCompanies && userCompanies.companies) {
+          companyData = userCompanies.companies;
+          console.log("Found company data from user_companies:", companyData);
         }
+      } catch (error) {
+        console.log("No primary company found in user_companies, using form data");
       }
 
-      console.log("Posting IDs for contexts:", { profile_id, ai_opportunity_id });
+      // Parse company address from letterhead or use company data
+      let companyCity = '';
+      let companyState = '';
+      let companyZip = '';
+      let companyStreet = '';
+
+      if (companyData) {
+        // Use data from user_companies table
+        companyStreet = companyData.address || '';
+        companyCity = companyData.city || '';
+        companyState = companyData.state || '';
+        companyZip = companyData.zip_code || '';
+      } else {
+        // Parse from letterhead field
+        const addressParts = letterhead.split(',').map(part => part.trim());
+        companyStreet = addressParts.length > 0 ? addressParts[0] : letterhead;
+        companyCity = addressParts.length > 1 ? addressParts[2] : '';
+        const companyStateZip = addressParts.length > 2 ? addressParts[3] : '';
+        [companyState, companyZip] = companyStateZip.split(' ').filter(Boolean);
+      }
+
+      // Prepare company context data with fallback logic
+      const company_context = {
+        company_logo: companyData?.logo || logo || "",
+        company_website: companyData?.website || companyWebsite,
+        company_ceo: companyData?.ceo_name || submittedBy,
+        company_name: companyData?.name || companyName,
+        company_street: companyStreet,
+        company_city: companyCity,
+        company_state: companyState || "",
+        company_zip: companyZip || "",
+        company_phone: companyData?.phone || phone,
+        company_email: companyData?.email || "", // Could be extracted from submittedBy or added as separate field
+        company_esign: "", // Could be added as separate field
+      };
+
+      // Prepare proposal context data
+      const proposal_context = {
+        proposal_class: rfpTitle,
+        proposal_bid: solicitationNumber,
+        proposal_org: contract?.department || "",
+        proposal_address: contract?.department || "",
+        proposal_phone: "", // Could be extracted from contract data
+        proposal_due_date: contract?.dueDate || "",
+        proposal_description: contract?.description || "",
+        proposal_title: rfpTitle,
+      };
+
+      console.log("Sending company context:", company_context);
+      console.log("Sending proposal context:", proposal_context);
 
       // Call the backend API
       const response = await fetch(`${API_ENDPOINTS.ENHANCE_RFP_WITH_AI}`, {

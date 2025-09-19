@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import RfpResponse from '../components/rfp/rfpResponse';
+import { RfpContainer } from '../components/rfp/RfpContainer';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import SideBar from '../components/layout/SideBar';
 
@@ -153,7 +153,7 @@ export default function RfpWriter() {
             </button>
           </div>
           <div className="flex-1">
-            <RfpResponse 
+            <RfpContainer 
               contract={contract}
                 pursuitId={contractId}           // <-- use the URL UUID
                 aiOpportunityId={contract?.id}

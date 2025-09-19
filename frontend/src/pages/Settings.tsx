@@ -311,7 +311,6 @@ export const Settings = () => {
   useEffect(() => {
     loadCurrentSubscription();
     loadAvailablePlans();
-    loadBillingHistory();
   }, []);
   // Handle logout
   const handleLogout = async () => {
