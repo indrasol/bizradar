@@ -24,6 +24,10 @@ from app.routes.enhanced_search import router as enhanced_search_router
 from app.routes.event_handler import event_router as events_router
 from app.routes.event_routes import events_router
 from app.routes.reports_routes import router as reports_router
+from app.utils.logger import get_logger
+from app.services.parse_website import parse_company_website_mcp
+import asyncio
+
 
 
 
@@ -60,6 +64,7 @@ origins = [
     "https://dev--bizradar1.netlify.app",  # Add missing domain without trailing slash
     "https://dev--bizradar1.netlify.app/", # Add missing domain with trailing slash
     "https://bizradar.indrasol.com/",
+    "https://bizradar.indrasol.com",
     # "*"  # Temporarily allow all origins during development
 ]
 
@@ -75,6 +80,31 @@ app.add_middleware(
 @app.get("/test")
 async def test():
     return {"message": "Test endpoint is working!"}
+
+# MCP readiness healthcheck
+@app.get("/healthz")
+async def healthz(deep: bool = Query(False)):
+    """
+    Liveness/readiness probe.
+    - deep=false: returns 200 with basic process ok
+    - deep=true: attempts to start MCP server via npx and do a no-op parse against example.com
+    """
+    logger = get_logger(__name__)
+    if not deep:
+        return {"status": "ok"}
+
+    try:
+        # Do a very quick call that triggers MCP startup without heavy crawling
+        # We pass a simple, fast URL; the agent will still initialize MCP
+        await asyncio.wait_for(parse_company_website_mcp("https://indrasol.com"), timeout=50)
+        logger.info("/healthz: deep MCP readiness check passed")
+        return {"status": "ok", "mcp": "ready"}
+    except asyncio.TimeoutError:
+        logger.exception("/healthz: deep MCP readiness timed out")
+        return {"status": "error", "mcp": "timeout"}
+    except Exception as e:
+        logger.exception(f"/healthz: deep MCP readiness failed: {str(e)}")
+        return {"status": "error", "mcp": "failed", "detail": str(e)}
 
 # Include routers
 app.include_router(search_router)

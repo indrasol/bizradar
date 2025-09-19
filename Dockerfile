@@ -5,10 +5,7 @@ FROM python:3.11-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
-    PORT=8000 \
-    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-ENV LOG_LEVEL=debug \
-    PYTHONLOGLEVEL=DEBUG
+    PORT=8000
 
 WORKDIR /src
 
@@ -37,11 +34,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgtk-3-0 \
  && rm -rf /var/lib/apt/lists/*
 
-# Install Node.js (for npx to run @playwright/mcp)
+# Install Node.js (for npx) to run the Playwright MCP server
+# Using NodeSource for a modern LTS version
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
- && apt-get update && apt-get install -y --no-install-recommends nodejs \
- && node -v && npm -v \
- && rm -rf /var/lib/apt/lists/*
+  && apt-get update \
+  && apt-get install -y --no-install-recommends nodejs \
+  && rm -rf /var/lib/apt/lists/* \
+  && node --version \
+  && npm --version
+
+# Install Google Chrome (stable)
+RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor > /usr/share/keyrings/google-linux.gpg \
+  && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-linux.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
+  && apt-get update \
+  && apt-get install -y --no-install-recommends google-chrome-stable \
+  && rm -rf /var/lib/apt/lists/* \
+  && google-chrome --version
 
 # Copy requirements first to leverage cache
 COPY backend/app/requirements.txt ./app/requirements.txt
@@ -50,13 +58,15 @@ RUN pip install --no-cache-dir -r ./app/requirements.txt
 # Install Playwright and Chromium
 RUN pip install playwright && playwright install --with-deps chromium
 
+# Preinstall Playwright (Node) browsers so @playwright/mcp can start without downloading at runtime
+RUN npx -y playwright install --with-deps chromium
+
 # Copy application code
 COPY backend/app/ ./app/
 
 # Non-root user
 RUN useradd --create-home --shell /bin/bash appuser \
- && mkdir -p ${PLAYWRIGHT_BROWSERS_PATH} \
- && chown -R appuser:appuser /src ${PLAYWRIGHT_BROWSERS_PATH}
+ && chown -R appuser:appuser /src
 USER appuser
 
 # App Service probes default to this; still useful for docs
