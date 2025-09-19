@@ -76,7 +76,7 @@ const Login = ({ isOpen = true, onOpenChange = () => { }, onSwitchToRegister = (
       // Attempt login via AuthContext
       await login(values.identifier, values.password);
 
-      track({ event_name: "login-success", event_type: "button_click", metadata: {search_query: null, stage: null, opportunity_id: null, naics_code: null, rfp_title: null} });
+      track({ event_name: "login_success", event_type: "button_click", metadata: {search_query: null, stage: null, section:null, opportunity_id: null, title: null, naics_code: null} });
 
       // Success notification and UI update
       toast.success("Login successful!", {
@@ -93,7 +93,7 @@ const Login = ({ isOpen = true, onOpenChange = () => { }, onSwitchToRegister = (
     } catch (err: any) {
       console.error("Login error:", err);
       setError(err.message || "Login failed");
-      track({ event_name: "login-failure", event_type: "button_click", metadata: {} });
+      track({ event_name: "login_failure", event_type: "button_click", metadata: {search_query: null, stage: null, section:null, opportunity_id: null, title: null, naics_code: null} });
       toast.error(err.message || "Login failed", {
         closeButton: true,
         duration: 5000

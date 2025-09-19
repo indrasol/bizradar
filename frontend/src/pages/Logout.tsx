@@ -25,7 +25,7 @@ const Logout = () => {
         track({
           event_name: "logout-failure",
           event_type: "button_click",
-          metadata: {search_query: null, stage: null, opportunity_id: null, naics_code: null, rfp_title: null}
+          metadata: {search_query: null, stage: null, section: null,opportunity_id: null, title: null, naics_code: null}
         });
         toast.error("There was a problem logging out. Please try again.");
       } finally {

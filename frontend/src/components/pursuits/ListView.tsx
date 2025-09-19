@@ -104,7 +104,7 @@ export const ListView: React.FC<ListViewProps> = ({
   };
 
   const renderRfpActionButton = (pursuit: Pursuit) => {
-    let buttonText = "Create Response";
+    let buttonText = "Edit Response";
     let icon = <PenLine className="w-3 h-3" />;
     
     if (pursuit.is_submitted) {

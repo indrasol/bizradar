@@ -10,6 +10,8 @@ import SideBar from "@/components/layout/SideBar";
 import Header from "@/components/opportunities/Header";
 import { Opportunity } from "@/models/opportunities";
 import { useAuth } from "@/components/Auth/useAuth";
+import { useTrack } from "@/logging";
+
 
 // —— Inline Supabase client (remove if you have a shared client) ——
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
@@ -67,12 +69,13 @@ const OpportunityDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const track = useTrack();
 
   const [opportunity, setOpportunity] = useState<Opportunity | null>(null);
   const [pursuitCount, setPursuitCount] = useState<number>(0);
   const [adding, setAdding] = useState(false);
   const [generating, setGenerating] = useState(false);
-
+ 
   // ————— HANDLERS —————
 
   // Add to Pursuits → add to tracker (or reuse) and stash trackerId
@@ -81,10 +84,11 @@ const OpportunityDetails: React.FC = () => {
     try {
       setAdding(true);
       const trackerId = await addToTracker(opportunity, user.id);
+      // const pursuitId = String(trackerId); 
       sessionStorage.setItem("currentTrackerId", String(trackerId));
       setPursuitCount((c) => c + 1);
     } catch (e) {
-      console.error("Failed to add to pursuits", e);
+      console.error("Failed to add to Trackers", e);
     } finally {
       setAdding(false);
     }
@@ -95,12 +99,53 @@ const OpportunityDetails: React.FC = () => {
     if (!opportunity || !user?.id) return;
     try {
       setGenerating(true);
-
-      // ⬇️ EXACT same logic as Add to Pursuits
+  
+      // Ensure a tracker exists (your existing helper)
       const trackerId = await addToTracker(opportunity, user.id);
       sessionStorage.setItem("currentTrackerId", String(trackerId));
-
-      // Stash what your editor needs (include tracker_id so saves won’t FK-fail)
+  
+      // REUSE existing draft for this user+title, else create one
+      const sb = getSupabase();
+      const { data: existing } = await sb
+        .from("reports")
+        .select("pursuit_id, is_submitted, content")
+        .eq("user_id", user.id)
+        .eq("is_submitted", false)
+        .contains("content", { rfpTitle: opportunity.title })
+        .limit(1)
+        .maybeSingle();
+  
+      let pursuitId: string;
+      if (existing?.pursuit_id) {
+        pursuitId = existing.pursuit_id;
+      } else {
+        pursuitId =
+          (crypto && "randomUUID" in crypto)
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+  
+        const content = {
+          rfpTitle: opportunity.title,
+          dueDate: opportunity.response_date || null,
+          sections: [],
+          isSubmitted: false,
+        };
+  
+        const { error: repErr } = await sb.from("reports").upsert({
+          pursuit_id: pursuitId,
+          user_id: user.id,
+          content,
+          completion_percentage: 0,
+          is_submitted: false,
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'user_id, pursuit_id'
+        });
+        if (repErr) throw repErr;
+        
+      }
+  
+      // Stash what the editor expects — include pursuit_id
       const contract = {
         id: opportunity.id,
         title: opportunity.title,
@@ -116,19 +161,22 @@ const OpportunityDetails: React.FC = () => {
         description: opportunity.description || "",
         external_url: opportunity.external_url || "",
         budget: opportunity.budget || "",
-        tracker_id: trackerId, // ← important
+        tracker_id: trackerId,
+        pursuit_id: pursuitId, // ← critical
       } as any;
-
+  
       sessionStorage.setItem("currentContract", JSON.stringify(contract));
-
-      // Now go to editor
-      navigate(`/contracts/rfp/${opportunity.id}`);
+  
+      // Navigate BY pursuit_id so the editor loads the right row
+      navigate(`/contracts/rfp/${pursuitId}`);
     } catch (e) {
       console.error("Failed to generate response", e);
     } finally {
       setGenerating(false);
     }
   };
+  
+  
 
   // Opens the original opportunity posting in a new browser tab
   const handleViewOriginalPosting = () => {
@@ -317,14 +365,32 @@ const OpportunityDetails: React.FC = () => {
                     </button>
 
                     {opportunity.external_url && (
-                      <button
-                        onClick={handleViewOriginalPosting}
-                        className="px-2 lg:px-3 py-1.5 bg-gray-50 text-gray-700 hover:bg-gray-100 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 border border-gray-200"
+                      <a
+                        href={opportunity.external_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={() => {
+                          try {
+                            track({
+                              event_name: "view_job_details",
+                              event_type: "button_click",
+                              metadata: {
+                                search_query: null,                     // keep search query null
+                                stage: null,                     // unchanged
+                                opportunity_id: Number(opportunity.id) || null,
+                                title: opportunity.title || null,
+                                naics_code: opportunity.naics_code || null,
+                              },
+                            });
+                          } catch {}
+                        }}
+                        className="px-3 py-1.5 bg-gray-50 text-gray-700 hover:bg-gray-100 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 border border-gray-200"
                       >
                         <Globe size={14} />
                         <span className="hidden sm:inline">View Original Posting</span>
                         <span className="sm:hidden">View Original</span>
-                      </button>
+                        
+                      </a>
                     )}
                   </div>
                 </div>
