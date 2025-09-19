@@ -1,3 +1,4 @@
+from __future__ import annotations
 from fastapi import APIRouter, Request, HTTPException, Depends
 import stripe
 import os
