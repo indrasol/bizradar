@@ -36,11 +36,10 @@ const TrackerStatsWidget: React.FC<TrackerStatsWidgetProps> = ({ className = '' 
 
     try {
       setIsLoading(true);
-      const response = await trackersApi.getStats();
-      
-      if (response.success) {
-        setStats(response.stats);
-        console.log('Fetched tracker stats:', response.stats);
+      const { success, stats } = (await trackersApi.getTrackerStats(user.id)) || {};
+      if (success) {
+        setStats(stats);
+        console.log('Fetched tracker stats:', stats);
       } else {
         console.warn('API returned success=false');
         setStats({
