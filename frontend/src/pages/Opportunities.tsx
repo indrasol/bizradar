@@ -8,6 +8,8 @@ import SideBar from "@/components/layout/SideBar";
 import MainContent from "@/components/opportunities/MainContent";
 import ScrollToTopButton from "@/components/opportunities/ScrollToTopButton";
 import NotificationToast from "@/components/opportunities/NotificationToast";
+import { reportsApi } from '@/api/reports';
+import { trackersApi } from '@/api/trackers';
 
 import { toast } from "sonner";
 import { FilterValues, Opportunity, SearchParams } from "@/models/opportunities";
@@ -21,6 +23,15 @@ import { useTrack } from "@/logging";
  
 
 
+
+// Fallback UUID generation for browsers that don't support crypto.randomUUID()
+const generateFallbackUUID = (): string => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
 
 const OpportunitiesPage: React.FC = () => {
   const { logout } = useAuth();
@@ -588,21 +599,13 @@ const OpportunitiesPage: React.FC = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: existingTrackers } = await supabase
-        .from("trackers")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("title", opportunity.title);
+      // Check if already tracked using API
+      const trackersResponse = await trackersApi.getTrackers(user.id);
+      const existingTracker = trackersResponse.trackers.find(t => t.title === opportunity.title);
 
-      if (existingTrackers && existingTrackers.length > 0) {
+      if (existingTracker) {
         // Already tracked → toggle OFF by deleting
-        const trackerId = existingTrackers[0].id;
-        const { error: deleteError } = await supabase
-          .from("trackers")
-          .delete()
-          .eq("id", trackerId)
-          .eq("user_id", user.id);
-        if (deleteError) throw deleteError;
+        await trackersApi.deleteTracker(existingTracker.id, user.id);
         setPursuitCount((prev) => Math.max(0, prev - 1));
         try {
           toast.success("Removed from Tracker", {
@@ -613,112 +616,107 @@ const OpportunitiesPage: React.FC = () => {
         return;
       }
 
-      const newId = (typeof window !== 'undefined' && window.crypto && 'randomUUID' in window.crypto)
-        ? window.crypto.randomUUID()
-        : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+      // Create new tracker using API
+      const newTracker = await trackersApi.createTracker({
+        title: opportunity.title,
+        description: opportunity.description || "",
+        stage: "Review",
+        due_date: opportunity.response_date,
+        opportunity_id: Number(opportunity.id)
+      }, user.id);
 
-      const { data, error } = await supabase
-        .from("trackers")
-        .insert([{ id: newId, title: opportunity.title, description: opportunity.description || "", stage: "Review", user_id: user.id, due_date: opportunity.response_date, opportunity_id: opportunity.id }])
-        .select();
-      if (error) throw error;
-
-      if (data && data.length > 0) {
-        setShowNotification(true);
-        setTimeout(() => setShowNotification(false), 3000);
-        setPursuitCount((prev) => prev + 1);
-        // Immediate feedback toast
-        try {
-          toast.success("Added to Tracker", {
-            description: "This opportunity is now being tracked in My Tracker.",
-            duration: 2500,
-          });
-        } catch {}
-      }
+      setShowNotification(true);
+      setTimeout(() => setShowNotification(false), 3000);
+      setPursuitCount((prev) => prev + 1);
+      // Immediate feedback toast
+      try {
+        toast.success("Added to Tracker", {
+          description: "This opportunity is now being tracked in My Tracker.",
+          duration: 2500,
+        });
+      } catch {}
     } catch (error) {
       console.error("Error adding to tracker:", error);
     }
   };
 
-  const handleBeginResponse = async (contractId: string, contractData: Opportunity) => {
+  // Replace the handleBeginResponse function with this:
+const handleBeginResponse = async (contractId: string, contractData: Opportunity) => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // 1) Generate a pursuit_id (needed for reports and contract linking)
+    const pursuitId =
+      (typeof window !== "undefined" && window.crypto && "randomUUID" in window.crypto)
+        ? window.crypto.randomUUID()
+        : generateFallbackUUID();
+
+    // 2) Use backend API to create/upsert report instead of direct Supabase call
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-  
-      // 1) Generate a pursuit_id (needed for reports and contract linking)
-      const pursuitId =
-        (typeof window !== "undefined" && window.crypto && "randomUUID" in window.crypto)
-          ? window.crypto.randomUUID()
-          : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
-  
-      // 2) Ensure a 'reports' row exists for this pursuit
-      const { error: reportError } = await supabase
-        .from("reports")
-        .upsert(
-          [{
-            pursuit_id: pursuitId,
-            user_id: user.id,
-            content: {
-              logo: null,
-              companyName: "",
-              companyWebsite: "",
-              letterhead: "",
-              phone: "",
-              rfpTitle: contractData.title || "",
-              naicsCode: contractData.naics_code || "000000",
-              solicitationNumber: contractData.solicitation_number || "",
-              issuedDate: contractData.published_date || new Date().toISOString(),
-              submittedBy: "",
-              theme: "professional",
-              sections: [], // builder will fill with templates/content
-              isSubmitted: false
-            },
-            completion_percentage: 0,
-            is_submitted: false,
-            updated_at: new Date().toISOString()
-          }],
-          { onConflict: "pursuit_id" }
-        );
-  
-      if (reportError) {
-        toast.error("Failed to initialize report. Please try again.");
-        return;
-      }
-  
-      // 3) Save contract + pursuit_id for the RFP page to read
-      const contract = {
-        id: contractId,
-        title: contractData.title,
-        department: contractData.agency,
-        noticeId: contractData.id,
-        dueDate: contractData.response_date || null,
-        response_date: contractData.response_date || null,
-        published_date: contractData.published_date || "",
-        value: contractData.budget || "0",
-        status: contractData.active === false ? "Inactive" : "Active",
-        naicsCode: contractData.naics_code || "000000",
-        solicitation_number: contractData.solicitation_number || "",
-        description: contractData.description || "",
-        external_url: contractData.external_url || "",
-        budget: contractData.budget || "",
-        pursuit_id: pursuitId, // still attached for linking
-      };
-  
-      sessionStorage.setItem("currentContract", JSON.stringify(contract));
-  
-      try {
-        toast.success("Report initialized", {
-          description: "Opening RFP Builder for this opportunity.",
-          duration: 1500,
-        });
-      } catch {}
-  
-      navigate(`/contracts/rfp/${contractData.id}`);
-    } catch (error) {
-      console.error("Error initializing report:", error);
-      toast.error("An error occurred. Please try again.");
+      await reportsApi.upsertReport(
+        pursuitId, // This becomes response_id
+        {
+          logo: null,
+          companyName: "",
+          companyWebsite: "",
+          letterhead: "",
+          phone: "",
+          rfpTitle: contractData.title || "",
+          naicsCode: String(contractData.naics_code || "000000"),
+          solicitationNumber: contractData.solicitation_number || "",
+          issuedDate: contractData.published_date || new Date().toISOString(),
+          submittedBy: "",
+          theme: "professional",
+          sections: [], // builder will fill with templates/content
+          isSubmitted: false,
+          dueDate: contractData.response_date || null
+        },
+        0, // completion_percentage
+        false, // is_submitted
+        user.id
+      );
+    } catch (apiError) {
+      console.error("Failed to create report via API:", apiError);
+      toast.error("Failed to initialize report. Please try again.");
+      return;
     }
-  };
+
+    // 3) Save contract + pursuit_id for the RFP page to read
+    const contract = {
+      id: contractId,
+      title: contractData.title,
+      department: contractData.agency,
+      noticeId: contractData.id,
+      dueDate: contractData.response_date || null,
+      response_date: contractData.response_date || null,
+      published_date: contractData.published_date || "",
+      value: contractData.budget || "0",
+      status: contractData.active === false ? "Inactive" : "Active",
+      naicsCode: contractData.naics_code || "000000",
+      solicitation_number: contractData.solicitation_number || "",
+      description: contractData.description || "",
+      external_url: contractData.external_url || "",
+      budget: contractData.budget || "",
+      pursuit_id: pursuitId, // still attached for linking
+    };
+
+    sessionStorage.setItem("currentContract", JSON.stringify(contract));
+
+    try {
+      toast.success("Report initialized", {
+        description: "Opening RFP Builder for this opportunity.",
+        duration: 1500,
+      });
+    } catch {}
+
+    navigate(`/contracts/rfp/${pursuitId}`);
+
+  } catch (error) {
+    console.error("Error initializing report:", error);
+    toast.error("An error occurred. Please try again.");
+  }
+};
   
   
   

@@ -5,7 +5,7 @@ import { ArrowLeft, Loader2 } from 'lucide-react';
 import SideBar from '../components/layout/SideBar';
 
 export default function RfpWriter() {
-  const { contractId } = useParams();
+  const { contractId } = useParams<{ contractId: string }>();
   const navigate = useNavigate();
   const [contract, setContract] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -155,7 +155,8 @@ export default function RfpWriter() {
           <div className="flex-1">
             <RfpContainer 
               contract={contract}
-              initialContent=""
+                pursuitId={contractId}           // <-- use the URL UUID
+                aiOpportunityId={contract?.id}
             />
           </div>
         </div>

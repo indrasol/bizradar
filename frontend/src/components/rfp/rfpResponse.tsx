@@ -340,7 +340,7 @@ if (!effectivePursuitId) {
         const { data: responses, error } = await supabase
           .from('reports')
           .select('*')
-          .eq('pursuit_id', effectivePursuitId);
+          .eq('response_id', effectivePursuitId);
 
         if (error) {
           console.error("Error loading RFP data:", error);
@@ -674,39 +674,55 @@ useEffect(() => {
       console.log('Content to save:', contentToSave);
   
       // Update tracker stage (only if tracker exists)
-      // try {
-      //   const { error: trackerError } = await supabase
-      //     .from('trackers')
-      //     .update({ stage: stageToSet })
-      //     .eq('id', effectivePursuitId)
-      //     .eq('user_id', user?.id);
+      try {
+        const { error: trackerError } = await supabase
+          .from('trackers')
+          .update({ stage: stageToSet })
+          .eq('id', effectivePursuitId)
+          .eq('user_id', user?.id);
   
-      //   if (trackerError) {
-      //     console.warn("Could not update tracker stage:", trackerError);
-      //     // Don't fail the save if tracker update fails
-      //   }
-      // } catch (trackerErr) {
-      //   console.warn("Tracker update failed:", trackerErr);
-      // }
+        if (trackerError) {
+          console.warn("Could not update tracker stage:", trackerError);
+          // Don't fail the save if tracker update fails
+        } else {
+          console.log("Successfully updated tracker stage to:", stageToSet);
+        }
+      } catch (trackerErr) {
+        console.warn("Tracker update failed:", trackerErr);
+      }
   
       // Save RFP content to reports table
-      const { error: reportError } = await supabase
-        .from('reports')
-        .upsert({
-          pursuit_id: effectivePursuitId,
-          user_id: user?.id,
-          content: contentToSave,
-          is_submitted: isSubmitted,
-          completion_percentage: completionPercentage,
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'pursuit_id'
-        });
+       const { error: reportError } = await supabase
+         .from('reports')
+         .upsert({
+           response_id: effectivePursuitId,
+           user_id: user?.id,
+           title: rfpTitle,
+           content: contentToSave,
+           is_submitted: isSubmitted,
+           completion_percentage: completionPercentage,
+           updated_at: new Date().toISOString()
+         }, {
+           onConflict: 'user_id,response_id'
+         });
   
       if (reportError) throw reportError;
   
       setLastSaved(new Date().toLocaleTimeString());
       setStage(stageToSet); // reflect on UI
+
+      // Dispatch event to notify parent component about tracker update
+      if (effectivePursuitId) {
+        const event = new CustomEvent('rfp_saved', {
+          detail: {
+            pursuitId: effectivePursuitId,
+            stage: stageToSet,
+            percentage: completionPercentage
+          }
+        });
+        window.dispatchEvent(event);
+        console.log("Dispatched rfp_saved event:", { pursuitId: effectivePursuitId, stage: stageToSet, percentage: completionPercentage });
+      }
   
       if (showNotification && stageToSet === "Completed") {
         try {
@@ -1796,8 +1812,8 @@ useEffect(() => {
                       </div>
                       <div className="mt-0.5">
                         {completionPercentage === 100
-                          ? "All sections doneâ€”tick â€œSubmittedâ€ to confirm your RFP response."
-                          : "Tap â—‹ to mark âœ“ when a section is completed."}
+                          ? "All sections done—tick \"Submitted\" to confirm your RFP response."
+                          : "Tap ○ to mark ✓ when a section is completed."}
                       </div>
                     </div>
                   </div>

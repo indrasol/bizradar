@@ -88,7 +88,7 @@ print(f"Loading Stripe keys - Publishable: {os.getenv('STRIPE_PUBLISHABLE_KEY_BI
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY_BIZ")
 STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY_BIZ")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET_BIZ")
-REDIRECT_URL = os.getenv("REDIRECT_URL_BIZ", "http://localhost:3000")
+REDIRECT_URL = os.getenv("REDIRECT_URL_BIZ", "http://localhost:8080")
 
 # Verify Stripe keys are loaded
 # if not STRIPE_SECRET_KEY:
