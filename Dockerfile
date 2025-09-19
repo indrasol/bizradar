@@ -13,7 +13,11 @@ ENV LOG_LEVEL=debug \
 WORKDIR /src
 
 # System deps (curl for healthcheck); keep it slim
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN echo "deb http://deb.debian.org/debian/ stable main" > /etc/apt/sources.list \
+    && apt-get update
+
+# Install basic dependencies first (curl, wget, gnupg, lsb-release, etc.)
+RUN apt-get install -y --no-install-recommends \
     curl \
     wget \
     gnupg \
@@ -21,11 +25,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 
-# Debug step to check apt sources
-RUN apt-get update
-
-# Install Chrome dependencies
-RUN apt-get install -y --no-install-recommends \
+# Install Chrome dependencies (all related packages)
+RUN apt-get update && apt-get install -y --no-install-recommends \
     libnss3 \
     libatk1.0-0 \
     libatk-bridge2.0-0 \
@@ -44,14 +45,13 @@ RUN apt-get install -y --no-install-recommends \
     libasound2 \
     fonts-liberation \
     libgtk-3-0 \
-    ca-certificates \
     libcurl4 \
     libxss1 \
     libappindicator3-1 \
     libindicator3-7 \
  && rm -rf /var/lib/apt/lists/*
 
-# Install Google Chrome
+# Add Google Chrome repository and install it
 RUN curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | apt-key add - \
  && DISTRO=$(lsb_release -c | awk '{print $2}') \
  && echo "deb [signed-by=/usr/share/keyrings/google-archive-keyring.gpg] https://dl.google.com/linux/chrome/deb/ stable main" | tee /etc/apt/sources.list.d/google-chrome.list \
