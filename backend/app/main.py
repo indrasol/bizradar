@@ -93,7 +93,7 @@ async def healthz(deep: bool = Query(False)):
     try:
         # Do a very quick call that triggers MCP startup without heavy crawling
         # We pass a simple, fast URL; the agent will still initialize MCP
-        await asyncio.wait_for(parse_company_website_mcp("https://example.com"), timeout=25)
+        await asyncio.wait_for(parse_company_website_mcp("https://indrasol.com"), timeout=50)
         logger.info("/healthz: deep MCP readiness check passed")
         return {"status": "ok", "mcp": "ready"}
     except asyncio.TimeoutError:
