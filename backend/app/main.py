@@ -91,11 +91,10 @@ async def healthz(deep: bool = Query(False)):
         return {"status": "ok"}
 
     try:
-        # Verify MCP can start at all
+        # Verify MCP can start at all (without a full parse)
         ready = await asyncio.wait_for(check_mcp_readiness(timeout_seconds=15.0), timeout=20)
         if not ready:
             return {"status": "error", "mcp": "failed_to_start"}
-        # Do not run a full parse here to avoid JSON parse variability in readiness
         logger.info("/healthz: deep MCP readiness (startup) passed")
         return {"status": "ok", "mcp": "ready"}
     except asyncio.TimeoutError:
