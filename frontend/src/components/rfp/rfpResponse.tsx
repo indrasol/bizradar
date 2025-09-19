@@ -18,6 +18,8 @@ import {
   Move,
   Save,
   ArrowRight,
+  Check,
+  Square,
   CheckCircle2,
   Clock,
   AlertCircle,
@@ -765,11 +767,18 @@ useEffect(() => {
     }
   };
 
-  const handleSubmittedToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const checked = e.target.checked;
-    setIsSubmitted(checked);
+  const handleSubmittedToggle = async () => {
+    const newSubmittedState = !isSubmitted;
+    
+    // Check if user is trying to submit when not completed
+    if (stage !== "Completed" && newSubmittedState) {
+      toast.info("Complete all sections (100%) before submitting.");
+      return;
+    }
+    
+    setIsSubmitted(newSubmittedState);
   
-    if (checked) {
+    if (newSubmittedState) {
       try {
         track({
           event_name: "generate_rfp",
@@ -784,8 +793,17 @@ useEffect(() => {
           },
         });
       } catch {}
-      // Optional: persist immediately
-      // setTimeout(() => saveRfpData(true), 0);
+    }
+
+    // Immediately persist the change to database
+    try {
+      await saveRfpData(false); // Don't show notification for button toggle
+      toast.success(newSubmittedState ? "Marked as submitted" : "Marked as ongoing");
+    } catch (error) {
+      console.error("Failed to update submission status:", error);
+      toast.error("Failed to update submission status");
+      // Revert the button state if database update failed
+      setIsSubmitted(!newSubmittedState);
     }
   };
 
@@ -1654,35 +1672,54 @@ useEffect(() => {
 
                       <StageBadge stage={stage} />
 
-                      {/* Submitted checkbox with stronger border + conditional tooltip */}
+                      {/* Submitted button with same style as Reports tab */}
                       {(() => {
                         const canSubmit = stage === "Completed";
                         const tip = canSubmit
-                          ? "I have completed and reviewed all sections, I am ready to submit."
-                          : "Please tick and save all sections to complete.";
+                          ? isSubmitted
+                            ? "Mark as not submitted"
+                            : "Mark as submitted"
+                          : "Complete all sections to enable submission";
 
                         return (
-                          <label
-                            className={`flex items-center gap-1.5 ml-2 ${
-                              canSubmit ? "cursor-pointer" : "cursor-not-allowed"
-                            }`}
-                            title={tip}
-                          >
-                          <input
-                              type="checkbox"
-                              disabled={stage !== "Completed"}
-                              checked={!!isSubmitted}
-                              onChange={handleSubmittedToggle}
-                              className="h-4 w-4 rounded border-2 border-gray-700 bg-white accent-emerald-600 focus:ring-0 focus:outline-none
-                                        disabled:opacity-100 disabled:border-gray-700 disabled:bg-white disabled:cursor-not-allowed"
-                            />
+                          <div className="flex items-center gap-1.5 ml-2">
+                            <button
+                              onClick={() => {
+                                if (canSubmit) {
+                                  handleSubmittedToggle();
+                                } else {
+                                  toast.info("Complete all sections (100%) before submitting.");
+                                }
+                              }}
+                              disabled={!canSubmit}
+                              className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-colors ${
+                                canSubmit
+                                  ? "border-emerald-500 cursor-pointer"
+                                  : "border-gray-300 cursor-not-allowed"
+                              } ${
+                                isSubmitted && canSubmit
+                                  ? "bg-emerald-500 text-white"
+                                  : "bg-white"
+                              }`}
+                              title={tip}
+                            >
+                              {isSubmitted && canSubmit ? (
+                                <Check className="w-4 h-4" />
+                              ) : (
+                                <Square
+                                  className={`w-4 h-4 ${
+                                    canSubmit ? "text-emerald-500" : "text-gray-400"
+                                  }`}
+                                />
+                              )}
+                            </button>
                             <span
-                              className={`text-sm ${stage !== "Completed" ? "text-gray-600" : "text-gray-700"}`}
+                              className={`text-sm ${canSubmit ? "text-gray-700" : "text-gray-500"}`}
                               title={tip}
                             >
                               Submitted
                             </span>
-                          </label>
+                          </div>
                         );
                       })()}
                     </div>
@@ -1697,21 +1734,57 @@ useEffect(() => {
                       Stage:
                       </span>
                       <StageBadge stage={stage} />
-                    <label
-                    className="flex items-center gap-1.5 ml-2 cursor-pointer"
-                    title="Please check the box if you have submitted your RFP Proposal."
-                    >
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 rounded border-2 border-gray-700 bg-white outline-none disabled:opacity-100 disabled:border-gray-700 disabled:bg-white disabled:cursor-not-allowed"
-                        disabled={stage !== "Completed"}
-                        checked={!!isSubmitted}
-                        onChange={handleSubmittedToggle}
-                      />
-                      <span className={`text-sm ${stage !== "Completed" ? "text-gray-600" : "text-gray-700"}`}>
-                        Submitted
-                      </span>
-                    </label>
+                      
+                      {/* Submitted button with same style as Reports tab */}
+                      {(() => {
+                        const canSubmit = stage === "Completed";
+                        const tip = canSubmit
+                          ? isSubmitted
+                            ? "Mark as not submitted"
+                            : "Mark as submitted"
+                          : "Complete all sections to enable submission";
+
+                        return (
+                          <div className="flex items-center gap-1.5 ml-2">
+                            <button
+                              onClick={() => {
+                                if (canSubmit) {
+                                  handleSubmittedToggle();
+                                } else {
+                                  toast.info("Complete all sections (100%) before submitting.");
+                                }
+                              }}
+                              disabled={!canSubmit}
+                              className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-colors ${
+                                canSubmit
+                                  ? "border-emerald-500 cursor-pointer"
+                                  : "border-gray-300 cursor-not-allowed"
+                              } ${
+                                isSubmitted && canSubmit
+                                  ? "bg-emerald-500 text-white"
+                                  : "bg-white"
+                              }`}
+                              title={tip}
+                            >
+                              {isSubmitted && canSubmit ? (
+                                <Check className="w-4 h-4" />
+                              ) : (
+                                <Square
+                                  className={`w-4 h-4 ${
+                                    canSubmit ? "text-emerald-500" : "text-gray-400"
+                                  }`}
+                                />
+                              )}
+                            </button>
+                            <span
+                              className={`text-sm ${canSubmit ? "text-gray-700" : "text-gray-500"}`}
+                              title={tip}
+                            >
+                              Submitted
+                            </span>
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>

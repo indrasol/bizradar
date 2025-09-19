@@ -81,9 +81,9 @@ export function RfpContainer({ initialContent = '', contract }) {
         
         // Check if there's an existing RFP response
         const { data, error } = await supabase
-          .from('rfp_responses')
-          .select('*, pursuits(stage)')
-          .eq('pursuit_id', contract.id)
+          .from('reports')
+          .select('*')
+          .eq('response_id', contract.id)
           .eq('user_id', user.id)
           .maybeSingle();
           
@@ -101,11 +101,7 @@ export function RfpContainer({ initialContent = '', contract }) {
             setShowEditor(true);
           }
           
-          // Update the contract's stage if needed
-          if ((data as any).pursuits?.stage) {
-            // This updates the local contract object to match the saved stage
-            contract.stage = (data as any).pursuits.stage;
-          }
+          // Note: Stage information is now managed separately in the trackers table
         }
       } catch (error) {
         console.error("Error in checkExistingRfp:", error);
