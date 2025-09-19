@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Calendar, Trash2, PencilLine, AlertCircle, Check, Square } from "lucide-react";
 
 type ReportRow = {
-  pursuit_id: string;
+  response_id: string;
   user_id: string;
   content: any | null;
   completion_percentage: number | null;
@@ -89,7 +89,7 @@ export default function ReportsList(): JSX.Element {
         const { data: reports, error: repErr } = await supabase
           .from("reports")
           .select(
-            "pursuit_id, user_id, content, completion_percentage, is_submitted, updated_at"
+            "response_id, user_id, content, completion_percentage, is_submitted, updated_at"
           )
           .eq("user_id", userId)
           .eq("is_submitted", modeSubmitted)
@@ -105,7 +105,7 @@ export default function ReportsList(): JSX.Element {
           const fallbackTitle = r?.content?.rfpTitle || "Untitled Opportunity";
           const dueDate = r?.content?.dueDate ?? null;
           return {
-            pursuit_id: r.pursuit_id,
+            pursuit_id: r.response_id,
             title: fallbackTitle,
             due_date: dueDate,
             created_at: r.updated_at,
@@ -166,7 +166,7 @@ export default function ReportsList(): JSX.Element {
       const { error } = await supabase
         .from("reports")
         .update({ is_submitted: checked })
-        .eq("pursuit_id", pursuitId)
+        .eq("response_id", pursuitId)
         .eq("user_id", userId); // scope to owner
 
       if (error) throw error;
@@ -204,7 +204,7 @@ export default function ReportsList(): JSX.Element {
       const { error } = await supabase
         .from("reports")
         .delete()
-        .eq("pursuit_id", pursuitId)
+        .eq("response_id", pursuitId)
         .eq("user_id", userId); // scope to owner
 
       if (error) {
@@ -425,13 +425,11 @@ export default function ReportsList(): JSX.Element {
 
                         <button
                           onClick={() => handleDelete(it.pursuit_id)}
-                          className={`text-gray-500 hover:text-red-600 hover:bg-red-50 p-2 rounded-lg transition-colors ${
-                            isRowDeleting ? "cursor-progress opacity-60" : ""
-                          }`}
+                          className={`text-gray-500 hover:text-red-600 hover:bg-red-50 p-2 rounded-lg transition-colors ${isRowDeleting ? "cursor-progress opacity-60" : ""}`}
                           title="Remove from Reports"
                           disabled={isRowDeleting}
                         >
-                          {/* <Trash2 className="w-5 h-5" /> */}
+                          <Trash2 className="w-5 h-5" />
                         </button>
                       </div>
                     </div>
