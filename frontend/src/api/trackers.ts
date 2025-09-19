@@ -1,135 +1,187 @@
-import { apiClient } from '@/lib/api';
+import { supabase } from '@/utils/supabase';
 import { API_ENDPOINTS } from '@/config/apiEndpoints';
-import { DeadlineItem, DeadlinesResponse } from '@/api/pursuits';
+import { apiClient } from '@/lib/api';
 
-// Types matching the backend models
-export interface Tracker {
-  id: string;
+// Type definitions for API responses
+export interface DeadlineItem {
+  oppId: string;
   title: string;
-  description?: string;
+  agency?: string;
+  solicitation?: string;
+  type: 'proposal' | 'qa' | 'amendment' | 'site_visit' | 'all';
+  dueAt: string; // ISO string
+  daysLeft: number;
   stage: string;
-  created_at: string;
-  updated_at: string;
-  due_date?: string;
-  user_id: string;
-  is_submitted: boolean;
-  naicscode?: string;
-  opportunity_id?: number;
+  owner?: {
+    id: string;
+    name: string;
+    avatarUrl?: string;
+  };
 }
 
-export interface CreateTrackerRequest {
-  title: string;
-  description?: string;
-  stage?: string;
-  due_date?: string;
-  naicscode?: string;
-  opportunity_id?: number;
-}
-
-export interface UpdateTrackerRequest {
-  title?: string;
-  description?: string;
-  stage?: string;
-  due_date?: string;
-  naicscode?: string;
-  is_submitted?: boolean;
-}
-
-export interface TrackersListResponse {
+export interface DeadlinesResponse {
   success: boolean;
-  trackers: Tracker[];
+  deadlines: DeadlineItem[];
   total_count: number;
   message?: string;
 }
 
-export interface TrackerStatsResponse {
-  success: boolean;
-  stats: {
-    total: number;
-    active: number;
-    submitted: number;
-    overdue: number;
-    due_this_week: number;
-  };
+export interface TrackerStats {
+  total: number;
+  active: number;
+  submitted: number;
+  overdue: number;
+  due_this_week: number;
 }
 
-export type TrackerStats = TrackerStatsResponse['stats'];
+export interface TrackerStatsResponse {
+  success: boolean;
+  stats: TrackerStats;
+}
 
-// Import pursuit calendar helper
-import { pursuitsApi } from '@/api/pursuits';
-
-export type { DeadlineItem, DeadlinesResponse } from '@/api/pursuits';
+export interface MarkSubmittedResponse {
+  success: boolean;
+  message: string;
+  tracker_id: string;
+}
 
 export const trackersApi = {
-  // Get all trackers for a user
-  async getTrackers(userId: string, isSubmitted?: boolean): Promise<TrackersListResponse> {
-    const url = isSubmitted !== undefined 
-      ? `${API_ENDPOINTS.TRACKERS}?user_id=${userId}&is_submitted=${isSubmitted}`
-      : `${API_ENDPOINTS.TRACKERS}?user_id=${userId}`;
+
+  /**
+   * Get upcoming deadlines from user's trackers (no stage filtering)
+   */
+  async getDeadlines(
+    days: number = 7
+  ): Promise<DeadlinesResponse> {
+    const { data: { user } } = await supabase.auth.getUser();
     
-    const response = await apiClient.get(url);
-    return response;
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+    
+    try {
+      const response = await apiClient.get(
+        `${API_ENDPOINTS.TRACKER_DEADLINES}?user_id=${user.id}&days=${days}`
+      );
+      
+      return response as DeadlinesResponse;
+    } catch (error) {
+      console.error('Error fetching deadlines:', error);
+      throw error;
+    }
   },
 
-  // Get a specific tracker by ID
-  async getTrackerById(trackerId: string, userId: string): Promise<Tracker> {
-    const response = await apiClient.get(`${API_ENDPOINTS.TRACKERS_BY_ID(trackerId)}?user_id=${userId}`);
-    return response;
+  /**
+   * Mark a tracker as submitted
+   */
+  async markAsSubmitted(trackerId: string): Promise<MarkSubmittedResponse> {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+    
+    try {
+      const response = await apiClient.post(
+        `${API_ENDPOINTS.TRACKER_MARK_SUBMITTED}?user_id=${user.id}`,
+        {
+          tracker_id: trackerId
+        }
+      );
+      
+      return response as MarkSubmittedResponse;
+    } catch (error) {
+      console.error('Error marking tracker as submitted:', error);
+      throw error;
+    }
   },
 
-  // Create a new tracker
-  async createTracker(trackerData: CreateTrackerRequest, userId: string): Promise<Tracker> {
-    const response = await apiClient.post(`${API_ENDPOINTS.TRACKERS}?user_id=${userId}`, trackerData);
-    return response;
+  /**
+   * Get tracker statistics for the user
+   */
+  async getStats(): Promise<TrackerStatsResponse> {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+    
+    try {
+      const response = await apiClient.get(
+        `${API_ENDPOINTS.TRACKER_STATS}?user_id=${user.id}`
+      );
+      
+      return response as TrackerStatsResponse;
+    } catch (error) {
+      console.error('Error fetching tracker stats:', error);
+      throw error;
+    }
   },
 
-  // Update an existing tracker
-  async updateTracker(trackerId: string, trackerData: UpdateTrackerRequest, userId: string): Promise<Tracker> {
-    const response = await apiClient.put(`${API_ENDPOINTS.TRACKERS_BY_ID(trackerId)}?user_id=${userId}`, trackerData);
-    return response;
-  },
-
-  // Delete a tracker
-  async deleteTracker(trackerId: string, userId: string): Promise<{ success: boolean; message: string }> {
-    const response = await apiClient.delete(`${API_ENDPOINTS.TRACKERS_BY_ID(trackerId)}?user_id=${userId}`);
-    return response;
-  },
-
-  // Toggle submitted status of a tracker
-  async toggleSubmittedStatus(trackerId: string, userId: string): Promise<Tracker> {
-    const response = await apiClient.post(`${API_ENDPOINTS.TRACKERS_TOGGLE_SUBMITTED(trackerId)}?user_id=${userId}`, {});
-    return response;
-  },
-
-  // Get tracker statistics
-  async getTrackerStats(userId: string): Promise<TrackerStatsResponse> {
-    const response = await apiClient.get(`${API_ENDPOINTS.TRACKER_STATS}?user_id=${userId}`);
-    return response;
-  },
-
-  // Legacy endpoints for deadlines and mark submitted (keeping for compatibility)
-  async getDeadlines(userId: string, days: number = 7): Promise<DeadlinesResponse> {
-    const response = await apiClient.get(`${API_ENDPOINTS.TRACKER_DEADLINES}?user_id=${userId}&days=${days}`);
-    return response;
-  },
-
-  async markSubmitted(trackerId: string, userId: string): Promise<any> {
-    const response = await apiClient.post(`${API_ENDPOINTS.TRACKER_MARK_SUBMITTED}?user_id=${userId}`, {
-      tracker_id: trackerId
+  /**
+   * Helper function to create calendar URL for Google Calendar
+   */
+  createCalendarUrl(deadline: DeadlineItem): string {
+    const startDate = new Date(deadline.dueAt);
+    const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // 1 hour duration
+    
+    const formatDate = (date: Date) => {
+      return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    };
+    
+    const params = new URLSearchParams({
+      action: 'TEMPLATE',
+      text: deadline.title,
+      dates: `${formatDate(startDate)}/${formatDate(endDate)}`,
+      details: `Deadline for: ${deadline.title}\nAgency: ${deadline.agency || 'N/A'}`
     });
-    return response;
+    
+    return `https://calendar.google.com/calendar/render?${params.toString()}`;
   },
 
-  // Calendar link generation for an individual deadline
-  createCalendarUrl: pursuitsApi.createCalendarUrl,
+  /**
+   * Generate .ics calendar file content for bulk export
+   */
+  generateIcsContent(deadlines: DeadlineItem[]): string {
+    const calendarEvents = deadlines.map(deadline => {
+      const startDate = new Date(deadline.dueAt);
+      const formatDate = (date: Date) => {
+        return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+      };
+      
+      return `BEGIN:VEVENT
+DTSTART:${formatDate(startDate)}
+DTEND:${formatDate(startDate)}
+SUMMARY:${deadline.title}
+DESCRIPTION:Deadline for: ${deadline.title}\\nAgency: ${deadline.agency || 'N/A'}
+UID:${deadline.oppId}@bizradar.com
+END:VEVENT`;
+    }).join('\n');
 
-  // Bulk .ics download stub
-  downloadIcsFile: (deadlines: DeadlineItem[]) => {
-    // For now, open individual calendar links
-    deadlines.forEach(d => {
-      const url = pursuitsApi.createCalendarUrl(d as any);
-      window.open(url, '_blank');
-    });
-    console.warn('Bulk .ics export is not implemented. Opened individual calendar links instead.');
+    return `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//BizRadar//Deadlines//EN
+${calendarEvents}
+END:VCALENDAR`;
+  },
+
+  /**
+   * Download .ics file for bulk calendar export
+   */
+  downloadIcsFile(deadlines: DeadlineItem[], filename: string = 'bizradar-deadlines.ics'): void {
+    const icsContent = this.generateIcsContent(deadlines);
+    const blob = new Blob([icsContent], { type: 'text/calendar' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   }
+
 };
+
+export default trackersApi;

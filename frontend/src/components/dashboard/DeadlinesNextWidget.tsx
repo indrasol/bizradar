@@ -83,18 +83,13 @@ const DeadlinesNextWidget: React.FC<DeadlinesNextWidgetProps> = ({ className = '
       setIsLoading(true);
       
       // Use the new trackers API to fetch deadlines (no type filtering)
-        const { success, deadlines, message } = (await trackersApi.getDeadlines(user.id, selectedDays)) || {};
-        if (success) {
-        // Map backend field names to DeadlineRow
-        const items = deadlines.map(d => ({
-          ...d,
-          dueAt: d.dueAt,
-          daysLeft: d.daysLeft
-        }));
-        setDeadlines(items);
-       
+      const response = await trackersApi.getDeadlines(selectedDays);
+      
+      if (response.success) {
+        setDeadlines(response.deadlines);
+        console.log(`Fetched ${response.deadlines.length} deadlines for next ${selectedDays} days`);
       } else {
-        console.warn('API returned success=false:', message);
+        console.warn('API returned success=false:', response.message);
         setDeadlines([]);
       }
       
@@ -125,7 +120,7 @@ const DeadlinesNextWidget: React.FC<DeadlinesNextWidgetProps> = ({ className = '
   const handleMarkSubmitted = async (oppId: string) => {
     try {
       // Use the API to mark as submitted
-      const response = await trackersApi.markSubmitted(oppId, user!.id);
+      const response = await trackersApi.markAsSubmitted(oppId);
       
       if (response.success) {
         toast.success('Marked as submitted');
