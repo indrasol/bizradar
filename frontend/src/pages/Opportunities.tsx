@@ -9,6 +9,7 @@ import MainContent from "@/components/opportunities/MainContent";
 import ScrollToTopButton from "@/components/opportunities/ScrollToTopButton";
 import NotificationToast from "@/components/opportunities/NotificationToast";
 import { reportsApi } from '@/api/reports';
+import { trackersApi } from '@/api/trackers';
 
 import { toast } from "sonner";
 import { FilterValues, Opportunity, SearchParams } from "@/models/opportunities";
@@ -598,21 +599,13 @@ const OpportunitiesPage: React.FC = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: existingTrackers } = await supabase
-        .from("trackers")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("title", opportunity.title);
+      // Check if already tracked using API
+      const trackersResponse = await trackersApi.getTrackers(user.id);
+      const existingTracker = trackersResponse.trackers.find(t => t.title === opportunity.title);
 
-      if (existingTrackers && existingTrackers.length > 0) {
+      if (existingTracker) {
         // Already tracked → toggle OFF by deleting
-        const trackerId = existingTrackers[0].id;
-        const { error: deleteError } = await supabase
-          .from("trackers")
-          .delete()
-          .eq("id", trackerId)
-          .eq("user_id", user.id);
-        if (deleteError) throw deleteError;
+        await trackersApi.deleteTracker(existingTracker.id, user.id);
         setPursuitCount((prev) => Math.max(0, prev - 1));
         try {
           toast.success("Removed from Tracker", {
@@ -623,28 +616,25 @@ const OpportunitiesPage: React.FC = () => {
         return;
       }
 
-      const newId = (typeof window !== 'undefined' && window.crypto && 'randomUUID' in window.crypto)
-        ? window.crypto.randomUUID()
-        : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+      // Create new tracker using API
+      const newTracker = await trackersApi.createTracker({
+        title: opportunity.title,
+        description: opportunity.description || "",
+        stage: "Review",
+        due_date: opportunity.response_date,
+        opportunity_id: Number(opportunity.id)
+      }, user.id);
 
-      const { data, error } = await supabase
-        .from("trackers")
-        .insert([{ id: newId, title: opportunity.title, description: opportunity.description || "", stage: "Review", user_id: user.id, due_date: opportunity.response_date, opportunity_id: opportunity.id }])
-        .select();
-      if (error) throw error;
-
-      if (data && data.length > 0) {
-        setShowNotification(true);
-        setTimeout(() => setShowNotification(false), 3000);
-        setPursuitCount((prev) => prev + 1);
-        // Immediate feedback toast
-        try {
-          toast.success("Added to Tracker", {
-            description: "This opportunity is now being tracked in My Tracker.",
-            duration: 2500,
-          });
-        } catch {}
-      }
+      setShowNotification(true);
+      setTimeout(() => setShowNotification(false), 3000);
+      setPursuitCount((prev) => prev + 1);
+      // Immediate feedback toast
+      try {
+        toast.success("Added to Tracker", {
+          description: "This opportunity is now being tracked in My Tracker.",
+          duration: 2500,
+        });
+      } catch {}
     } catch (error) {
       console.error("Error adding to tracker:", error);
     }
