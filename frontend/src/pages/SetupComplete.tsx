@@ -57,4 +57,3 @@ const SetupComplete: React.FC = () => {
 
 export default SetupComplete;
 
-
