@@ -79,16 +79,16 @@ async def get_reports(
         logger.error(f"Error in GET /reports: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch reports: {str(e)}")
 
-@router.get("/reports/{pursuit_id}", response_model=ReportResponse)
-async def get_report_by_pursuit_id(
-    pursuit_id: str,
+@router.get("/reports/{response_id}", response_model=ReportResponse)
+async def get_report_by_response_id(
+    response_id: str,
     user_id: str = Query(..., description="User ID owning the report")
 ):
-    """Get a specific report by pursuit ID"""
+    """Get a specific report by response ID"""
     try:
-        logger.info(f"GET /reports/{pursuit_id} - user_id: {user_id}")
+        logger.info(f"GET /reports/{response_id} - user_id: {user_id}")
         
-        report = await reports_service.get_report_by_pursuit_id(pursuit_id, user_id)
+        report = await reports_service.get_report_by_response_id(response_id, user_id)
         
         if not report:
             raise HTTPException(status_code=404, detail="Report not found")
@@ -98,7 +98,7 @@ async def get_report_by_pursuit_id(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error in GET /reports/{pursuit_id}: {str(e)}")
+        logger.error(f"Error in GET /reports/{response_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch report: {str(e)}")
 
 @router.post("/reports", response_model=ReportResponse)
@@ -108,10 +108,10 @@ async def create_report(
 ):
     """Create a new report"""
     try:
-        logger.info(f"POST /reports - pursuit_id: {request.pursuit_id}, user_id: {user_id}")
+        logger.info(f"POST /reports - response_id: {request.response_id}, user_id: {user_id}")
         
         report = await reports_service.create_report(
-            pursuit_id=request.pursuit_id,
+            response_id=request.response_id,
             user_id=user_id,
             content=request.content.dict(),
             completion_percentage=request.completion_percentage,
@@ -124,20 +124,20 @@ async def create_report(
         logger.error(f"Error in POST /reports: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to create report: {str(e)}")
 
-@router.put("/reports/{pursuit_id}", response_model=ReportResponse)
+@router.put("/reports/{response_id}", response_model=ReportResponse)
 async def update_report(
-    pursuit_id: str,
+    response_id: str,
     request: UpdateReportRequest,
     user_id: str = Query(..., description="User ID owning the report")
 ):
     """Update an existing report"""
     try:
-        logger.info(f"PUT /reports/{pursuit_id} - user_id: {user_id}")
+        logger.info(f"PUT /reports/{response_id} - user_id: {user_id}")
         
         content_dict = request.content.dict() if request.content else None
         
         report = await reports_service.update_report(
-            pursuit_id=pursuit_id,
+            response_id=response_id,
             user_id=user_id,
             content=content_dict,
             completion_percentage=request.completion_percentage,
@@ -147,7 +147,7 @@ async def update_report(
         return ReportResponse(**report)
         
     except Exception as e:
-        logger.error(f"Error in PUT /reports/{pursuit_id}: {str(e)}")
+        logger.error(f"Error in PUT /reports/{response_id}: {str(e)}")
         if "not found" in str(e).lower():
             raise HTTPException(status_code=404, detail="Report not found")
         raise HTTPException(status_code=500, detail=f"Failed to update report: {str(e)}")
@@ -175,38 +175,38 @@ async def upsert_report(
         logger.error(f"Error in POST /reports/upsert: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to upsert report: {str(e)}")
 
-@router.delete("/reports/{pursuit_id}")
+@router.delete("/reports/{response_id}")
 async def delete_report(
-    pursuit_id: str,
+    response_id: str,
     user_id: str = Query(..., description="User ID owning the report")
 ):
     """Delete a report"""
     try:
-        logger.info(f"DELETE /reports/{pursuit_id} - user_id: {user_id}")
+        logger.info(f"DELETE /reports/{response_id} - user_id: {user_id}")
         
-        success = await reports_service.delete_report(pursuit_id, user_id)
+        success = await reports_service.delete_report(response_id, user_id)
         
         return {"success": success, "message": "Report deleted successfully"}
         
     except Exception as e:
-        logger.error(f"Error in DELETE /reports/{pursuit_id}: {str(e)}")
+        logger.error(f"Error in DELETE /reports/{response_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to delete report: {str(e)}")
 
-@router.post("/reports/{pursuit_id}/toggle-submitted", response_model=ReportResponse)
+@router.post("/reports/{response_id}/toggle-submitted", response_model=ReportResponse)
 async def toggle_submitted_status(
-    pursuit_id: str,
+    response_id: str,
     user_id: str = Query(..., description="User ID owning the report")
 ):
     """Toggle the submitted status of a report"""
     try:
-        logger.info(f"POST /reports/{pursuit_id}/toggle-submitted - user_id: {user_id}")
+        logger.info(f"POST /reports/{response_id}/toggle-submitted - user_id: {user_id}")
         
-        report = await reports_service.toggle_submitted_status(pursuit_id, user_id)
+        report = await reports_service.toggle_submitted_status(response_id, user_id)
         
         return ReportResponse(**report)
         
     except Exception as e:
-        logger.error(f"Error in POST /reports/{pursuit_id}/toggle-submitted: {str(e)}")
+        logger.error(f"Error in POST /reports/{response_id}/toggle-submitted: {str(e)}")
         if "not found" in str(e).lower():
             raise HTTPException(status_code=404, detail="Report not found")
         if "must be 100% complete" in str(e).lower():

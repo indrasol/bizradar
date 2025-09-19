@@ -3,6 +3,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/utils/supabase";
 import { toast } from "sonner";
 import { Calendar, Trash2, PencilLine, AlertCircle, Check, Square } from "lucide-react";
+import ConfirmationModal from "@/components/ui/ConfirmationModal";
+import { reportsApi } from "@/api/reports";
 
 type ReportRow = {
   response_id: string;
@@ -70,6 +72,10 @@ export default function ReportsList(): JSX.Element {
 
   // State for which (if any) report is being deleted
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  
+  // State for confirmation modal
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<ReportItem | null>(null);
 
   // Fetch: reports for this user (NOT merged with trackers anymore)
   useEffect(() => {
@@ -187,11 +193,15 @@ export default function ReportsList(): JSX.Element {
     }
   };
 
-  const handleDelete = async (pursuitId: string) => {
-    const ok = window.confirm("Remove this opportunity from Reports?");
-    if (!ok) return;
+  const handleDeleteClick = (item: ReportItem) => {
+    setItemToDelete(item);
+    setShowDeleteModal(true);
+  };
 
-    setIsDeleting(pursuitId);
+  const handleDeleteConfirm = async () => {
+    if (!itemToDelete) return;
+
+    setIsDeleting(itemToDelete.pursuit_id);
 
     try {
       const { data: userRes } = await supabase.auth.getUser();
@@ -201,28 +211,27 @@ export default function ReportsList(): JSX.Element {
         return;
       }
 
-      const { error } = await supabase
-        .from("reports")
-        .delete()
-        .eq("response_id", pursuitId)
-        .eq("user_id", userId); // scope to owner
+      // Use the API client instead of direct Supabase call
+      await reportsApi.deleteReport(itemToDelete.pursuit_id, userId);
 
-      if (error) {
-        console.error("Delete error:", error);
-        toast.error("Failed to remove from Reports.");
-        setIsDeleting(null);
-        return;
-      }
-
-      // Remove from UI ONLY after DB confirms deletion.
-      setItems((p) => p.filter((it) => it.pursuit_id !== pursuitId));
-      toast.success("Removed from Reports.");
+      // Remove from UI ONLY after API confirms deletion
+      setItems((p) => p.filter((it) => it.pursuit_id !== itemToDelete.pursuit_id));
+      toast.success("Report removed successfully.");
+      
+      // Close modal and reset state
+      setShowDeleteModal(false);
+      setItemToDelete(null);
     } catch (e: any) {
       console.error("Failed to delete report:", e);
-      toast.error("Failed to remove from Reports.");
+      toast.error("Failed to remove report.");
     } finally {
       setIsDeleting(null);
     }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteModal(false);
+    setItemToDelete(null);
   };
 
   const handleEditResponse = (item: ReportItem) => {
@@ -424,7 +433,7 @@ export default function ReportsList(): JSX.Element {
                         </div>
 
                         <button
-                          onClick={() => handleDelete(it.pursuit_id)}
+                          onClick={() => handleDeleteClick(it)}
                           className={`text-gray-500 hover:text-red-600 hover:bg-red-50 p-2 rounded-lg transition-colors ${isRowDeleting ? "cursor-progress opacity-60" : ""}`}
                           title="Remove from Reports"
                           disabled={isRowDeleting}
@@ -440,6 +449,23 @@ export default function ReportsList(): JSX.Element {
           })}
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showDeleteModal}
+        onClose={handleDeleteCancel}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Report"
+        description={
+          itemToDelete
+            ? `Are you sure you want to remove "${itemToDelete.title}" from your reports? This action cannot be undone.`
+            : "Are you sure you want to delete this report?"
+        }
+        confirmText="Delete Report"
+        cancelText="Cancel"
+        type="danger"
+        isLoading={isDeleting === itemToDelete?.pursuit_id}
+      />
     </div>
   );
 }

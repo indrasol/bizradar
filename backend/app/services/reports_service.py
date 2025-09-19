@@ -84,15 +84,19 @@ class ReportsService:
             logger.error(f"Error fetching report {response_id}: {str(e)}")
             raise Exception(f"Failed to fetch report: {str(e)}")
     
-    async def create_report(self, pursuit_id: str, user_id: str, content: Dict[str, Any], 
+    async def create_report(self, response_id: str, user_id: str, content: Dict[str, Any], 
                           completion_percentage: int = 0, is_submitted: bool = False) -> Dict[str, Any]:
         """Create a new report"""
         try:
-            logger.info(f"Creating report for pursuit {pursuit_id}, user {user_id}")
+            logger.info(f"Creating report for response {response_id}, user {user_id}")
+            
+            # Extract title from content if available
+            title = content.get("rfpTitle", "Untitled Report") if isinstance(content, dict) else "Untitled Report"
             
             report_data = {
-                "pursuit_id": pursuit_id,
+                "response_id": response_id,
                 "user_id": user_id,
+                "title": title,
                 "content": content,
                 "completion_percentage": completion_percentage,
                 "is_submitted": is_submitted,
@@ -105,8 +109,10 @@ class ReportsService:
             if response.data:
                 created_report = {
                     "id": response.data.get("id"),
-                    "response_id": response.data["pursuit_id"],  # Map pursuit_id to response_id for frontend
+                    "response_id": response.data["response_id"],
                     "user_id": response.data["user_id"],
+                    "title": response.data.get("title", ""),
+                    "description": response.data.get("description", ""),
                     "content": response.data["content"],
                     "completion_percentage": response.data["completion_percentage"],
                     "is_submitted": response.data["is_submitted"],
@@ -114,20 +120,20 @@ class ReportsService:
                     "updated_at": response.data["updated_at"],
                     "created_at": response.data["created_at"]
                 }
-                logger.info(f"Successfully created report for pursuit {pursuit_id}")
+                logger.info(f"Successfully created report for response {response_id}")
                 return json_serializable(created_report)
             
             raise Exception("No data returned from insert operation")
             
         except Exception as e:
-            logger.error(f"Error creating report for pursuit {pursuit_id}: {str(e)}")
+            logger.error(f"Error creating report for response {response_id}: {str(e)}")
             raise Exception(f"Failed to create report: {str(e)}")
     
-    async def update_report(self, pursuit_id: str, user_id: str, content: Optional[Dict[str, Any]] = None,
+    async def update_report(self, response_id: str, user_id: str, content: Optional[Dict[str, Any]] = None,
                           completion_percentage: Optional[int] = None, is_submitted: Optional[bool] = None) -> Dict[str, Any]:
         """Update an existing report"""
         try:
-            logger.info(f"Updating report for pursuit {pursuit_id}, user {user_id}")
+            logger.info(f"Updating report for response {response_id}, user {user_id}")
             
             update_data = {
                 "updated_at": datetime.utcnow().isoformat()
@@ -141,13 +147,13 @@ class ReportsService:
                 update_data["is_submitted"] = is_submitted
             
             response = self.supabase.table(self.table_name).update(update_data).eq(
-                "pursuit_id", pursuit_id
+                "response_id", response_id
             ).eq("user_id", user_id).select().single().execute()
             
             if response.data:
                 updated_report = {
                     "id": response.data.get("id"),
-                    "response_id": response.data["pursuit_id"],  # Map pursuit_id to response_id for frontend
+                    "response_id": response.data["response_id"],
                     "user_id": response.data["user_id"],
                     "content": response.data["content"],
                     "completion_percentage": response.data["completion_percentage"],
@@ -156,13 +162,13 @@ class ReportsService:
                     "updated_at": response.data["updated_at"],
                     "created_at": response.data["created_at"]
                 }
-                logger.info(f"Successfully updated report for pursuit {pursuit_id}")
+                logger.info(f"Successfully updated report for response {response_id}")
                 return json_serializable(updated_report)
             
             raise Exception("Report not found or no data returned")
             
         except Exception as e:
-            logger.error(f"Error updating report for pursuit {pursuit_id}: {str(e)}")
+            logger.error(f"Error updating report for response {response_id}: {str(e)}")
             raise Exception(f"Failed to update report: {str(e)}")
     
     async def upsert_report(self, response_id: str, user_id: str, content: Dict[str, Any],
@@ -213,29 +219,29 @@ class ReportsService:
             logger.error(f"Error upserting report for response {response_id}: {str(e)}")
             raise Exception(f"Failed to upsert report: {str(e)}")
     
-    async def delete_report(self, pursuit_id: str, user_id: str) -> bool:
+    async def delete_report(self, response_id: str, user_id: str) -> bool:
         """Delete a report"""
         try:
-            logger.info(f"Deleting report for pursuit {pursuit_id}, user {user_id}")
+            logger.info(f"Deleting report for response {response_id}, user {user_id}")
             
             response = self.supabase.table(self.table_name).delete().eq(
-                "pursuit_id", pursuit_id
+                "response_id", response_id
             ).eq("user_id", user_id).execute()
             
-            logger.info(f"Successfully deleted report for pursuit {pursuit_id}")
+            logger.info(f"Successfully deleted report for response {response_id}")
             return True
             
         except Exception as e:
-            logger.error(f"Error deleting report for pursuit {pursuit_id}: {str(e)}")
+            logger.error(f"Error deleting report for response {response_id}: {str(e)}")
             raise Exception(f"Failed to delete report: {str(e)}")
     
-    async def toggle_submitted_status(self, pursuit_id: str, user_id: str) -> Dict[str, Any]:
+    async def toggle_submitted_status(self, response_id: str, user_id: str) -> Dict[str, Any]:
         """Toggle the submitted status of a report"""
         try:
-            logger.info(f"Toggling submitted status for pursuit {pursuit_id}, user {user_id}")
+            logger.info(f"Toggling submitted status for response {response_id}, user {user_id}")
             
             # First get current status
-            current_report = await self.get_report_by_pursuit_id(pursuit_id, user_id)
+            current_report = await self.get_report_by_response_id(response_id, user_id)
             if not current_report:
                 raise Exception("Report not found")
             
@@ -247,14 +253,14 @@ class ReportsService:
             
             # Update the status
             updated_report = await self.update_report(
-                pursuit_id, user_id, is_submitted=new_status
+                response_id, user_id, is_submitted=new_status
             )
             
-            logger.info(f"Successfully toggled submitted status to {new_status} for pursuit {pursuit_id}")
+            logger.info(f"Successfully toggled submitted status to {new_status} for response {response_id}")
             return updated_report
             
         except Exception as e:
-            logger.error(f"Error toggling submitted status for pursuit {pursuit_id}: {str(e)}")
+            logger.error(f"Error toggling submitted status for response {response_id}: {str(e)}")
             raise Exception(f"Failed to toggle submitted status: {str(e)}")
 
 # Create service instance
