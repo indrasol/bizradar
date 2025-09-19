@@ -16,7 +16,11 @@ ENV PLAYWRIGHT_MCP_BIN=/usr/local/bin/playwright-mcp
 WORKDIR /src
 
 # System deps (curl for healthcheck); keep it slim
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN echo "deb http://deb.debian.org/debian/ stable main" > /etc/apt/sources.list \
+    && apt-get update
+
+# Install basic dependencies first (curl, wget, gnupg, lsb-release, etc.)
+RUN apt-get install -y --no-install-recommends \
     curl \
     wget \
     gnupg \
@@ -39,6 +43,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libasound2 \
     fonts-liberation \
     libgtk-3-0 \
+    libcurl4 \
+    libxss1 \
+    libappindicator3-1 \
+    libindicator3-7 \
+ && rm -rf /var/lib/apt/lists/*
+
+# Add Google Chrome repository and install it
+RUN curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | apt-key add - \
+ && DISTRO=$(lsb_release -c | awk '{print $2}') \
+ && echo "deb [signed-by=/usr/share/keyrings/google-archive-keyring.gpg] https://dl.google.com/linux/chrome/deb/ stable main" | tee /etc/apt/sources.list.d/google-chrome.list \
+ && apt-get update && apt-get install -y --no-install-recommends google-chrome-stable \
  && rm -rf /var/lib/apt/lists/*
 
 # Install Google Chrome stable
