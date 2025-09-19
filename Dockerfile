@@ -5,19 +5,12 @@ FROM python:3.11-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
-    PORT=8000 \
-    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-ENV LOG_LEVEL=debug \
-    PYTHONLOGLEVEL=DEBUG
+    PORT=8000
 
 WORKDIR /src
 
 # System deps (curl for healthcheck); keep it slim
-RUN echo "deb http://deb.debian.org/debian/ stable main" > /etc/apt/sources.list \
-    && apt-get update
-
-# Install basic dependencies first (curl, wget, gnupg, lsb-release, etc.)
-RUN apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     wget \
     gnupg \
@@ -39,23 +32,6 @@ RUN apt-get install -y --no-install-recommends \
     libasound2 \
     fonts-liberation \
     libgtk-3-0 \
-    libcurl4 \
-    libxss1 \
-    libappindicator3-1 \
-    libindicator3-7 \
- && rm -rf /var/lib/apt/lists/*
-
-# Add Google Chrome repository and install it
-RUN curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | apt-key add - \
- && DISTRO=$(lsb_release -c | awk '{print $2}') \
- && echo "deb [signed-by=/usr/share/keyrings/google-archive-keyring.gpg] https://dl.google.com/linux/chrome/deb/ stable main" | tee /etc/apt/sources.list.d/google-chrome.list \
- && apt-get update && apt-get install -y --no-install-recommends google-chrome-stable \
- && rm -rf /var/lib/apt/lists/*
-
-# Install Node.js (for npx to run @playwright/mcp)
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
- && apt-get update && apt-get install -y --no-install-recommends nodejs \
- && node -v && npm -v \
  && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first to leverage cache
@@ -70,8 +46,7 @@ COPY backend/app/ ./app/
 
 # Non-root user
 RUN useradd --create-home --shell /bin/bash appuser \
- && mkdir -p ${PLAYWRIGHT_BROWSERS_PATH} \
- && chown -R appuser:appuser /src ${PLAYWRIGHT_BROWSERS_PATH}
+ && chown -R appuser:appuser /src
 USER appuser
 
 # App Service probes default to this; still useful for docs
