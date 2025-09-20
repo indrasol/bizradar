@@ -2,13 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { RfpOverview } from './RfpOverview';
 import RfpResponse from './rfpResponse';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Loader2, Eye, Download, AlertCircle, Info, X } from 'lucide-react';
+import { Loader2, Eye, Download, AlertCircle, Info, X, ArrowLeft } from 'lucide-react';
 import { supabase } from '../../utils/supabase';
 import { toast } from 'sonner';
+import { reportsApi } from '../../api/reports';
+import { trackersApi } from '../../api/trackers';
 
 interface RfpResponseData {
   id: string;
-  pursuit_id: string;
+  response_id: string;
   user_id: string;
   content: {
     logo?: string;
@@ -30,24 +32,23 @@ interface RfpResponseData {
   is_submitted: boolean;
   created_at: string;
   updated_at: string;
-  pursuits?: {
-    stage?: string;
-  }
+  stage?: string;
 }
 
-interface PursuitData {
+interface TrackerData {
   title: string;
-  description: string;
-  stage: string;
-  user_id: string;
+  description?: string;
+  stage?: string;
   due_date?: string;
+  naicscode?: string;
+  opportunity_id?: number;
 }
 
 /**
  * Container component for RFP (Request for Proposal) workflow
  * Handles the display of RFP overview and response generation
  */
-export function RfpContainer({ initialContent = '', contract }) {
+export function RfpContainer({ initialContent = '', contract, pursuitId, onViewChange, onBackToOverview, currentView: parentCurrentView }) {
   const [showEditor, setShowEditor] = useState(false);
   const [generatingRfp, setGeneratingRfp] = useState(false);
   const [viewDescription, setViewDescription] = useState(false);
@@ -55,7 +56,9 @@ export function RfpContainer({ initialContent = '', contract }) {
   const [descriptionContent, setDescriptionContent] = useState('');
   const [existingRfpData, setExistingRfpData] = useState<RfpResponseData | null>(null);
   const [isCheckingExisting, setIsCheckingExisting] = useState<boolean>(true);
-  const [pursuitId, setPursuitId] = useState<string | null>(null);
+  const [internalPursuitId, setInternalPursuitId] = useState<string | null>(null);
+  // Use parent's currentView, fallback to 'overview' if not provided
+  const currentView = parentCurrentView || 'overview';
   
   // Add debugging to check the contract data
   useEffect(() => {
@@ -65,7 +68,9 @@ export function RfpContainer({ initialContent = '', contract }) {
   // Check if there's already an RFP response for this contract
   useEffect(() => {
     const checkExistingRfp = async (): Promise<void> => {
-      if (!contract?.id) return;
+      // Use pursuit_id if available, otherwise fall back to contract.id
+      const responseId = contract?.pursuit_id || contract?.id;
+      if (!responseId) return;
       
       try {
         setIsCheckingExisting(true);
@@ -79,42 +84,40 @@ export function RfpContainer({ initialContent = '', contract }) {
           return;
         }
         
-        // Check if there's an existing RFP response
-        const { data, error } = await supabase
-          .from('reports')
-          .select('*')
-          .eq('response_id', contract.id)
-          .eq('user_id', user.id)
-          .maybeSingle();
+        // Check if there's an existing RFP response using the API
+        try {
+          const report = await reportsApi.getReportByResponseId(responseId, user.id);
+          console.log("Found existing RFP data:", report);
+          setExistingRfpData(report as RfpResponseData);
           
-        if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned" error
-          console.error("Error checking existing RFP:", error);
-          toast?.error("Failed to check for existing RFP data.");
-        }
-        
-        if (data) {
-          console.log("Found existing RFP data:", data);
-          setExistingRfpData(data as RfpResponseData);
-          
-          // If there's existing data and it's not submitted, show the editor
-          if (data.is_submitted !== true) {
+          // If there's existing data and it's not submitted, prepare to show the editor
+          if (report.is_submitted !== true) {
+            // Don't automatically switch to editor view, let user choose
             setShowEditor(true);
           }
-          
-          // Note: Stage information is now managed separately in the trackers table
+        } catch (error: any) {
+          // If error is 404 (not found), that's expected for new RFPs
+          if (error.message && error.message.includes('404')) {
+            console.log("No existing RFP response found - this is normal for new RFPs");
+          } else {
+            console.error("Error checking existing RFP:", error);
+            toast?.error("Failed to check for existing RFP data.");
+          }
         }
       } catch (error) {
         console.error("Error in checkExistingRfp:", error);
+        toast?.error("Failed to check for existing RFP data.");
       } finally {
         setIsCheckingExisting(false);
       }
     };
     
     checkExistingRfp();
-  }, [contract?.id]);
+  }, [contract?.id, contract?.pursuit_id]);
 
   // Function to handle generating a new RFP response
   const handleGenerateRfp = async (): Promise<void> => {
+    onViewChange?.('editor');
     setShowEditor(true);
     setGeneratingRfp(true);
 
@@ -129,79 +132,69 @@ export function RfpContainer({ initialContent = '', contract }) {
         return;
       }
       
-      // Initialize pursuitId with the contract ID
-      let pursuitId = contract.id;
-      let pursuitExists = false;
+      // Initialize pursuitId with the pursuit_id if available, otherwise use contract ID
+      let pursuitId = contract.pursuit_id || contract.id;
+      let trackerExists = false;
       
-      // Check if the tracker already exists
-      const { data: existingTracker, error: checkError } = await supabase
-        .from('trackers')
-        .select('id')
-        .eq('id', pursuitId)
-        .single();
-        
-      if (!checkError && existingTracker) {
+      // Check if the tracker already exists using API
+      try {
+        const existingTracker = await trackersApi.getTrackerById(pursuitId, user.id);
         console.log("Tracker exists with ID:", pursuitId);
-        pursuitExists = true;
-      } else {
-        console.log("Tracker does not exist, checking by title");
+        trackerExists = true;
+      } catch (error: any) {
+        if (!error.message?.includes('404')) {
+          console.error("Error checking tracker:", error);
+        }
         
         // Check if a tracker with this title exists
-        const { data: titleTracker, error: titleError } = await supabase
-          .from('trackers')
-          .select('id')
-          .eq('title', contract.title)
-          .maybeSingle();
+        try {
+          const trackers = await trackersApi.getTrackers(user.id);
+          const titleTracker = trackers.trackers.find(t => t.title === contract.title);
           
-        if (!titleError && titleTracker) {
-          // Use the existing tracker ID
-          pursuitId = titleTracker.id;
-          pursuitExists = true;
-          console.log("Found pursuit by title, ID:", pursuitId);
+          if (titleTracker) {
+            // Use the existing tracker ID
+            pursuitId = titleTracker.id;
+            trackerExists = true;
+            console.log("Found tracker by title, ID:", pursuitId);
+          }
+        } catch (listError) {
+          console.error("Error listing trackers:", listError);
         }
       }
       
-      // If no pursuit exists, create one
-      if (!pursuitExists) {
-        console.log("Creating new pursuit");
+      // If no tracker exists, create one
+      if (!trackerExists) {
+        console.log("Creating new tracker");
         
         // Format due_date properly - don't use 'TBD' strings
-        let formattedDueDate = null;
+        let formattedDueDate = undefined;
         if (contract.dueDate && contract.dueDate !== "TBD" && contract.dueDate !== "Not specified") {
           formattedDueDate = new Date(contract.dueDate).toISOString();
         } else if (contract.response_date && contract.response_date !== "TBD" && contract.response_date !== "Not specified") {
           formattedDueDate = new Date(contract.response_date).toISOString();
         }
         
-        const pursuitData: PursuitData = {
+        const trackerData: TrackerData = {
           title: contract.title || "Untitled Opportunity",
           description: contract.description || '',
           stage: 'RFP Response Initiated',
-          user_id: user.id
+          due_date: formattedDueDate,
+          naicscode: contract.naicsCode || contract.naics_code,
+          opportunity_id: contract.opportunity_id
         };
         
-        // Only add due_date if it's a valid date
-        if (formattedDueDate) {
-          pursuitData.due_date = formattedDueDate;
-        }
-        
-        const { data: newTracker, error: createError } = await supabase
-          .from('trackers')
-          .insert(pursuitData)
-          .select();
-          
-        if (createError) {
-          console.error("Error creating pursuit:", createError);
-          toast?.error("Failed to create pursuit. Please try again.");
-          setGeneratingRfp(false);
-          return;
-        }
-        
-        if (newTracker && newTracker.length > 0) {
-          const newTrackerId = newTracker[0].id;
-          setPursuitId(newTrackerId);
+        try {
+          const newTracker = await trackersApi.createTracker(trackerData, user.id);
+          const newTrackerId = newTracker.id;
+          setInternalPursuitId(newTrackerId);
           pursuitId = newTrackerId;
           console.log("Created new tracker with ID:", newTrackerId);
+          trackerExists = true;
+        } catch (createError) {
+          console.error("Error creating tracker:", createError);
+          toast?.error("Failed to create tracker. Please try again.");
+          setGeneratingRfp(false);
+          return;
         }
       }
       
@@ -212,55 +205,51 @@ export function RfpContainer({ initialContent = '', contract }) {
         contract.id = pursuitId; // Directly replace the original ID
       }
       
-      if (!pursuitExists) {
-        toast?.error("Failed to create or find pursuit.");
+      if (!trackerExists) {
+        toast?.error("Failed to create or find tracker.");
         setGeneratingRfp(false);
         return;
       }
       
-      // Now check if an RFP response already exists for this pursuit
-      const { data: existingResponse, error: responseError } = await supabase
-        .from('rfp_responses')
-        .select('*')
-        .eq('pursuit_id', pursuitId)
-        .maybeSingle();
-        
-      if (!responseError && existingResponse) {
-        console.log("Found existing RFP response:", existingResponse);
-        setExistingRfpData(existingResponse as RfpResponseData);
-      } else {
-        // Create a new RFP response
-        console.log("Creating new RFP response for pursuit ID:", pursuitId);
-        const { data, error } = await supabase
-          .from('rfp_responses')
-          .insert({
-            pursuit_id: pursuitId,
-            user_id: user.id,
-            content: {
-              companyName: 'BizRadar Solutions',
-              rfpTitle: contract?.title || 'RFP Response',
-              rfpNumber: contract?.solicitation_number || '',
-              issuedDate: contract?.published_date || new Date().toLocaleDateString(),
-              sections: []
-            },
-            completion_percentage: 0,
-            is_submitted: false
-          })
-          .select();
-          
-        if (error) {
-          console.error("Error creating RFP response:", error);
-          toast?.error("Failed to create RFP response. Please try again.");
-        } else if (data) {
-          setExistingRfpData(data[0] as RfpResponseData);
+      // Now check if an RFP response already exists for this pursuit using API
+      try {
+        const existingReport = await reportsApi.getReportByResponseId(pursuitId, user.id);
+        console.log("Found existing RFP response:", existingReport);
+        setExistingRfpData(existingReport as RfpResponseData);
+      } catch (error: any) {
+        if (error.message?.includes('404')) {
+          // Create a new RFP response using API
+          console.log("Creating new RFP response for pursuit ID:", pursuitId);
+          try {
+            const newReport = await reportsApi.upsertReport(
+              pursuitId,
+              {
+                companyName: 'BizRadar Solutions',
+                rfpTitle: contract?.title || 'RFP Response',
+                rfpNumber: contract?.solicitation_number || '',
+                issuedDate: contract?.published_date || new Date().toLocaleDateString(),
+                sections: []
+              },
+              0,
+              false,
+              user.id
+            );
+            setExistingRfpData(newReport as RfpResponseData);
+          } catch (createError) {
+            console.error("Error creating RFP response:", createError);
+            toast?.error("Failed to create RFP response. Please try again.");
+          }
+        } else {
+          console.error("Error checking existing RFP response:", error);
         }
       }
       
-      // Update the tracker's stage
-      await supabase
-        .from('trackers')
-        .update({ stage: 'RFP Response Initiated' })
-        .eq('id', pursuitId);
+      // Update the tracker's stage using API
+      try {
+        await trackersApi.updateTracker(pursuitId, { stage: 'RFP Response Initiated' }, user.id);
+      } catch (updateError) {
+        console.error("Error updating tracker stage:", updateError);
+      }
         
       // Dispatch the custom event
       const customEvent = new CustomEvent('rfp_saved', { 
@@ -303,6 +292,19 @@ export function RfpContainer({ initialContent = '', contract }) {
     }
   };
 
+  // Handle going back to overview
+  const handleBackToOverview = () => {
+    onViewChange?.('overview');
+    onBackToOverview?.();
+    setShowEditor(false);
+  };
+
+  // Handle viewing existing RFP response
+  const handleViewExistingRfp = () => {
+    onViewChange?.('editor');
+    setShowEditor(true);
+  };
+
   // Handle downloading the current RFP state
   const handleDownloadRfp = () => {
     if (!existingRfpData) {
@@ -324,7 +326,7 @@ export function RfpContainer({ initialContent = '', contract }) {
   };
 
   return (
-    <div className="min-h-[calc(100vh-8rem)] bg-background relative">
+    <div className="h-full bg-background relative overflow-hidden">
       {/* Description Modal */}
       {viewDescription && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-start overflow-y-auto p-4">
@@ -381,53 +383,63 @@ export function RfpContainer({ initialContent = '', contract }) {
         </div>
       )}
 
-      <div className="flex h-full">
-        <div className="w-full">
+      <div className="w-full h-full overflow-auto">
           {isCheckingExisting ? (
             <div className="p-6 flex justify-center items-center h-40">
               <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
             </div>
           ) : (
             <>
-              <div className="p-6">
-                {existingRfpData?.is_submitted ? (
-                  <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg flex items-start gap-3">
-                    <div className="p-1 bg-green-100 rounded-full">
-                      <Info className="w-5 h-5 text-green-600" />
+              {currentView === 'overview' ? (
+                // Overview View
+                <div className="p-6 h-full overflow-auto">
+                  {existingRfpData?.is_submitted ? (
+                    <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg flex items-start gap-3">
+                      <div className="p-1 bg-green-100 rounded-full">
+                        <Info className="w-5 h-5 text-green-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-medium text-green-800">RFP Response Submitted</h3>
+                        <p className="text-sm text-green-700">
+                          This RFP response has been marked as submitted. You can view it or download it below.
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-medium text-green-800">RFP Response Submitted</h3>
-                      <p className="text-sm text-green-700">
-                        This RFP response has been marked as submitted. You can view it or download it below.
-                      </p>
+                  ) : null}
+                  
+                  <RfpOverview
+                    title={contract?.title}
+                    department={contract?.department}
+                    dueDate={contract?.dueDate || contract?.response_date}
+                    status={contract?.status}
+                    naicsCode={contract?.naicsCode}
+                    description={contract?.description}
+                    solicitation_number={contract?.solicitation_number}
+                    published_date={contract?.published_date}
+                    budget={contract?.budget}
+                    onViewDescription={handleViewDescription}
+                    onGenerateResponse={handleDownloadRfp}
+                    onGenerateRfp={handleGenerateRfp}
+                  />
+                  
+                  {existingRfpData && !existingRfpData.is_submitted && (
+                    <div className="mt-6">
+                      <button
+                        onClick={handleViewExistingRfp}
+                        className="w-full p-4 border border-blue-300 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors"
+                      >
+                        <Eye className="w-5 h-5" />
+                        <span>Continue Working on RFP Response</span>
+                      </button>
                     </div>
-                  </div>
-                ) : null}
-                
-                <RfpOverview
-                  title={contract?.title}
-                  department={contract?.department}
-                  dueDate={contract?.dueDate || contract?.response_date}
-                  status={contract?.status}
-                  naicsCode={contract?.naicsCode}
-                  description={contract?.description}
-                  solicitation_number={contract?.solicitation_number}
-                  published_date={contract?.published_date}
-                  budget={contract?.budget}
-                  onViewDescription={handleViewDescription}
-                  onGenerateResponse={handleDownloadRfp}
-                  onGenerateRfp={handleGenerateRfp}
-                />
-              </div>
-
-              <AnimatePresence>
-                {showEditor && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mt-4 w-full p-6"
-                  >
-                    <div className="bg-card rounded-2xl shadow-lg overflow-hidden border border-border">
+                  )}
+                </div>
+              ) : (
+                // Editor View
+                <div className="w-full h-full flex flex-col">
+                  {/* RFP Response Editor */}
+                  <div className="p-6 flex-1 min-h-0">
+                    <div className="bg-card rounded-2xl shadow-lg overflow-hidden border border-border h-full">
                       {generatingRfp ? (
                         <div className="flex flex-col items-center justify-center h-64 p-6">
                           <Loader2 size={32} className="animate-spin text-blue-500 mb-4" />
@@ -437,32 +449,20 @@ export function RfpContainer({ initialContent = '', contract }) {
                           <p className="text-sm text-muted-foreground mt-2">This may take a few moments</p>
                         </div>
                       ) : (
-                        <>
+                        <div className="h-full">
                           <RfpResponse 
                             contract={contract} 
-                            pursuitId={pursuitId || contract?.pursuitId || contract?.id}
+                            pursuitId={pursuitId}
+                            aiOpportunityId={contract?.id}
                           />
-                        </>
+                        </div>
                       )}
                     </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-              
-              {!showEditor && existingRfpData && (
-                <div className="px-6 mt-4">
-                  <button
-                    onClick={() => setShowEditor(true)}
-                    className="w-full p-4 border border-blue-300 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors"
-                  >
-                    <Eye className="w-5 h-5" />
-                    <span>View Existing RFP Response</span>
-                  </button>
+                  </div>
                 </div>
               )}
             </>
           )}
-        </div>
       </div>
     </div>
   );

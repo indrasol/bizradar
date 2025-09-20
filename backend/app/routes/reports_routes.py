@@ -2,8 +2,9 @@
 Reports routes for RFP response management
 Handles CRUD operations for reports 
 """
+import uuid
 from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 from typing import Optional, Dict, Any, List
 from app.services.reports_service import reports_service
 from app.utils.logger import get_logger
@@ -34,6 +35,22 @@ class CreateReportRequest(BaseModel):
     content: ReportContent
     completion_percentage: Optional[int] = 0
     is_submitted: Optional[bool] = False
+    
+    @validator('response_id')
+    def validate_response_id(cls, v):
+        if not v:
+            raise ValueError('response_id is required')
+        try:
+            uuid.UUID(v)
+            return v
+        except ValueError:
+            raise ValueError('response_id must be a valid UUID')
+    
+    @validator('completion_percentage')
+    def validate_completion_percentage(cls, v):
+        if v is not None and (v < 0 or v > 100):
+            raise ValueError('completion_percentage must be between 0 and 100')
+        return v
 
 class UpdateReportRequest(BaseModel):
     content: Optional[ReportContent] = None
@@ -159,18 +176,31 @@ async def upsert_report(
 ):
     """Create or update a report (upsert operation)"""
     try:
+        # Validate user_id is a valid UUID
+        if not user_id:
+            raise HTTPException(status_code=422, detail="user_id is required")
+        try:
+            uuid.UUID(user_id)
+        except ValueError:
+            raise HTTPException(status_code=422, detail="user_id must be a valid UUID")
+            
         logger.info(f"POST /reports/upsert - response_id: {request.response_id}, user_id: {user_id}")
         
         report = await reports_service.upsert_report(
             response_id=request.response_id,
             user_id=user_id,
             content=request.content.dict(),
-            completion_percentage=request.completion_percentage,
-            is_submitted=request.is_submitted
+            completion_percentage=request.completion_percentage or 0,
+            is_submitted=request.is_submitted or False
         )
         
         return ReportResponse(**report)
         
+    except HTTPException:
+        raise
+    except ValueError as ve:
+        logger.error(f"Validation error in POST /reports/upsert: {str(ve)}")
+        raise HTTPException(status_code=422, detail=str(ve))
     except Exception as e:
         logger.error(f"Error in POST /reports/upsert: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to upsert report: {str(e)}")

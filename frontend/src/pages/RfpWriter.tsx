@@ -10,6 +10,7 @@ export default function RfpWriter() {
   const [contract, setContract] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [currentView, setCurrentView] = useState<'overview' | 'editor'>('editor'); // Start with editor since users come here to generate RFP
 
   useEffect(() => {
     // Try to load contract data from sessionStorage
@@ -87,16 +88,40 @@ export default function RfpWriter() {
     navigate(-1);
   };
 
+  const handleViewChange = (view: 'overview' | 'editor') => {
+    setCurrentView(view);
+  };
+
+  const handleBackToOverview = () => {
+    setCurrentView('overview');
+  };
+
   if (loading) {
     return (
-      <div className="h-screen flex flex-col">
+      <div className="h-screen flex flex-col overflow-hidden">
         
-        <div className="flex flex-1">
-          <SideBar />
-          <div className="flex-1 flex items-center justify-center p-4">
-            <div className="text-center">
-              <Loader2 className="h-6 w-6 sm:h-8 sm:w-8 animate-spin text-blue-600 mx-auto mb-3 sm:mb-4" />
-              <p className="text-sm sm:text-base text-gray-600">Loading contract details...</p>
+        <div className="flex flex-1 min-h-0">
+          <div className="flex-shrink-0">
+            <SideBar />
+          </div>
+          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+            <div className="p-3 sm:p-4 border-b border-gray-200 bg-white shadow-sm flex-shrink-0">
+              <div className="flex items-center gap-4">
+                <button 
+                  onClick={handleGoBack}
+                  className="flex items-center text-blue-600 hover:underline text-sm sm:text-base"
+                >
+                  <ArrowLeft className="h-3 w-3 sm:h-4 sm:w-4 mr-1" /> 
+                  <span className="hidden sm:inline">Back to Opportunities</span>
+                  <span className="sm:hidden">Back</span>
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 flex items-center justify-center p-4">
+              <div className="text-center">
+                <Loader2 className="h-6 w-6 sm:h-8 sm:w-8 animate-spin text-blue-600 mx-auto mb-3 sm:mb-4" />
+                <p className="text-sm sm:text-base text-gray-600">Loading contract details...</p>
+              </div>
             </div>
           </div>
         </div>
@@ -106,27 +131,35 @@ export default function RfpWriter() {
 
   if (error) {
     return (
-      <div className="h-screen flex flex-col">
+      <div className="h-screen flex flex-col overflow-hidden">
         
-        <div className="flex flex-1">
-          <SideBar />
-          <div className="flex-1 p-4 sm:p-6">
-            <button 
-              onClick={handleGoBack}
-              className="flex items-center text-blue-600 mb-4 sm:mb-6 hover:underline text-sm sm:text-base"
-            >
-              <ArrowLeft className="h-3 w-3 sm:h-4 sm:w-4 mr-1" /> 
-              <span className="hidden sm:inline">Back to Opportunities</span>
-              <span className="sm:hidden">Back</span>
-            </button>
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 sm:p-6 text-center">
-              <p className="text-red-600 mb-3 sm:mb-4 text-sm sm:text-base">{error}</p>
-              <button 
-                onClick={fetchContractData}
-                className="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-md text-sm sm:text-base"
-              >
-                Try Again
-              </button>
+        <div className="flex flex-1 min-h-0">
+          <div className="flex-shrink-0">
+            <SideBar />
+          </div>
+          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+            <div className="p-3 sm:p-4 border-b border-gray-200 bg-white shadow-sm flex-shrink-0">
+              <div className="flex items-center gap-4">
+                <button 
+                  onClick={handleGoBack}
+                  className="flex items-center text-blue-600 hover:underline text-sm sm:text-base"
+                >
+                  <ArrowLeft className="h-3 w-3 sm:h-4 sm:w-4 mr-1" /> 
+                  <span className="hidden sm:inline">Back to Opportunities</span>
+                  <span className="sm:hidden">Back</span>
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 p-4 sm:p-6 overflow-auto">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 sm:p-6 text-center">
+                <p className="text-red-600 mb-3 sm:mb-4 text-sm sm:text-base">{error}</p>
+                <button 
+                  onClick={fetchContractData}
+                  className="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-md text-sm sm:text-base"
+                >
+                  Try Again
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -137,26 +170,44 @@ export default function RfpWriter() {
   console.log("Rendering RfpContainer with contract:", contract);
 
   return (
-    <div className="h-screen flex flex-col">
+    <div className="h-screen flex flex-col overflow-hidden">
       
-      <div className="flex flex-1">
-        <SideBar />
-        <div className="flex-1 flex flex-col">
-          <div className="p-3 sm:p-4 border-b border-gray-200 bg-white shadow-sm">
-            <button 
-              onClick={handleGoBack}
-              className="flex items-center text-blue-600 hover:underline text-sm sm:text-base"
-            >
-              <ArrowLeft className="h-3 w-3 sm:h-4 sm:w-4 mr-1" /> 
-              <span className="hidden sm:inline">Back to Opportunities</span>
-              <span className="sm:hidden">Back</span>
-            </button>
+      <div className="flex flex-1 min-h-0">
+        <div className="flex-shrink-0">
+          <SideBar />
+        </div>
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          <div className="p-3 sm:p-4 border-b border-gray-200 bg-white shadow-sm flex-shrink-0">
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={handleGoBack}
+                className="flex items-center text-blue-600 hover:underline text-sm sm:text-base"
+              >
+                <ArrowLeft className="h-3 w-3 sm:h-4 sm:w-4 mr-1" /> 
+                <span className="hidden sm:inline">Back to Opportunities</span>
+                <span className="sm:hidden">Back</span>
+              </button>
+              
+              {currentView === 'editor' && (
+                <button 
+                  onClick={handleBackToOverview}
+                  className="flex items-center text-gray-600 hover:text-gray-800 hover:bg-gray-100 px-3 py-1.5 rounded-lg transition-colors text-sm sm:text-base"
+                >
+                  <ArrowLeft className="h-3 w-3 sm:h-4 sm:w-4 mr-1" /> 
+                  <span className="hidden sm:inline">Back to Overview</span>
+                  <span className="sm:hidden">Overview</span>
+                </button>
+              )}
+            </div>
           </div>
-          <div className="flex-1">
+          <div className="flex-1 min-h-0 overflow-hidden">
             <RfpContainer 
               contract={contract}
-                pursuitId={contractId}           // <-- use the URL UUID
-                aiOpportunityId={contract?.id}
+              pursuitId={contractId}           // <-- use the URL UUID
+              aiOpportunityId={contract?.id}
+              onViewChange={handleViewChange}
+              onBackToOverview={handleBackToOverview}
+              currentView={currentView}
             />
           </div>
         </div>

@@ -58,30 +58,41 @@ class ReportsService:
         try:
             logger.info(f"Fetching report for response {response_id}, user {user_id}")
             
+            # Use .execute() instead of .maybe_single().execute() to avoid Supabase errors
             response = self.supabase.table(self.table_name).select(
                 "id, response_id, user_id, title, description, content, completion_percentage, is_submitted, stage, created_at, updated_at"
-            ).eq("response_id", response_id).eq("user_id", user_id).maybe_single().execute()
+            ).eq("response_id", response_id).eq("user_id", user_id).execute()
             
-            if response.data:
+            # Check if we have data
+            if response.data and len(response.data) > 0:
+                data = response.data[0]  # Get the first (and should be only) result
                 report = {
-                    "id": response.data.get("id"),
-                    "response_id": response.data["response_id"],
-                    "user_id": response.data["user_id"],
-                    "title": response.data.get("title", ""),
-                    "description": response.data.get("description", ""),
-                    "content": response.data["content"],
-                    "completion_percentage": response.data["completion_percentage"] or 0,
-                    "is_submitted": response.data["is_submitted"],
-                    "stage": response.data.get("stage", "draft"),
-                    "updated_at": response.data["updated_at"],
-                    "created_at": response.data["created_at"]
+                    "id": data.get("id"),
+                    "response_id": data["response_id"],
+                    "user_id": data["user_id"],
+                    "title": data.get("title", ""),
+                    "description": data.get("description", ""),
+                    "content": data["content"],
+                    "completion_percentage": data["completion_percentage"] or 0,
+                    "is_submitted": data["is_submitted"],
+                    "stage": data.get("stage", "draft"),
+                    "updated_at": data["updated_at"],
+                    "created_at": data["created_at"]
                 }
+                logger.info(f"Successfully fetched report for response {response_id}")
                 return json_serializable(report)
             
+            # No data found - this is normal for new RFPs
+            logger.info(f"No report found for response {response_id}, user {user_id}")
             return None
             
         except Exception as e:
             logger.error(f"Error fetching report {response_id}: {str(e)}")
+            # Don't re-raise the exception for common "not found" cases
+            if ("Missing response" in str(e) or "204" in str(e) or "PGRST116" in str(e) or 
+                "invalid input syntax for type uuid" in str(e) or "22P02" in str(e)):
+                logger.info(f"Report not found for response {response_id} (expected for new RFPs or invalid UUID)")
+                return None
             raise Exception(f"Failed to fetch report: {str(e)}")
     
     async def create_report(self, response_id: str, user_id: str, content: Dict[str, Any], 
@@ -148,24 +159,34 @@ class ReportsService:
             
             response = self.supabase.table(self.table_name).update(update_data).eq(
                 "response_id", response_id
-            ).eq("user_id", user_id).select().single().execute()
+            ).eq("user_id", user_id).execute()
             
-            if response.data:
-                updated_report = {
-                    "id": response.data.get("id"),
-                    "response_id": response.data["response_id"],
-                    "user_id": response.data["user_id"],
-                    "content": response.data["content"],
-                    "completion_percentage": response.data["completion_percentage"],
-                    "is_submitted": response.data["is_submitted"],
-                    "stage": "draft",  # Default stage
-                    "updated_at": response.data["updated_at"],
-                    "created_at": response.data["created_at"]
-                }
-                logger.info(f"Successfully updated report for response {response_id}")
-                return json_serializable(updated_report)
+            # Supabase update doesn't return data by default, so we need to fetch the updated record
+            if response.data is not None:  # Update was successful
+                # Fetch the updated record
+                updated_response = self.supabase.table(self.table_name).select(
+                    "id, response_id, user_id, title, description, content, completion_percentage, is_submitted, stage, created_at, updated_at"
+                ).eq("response_id", response_id).eq("user_id", user_id).execute()
+                
+                if updated_response.data and len(updated_response.data) > 0:
+                    data = updated_response.data[0]
+                    updated_report = {
+                        "id": data.get("id"),
+                        "response_id": data["response_id"],
+                        "user_id": data["user_id"],
+                        "title": data.get("title", ""),
+                        "description": data.get("description", ""),
+                        "content": data["content"],
+                        "completion_percentage": data["completion_percentage"],
+                        "is_submitted": data["is_submitted"],
+                        "stage": data.get("stage", "draft"),
+                        "updated_at": data["updated_at"],
+                        "created_at": data["created_at"]
+                    }
+                    logger.info(f"Successfully updated report for response {response_id}")
+                    return json_serializable(updated_report)
             
-            raise Exception("Report not found or no data returned")
+            raise Exception("Report not found or update failed")
             
         except Exception as e:
             logger.error(f"Error updating report for response {response_id}: {str(e)}")
@@ -217,6 +238,9 @@ class ReportsService:
             
         except Exception as e:
             logger.error(f"Error upserting report for response {response_id}: {str(e)}")
+            # Handle UUID validation errors gracefully
+            if "invalid input syntax for type uuid" in str(e) or "22P02" in str(e):
+                raise Exception(f"Invalid UUID format for response_id or user_id: {str(e)}")
             raise Exception(f"Failed to upsert report: {str(e)}")
     
     async def delete_report(self, response_id: str, user_id: str) -> bool:

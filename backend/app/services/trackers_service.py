@@ -149,7 +149,7 @@ class TrackersService:
             
             response = self.supabase.table(self.table_name).update(update_data).eq(
                 "id", tracker_id
-            ).eq("user_id", user_id).execute()
+            ).eq("user_id", user_id).select().execute()
             
             if response.data and len(response.data) > 0:
                 data = response.data[0]

@@ -28,6 +28,8 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../utils/supabase';
 import { toast } from "sonner";
+import { reportsApi } from '../../api/reports';
+import { trackersApi } from '../../api/trackers';
 import html2pdf from 'html2pdf.js';
 import html2canvas from 'html2canvas';
 import { saveAs } from 'file-saver';
@@ -195,7 +197,13 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
   const contentRef = useRef<HTMLDivElement>(null);
   const track = useTrack();
 
-  // Read pursuit_id saved by Opportunities page
+  // UUID validation helper
+const isValidUUID = (uuid: string): boolean => {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(uuid);
+};
+
+// Read pursuit_id saved by Opportunities page
 const stored = (() => {
   try {
     return JSON.parse(sessionStorage.getItem("currentContract") || "{}");
@@ -203,11 +211,53 @@ const stored = (() => {
     return {};
   }
 })();
-const effectivePursuitId: string | undefined = pursuitId || stored?.pursuit_id;
-console.log('effectivePursuitId:', effectivePursuitId, typeof effectivePursuitId);
+
+const effectivePursuitId: string | undefined = (() => {
+  // Priority order: 1) pursuit_id from session storage (most reliable), 2) pursuitId from props (URL), 3) contract.pursuit_id
+  const candidates = [
+    stored?.pursuit_id,
+    pursuitId,
+    contract?.pursuit_id
+  ].filter(Boolean);
+  
+  console.log('Debug data:', {
+    pursuitId: { value: pursuitId, type: typeof pursuitId },
+    storedPursuitId: { value: stored?.pursuit_id, type: typeof stored?.pursuit_id },
+    contractPursuitId: { value: contract?.pursuit_id, type: typeof contract?.pursuit_id },
+    contractId: { value: contract?.id, type: typeof contract?.id }
+  });
+  
+  console.log('Pursuit ID candidates:', candidates.map(id => ({ id, type: typeof id, isValid: id ? isValidUUID(String(id)) : false })));
+  
+  // Find the first valid UUID
+  for (const id of candidates) {
+    const idStr = String(id);
+    if (id && isValidUUID(idStr)) {
+      console.log('Using valid pursuit ID:', idStr);
+      return idStr;
+    }
+  }
+  
+  // Log all invalid candidates for debugging
+  candidates.forEach(id => {
+    if (id) {
+      console.error("Invalid pursuit ID format:", id, typeof id);
+    }
+  });
+  
+  return undefined;
+})();
+
+console.log('effectivePursuitId:', effectivePursuitId, typeof effectivePursuitId, 'isValid:', effectivePursuitId ? isValidUUID(effectivePursuitId) : false);
 
 if (!effectivePursuitId) {
-  console.warn("Missing pursuit_id. Open this page via 'Generate Response' so we know which tracker to save to.");
+  console.warn("Missing or invalid pursuit_id. Available data:", {
+    pursuitId,
+    storedPursuitId: stored?.pursuit_id,
+    contractPursuitId: contract?.pursuit_id,
+    sessionStorageKeys: Object.keys(stored || {})
+  });
+  console.warn("Open this page via 'Generate Response' so we know which tracker to save to.");
 }
 
 
@@ -228,9 +278,15 @@ if (!effectivePursuitId) {
   const [companyWebsite, setCompanyWebsite] = useState('');
   const [letterhead, setLetterhead] = useState('');
   const [phone, setPhone] = useState('');
-  const [rfpTitle, setRfpTitle] = useState(contract?.title || 'Proposal for Cybersecurity Audit & Penetration Testing Services');
-  const [rfpNumber, setRfpNumber] = useState(exampleJob.solicitationNumber);
-  const [issuedDate, setIssuedDate] = useState(contract?.published_date || new Date().toLocaleDateString());
+  const [rfpTitle, setRfpTitle] = useState(() => 
+    contract?.title || 'Proposal for Cybersecurity Audit & Penetration Testing Services'
+  );
+  const [rfpNumber, setRfpNumber] = useState(() => 
+    exampleJob.solicitationNumber || ''
+  );
+  const [issuedDate, setIssuedDate] = useState(() => 
+    contract?.published_date || new Date().toLocaleDateString()
+  );
   const [submittedBy, setSubmittedBy] = useState('');
   const [expandedSection, setExpandedSection] = useState(null);
   const [theme, setTheme] = useState('professional'); // professional, modern, classic
@@ -241,8 +297,12 @@ if (!effectivePursuitId) {
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
   const [hasUserInteracted, setHasUserInteracted] = useState(false);
 
-  const [naicsCode, setNaicsCode] = useState(contract?.naicsCode || '000000');
-  const [solicitationNumber, setSolicitationNumber] = useState(contract?.solicitation_number || '');
+  const [naicsCode, setNaicsCode] = useState(() => 
+    contract?.naicsCode || contract?.naics_code || '000000'
+  );
+  const [solicitationNumber, setSolicitationNumber] = useState(() => 
+    contract?.solicitation_number || ''
+  );
 
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [pdfUrl, setPdfUrl] = useState('');
@@ -339,18 +399,19 @@ if (!effectivePursuitId) {
         // Fetch user profile data first
         const userProfile = await fetchUserProfile();
 
-        const { data: responses, error } = await supabase
-          .from('reports')
-          .select('*')
-          .eq('response_id', effectivePursuitId);
-
-        if (error) {
-          console.error("Error loading RFP data:", error);
-          toast?.error("Failed to load saved RFP data.");
+        // Get current user
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          console.error("No user logged in");
           return;
         }
 
-        if (responses && responses.length > 0) {
+        // Use API to fetch RFP data
+        try {
+          const report = await reportsApi.getReportByResponseId(effectivePursuitId, user.id);
+          const responses = [report]; // Wrap in array to match existing logic
+          
+          if (responses && responses.length > 0) {
           const data = responses[0];
           console.log("Loaded RFP data:", data);
 
@@ -457,6 +518,47 @@ if (!effectivePursuitId) {
 
           // Load default sections for new responses
           await resetSectionsWithDocxHtml();
+        }
+        } catch (apiError: any) {
+          // Handle API errors (like 404 for no existing report)
+          if (apiError.message?.includes('404')) {
+            console.log("No existing RFP response found, loading templates and converting to HTML");
+            
+            // Set contract data for new responses
+            setRfpTitle(contract?.title || 'Proposal for Cybersecurity Audit & Penetration Testing Services');
+            setNaicsCode(contract?.naicsCode || '000000');
+            setSolicitationNumber(contract?.solicitation_number || '');
+            setIssuedDate(contract?.published_date || new Date().toLocaleDateString());
+
+            // Set initial stage for new responses
+            setStage("Review");
+
+            // Set profile data if available
+            if (userProfile) {
+              setCompanyName(userProfile?.company_name || 'BizRadar Solutions');
+              setCompanyWebsite(userProfile?.company_url || 'https://www.bizradar.com');
+              setLetterhead('123 Innovation Drive, Suite 100, TechCity, TX 75001');
+              setPhone(userProfile?.phone_number || '(510) 754-2001');
+              setSubmittedBy(`${userProfile?.first_name || 'Admin'} ${userProfile?.last_name || 'User'}, ${userProfile?.company_name || 'BizRadar'}`);
+              
+              // Also update proposalData
+              setProposalData(prev => ({
+                ...prev,
+                companyName: userProfile?.company_name || 'BizRadar Solutions',
+                companyWebsite: userProfile?.company_url || 'https://www.bizradar.com',
+                letterhead: '123 Innovation Drive, Suite 100, TechCity, TX 75001',
+                phone: userProfile?.phone_number || '(510) 754-2001',
+                submittedBy: `${userProfile?.first_name || 'Admin'} ${userProfile?.last_name || 'User'}, ${userProfile?.company_name || 'BizRadar'}`
+              }));
+            }
+
+            // Load default sections for new responses
+            await resetSectionsWithDocxHtml();
+          } else {
+            console.error("API error loading RFP data:", apiError);
+            toast?.error("Failed to load saved RFP data.");
+            setStage("Review"); // Fallback stage
+          }
         }
 
       } catch (err) {
@@ -619,33 +721,59 @@ useEffect(() => {
   const saveRfpData = async (showNotification = true) => {
     try {
       setIsSaving(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      const userId = user?.id;
       
-      if (!effectivePursuitId) {
-        console.error("No pursuit_id available for saving");
-        toast?.error("Unable to save: No pursuit ID found. Please try generating response again.");
+      // Validate user authentication
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.id) {
+        toast?.error("Authentication required. Please log in again.");
         return;
       }
       
-      // Fetch user profile data
-      const userProfile = await fetchUserProfile();
+      // Validate pursuit ID
+      if (!effectivePursuitId || !isValidUUID(effectivePursuitId)) {
+        console.error("Invalid pursuit ID:", effectivePursuitId);
+        toast?.error("Invalid pursuit ID. Please try generating the response again.");
+        return;
+      }
       
-      console.log('Current state values:', {
-        companyName,
-        companyWebsite,
-        letterhead,
-        phone,
-        submittedBy
-      });
+      // Validate user ID
+      if (!isValidUUID(user.id)) {
+        console.error("Invalid user ID:", user.id);
+        toast?.error("Invalid user session. Please log in again.");
+        return;
+      }
       
-      console.log('User profile data:', userProfile);
+      // Fetch user profile with error handling
+      let userProfile = null;
+      try {
+        userProfile = await fetchUserProfile();
+      } catch (profileError) {
+        console.warn("Failed to fetch user profile, using defaults:", profileError);
+      }
       
-      // Calculate completion percentage
-      const completedSections = sections.filter(section => section.completed).length;
-      const totalSections = sections.length;
+      // Ensure all required fields have valid values and correct types
+      const contentToSave = {
+        logo: logo || userProfile?.avatar_url || null,
+        companyName: String(companyName || userProfile?.company_name || 'BizRadar Solutions'),
+        companyWebsite: String(companyWebsite || userProfile?.company_url || 'https://www.bizradar.com'),
+        letterhead: String(letterhead || '123 Innovation Drive, Suite 100, TechCity, TX 75001'),
+        phone: String(phone || userProfile?.phone_number || '(510) 754-2001'),
+        rfpTitle: String(rfpTitle || 'Untitled RFP Response'),
+        naicsCode: String(naicsCode || '000000'), // Ensure string type
+        solicitationNumber: String(solicitationNumber || ''),
+        issuedDate: String(issuedDate || new Date().toLocaleDateString()),
+        submittedBy: String(submittedBy || `${userProfile?.first_name || 'Admin'} ${userProfile?.last_name || 'User'}, ${userProfile?.company_name || 'BizRadar'}`),
+        theme: String(theme || 'professional'),
+        sections: Array.isArray(sections) ? sections : [],
+        isSubmitted: Boolean(isSubmitted),
+        dueDate: contract?.dueDate || contract?.response_date || null
+      };
+      
+      // Validate completion percentage
+      const completedSections = contentToSave.sections.filter(section => section?.completed).length;
+      const totalSections = contentToSave.sections.length;
       const completionPercentage = totalSections > 0 ? Math.round((completedSections / totalSections) * 100) : 0;
-  
+      
       let stageToSet: string;
       if (completedSections === totalSections && totalSections > 0) {
         stageToSet = "Completed";
@@ -654,98 +782,134 @@ useEffect(() => {
       } else {
         stageToSet = "Review";
       }
-  
-      // Prepare the content object to save with profile data
-      const contentToSave = {
-        logo: logo || userProfile?.avatar_url || null,
-        companyName: companyName || userProfile?.company_name || 'BizRadar Solutions',
-        companyWebsite: companyWebsite || userProfile?.company_url || 'https://www.bizradar.com',
-        letterhead: letterhead || '123 Innovation Drive, Suite 100, TechCity, TX 75001',
-        phone: phone || userProfile?.phone_number || '(510) 754-2001',
-        rfpTitle,
-        naicsCode,
-        solicitationNumber,
-        issuedDate,
-        submittedBy: submittedBy || `${userProfile?.first_name || 'Admin'} ${userProfile?.last_name || 'User'}, ${userProfile?.company_name || 'BizRadar'}`,
-        theme,
-        sections,
-        isSubmitted,
-        dueDate: contract?.dueDate || contract?.response_date || null // Add due date to content for ReportsList
-      };
       
-      console.log('Content to save:', contentToSave);
-  
-      // Update tracker stage (only if tracker exists)
+      console.log('Saving with validated data:', {
+        effectivePursuitId,
+        userId: user.id,
+        contentKeys: Object.keys(contentToSave),
+        sectionsLength: contentToSave.sections?.length || 0,
+        completionPercentage,
+        stageToSet
+      });
+      
+      // Update tracker stage (only if tracker exists) using API
       try {
-        const { error: trackerError } = await supabase
-          .from('trackers')
-          .update({ stage: stageToSet })
-          .eq('id', effectivePursuitId)
-          .eq('user_id', user?.id);
-  
-        if (trackerError) {
-          console.warn("Could not update tracker stage:", trackerError);
-          // Don't fail the save if tracker update fails
+        // First check if tracker exists
+        await trackersApi.getTrackerById(effectivePursuitId, user.id);
+        // If we get here, tracker exists, so update it
+        await trackersApi.updateTracker(effectivePursuitId, { stage: stageToSet }, user.id);
+        console.log("Successfully updated tracker stage to:", stageToSet);
+      } catch (trackerErr: any) {
+        if (trackerErr.message?.includes('404') || trackerErr.message?.includes('not found')) {
+          console.log("Tracker not found - this is normal for reports generated without adding to tracker");
         } else {
-          console.log("Successfully updated tracker stage to:", stageToSet);
+          console.warn("Tracker update failed:", trackerErr);
         }
-      } catch (trackerErr) {
-        console.warn("Tracker update failed:", trackerErr);
+        // Don't fail the save if tracker update fails
       }
-  
-      // Save RFP content to reports table
-       const { error: reportError } = await supabase
-         .from('reports')
-         .upsert({
-           response_id: effectivePursuitId,
-           user_id: user?.id,
-           title: rfpTitle,
-           content: contentToSave,
-           is_submitted: isSubmitted,
-           completion_percentage: completionPercentage,
-           updated_at: new Date().toISOString()
-         }, {
-           onConflict: 'user_id,response_id'
-         });
-  
-      if (reportError) throw reportError;
-  
-      setLastSaved(new Date().toLocaleTimeString());
-      setStage(stageToSet); // reflect on UI
 
-      // Dispatch event to notify parent component about tracker update
-      if (effectivePursuitId) {
-        const event = new CustomEvent('rfp_saved', {
-          detail: {
-            pursuitId: effectivePursuitId,
-            stage: stageToSet,
-            percentage: completionPercentage
-          }
-        });
-        window.dispatchEvent(event);
-        console.log("Dispatched rfp_saved event:", { pursuitId: effectivePursuitId, stage: stageToSet, percentage: completionPercentage });
-      }
-  
-      if (showNotification && stageToSet === "Completed") {
+      // Save RFP content to reports table using proper HTTP methods
+      try {
+        // First check if report exists
+        let reportExists = false;
         try {
-          track({
-            event_name: "generate_rfp",
-            event_type: "button_click",
-            metadata: {
-              search_query: null,
-              section: null,
-              stage: "completed",
-              opportunity_id: contract?.id,
-              title: contract?.title,
-              naics_code: contract?.naics_code
+          await reportsApi.getReportByResponseId(effectivePursuitId, user.id);
+          reportExists = true;
+          console.log("Report exists, using PUT to update");
+        } catch (getError: any) {
+          if (getError.message?.includes('404')) {
+            console.log("Report doesn't exist, using POST to create");
+            reportExists = false;
+          } else {
+            throw getError; // Re-throw if it's not a 404
+          }
+        }
+
+        if (reportExists) {
+          // Use PUT to update existing report
+          await reportsApi.updateReport(
+            effectivePursuitId,
+            {
+              content: contentToSave,
+              completion_percentage: completionPercentage,
+              is_submitted: Boolean(isSubmitted)
             },
+            user.id
+          );
+        } else {
+          // Use POST to create new report
+          await reportsApi.createReport(
+            {
+              response_id: effectivePursuitId,
+              user_id: user.id,
+              content: contentToSave,
+              completion_percentage: completionPercentage,
+              is_submitted: Boolean(isSubmitted)
+            },
+            user.id
+          );
+        }
+        
+        console.log(`Successfully ${reportExists ? 'updated' : 'created'} RFP data`);
+        setLastSaved(new Date().toLocaleTimeString());
+        setStage(stageToSet);
+        
+        // Dispatch event to notify parent component about tracker update
+        if (effectivePursuitId) {
+          const event = new CustomEvent('rfp_saved', {
+            detail: {
+              pursuitId: effectivePursuitId,
+              stage: stageToSet,
+              percentage: completionPercentage
+            }
           });
-        } catch {}
+          window.dispatchEvent(event);
+          console.log("Dispatched rfp_saved event:", { pursuitId: effectivePursuitId, stage: stageToSet, percentage: completionPercentage });
+        }
+        
+        if (showNotification && stageToSet === "Completed") {
+          try {
+            track({
+              event_name: "generate_rfp",
+              event_type: "button_click",
+              metadata: {
+                search_query: null,
+                section: null,
+                stage: "completed",
+                opportunity_id: contract?.id,
+                title: contract?.title,
+                naics_code: contract?.naics_code
+              },
+            });
+          } catch {}
+        }
+        
+        if (showNotification) {
+          toast?.success(`Saved successfully with stage: ${stageToSet}`);
+        }
+        
+      } catch (apiError: any) {
+        console.error("API Error details:", {
+          message: apiError.message,
+          response: apiError.response?.data,
+          status: apiError.response?.status,
+          effectivePursuitId,
+          userId: user.id
+        });
+        
+        // Handle specific error types
+        if (apiError.response?.status === 422) {
+          toast?.error("Validation error: Please check all required fields are filled correctly.");
+        } else if (apiError.message?.includes('UUID') || apiError.message?.includes('uuid')) {
+          toast?.error("Invalid ID format. Please try generating the response again.");
+        } else if (apiError.response?.status === 404) {
+          toast?.error("Report not found. Please try generating the response again.");
+        } else {
+          toast?.error("Failed to save RFP response. Please try again.");
+        }
+        throw apiError;
       }
-  
-      if (showNotification) {
-        toast?.success(`Saved with stage: ${stageToSet}`);
-      }
+      
     } catch (error) {
       console.error("Error saving RFP data:", error);
       if (showNotification) {
@@ -776,6 +940,18 @@ useEffect(() => {
       return;
     }
     
+    // Validate required data before updating
+    if (!effectivePursuitId || !isValidUUID(effectivePursuitId)) {
+      toast.error("Invalid pursuit ID. Please try generating the response again.");
+      return;
+    }
+    
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user?.id || !isValidUUID(user.id)) {
+      toast.error("Authentication required. Please log in again.");
+      return;
+    }
+    
     setIsSubmitted(newSubmittedState);
   
     if (newSubmittedState) {
@@ -795,13 +971,36 @@ useEffect(() => {
       } catch {}
     }
 
-    // Immediately persist the change to database
+    // Update only the is_submitted status using PUT request
     try {
-      await saveRfpData(false); // Don't show notification for button toggle
+      console.log(`Updating submission status to ${newSubmittedState} for response ${effectivePursuitId}`);
+      
+      await reportsApi.updateReport(
+        effectivePursuitId,
+        {
+          is_submitted: newSubmittedState
+        },
+        user.id
+      );
+      
+      console.log(`Successfully updated submission status to ${newSubmittedState}`);
       toast.success(newSubmittedState ? "Marked as submitted" : "Marked as ongoing");
-    } catch (error) {
+      
+      // Update last saved time
+      setLastSaved(new Date().toLocaleTimeString());
+      
+    } catch (error: any) {
       console.error("Failed to update submission status:", error);
-      toast.error("Failed to update submission status");
+      
+      // Handle specific error types
+      if (error.response?.status === 404) {
+        toast.error("Report not found. Please save the report first.");
+      } else if (error.response?.status === 422) {
+        toast.error("Validation error. Please check your data.");
+      } else {
+        toast.error("Failed to update submission status. Please try again.");
+      }
+      
       // Revert the button state if database update failed
       setIsSubmitted(!newSubmittedState);
     }
@@ -1452,10 +1651,11 @@ useEffect(() => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          profile_id,
-          ai_opportunity_id,
           pursuitId: effectivePursuitId,
-          userId: user?.id
+          userId: user?.id,
+          aiOpportunityId: aiOpportunityId,
+          company_context,
+          proposal_context
         }),
       });
 
@@ -1674,7 +1874,7 @@ useEffect(() => {
   }, [sections, expandedSection]);
 
   return (
-    <div className="w-full min-h-full bg-gray-50">
+    <div className="w-full h-full bg-gray-50 overflow-auto">
       <div className="w-full">
         <div className="p-4 md:p-6 max-w-7xl mx-auto">
           {/* Hidden ProposalContent for External Downloads */}
