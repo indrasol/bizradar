@@ -98,7 +98,8 @@ export const GovernmentContracts = () => {
       event_type: "button_click",
       metadata: {
         search_query: null,
-        stage: null,
+        stage: "review",
+        section: null,
         opportunity_id: contract.id,
         title: contract.title,           // optional, handy for DEs
         naics_code: contract.naicsCode,  // matches your schema naming

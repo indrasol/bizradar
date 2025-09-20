@@ -34,11 +34,14 @@ const Admin = lazy(() => import("./pages/Admin"));
 const Settings = lazy(() => import("./pages/Settings"));
 const RfpWriter = lazy(() => import("./pages/RfpWriter"));
 const BizradarAI = lazy(() => import('./components/Sidebar/BizradarAI'));
+const Reports = lazy(() => import("./pages/Reports"));
+
 
 import NotFound from "./pages/NotFound";
 
 import { TrackerProvider } from "@/logging";
 import AuthLoginTracker from "./components/Auth/AuthLoginTracker";
+import { API_ENDPOINTS } from "./config/apiEndpoints";
 
 
 // Create a query client for React Query
@@ -50,7 +53,7 @@ const App = () => (
       <Toaster />
       <Sonner />
 
-      <TrackerProvider endpoint={"http://localhost:8000/events"}>
+      <TrackerProvider endpoint={API_ENDPOINTS.EVENTS}>
         <BrowserRouter>
           <ConditionalThemeProvider>
           <AuthProvider>
@@ -123,7 +126,16 @@ const App = () => (
                     <BizradarAI />
                   </ProtectedRoute>
                 } />
-
+                <Route path="/reports/ongoing" element={
+                  <ProtectedRoute>
+                    <Reports />
+                  </ProtectedRoute>
+                  }/>
+                <Route path="/reports/submitted" element={
+                  <ProtectedRoute>
+                    <Reports />
+                  </ProtectedRoute>
+                  }/>
                 {/* 404 route */}
                 <Route path="*" element={<ComingSoon />} />
               </Routes>

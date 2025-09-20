@@ -16,14 +16,14 @@ import DeadlineRiskWidget from "../components/analytics/DeadlineRiskWidget";
 import PerformanceMetricsWidget from "../components/analytics/PerformanceMetricsWidget";
 
 const STAGE_OPTIONS = [
-  { value: '', label: 'All Stages' },
-  { value: 'Assessment', label: 'Assessment' },
-  { value: 'RFP Response Initiated', label: 'RFP Response Initiated' },
-  { value: 'RFP Response Completed', label: 'RFP Response Completed' },
+  { value: '', label: 'All' },
+  { value: 'Review', label: 'Review' },
+  { value: 'In Progress', label: 'In Progress' },
+  { value: 'Completed', label: 'Completed' },
   // Add any other real stages here
 ];
 const STATUS_OPTIONS = [
-  { value: '', label: 'All Statuses' },
+  { value: '', label: 'All' },
   { value: 'submitted', label: 'Submitted' },
   { value: 'not_submitted', label: 'Not Submitted' },
 ];

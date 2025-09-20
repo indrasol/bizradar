@@ -237,6 +237,7 @@ if (!effectivePursuitId) {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [lastSaved, setLastSaved] = useState<string | null>(null);
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
+  const [hasUserInteracted, setHasUserInteracted] = useState(false);
 
   const [naicsCode, setNaicsCode] = useState(contract?.naicsCode || '000000');
   const [solicitationNumber, setSolicitationNumber] = useState(contract?.solicitation_number || '');
@@ -331,19 +332,15 @@ if (!effectivePursuitId) {
       if (!effectivePursuitId) return;
 
       try {
-        console.log("Loading RFP data for pursuit ID:", pursuitId);
+        console.log("Loading RFP data for pursuit ID:", effectivePursuitId);
 
         // Fetch user profile data first
         const userProfile = await fetchUserProfile();
 
-        
-
-
-
         const { data: responses, error } = await supabase
-          .from('rfp_responses')
+          .from('reports')
           .select('*')
-          .eq('pursuit_id', effectivePursuitId);
+          .eq('response_id', effectivePursuitId);
 
         if (error) {
           console.error("Error loading RFP data:", error);
@@ -363,10 +360,9 @@ if (!effectivePursuitId) {
 
             // Set all state values from saved data, with profile fallbacks
             setLogo(content.logo || userProfile?.avatar_url || null);
-            console.log("Logo:", logo);
             setCompanyName(content.companyName || userProfile?.company_name || 'BizRadar Solutions');
             setCompanyWebsite(content.companyWebsite || userProfile?.company_url || 'https://www.bizradar.com');
-            setLetterhead(content.letterhead || '123 Innovation Drive, Suite 100, TechCity, TX 75001'); // No address field in profile
+            setLetterhead(content.letterhead || '123 Innovation Drive, Suite 100, TechCity, TX 75001');
             setPhone(content.phone || userProfile?.phone_number || '(510) 754-2001');
             setRfpTitle(content.rfpTitle || 'Proposal for Cybersecurity Audit & Penetration Testing Services');
             setRfpNumber(content.rfpNumber || exampleJob.solicitationNumber);
@@ -374,15 +370,37 @@ if (!effectivePursuitId) {
             setSubmittedBy(content.submittedBy || `${userProfile?.first_name || 'Admin'} ${userProfile?.last_name || 'User'}, ${userProfile?.company_name || 'BizRadar'}`);
             setTheme(content.theme || 'professional');
 
-            if (Array.isArray(content.sections)) {
+            // Load saved sections if they exist, otherwise use default template
+            if (Array.isArray(content.sections) && content.sections.length > 0) {
+              console.log("Loading saved sections:", content.sections);
               setSections(content.sections);
+              
+              // Calculate stage from loaded sections
+              const completedSections = content.sections.filter(section => section.completed).length;
+              const totalSections = content.sections.length;
+              const completionPercentage = totalSections > 0 ? Math.round((completedSections / totalSections) * 100) : 0;
+              
+              let calculatedStage: string;
+              if (completionPercentage === 100) {
+                calculatedStage = "Completed";
+              } else if (completionPercentage > 0) {
+                calculatedStage = "In Progress";
+              } else {
+                calculatedStage = "Review";
+              }
+              setStage(calculatedStage);
+              console.log("Calculated stage from sections:", calculatedStage, "Completion:", completionPercentage + "%");
+            } else {
+              console.log("No saved sections found, using default template");
+              setStage("Review");
+              await resetSectionsWithDocxHtml();
             }
 
             setProposalData({
               logo: content.logo || userProfile?.avatar_url || null,
               companyName: content.companyName || userProfile?.company_name || 'BizRadar Solutions',
               companyWebsite: content.companyWebsite || userProfile?.company_url || 'https://www.bizradar.com',
-              letterhead: content.letterhead || '123 Innovation Drive, Suite 100, TechCity, TX 75001', // No address field in profile
+              letterhead: content.letterhead || '123 Innovation Drive, Suite 100, TechCity, TX 75001',
               phone: content.phone || userProfile?.phone_number || '(510) 754-2001',
               rfpTitle: content.rfpTitle || 'Proposal for Cybersecurity Audit & Penetration Testing Services',
               naicsCode: content.naicsCode || '000000',
@@ -390,8 +408,13 @@ if (!effectivePursuitId) {
               issuedDate: content.issuedDate || 'December 26th, 2024',
               submittedBy: content.submittedBy || `${userProfile?.first_name || 'Admin'} ${userProfile?.last_name || 'User'}, ${userProfile?.company_name || 'BizRadar'}`,
               theme: content.theme || 'professional',
-              sections: Array.isArray(content.sections) ? content.sections : defaultTemplate(exampleJob),
+              sections: Array.isArray(content.sections) && content.sections.length > 0 
+                ? content.sections 
+                : defaultTemplate(exampleJob),
             });
+          } else {
+            // No content in saved data
+            setStage("Review");
           }
 
           if (data.updated_at) {
@@ -401,20 +424,21 @@ if (!effectivePursuitId) {
           console.log("Successfully loaded saved RFP data");
         } else {
           console.log("No existing RFP response found, loading templates and converting to HTML");
-          // No saved data found, load DOCX templates and convert to HTML for editing
-          console.log("No existing RFP response found, using default template");
+          
+          // Set contract data for new responses
           setRfpTitle(contract?.title || 'Proposal for Cybersecurity Audit & Penetration Testing Services');
           setNaicsCode(contract?.naicsCode || '000000');
           setSolicitationNumber(contract?.solicitation_number || '');
           setIssuedDate(contract?.published_date || new Date().toLocaleDateString());
 
-          setSections(defaultTemplate(exampleJob));
-          
+          // Set initial stage for new responses
+          setStage("Review");
+
           // Set profile data if available
           if (userProfile) {
             setCompanyName(userProfile?.company_name || 'BizRadar Solutions');
             setCompanyWebsite(userProfile?.company_url || 'https://www.bizradar.com');
-            setLetterhead('123 Innovation Drive, Suite 100, TechCity, TX 75001'); // No address field in profile
+            setLetterhead('123 Innovation Drive, Suite 100, TechCity, TX 75001');
             setPhone(userProfile?.phone_number || '(510) 754-2001');
             setSubmittedBy(`${userProfile?.first_name || 'Admin'} ${userProfile?.last_name || 'User'}, ${userProfile?.company_name || 'BizRadar'}`);
             
@@ -423,35 +447,20 @@ if (!effectivePursuitId) {
               ...prev,
               companyName: userProfile?.company_name || 'BizRadar Solutions',
               companyWebsite: userProfile?.company_url || 'https://www.bizradar.com',
-              letterhead: '123 Innovation Drive, Suite 100, TechCity, TX 75001', // No address field in profile
+              letterhead: '123 Innovation Drive, Suite 100, TechCity, TX 75001',
               phone: userProfile?.phone_number || '(510) 754-2001',
               submittedBy: `${userProfile?.first_name || 'Admin'} ${userProfile?.last_name || 'User'}, ${userProfile?.company_name || 'BizRadar'}`
             }));
           }
+
+          // Load default sections for new responses
           await resetSectionsWithDocxHtml();
         }
-
-        // --- AFTER reading rfp_responses, read the stage from trackers ---
-        try {
-          const { data: trackerRow, error: trackerErr } = await supabase
-            .from("trackers")
-            .select("stage")
-            .eq("id", effectivePursuitId)
-            .single();
-
-          if (!trackerErr && trackerRow?.stage) {
-            setStage(trackerRow.stage);
-          } else {
-            setStage("Review"); // default on first arrival
-          }
-        } catch {
-          setStage("Review");
-        }
-        // -----------------------------------------------------------------
 
       } catch (err) {
         console.error("Error in RFP data loading:", err);
         toast?.error("An unexpected error occurred while loading RFP data.");
+        setStage("Review"); // Fallback stage
       }
     };
 
@@ -459,18 +468,25 @@ if (!effectivePursuitId) {
   }, [effectivePursuitId]);
 
   // Auto-save (unchanged)
-  useEffect(() => {
-    if (!autoSaveEnabled || !effectivePursuitId) return;
-    const autoSaveTimer = setTimeout(() => {
-      saveRfpData(false); // Don't show notification for auto-save
-    }, 300000); // Auto-save every 5 minutes
-
-    return () => clearTimeout(autoSaveTimer);
-  }, [
-    logo, companyName, companyWebsite, letterhead, phone,
-    rfpTitle, rfpNumber, issuedDate, submittedBy, theme, sections,
-    autoSaveEnabled, effectivePursuitId
-  ]);
+ // Auto-save (unchanged)
+// Auto-save (temporarily disabled for testing)
+useEffect(() => {
+  console.log("Auto-save effect triggered but DISABLED for testing:", {
+    autoSaveEnabled,
+    effectivePursuitId,
+    hasUserInteracted,
+    hasUserInteractedType: typeof hasUserInteracted,
+    sectionsLength: sections.length
+  });
+  
+  // TEMPORARILY DISABLED - just return without setting timer
+  return;
+  
+}, [
+  logo, companyName, companyWebsite, letterhead, phone,
+  rfpTitle, rfpNumber, issuedDate, submittedBy, theme, sections,
+  autoSaveEnabled, effectivePursuitId, hasUserInteracted
+]);
 
   // Function to fetch user profile data
   const fetchUserProfile = async () => {
@@ -513,6 +529,7 @@ if (!effectivePursuitId) {
 
   // Helper: bump UI stage to Initiated on any edit attempt
   const markInitiated = () => {
+    setHasUserInteracted(true)
     setStage("In Progress");
   };
 
@@ -577,7 +594,7 @@ if (!effectivePursuitId) {
           id: newId,
           title: contractData.title,
           description: contractData.description || '',
-          stage: 'Assessment',
+          stage: 'Review',
           user_id: user.id,
           due_date: contractData.dueDate || contractData.response_date,
           opportunity_id: contractData.noticeId || contractData.id
@@ -603,12 +620,10 @@ if (!effectivePursuitId) {
       const { data: { user } } = await supabase.auth.getUser();
       const userId = user?.id;
       
-      // Ensure tracker exists before saving RFP response
-      let currentPursuitId = pursuitId;
-      if (!currentPursuitId || !(await trackerExists(currentPursuitId))) {
-        console.log('Creating or finding tracker for opportunity...');
-        currentPursuitId = await ensureTrackerExists(contract);
-        console.log('Tracker ID set to:', currentPursuitId);
+      if (!effectivePursuitId) {
+        console.error("No pursuit_id available for saving");
+        toast?.error("Unable to save: No pursuit ID found. Please try generating response again.");
+        return;
       }
       
       // Fetch user profile data
@@ -625,11 +640,10 @@ if (!effectivePursuitId) {
       console.log('User profile data:', userProfile);
       
       // Calculate completion percentage
-
       const completedSections = sections.filter(section => section.completed).length;
       const totalSections = sections.length;
       const completionPercentage = totalSections > 0 ? Math.round((completedSections / totalSections) * 100) : 0;
-
+  
       let stageToSet: string;
       if (completedSections === totalSections && totalSections > 0) {
         stageToSet = "Completed";
@@ -638,13 +652,13 @@ if (!effectivePursuitId) {
       } else {
         stageToSet = "Review";
       }
-
+  
       // Prepare the content object to save with profile data
       const contentToSave = {
         logo: logo || userProfile?.avatar_url || null,
         companyName: companyName || userProfile?.company_name || 'BizRadar Solutions',
         companyWebsite: companyWebsite || userProfile?.company_url || 'https://www.bizradar.com',
-        letterhead: letterhead || '123 Innovation Drive, Suite 100, TechCity, TX 75001', // No address field in profile
+        letterhead: letterhead || '123 Innovation Drive, Suite 100, TechCity, TX 75001',
         phone: phone || userProfile?.phone_number || '(510) 754-2001',
         rfpTitle,
         naicsCode,
@@ -653,57 +667,80 @@ if (!effectivePursuitId) {
         submittedBy: submittedBy || `${userProfile?.first_name || 'Admin'} ${userProfile?.last_name || 'User'}, ${userProfile?.company_name || 'BizRadar'}`,
         theme,
         sections,
-        isSubmitted
+        isSubmitted,
+        dueDate: contract?.dueDate || contract?.response_date || null // Add due date to content for ReportsList
       };
       
       console.log('Content to save:', contentToSave);
-
-      // Persist stage to trackers
-      const { error: trackerError } = await supabase
-        .from('trackers')
-        .update({ stage: stageToSet })
-
-        .eq('id', currentPursuitId);
-
-
-      if (trackerError) throw trackerError;
-
-      // Save RFP content
-      const { error: rfpError } = await supabase
-        .from('rfp_responses')
-        .upsert({
-
-
-          pursuit_id: currentPursuitId,
-          user_id: user?.id,
-          content: contentToSave,
-          is_submitted: isSubmitted,
-          completion_percentage: completionPercentage,
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'pursuit_id'
-        });
-
-      if (rfpError) throw rfpError;
-
+  
+      // Update tracker stage (only if tracker exists)
+      try {
+        const { error: trackerError } = await supabase
+          .from('trackers')
+          .update({ stage: stageToSet })
+          .eq('id', effectivePursuitId)
+          .eq('user_id', user?.id);
+  
+        if (trackerError) {
+          console.warn("Could not update tracker stage:", trackerError);
+          // Don't fail the save if tracker update fails
+        } else {
+          console.log("Successfully updated tracker stage to:", stageToSet);
+        }
+      } catch (trackerErr) {
+        console.warn("Tracker update failed:", trackerErr);
+      }
+  
+      // Save RFP content to reports table
+       const { error: reportError } = await supabase
+         .from('reports')
+         .upsert({
+           response_id: effectivePursuitId,
+           user_id: user?.id,
+           title: rfpTitle,
+           content: contentToSave,
+           is_submitted: isSubmitted,
+           completion_percentage: completionPercentage,
+           updated_at: new Date().toISOString()
+         }, {
+           onConflict: 'user_id,response_id'
+         });
+  
+      if (reportError) throw reportError;
+  
       setLastSaved(new Date().toLocaleTimeString());
       setStage(stageToSet); // reflect on UI
 
+      // Dispatch event to notify parent component about tracker update
+      if (effectivePursuitId) {
+        const event = new CustomEvent('rfp_saved', {
+          detail: {
+            pursuitId: effectivePursuitId,
+            stage: stageToSet,
+            percentage: completionPercentage
+          }
+        });
+        window.dispatchEvent(event);
+        console.log("Dispatched rfp_saved event:", { pursuitId: effectivePursuitId, stage: stageToSet, percentage: completionPercentage });
+      }
+  
       if (showNotification && stageToSet === "Completed") {
         try {
           track({
             event_name: "generate_rfp",
             event_type: "button_click",
             metadata: {
-              stage: "rfp_completed",
-              pursuit_id: pursuitId,
-              solicitation: contract?.solicitation_number,
-              rfp_title: contract?.title,
+              search_query: null,
+              section: null,
+              stage: "completed",
+              opportunity_id: contract?.id,
+              title: contract?.title,
+              naics_code: contract?.naics_code
             },
           });
         } catch {}
       }
-
+  
       if (showNotification) {
         toast?.success(`Saved with stage: ${stageToSet}`);
       }
@@ -738,11 +775,12 @@ if (!effectivePursuitId) {
           event_name: "generate_rfp",
           event_type: "button_click",
           metadata: {
-            query: null,
-            stage: "rfp_submitted",
-            pursuit_id: pursuitId,
-            solicitation: contract?.solicitation_number,
-            rfp_title: contract?.title,
+            search_query: null,
+            section: null,
+            stage: "submitted",
+            opportunity_id: contract?.id,
+            title: contract?.title,
+            naics_code: contract?.naics_code
           },
         });
       } catch {}
@@ -950,7 +988,7 @@ if (!effectivePursuitId) {
   const colors = getThemeColors();
 
   const downloadPDF = async () => {
-    try { track({ event_name: "Download RFP as PDF", event_type: "button_click", metadata: {query: null, stage: null, opportunity_id: null, naics_code: null, rfp_title: null} }); } catch {}
+    try { track({ event_name: "download_rfp_pdf", event_type: "button_click", metadata: {search_query: null, stage: null, section: null, opportunity_id: null, title: null, naics_code: null}}); } catch {}
     try {
       const contentElement = contentRef.current;
       if (!contentElement) throw new Error('Content element not found');
@@ -1156,7 +1194,7 @@ if (!effectivePursuitId) {
   };
 
   const downloadWord = async () => {
-    try { track({ event_name: "Download RFP as Word", event_type: "button_click", metadata: {query: null, stage: null, opportunity_id: null, naics_code: null, rfp_title: null} }); } catch {}
+    try { track({ event_name: "download_rfp_word", event_type: "button_click", metadata: {search_query: null, stage: null, section: null, opportunity_id: null,title: null, naics_code: null} }); } catch {}
     let contentElement: HTMLDivElement | null = null;
     let originalStyles: { [key: string]: string } | null = null;
 
@@ -1609,7 +1647,7 @@ if (!effectivePursuitId) {
 
                       <span
                         className="ml-2 text-sm text-gray-900 flex items-center gap-1"
-                        title="Review: not started • In progress: you're editing • Completed: all sections checked • Submitted: you confirmed submission"
+                        title="Review: not started â€¢ In progress: you're editing â€¢ Completed: all sections checked â€¢ Submitted: you confirmed submission"
                       >
                         Stage:
                       </span>
@@ -1654,7 +1692,7 @@ if (!effectivePursuitId) {
                     <div className="flex items-center gap-1.5">
                       <span
                         className="ml-2 text-sm text-gray-600 flex items-center gap-1"
-                        title="Review: not started • In progress: you’re editing • Completed: all sections checked • Submitted: you confirmed submission"
+                        title="Review: not started â€¢ In progress: youâ€™re editing â€¢ Completed: all sections checked â€¢ Submitted: you confirmed submission"
                       >
                       Stage:
                       </span>
@@ -1720,7 +1758,7 @@ if (!effectivePursuitId) {
                       </div>
                       <div className="mt-0.5">
                         {completionPercentage === 100
-                          ? "All sections done—tick “Submitted” to confirm your RFP response."
+                          ? "All sections done—tick \"Submitted\" to confirm your RFP response."
                           : "Tap ○ to mark ✓ when a section is completed."}
                       </div>
                     </div>

@@ -72,6 +72,11 @@ export const API_ENDPOINTS = {
   TRACKER_MARK_SUBMITTED: `${API_BASE_URL}/api/trackers/mark-submitted`,
   TRACKER_STATS: `${API_BASE_URL}/api/trackers/stats`,
   
+  // Tracker CRUD endpoints
+  TRACKERS: `${API_BASE_URL}/api/trackers`,
+  TRACKERS_BY_ID: (trackerId: string) => `${API_BASE_URL}/api/trackers/${trackerId}`,
+  TRACKERS_TOGGLE_SUBMITTED: (trackerId: string) => `${API_BASE_URL}/api/trackers/${trackerId}/toggle-submitted`,
+  
   // Profile endpoints
   PROFILE_GET: (userId: string) => `${API_BASE_URL}/api/profile?user_id=${encodeURIComponent(userId)}`,
   PROFILE_SUMMARY: (userId: string) => `${API_BASE_URL}/api/profile/summary?user_id=${encodeURIComponent(userId)}`,
@@ -82,4 +87,13 @@ export const API_ENDPOINTS = {
   AI_CONVERSATIONS: `${API_BASE_URL}/api/ai/conversations`,
   AI_ASK: `${API_BASE_URL}/ask-bizradar-ai`,
   AI_PROCESS_DOCUMENTS: `${API_BASE_URL}/process-documents`,
+  
+  // Event tracking endpoints
+  EVENTS: `${API_BASE_URL}/events`,
+
+  // Reports endpoints
+  REPORTS: `${API_BASE_URL}/api/reports`,
+  REPORTS_BY_RESPONSE_ID: (responseId: string) => `${API_BASE_URL}/api/reports/${responseId}`,
+  REPORTS_UPSERT: `${API_BASE_URL}/api/reports/upsert`,
+  REPORTS_TOGGLE_SUBMITTED: (responseId: string) => `${API_BASE_URL}/api/reports/${responseId}/toggle-submitted`,
 };

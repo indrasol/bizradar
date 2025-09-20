@@ -15,11 +15,9 @@ interface KanbanViewProps {
 }
 
 const STAGES = [
-  { id: 'Assessment', title: 'Assessment', color: 'bg-orange-100 text-orange-800' },
-  { id: 'Planning', title: 'Planning', color: 'bg-blue-100 text-blue-800' },
-  { id: 'Implementation', title: 'Implementation', color: 'bg-purple-100 text-purple-800' },
-  { id: 'Review', title: 'Review', color: 'bg-indigo-100 text-indigo-800' },
-  { id: 'RFP Response Completed', title: 'Completed', color: 'bg-green-100 text-green-800' },
+  { id: 'Review', title: 'Review', color: 'bg-orange-100 text-orange-800' },
+  { id: 'In Progress', title: 'In Progress', color: 'bg-blue-100 text-blue-800' },
+  { id: 'Completed', title: 'Completed', color: 'bg-green-100 text-green-800' },
 ];
 
 const formatDate = (dateString: string) => {
@@ -77,7 +75,7 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
   };
 
   const renderRfpActionButton = (pursuit: Pursuit) => {
-    let buttonText = "Create Response";
+    let buttonText = "Edit Response";
     let icon = <PenLine className="w-3 h-3" />;
     
     if (pursuit.is_submitted) {

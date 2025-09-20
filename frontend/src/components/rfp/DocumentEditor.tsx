@@ -86,11 +86,11 @@ const DocumentEditor = forwardRef(
       try {
         track({
           event_name: 'rfp_edit',
-          event_type: 'cursor_click',
+          event_type: 'button_click',
             metadata: {
             search_query: null,
             stage: "initiated",
-            section_title: sectionTitle ?? null,
+            section: sectionTitle ?? null,
             opportunity_id: null,
             title: null,           // optional, handy for DEs
             naics_code: null

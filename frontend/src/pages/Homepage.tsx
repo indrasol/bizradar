@@ -120,7 +120,7 @@ const ImageCarousel = ({ currentSlide, setCurrentSlide }) => {
             </div>
             
             {/* Compact glass-effect blue badge */}
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-r from-blue-600/95 via-blue-700/95 to-blue-600/95 backdrop-blur-md border-t border-white/20 shadow-xl">
+            <div className="absolute bottom-0 left-0 right-0 bg-blue-600 backdrop-blur-md border-t border-white/20 shadow-xl">
               <div className="px-4 py-3 text-center">
                 <h3 className="font-bold text-white mb-1 text-base md:text-lg">{images[currentSlide].title}</h3>
                 <p className="text-white/90 text-xs md:text-sm font-medium leading-snug max-w-4xl mx-auto">{images[currentSlide].description}</p>
@@ -150,9 +150,9 @@ const Layout = ({ children }) => {
   useEffect(() => {
     if (sessionStorage.getItem("pendingLogoutTrack") === "1") {
       track({
-        event_name: "logout-success",
+        event_name: "logout_success",
         event_type: "button_click",
-        metadata: {search_query: null, stage: null, opportunity_id: null, naics_code: null, rfp_title: null}
+        metadata: {search_query: null, stage: null, section: null, opportunity_id: null, title: null, naics_code: null}
       });
       sessionStorage.removeItem("pendingLogoutTrack");
     }

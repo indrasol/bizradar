@@ -46,6 +46,7 @@ export const SearchBar = ({
       metadata: {
         search_query: query,
         stage: null,
+        section: null,
         opportunity_id: null,
         title: null,           
         naics_code: null,

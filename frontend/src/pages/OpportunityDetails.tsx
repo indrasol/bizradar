@@ -10,27 +10,19 @@ import SideBar from "@/components/layout/SideBar";
 import Header from "@/components/opportunities/Header";
 import { Opportunity } from "@/models/opportunities";
 import { useAuth } from "@/components/Auth/useAuth";
+import { useTrack } from "@/logging";
+import { reportsApi } from '@/api/reports';
+import { toast } from "sonner";
+import { supabase } from "@/utils/supabase";  // use shared client
+
 
 // —— Inline Supabase client (remove if you have a shared client) ——
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
-let _sb: SupabaseClient | null = null;
-function getSupabase(): SupabaseClient {
-  if (_sb) return _sb;
-  const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-  const anon = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
-  if (!url || !anon) {
-    throw new Error("Missing VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY");
-  }
-  _sb = createClient(url, anon, {
-    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
-  });
-  return _sb;
-}
 
 // Find an existing tracker for (user, opportunity); otherwise insert one.
 // Returns the tracker id. This is the only piece both buttons share.
 async function addToTracker(op: Opportunity, userId: string): Promise<number> {
-  const sb = getSupabase();
+  // use shared Supabase client
+  const sb = supabase;
   const oppId = Number(op.id);
 
   // 1) check if it already exists for this user+opportunity
@@ -39,7 +31,9 @@ async function addToTracker(op: Opportunity, userId: string): Promise<number> {
     .select("id")
     .eq("user_id", userId)
     .eq("opportunity_id", oppId)
-    .maybeSingle();
+    .limit(1)
+    .single();
+    // .maybeSingle();
   if (findErr) throw findErr;
   if (existing?.id) return existing.id as number;
 
@@ -67,12 +61,13 @@ const OpportunityDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const track = useTrack();
 
   const [opportunity, setOpportunity] = useState<Opportunity | null>(null);
   const [pursuitCount, setPursuitCount] = useState<number>(0);
   const [adding, setAdding] = useState(false);
   const [generating, setGenerating] = useState(false);
-
+ 
   // ————— HANDLERS —————
 
   // Add to Pursuits → add to tracker (or reuse) and stash trackerId
@@ -81,54 +76,72 @@ const OpportunityDetails: React.FC = () => {
     try {
       setAdding(true);
       const trackerId = await addToTracker(opportunity, user.id);
+      // const pursuitId = String(trackerId); 
       sessionStorage.setItem("currentTrackerId", String(trackerId));
       setPursuitCount((c) => c + 1);
     } catch (e) {
-      console.error("Failed to add to pursuits", e);
+      console.error("Failed to add to Trackers", e);
     } finally {
       setAdding(false);
     }
   };
 
   // Generate Response → **do the same add-to-tracker step**, then navigate
-  const handleGenerateResponse = async () => {
-    if (!opportunity || !user?.id) return;
-    try {
-      setGenerating(true);
+// Replace the handleGenerateResponse function with this:
+const handleGenerateResponse = async () => {
+  if (!opportunity || !user?.id) return;
+  setGenerating(true);
+  // Log generate response event
+  track({
+    event_name: "generate_rfp",
+    event_type: "button_click",
+    metadata: {
+      search_query: null,
+      stage: "review",
+      section: null,
+      opportunity_id: opportunity.id,
+      title: opportunity.title,
+      naics_code: opportunity.naics_code ?? null,
+    },
+  });
+  try {
+    // 1) Generate a response_id (UUID)
+    const responseId =
+      crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-      // ⬇️ EXACT same logic as Add to Pursuits
-      const trackerId = await addToTracker(opportunity, user.id);
-      sessionStorage.setItem("currentTrackerId", String(trackerId));
+    // 2) Upsert report via backend API
+    await reportsApi.upsertReport(
+      responseId,
+      {
+        rfpTitle: opportunity.title,
+        dueDate: opportunity.response_date || null,
+        sections: [],
+        isSubmitted: false,
+      },
+      0,
+      false,
+      user.id
+    );
 
-      // Stash what your editor needs (include tracker_id so saves won’t FK-fail)
-      const contract = {
-        id: opportunity.id,
-        title: opportunity.title,
-        department: opportunity.agency,
-        noticeId: opportunity.id,
-        dueDate: opportunity.response_date || "2025-01-01",
-        response_date: opportunity.response_date || "2025-01-01",
-        published_date: opportunity.published_date || "",
-        value: opportunity.budget || "0",
-        status: (opportunity as any).active === false ? "Inactive" : "Active",
-        naicsCode: opportunity.naics_code || "000000",
-        solicitation_number: opportunity.solicitation_number || "",
-        description: opportunity.description || "",
-        external_url: opportunity.external_url || "",
-        budget: opportunity.budget || "",
-        tracker_id: trackerId, // ← important
-      } as any;
+    // 3) Store contract for RFP builder
+    const contract = {
+      ...opportunity,
+      pursuit_id: responseId,
+      id: opportunity.id,
+    };
+    sessionStorage.setItem("currentContract", JSON.stringify(contract));
 
-      sessionStorage.setItem("currentContract", JSON.stringify(contract));
-
-      // Now go to editor
-      navigate(`/contracts/rfp/${opportunity.id}`);
-    } catch (e) {
-      console.error("Failed to generate response", e);
-    } finally {
-      setGenerating(false);
-    }
-  };
+    // 4) Navigate to RFP builder
+    navigate(`/contracts/rfp/${responseId}`);
+  } catch (err) {
+    console.error("Failed to generate response", err);
+    toast.error("Failed to initialize report. Please try again.");
+  } finally {
+    setGenerating(false);
+  }
+};
+  
+  
 
   // Opens the original opportunity posting in a new browser tab
   const handleViewOriginalPosting = () => {
@@ -317,14 +330,32 @@ const OpportunityDetails: React.FC = () => {
                     </button>
 
                     {opportunity.external_url && (
-                      <button
-                        onClick={handleViewOriginalPosting}
-                        className="px-2 lg:px-3 py-1.5 bg-gray-50 text-gray-700 hover:bg-gray-100 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 border border-gray-200"
+                      <a
+                        href={opportunity.external_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={() => {
+                          try {
+                            track({
+                              event_name: "view_job_details",
+                              event_type: "button_click",
+                              metadata: {
+                                search_query: null,                     // keep search query null
+                                stage: null,                     // unchanged
+                                opportunity_id: Number(opportunity.id) || null,
+                                title: opportunity.title || null,
+                                naics_code: opportunity.naics_code || null,
+                              },
+                            });
+                          } catch {}
+                        }}
+                        className="px-3 py-1.5 bg-gray-50 text-gray-700 hover:bg-gray-100 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 border border-gray-200"
                       >
                         <Globe size={14} />
                         <span className="hidden sm:inline">View Original Posting</span>
                         <span className="sm:hidden">View Original</span>
-                      </button>
+                        
+                      </a>
                     )}
                   </div>
                 </div>

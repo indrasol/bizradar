@@ -59,9 +59,9 @@ export function TrackerProvider({
       sent = true;
 
       track({
-        event_name: "Window Closed",
+        event_name: "window_closed",
         event_type: "button_click",
-        metadata: {},
+        metadata: {search_query: null, stage: null, section: null, opportunity_id: null, title: null, naics_code: null},
       });
     };
 
