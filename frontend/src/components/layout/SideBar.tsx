@@ -597,7 +597,7 @@ const Sidebar = () => {
         </nav>
 
         {/* Bottom subscription */}
-        <div className={`${collapsed ? 'px-2' : 'px-4'} pt-4 border-t border-gray-200 mt-auto mb-4`}>
+        <div className={`${collapsed ? 'px-2' : 'px-4'} pt-4 pb-4 border-t border-gray-200 mt-auto`}>
           <button
             onClick={() => setUpgradeOpen(true)}
             className={`group flex ${collapsed ? 'flex-col items-center' : 'items-center gap-3'} px-3 py-3 rounded-xl border border-blue-200 bg-gradient-to-r from-blue-50 to-white shadow-sm hover:shadow-md transition-all duration-300 w-full`}
