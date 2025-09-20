@@ -20,13 +20,15 @@ export interface ReportContent {
 }
 
 export interface Report {
-  id: string;
+  id?: string;
   response_id: string;
   user_id: string;
+  title?: string;
+  description?: string;
   content: ReportContent;
   completion_percentage: number;
   is_submitted: boolean;
-  stage: string;
+  stage?: string;
   created_at: string;
   updated_at: string;
 }
@@ -51,7 +53,7 @@ export const reportsApi = {
   
      async getReportByResponseId(responseId: string, userId: string): Promise<Report> {
     const response = await apiClient.get(`${API_ENDPOINTS.REPORTS_BY_RESPONSE_ID(responseId)}?user_id=${userId}`);
-    return response.data;
+    return response;
     },
 
     async createReport(reportData: Omit<Report, 'id' | 'created_at' | 'updated_at' | 'stage'>, userId: string): Promise<Report> {
