@@ -197,6 +197,7 @@ class SubscriptionManager:
                 "updated_at": datetime.now(timezone.utc).isoformat()
             }
             
+            
             # Try to add usage columns if they exist
             # This approach is more robust and handles missing columns gracefully
             try:
