@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from utils.db_utils import get_supabase_connection
 import logging
 from typing import Dict, Any, Optional
+from urllib.parse import urlparse
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -165,11 +166,12 @@ async def get_current_user(authorization: Optional[str] = Header(None, descripti
 
 @router.post("/create-checkout-session")
 async def create_checkout_session(
-    request: CreateCheckoutSessionRequest,
-    user: Dict[str, Any] = Depends(get_current_user)
+    payload: CreateCheckoutSessionRequest,
+    user: Dict[str, Any] = Depends(get_current_user),
+    http_request: Request = None,
 ):
     """Create a Stripe Checkout Session"""
-    logger.info(f"Creating checkout session for user {user['id']}, plan: {request.planType}")
+    logger.info(f"Creating checkout session for user {user['id']}, plan: {payload.planType}")
     
     try:
         # Get or create Stripe customer
@@ -178,23 +180,45 @@ async def create_checkout_session(
         # Create a checkout session
         logger.info(f"Creating Stripe checkout session for customer {customer_id}")
         try:
+            # Build safe redirect base URL
+            redirect_base = (REDIRECT_URL or "").strip().strip('"').strip("'")
+            if redirect_base.endswith('/'):
+                redirect_base = redirect_base[:-1]
+            parsed = urlparse(redirect_base)
+            if not parsed.scheme or not parsed.netloc:
+                # Fallback to request Origin or Referer
+                if http_request is not None:
+                    origin = http_request.headers.get('origin') or http_request.headers.get('referer')
+                    if origin:
+                        origin = origin.strip().strip('"').strip("'").rstrip('/')
+                        origin_parsed = urlparse(origin)
+                        if origin_parsed.scheme and origin_parsed.netloc:
+                            redirect_base = origin
+                # Final fallback
+                if not redirect_base:
+                    redirect_base = "http://localhost:3000"
+
+            success_url = f"{redirect_base}/dashboard?session_id={{CHECKOUT_SESSION_ID}}"
+            cancel_url = f"{redirect_base}/pricing?cancelled=true"
+            logger.info(f"Using redirect_base={redirect_base}, success_url={success_url}, cancel_url={cancel_url}")
+
             # Create the checkout session
             session = stripe.checkout.Session.create(
                 customer=customer_id,
                 line_items=[{
-                    'price': request.priceId,
+                    'price': payload.priceId,
                     'quantity': 1,
                 }],
                 mode='subscription',
-                success_url=f"{REDIRECT_URL}/dashboard?session_id={{CHECKOUT_SESSION_ID}}",
-                cancel_url=f"{REDIRECT_URL}/pricing?cancelled=true",
+                success_url=success_url,
+                cancel_url=cancel_url,
                 metadata={
-                    'plan_type': request.planType,
+                    'plan_type': payload.planType,
                     'user_id': user['id']
                 },
                 subscription_data={
                     'metadata': {
-                        'plan_type': request.planType,
+                        'plan_type': payload.planType,
                         'user_id': user['id']
                     },
                     'payment_behavior': 'allow_incomplete'
