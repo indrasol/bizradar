@@ -1,6 +1,6 @@
 import { supabase } from '@/utils/supabase';
 import { Subscription, SubscriptionPlan, PlanType, SubscriptionStatus } from '@/models/subscription';
-import { API_ENDPOINTS, STRIPE_PRICES, SUPABASE_TABLES } from '@/config/apiEndpoints';
+import { API_ENDPOINTS } from '@/config/apiEndpoints';
 import { apiClient } from '@/lib/api';
 
 export const subscriptionApi = {
@@ -103,69 +103,55 @@ export const subscriptionApi = {
     }
   },
 
-  async createCheckoutSession(planType: string, billingCycle: 'monthly' | 'annual' = 'monthly'): Promise<{ sessionId: string }> {
+  async createCheckoutSession(planType: string, billingCycle: 'monthly' | 'annual' = 'monthly'): Promise<{ sessionId: string; url?: string }> {
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       throw new Error('User must be logged in to create a checkout session.');
     }
 
-    // Get the price ID based on plan and billing cycle
-    const priceId = STRIPE_PRICES[`${planType}_${billingCycle}` as keyof typeof STRIPE_PRICES];
-    if (!priceId) {
-      throw new Error('Invalid plan type or billing cycle');
-    }
+    // Normalize inputs
+    let normalizedPlan = (planType || '').toLowerCase().trim();
+    if (normalizedPlan === 'basic') normalizedPlan = 'pro';
+    const normalizedCycle = (billingCycle || 'monthly').toLowerCase().trim() as 'monthly' | 'annual';
+
+    // Get the price ID from backend (subscriptions table)
+    const priceResp = await apiClient.get(API_ENDPOINTS.STRIPE_PRICE_ID(normalizedPlan, normalizedCycle));
+    const priceId = priceResp.price_id as string;
 
     // Call our backend to create a checkout session
     const data = await apiClient.post(API_ENDPOINTS.CHECKOUT_SESSION, {
       priceId: priceId,
-      planType: planType
+      planType: normalizedPlan
     });
     
-    const { sessionId } = data;
-    return { sessionId };
+    const { sessionId, url } = data;
+    return { sessionId, url };
   },
 
   async createSubscription(planType: string): Promise<Subscription> {
+    // Deprecated: use upgradeSubscription instead which calls the backend
     const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-      throw new Error('User must be logged in to create a subscription.');
-    }
-
-    const startDate = new Date();
-    const endDate = new Date(startDate);
-    endDate.setMonth(endDate.getMonth() + 1);
-
-    const { data, error } = await supabase
-      .from(SUPABASE_TABLES.USER_SUBSCRIPTIONS)
-      .upsert({
-        user_id: user.id,
-        plan_type: planType,
-        status: 'active',
-        start_date: startDate.toISOString(),
-        end_date: endDate.toISOString()
-      }, { onConflict: 'user_id' })
-      .select()
-      .single();
-    // const { toast } = useToast();
-    // toast({
-    //   title: 'Subscription Upgraded',
-    //   description: 'Your subscription has been upgraded successfully!',
-    // });
-
-    if (error) throw error;
-    return data;
+    if (!user) throw new Error('User must be logged in to create a subscription.');
+    const result = await this.upgradeSubscription(planType);
+    // Convert backend response to Subscription shape minimally
+    return {
+      id: user.id,
+      user_id: user.id,
+      plan_type: (result?.subscription?.plan_type ?? planType) as PlanType,
+      status: (result?.subscription?.status ?? 'active') as SubscriptionStatus,
+      start_date: result?.subscription?.start_date ?? new Date().toISOString(),
+      end_date: result?.subscription?.end_date ?? null,
+      created_at: result?.subscription?.start_date ?? new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      stripe_subscription_id: result?.subscription?.stripe_subscription_id
+    } as Subscription;
   },
 
 
   async updateSubscription(subscriptionId: string, updates: Partial<Subscription>): Promise<void> {
-    const { error } = await supabase
-      .from(SUPABASE_TABLES.USER_SUBSCRIPTIONS)
-      .update(updates)
-      .eq('id', subscriptionId);
-
-    if (error) throw error;
+    // Deprecated: route updates should go through backend endpoints
+    throw new Error('updateSubscription is deprecated. Use upgradeSubscription/cancelSubscription/startTrial instead.');
   },
 
   // async createCheckoutSession(planType: string, userId: string): Promise<string> {

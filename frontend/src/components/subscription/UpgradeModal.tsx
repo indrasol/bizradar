@@ -51,9 +51,10 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
   // Update selected plan when current subscription changes
   useEffect(() => {
     if (currentSubscription) {
-      // Extract base plan type (remove _monthly or _annual suffix)
+      // Extract base plan type (remove _monthly or _annual suffix) and normalize basic->pro
       const basePlan = currentSubscription.plan_type.split('_')[0];
-      setSelectedPlan(basePlan);
+      const normalizedPlan = basePlan === 'basic' ? 'pro' : basePlan;
+      setSelectedPlan(normalizedPlan);
       
       // Set billing cycle based on current subscription
       if (currentSubscription.plan_type.endsWith('_annual')) {
@@ -73,18 +74,23 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
     setError(null);
     
     try {
+      // Normalize basic->pro
+      const normalizedPlan = plan === 'basic' ? 'pro' : plan;
       // Create a checkout session
-      const { sessionId } = await subscriptionApi.createCheckoutSession(plan, billingCycle);
+      const { sessionId, url } = await subscriptionApi.createCheckoutSession(normalizedPlan, billingCycle);
       
       // Redirect to Stripe Checkout
-      const stripe = await loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
-      if (!stripe) {
-        throw new Error('Failed to load Stripe');
+      // Prefer the URL if backend returns it (works even if Stripe.js has issues)
+      if (url) {
+        window.location.assign(url);
+      } else {
+        const stripe = await loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+        if (!stripe) {
+          throw new Error('Failed to load Stripe');
+        }
+        const { error } = await stripe.redirectToCheckout({ sessionId });
+        if (error) throw error;
       }
-      
-      const { error } = await stripe.redirectToCheckout({
-        sessionId,
-      });
       
       if (error) {
         throw error;
@@ -116,6 +122,16 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
     if (!selectedPlan) return;
     await handleCheckout(selectedPlan);
   };
+
+  useEffect(() => {
+    const handleSubscriptionUpdated = () => {
+      // Close and notify parent to refresh when subscription changes
+      refreshSubscription();
+      onSuccess?.();
+    };
+    window.addEventListener('subscription-updated', handleSubscriptionUpdated);
+    return () => window.removeEventListener('subscription-updated', handleSubscriptionUpdated);
+  }, [onSuccess, refreshSubscription]);
 
   const getPlanPrice = (basePrice: number) => {
     if (billingCycle === 'annual') {

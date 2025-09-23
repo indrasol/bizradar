@@ -311,6 +311,13 @@ export const Settings = () => {
   useEffect(() => {
     loadCurrentSubscription();
     loadAvailablePlans();
+    loadBillingHistory();
+    const onUpdated = () => {
+      loadCurrentSubscription();
+      loadBillingHistory();
+    };
+    window.addEventListener('subscription-updated', onUpdated);
+    return () => window.removeEventListener('subscription-updated', onUpdated);
   }, []);
   // Handle logout
   const handleLogout = async () => {
