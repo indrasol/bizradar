@@ -40,8 +40,24 @@ export const useSubscription = () => {
     };
     
     window.addEventListener('auth-state-changed', handleAuthChange);
+    const handleSubscriptionUpdated = () => {
+      fetchSubscription();
+    };
+    window.addEventListener('subscription-updated', handleSubscriptionUpdated);
+    const handleWindowFocus = () => {
+      // Refresh when the app regains focus (e.g., after Stripe redirect)
+      fetchSubscription();
+    };
+    window.addEventListener('focus', handleWindowFocus);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') fetchSubscription();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
     return () => {
       window.removeEventListener('auth-state-changed', handleAuthChange);
+      window.removeEventListener('subscription-updated', handleSubscriptionUpdated);
+      window.removeEventListener('focus', handleWindowFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, [fetchSubscription]);
 

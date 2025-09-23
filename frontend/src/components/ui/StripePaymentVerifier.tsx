@@ -21,9 +21,13 @@ const StripePaymentVerifier: React.FC<StripePaymentVerifierProps> = ({ onSuccess
     const payment = params.get("payment");
     const sessionId = params.get("session_id");
 
-    if (payment === "success" && sessionId) {
+    // Trigger verification if session_id is present (new flow) or payment=success (legacy)
+    if (sessionId || payment === "success") {
       setPaymentStatus("pending");
-      fetch(`${API_BASE_URL}/api/stripe/verify-session?session_id=${sessionId}`)
+      const verifyUrl = sessionId
+        ? `${API_BASE_URL}/api/stripe/verify-session?session_id=${sessionId}`
+        : `${API_BASE_URL}/api/stripe/verify-session`;
+      fetch(verifyUrl)
         .then(res => res.json())
         .then(data => {
           if (data.success) {
@@ -31,6 +35,10 @@ const StripePaymentVerifier: React.FC<StripePaymentVerifierProps> = ({ onSuccess
             setPaymentMessage("Your subscription has been updated successfully!");
             // Refresh trial/subscription status so blocker disappears immediately
             refreshTrialStatus?.();
+            try {
+              // Notify app to refresh any subscription-dependent UI
+              window.dispatchEvent(new Event('subscription-updated'));
+            } catch {}
             if (onSuccess) onSuccess();
           } else {
             setPaymentStatus("error");
@@ -49,17 +57,7 @@ const StripePaymentVerifier: React.FC<StripePaymentVerifierProps> = ({ onSuccess
   if (paymentStatus === null) return null;
 
   return (
-    <div>
-      {paymentStatus === "pending" && (
-        <div className="p-4 bg-blue-50 text-blue-700 rounded">Verifying your payment...</div>
-      )}
-      {paymentStatus === "success" && (
-        <div className="p-4 bg-green-50 text-green-700 rounded">{paymentMessage}</div>
-      )}
-      {paymentStatus === "error" && (
-        <div className="p-4 bg-red-50 text-red-700 rounded">{paymentMessage}</div>
-      )}
-    </div>
+    null
   );
 };
 

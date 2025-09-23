@@ -5,11 +5,11 @@ import os
 import sys
 from config.settings import STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET
 from typing import Dict, Any, Optional
-
+import calendar
 import json
 from datetime import datetime, timezone
 import logging
-from utils.db_utils import get_db_connection
+from utils.db_utils import get_supabase_connection
 from config import settings
 
 router = APIRouter()
@@ -137,97 +137,129 @@ STATUS_MAPPING = {
 
 
 def get_user_id_from_customer(customer_id: str) -> str:
-    """Get user ID from the database using Stripe customer ID"""
-    conn = None
+    """Get user ID using Supabase via Stripe customer ID, with fallback linking."""
     try:
-        conn = get_db_connection()
-        with conn.cursor() as cursor:
-            cursor.execute(
-                'SELECT id FROM profiles WHERE stripe_customer_id = %s', (customer_id,)
-            )
-            result = cursor.fetchone()
-            if not result:
-                logger.error(f"No user found with Stripe customer ID: {customer_id}")
-                raise HTTPException(status_code=400, detail="User not found")
-            return result[0]
+        supabase = get_supabase_connection(use_service_key=True)
+
+        # Try direct match on profiles.stripe_customer_id
+        res = supabase.table('profiles').select('id').eq('stripe_customer_id', customer_id).execute()
+        data = getattr(res, 'data', None) or []
+        if data:
+            return data[0]['id']
+
+        # Fallback: fetch from Stripe and link by metadata.user_id then by email
+        try:
+            customer = stripe.Customer.retrieve(customer_id)
+            metadata_user_id = None
+            if hasattr(customer, 'metadata') and isinstance(customer.metadata, dict):
+                metadata_user_id = customer.metadata.get('user_id')
+
+            if metadata_user_id:
+                link_res = (
+                    supabase
+                    .table('profiles')
+                    .update({'stripe_customer_id': customer_id})
+                    .eq('id', metadata_user_id)
+                    .execute()
+                )
+                link_data = getattr(link_res, 'data', None) or []
+                if link_data:
+                    logger.info(f"Linked Stripe customer {customer_id} to user {metadata_user_id} via metadata.user_id")
+                    return metadata_user_id
+
+            customer_email = getattr(customer, 'email', None)
+            if customer_email:
+                link_res = (
+                    supabase
+                    .table('profiles')
+                    .update({'stripe_customer_id': customer_id})
+                    .eq('email', customer_email)
+                    .execute()
+                )
+                link_data = getattr(link_res, 'data', None) or []
+                if link_data:
+                    linked_id = link_data[0]['id']
+                    logger.info(f"Linked Stripe customer {customer_id} to user {linked_id} via email {customer_email}")
+                    return linked_id
+
+            logger.error(f"No user found to link with Stripe customer ID: {customer_id}")
+            raise HTTPException(status_code=400, detail="User not found")
+        except Exception as e:
+            logger.error(f"Error fetching customer from Stripe: {str(e)}")
+            raise HTTPException(status_code=500, detail="Error processing webhook")
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error fetching user ID from customer: {str(e)}")
         raise HTTPException(status_code=500, detail="Error processing webhook")
-    finally:
-        if conn:
-            conn.close()
 
 
 def update_user_subscription(
-    user_id: str, plan_type: str, status: str, subscription_id: str, current_period_end: int = None
+    user_id: str,
+    plan_type: str,
+    plan_id: Optional[str],
+    status: str,
+    subscription_id: str,
+    current_period_end: int = None,
+    plan_period: Optional[str] = None
 ) -> None:
-    """Update or create user subscription in the database"""
-    conn = None
+    """Update or create user subscription using Supabase (new schema)."""
     try:
-        conn = get_db_connection()
-        with conn.cursor() as cursor:
-            # Check if user already has a subscription
-            cursor.execute(
-                """
-                SELECT id FROM user_subscriptions 
-                WHERE user_id = %s
-                """,
-                (user_id,)
-            )
-            existing_sub = cursor.fetchone()
-            
-            end_date = datetime.fromtimestamp(current_period_end, tz=timezone.utc) if current_period_end else None
-            
-            if existing_sub:
-                # Update existing subscription
-                cursor.execute(
-                    """
-                    UPDATE user_subscriptions 
-                    SET plan_type = %s,
-                        status = %s,
-                        updated_at = NOW(),
-                        end_date = %s,
-                        stripe_subscription_id = %s
-                    WHERE user_id = %s
-                    RETURNING id
-                    """,
-                    (
-                        plan_type,
-                        status,
-                        end_date,
-                        subscription_id,
-                        user_id
-                    )
-                )
-                logger.info(f"Updated existing subscription for user {user_id} to {plan_type} ({status})")
-            else:
-                # Insert new subscription
-                cursor.execute(
-                    """
-                    INSERT INTO user_subscriptions 
-                    (user_id, plan_type, status, start_date, end_date, stripe_subscription_id)
-                    VALUES (%s, %s, %s, NOW(), %s, %s)
-                    RETURNING id
-                    """,
-                    (
-                        user_id,
-                        plan_type,
-                        status,
-                        end_date,
-                        subscription_id
-                    )
-                )
-                logger.info(f"Created new subscription for user {user_id} to {plan_type} ({status})")
-                
-            conn.commit()
+        supabase = get_supabase_connection(use_service_key=True)
+
+        # Determine end_date ISO
+        end_dt_iso = calculate_end_date_from_plan_period(plan_period)
+        if not end_dt_iso and current_period_end:
+            end_dt_iso = datetime.fromtimestamp(current_period_end, tz=timezone.utc).isoformat()
+
+        # Check if a subscription already exists (unique on user_id)
+        existing = (
+            supabase
+            .table('user_subscriptions')
+            .select('id, current_subscription_plan, current_subscription_plan_id')
+            .eq('user_id', user_id)
+            .limit(1)
+            .execute()
+        )
+        existing_data = getattr(existing, 'data', None) or []
+
+        if existing_data:
+            prev_plan_type = existing_data[0].get('current_subscription_plan')
+            prev_plan_id = existing_data[0].get('current_subscription_plan_id')
+
+            update_payload = {
+                'current_subscription_plan': plan_type,
+                'current_subscription_plan_id': plan_id,
+                'status': status,
+                'updated_at': datetime.now(timezone.utc).isoformat(),
+                'end_date': end_dt_iso,
+                'stripe_subscription_id': subscription_id,
+            }
+            if prev_plan_type and prev_plan_type != plan_type:
+                update_payload['prev_subscription_plan'] = prev_plan_type
+                update_payload['prev_subscription_plan_id'] = prev_plan_id
+
+            supabase.table('user_subscriptions').update(update_payload).eq('user_id', user_id).execute()
+            logger.info(f"Updated existing subscription for user {user_id} to {plan_type} ({status})")
+        else:
+            now_iso = datetime.now(timezone.utc).isoformat()
+            insert_payload = {
+                'user_id': user_id,
+                'current_subscription_plan': plan_type,
+                'current_subscription_plan_id': plan_id,
+                'status': status,
+                'start_date': now_iso,
+                'end_date': end_dt_iso,
+                'stripe_subscription_id': subscription_id,
+                'created_at': now_iso,
+                'updated_at': now_iso,
+                'ai_rfp_responses_used': 0,
+            }
+            supabase.table('user_subscriptions').upsert(insert_payload, on_conflict='user_id').execute()
+            logger.info(f"Created new subscription for user {user_id} to {plan_type} ({status})")
     except Exception as e:
         logger.error(f"Error updating user subscription: {str(e)}")
-        if conn:
-            conn.rollback()
         raise
-    finally:
-        if conn:
-            conn.close()
 
 
 @router.post("/webhooks/stripe")
@@ -385,11 +417,14 @@ async def handle_subscription_updated(subscription: Dict[str, Any]) -> None:
         logger.error(f"No price ID found in subscription {subscription['id']}")
         return
     
-    # Map price ID to plan type
-    plan_type = PRICE_TO_PLAN.get(price_id)
-    if not plan_type:
+    # Map price ID to plan via DB lookup
+    plan = get_plan_by_price_id(price_id)
+    if not plan:
         logger.error(f"Unknown price ID: {price_id}")
         return
+    plan_type = plan['plan_type']
+    plan_id = plan['id']
+    plan_period = plan.get('plan_period')
     
     # Map status
     status = STATUS_MAPPING.get(subscription["status"].lower(), "expired")
@@ -402,9 +437,11 @@ async def handle_subscription_updated(subscription: Dict[str, Any]) -> None:
         update_user_subscription(
             user_id=user_id,
             plan_type=plan_type,
+            plan_id=plan_id,
             status=status,
             subscription_id=subscription["id"],
-            current_period_end=subscription.get("current_period_end")
+            current_period_end=subscription.get("current_period_end"),
+            plan_period=plan_period
         )
         
         logger.info(f"Successfully updated subscription for user {user_id} to {plan_type} ({status})")
