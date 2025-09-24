@@ -24,6 +24,7 @@ from app.routes.enhanced_search import router as enhanced_search_router
 from app.routes.event_handler import event_router as events_router
 from app.routes.event_routes import events_router
 from app.routes.reports_routes import router as reports_router
+from app.routes.responses_routes import router as responses_router
 from app.utils.logger import get_logger
 from app.services.parse_website import parse_company_website_mcp
 import asyncio
@@ -122,6 +123,8 @@ app.include_router(tracker_router, prefix="/api/trackers", tags=["trackers"])
 app.include_router(profile_router, prefix="/api/profile", tags=["profile"])
 # Include reports routes
 app.include_router(reports_router, prefix="/api", tags=["reports"])
+# Orchestrated responses routes (atomic tracker+report updates)
+app.include_router(responses_router, prefix="/api", tags=["responses"])
 # Events/session tracking routes
 app.include_router(events_router, prefix="/api/events", tags=["events"])
 # app.include_router(events_router,prefix="/api", tags=["events"])

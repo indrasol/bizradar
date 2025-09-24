@@ -32,6 +32,14 @@ const pursuitsCache = {
   filter: null
 };
 
+  // Function to clear the cache
+  const clearPursuitsCache = () => {
+    pursuitsCache.data = null;
+    pursuitsCache.timestamp = 0;
+    pursuitsCache.filter = null;
+    console.log('Cleared pursuits cache');
+  };
+
 export default function Pursuits(): JSX.Element {
   const { logout } = useAuth();
   const navigate = useNavigate();
@@ -216,12 +224,6 @@ export default function Pursuits(): JSX.Element {
     e.preventDefault();
   };
   
-  // Function to open the RFP builder for a pursuit
-  const openRfpBuilder = (pursuit: Pursuit): void => {
-    setSelectedPursuit(pursuit);
-    setCurrentRfpPursuitId(pursuit.id);
-    setShowRfpBuilder(true);
-  };
   
   // Function to close the RFP builder
   const closeRfpBuilder = (): void => {
@@ -262,43 +264,35 @@ export default function Pursuits(): JSX.Element {
         user_id: user.id
       });
       
-      // Create new tracker
-      const { data, error } = await supabase
-        .from('trackers')
-        .insert({
-          title: opportunity.title || "Untitled",
-          description: opportunity.description || "",
-          stage: "Assessment",
-          user_id: user.id,
-          due_date: opportunity.due_date,
-          is_submitted: false
-        })
-        .select();
-        
-      if (error) {
-        console.error("Insert error details:", error);
-        throw error;
-      }
+      // Create new tracker using API
+      const trackerData = {
+        title: opportunity.title || "Untitled",
+        description: opportunity.description || "",
+        stage: "Review",
+        due_date: opportunity.due_date
+      };
       
-      console.log("Added successfully:", data);
+      const newTracker = await trackersApi.createTracker(trackerData, user.id);
       
-      if (data && data.length > 0) {
+      console.log("Added successfully:", newTracker);
+      
+      if (newTracker) {
         // Show notification
         setShowNotification(true);
         setTimeout(() => setShowNotification(false), 3000);
         
         // Update tracker list with the new tracker
         const formattedPursuit: Pursuit = {
-          id: data[0].id,
-          title: data[0].title || "Untitled",
-          description: data[0].description || "",
-          stage: data[0].stage || "Assessment",
-          created: data[0].created_at,
-          dueDate: data[0].due_date ? data[0].due_date : "TBD",
+          id: newTracker.id,
+          title: newTracker.title || "Untitled",
+          description: newTracker.description || "",
+          stage: newTracker.stage || "Assessment",
+          created: newTracker.created_at,
+          dueDate: newTracker.due_date ? newTracker.due_date : "TBD",
           assignee: "Unassigned",
           assigneeInitials: "UA",
-          is_submitted: data[0].is_submitted || false,
-          naicscode: data[0].naicscode || ""
+          is_submitted: newTracker.is_submitted || false,
+          naicscode: newTracker.naicscode || ""
         };
         
         setPursuits(prevPursuits => [formattedPursuit, ...prevPursuits]);
@@ -415,6 +409,14 @@ export default function Pursuits(): JSX.Element {
         setError(`Failed to fetch pursuits: ${response.message}`);
         setIsLoading(false);
         setProgressiveLoading(false);
+        // Clear cache on error to force fresh data on next load
+        clearPursuitsCache();
+        
+        // Show retry option
+        setTimeout(() => {
+          console.log('Retrying fetch after error...');
+          fetchTrackers();
+        }, 3000);
         return;
       }
       
@@ -466,6 +468,8 @@ export default function Pursuits(): JSX.Element {
 
   // Replace the useEffect for fetching trackers
   useEffect(() => {
+    // Clear cache on mount to ensure fresh data
+    clearPursuitsCache();
     fetchTrackers();
     
     // Set up real-time subscription for changes
@@ -603,41 +607,16 @@ export default function Pursuits(): JSX.Element {
   // Replace the handleRemovePursuit function
   const handleRemovePursuit = async (id: string): Promise<void> => {
     try {
-      // First delete any associated RFP responses
-      const { error: rfpError } = await supabase
-        .from('rfp_responses')
-        .delete()
-        .eq('pursuit_id', id);
-        
-      if (rfpError) {
-        console.error("Error removing RFP responses:", rfpError);
-        toast?.error(`Error removing RFP responses: ${rfpError.message}`);
-        throw rfpError;
+      // Get the current user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        console.log("No user logged in");
+        return;
       }
       
-      // Then delete any associated assignees
-      const { error: assigneeError } = await supabase
-        .from('pursuit_assignees')
-        .delete()
-        .eq('pursuit_id', id);
-        
-      if (assigneeError) {
-        console.error("Error removing assignees:", assigneeError);
-        toast?.error(`Error removing assignees: ${assigneeError.message}`);
-        throw assigneeError;
-      }
-      
-      // Then delete the tracker
-      const { error } = await supabase
-        .from('trackers')
-        .delete()
-        .eq('id', id);
-        
-      if (error) {
-        console.error("Error removing tracker:", error);
-        toast?.error(`Error removing tracker: ${error.message}`);
-        throw error;
-      }
+      // Delete the tracker using API (this should handle associated data)
+      await trackersApi.deleteTracker(id, user.id);
       
       // Update the local state
       setPursuits(pursuits.filter(pursuit => pursuit.id !== id));
@@ -646,6 +625,9 @@ export default function Pursuits(): JSX.Element {
       if (selectedPursuit && selectedPursuit.id === id) {
         setSelectedPursuit(null);
       }
+      
+      // Dispatch custom event to update SideBar count
+      window.dispatchEvent(new CustomEvent('trackerUpdated'));
       
       toast?.success("Tracker removed successfully");
     } catch (error: any) {
@@ -698,7 +680,7 @@ export default function Pursuits(): JSX.Element {
       <button
         onClick={(e) => {
           e.stopPropagation();
-          openRfpBuilder(pursuit);
+          navigate(`/trackers/${pursuit.id}`);
         }}
         className="ml-2 px-3 py-1 text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-full transition-colors flex items-center gap-1"
       >
@@ -714,28 +696,16 @@ export default function Pursuits(): JSX.Element {
   // Function to toggle submission status
   const handleToggleSubmission = async (pursuitId: string): Promise<void> => {
     try {
-      // Update the tracker to mark it as submitted
-      const { error } = await supabase
-        .from('trackers')
-        .update({ is_submitted: true })
-        .eq('id', pursuitId);
+      // Get the current user
+      const { data: { user } } = await supabase.auth.getUser();
       
-      if (error) {
-        console.error("Error updating submission status:", error);
-        toast?.error(`Failed to mark as submitted: ${error.message}`);
+      if (!user) {
+        console.log("No user logged in");
         return;
       }
-
-      const { error:rfpError } = await supabase
-        .from('rfp_responses')
-        .update({ is_submitted: true })
-        .eq('pursuit_id', pursuitId);  
       
-        if (rfpError) {
-          console.error("Error updating submission status:", error);
-          toast?.error(`Failed to mark as submitted: ${error.message}`);
-          return;
-        }
+      // Toggle tracker submission status using API
+      await trackersApi.toggleSubmittedStatus(pursuitId, user.id);
       
       // Update the local state
       setPursuits(pursuits.map(pursuit => 
@@ -818,9 +788,18 @@ export default function Pursuits(): JSX.Element {
   };
 
   const handleRfpAction = (pursuit: Pursuit) => {
-    setSelectedPursuit(pursuit);
-    setCurrentRfpPursuitId(pursuit.id);
-    setShowRfpBuilder(true);
+    // Validate that the pursuit ID exists before navigating
+    if (!pursuit.id) {
+      console.error('Invalid pursuit ID');
+      setError('Invalid pursuit ID. Please refresh the page.');
+      return;
+    }
+    
+    // Clear cache to ensure fresh data
+    clearPursuitsCache();
+    
+    // Redirect to /trackers/{id} instead of opening modal
+    navigate(`/trackers/${pursuit.id}`);
   };
 
   const handleAskAI = async (pursuit: Pursuit) => {
@@ -1054,8 +1033,7 @@ export default function Pursuits(): JSX.Element {
                 {currentRfpPursuitId && (
                   <RfpResponse 
                     contract={selectedPursuit} 
-                    pursuitId={currentRfpPursuitId} 
-                    aiOpportunityId={currentAiOppId || undefined}
+                    pursuitId={currentRfpPursuitId}
                   />
                 )}
               </div>        

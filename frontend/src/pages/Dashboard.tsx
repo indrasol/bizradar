@@ -39,6 +39,7 @@ import { NotificationDropdown } from '@/components/notifications/NotificationDro
 import StripePaymentVerifier from '@/components/ui/StripePaymentVerifier';
 import { ResponsivePatterns, DashboardTemplate } from "../utils/responsivePatterns";
 import { subscriptionApi } from "@/api/subscription";
+import { trackersApi } from "@/api/trackers";
 import { API_ENDPOINTS } from "@/config/apiEndpoints";
 import DeadlinesNextWidget from "@/components/dashboard/DeadlinesNextWidget";
 import TrackerStatsWidget from "@/components/dashboard/TrackerStatsWidget";
@@ -387,26 +388,19 @@ const BizRadarDashboard = () => {
         formattedDueDate = new Date(newPursuit.due_date).toISOString();
       }
 
-      // Create new tracker
-      const { data, error } = await supabase
-        .from("trackers")
-        .insert({
-          title: newPursuit.title || "Untitled",
-          description: newPursuit.description || "",
-          stage: newPursuit.stage || "Assessment",
-          user_id: user.id,
-          due_date: formattedDueDate,
-        })
-        .select();
+      // Create new tracker using API
+      const trackerData = {
+        title: newPursuit.title || "Untitled",
+        description: newPursuit.description || "",
+        stage: newPursuit.stage || "Assessment",
+        due_date: formattedDueDate,
+      };
+      
+      const newTracker = await trackersApi.createTracker(trackerData, user.id);
 
-      if (error) {
-        console.error("Insert error details:", error);
-        throw error;
-      }
+      console.log("Added successfully:", newTracker);
 
-      console.log("Added successfully:", data);
-
-      if (data && data.length > 0) {
+      if (newTracker) {
         // Show success message
         toast.success("Tracker created successfully");
 
@@ -477,48 +471,21 @@ const BizRadarDashboard = () => {
       const today = new Date();
       const todayStr = today.toISOString().split('T')[0];
 
-      // Fixed OR query syntax
-      const { data, error } = await supabase
-        .from('trackers')
-        .select('id, title, stage, due_date, is_submitted')
-        .eq('user_id', user.id)
-        .eq('is_submitted', false)
-        .or('stage.eq.Assessment,stage.ilike.%RFP Response Initiated%');
-
-      if (error) {
-        console.error("Error fetching action items:", error);
-        throw error;
+      // Get tracker stats using API
+      const statsResponse = await trackersApi.getTrackerStats(user.id);
+      
+      if (!statsResponse.success) {
+        throw new Error("Failed to fetch tracker stats");
       }
+      
+      const stats = statsResponse.stats;
 
-      // Rest of the function remains the same
-      const { data: completedData, error: completedError } = await supabase
-        .from('trackers')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('is_submitted', true);
-
-      if (completedError) {
-        console.error("Error fetching completed items:", completedError);
-        throw completedError;
-      }
-
-      const dueTodayCount = data?.filter(item => {
-        if (!item.due_date) return false;
-        const dueDate = item.due_date.split('T')[0];
-        return dueDate === todayStr;
-      }).length || 0;
-
-      const sortedItems = [...(data || [])].sort((a, b) => {
-        if (!a.due_date) return 1;
-        if (!b.due_date) return -1;
-        return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
-      });
-
+      // Use stats from API instead of calculating from raw data
       setActionItems({
-        count: data?.length || 0,
-        dueToday: dueTodayCount,
-        items: sortedItems.slice(0, 2),
-        completed: completedData?.length || 0,
+        count: stats.active || 0,
+        dueToday: 0, // This would need a separate endpoint for due today items
+        items: [], // This would need a separate endpoint for action items
+        completed: stats.submitted || 0,
       });
 
     } catch (error) {
@@ -705,32 +672,26 @@ const BizRadarDashboard = () => {
       if (typeof opportunity.opportunityIndex === 'number' && dashboardOpportunities[opportunity.opportunityIndex]) {
         originalTitle = dashboardOpportunities[opportunity.opportunityIndex].title;
       }
-      // Check if already added
-      const { data: existingTrackers } = await supabase
-        .from("trackers")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("title", originalTitle);
-      if (existingTrackers && existingTrackers.length > 0) {
+      // Check if already added using API
+      const existingTrackers = await trackersApi.getTrackers(user.id);
+      if (existingTrackers.success && existingTrackers.trackers.some(t => t.title === originalTitle)) {
         toast.info("Already added to trackers.");
         setAddingPursuitId(null);
         return;
       }
-      // Insert new tracker
-      const { data, error } = await supabase
-        .from("trackers")
-        .insert([
-          {
-            title: originalTitle,
-            description: opportunity.description || opportunity.matchReason || "",
-            stage: "Assessment",
-            user_id: user.id,
-            due_date: opportunity.response_date || null,
-          },
-        ])
-        .select();
-      if (error) throw error;
+      
+      // Create new tracker using API
+      const trackerData = {
+        title: originalTitle,
+        description: opportunity.description || opportunity.matchReason || "",
+        stage: "Assessment",
+        due_date: opportunity.response_date || null,
+      };
+      
+      const newTracker = await trackersApi.createTracker(trackerData, user.id);
       toast.success("Added to trackers!");
+      // Dispatch custom event to update SideBar count
+      window.dispatchEvent(new CustomEvent('trackerUpdated'));
     } catch (error) {
       toast.error("Failed to add to trackers.");
     } finally {

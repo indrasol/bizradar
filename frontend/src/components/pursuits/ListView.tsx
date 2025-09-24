@@ -65,23 +65,33 @@ export const ListView: React.FC<ListViewProps> = ({
   const [aiProcessing, setAiProcessing] = useState<{ pursuitId: string; title: string } | null>(null);
 
   const getStageColor = (stage: string): string => {
+    const s = (stage || "").toLowerCase();
+
+    // Review
+    if (s.includes("review")) return "bg-amber-500/20 text-amber-600 dark:bg-amber-500/30 dark:text-amber-400 border border-amber-200 dark:border-amber-500/30 rounded-full px-3 py-1 text-xs font-medium";
+
+    // In Progress
+    if (s.includes("in progress")) return "bg-blue-500/20 text-blue-600 dark:bg-blue-500/30 dark:text-blue-400 border border-blue-200 dark:border-blue-500/30 rounded-full px-3 py-1 text-xs font-medium";
+
+    // Completed
+    if (s.includes("completed")) return "bg-emerald-500/20 text-emerald-600 dark:bg-emerald-500/30 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 rounded-full px-3 py-1 text-xs font-medium";
+
+    // Legacy stages for backward compatibility
     if (stage.includes("RFP Response Initiated")) {
-      return "bg-yellow-100 text-yellow-800";
+      return "bg-yellow-500/20 text-yellow-600 dark:bg-yellow-500/30 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-500/30 rounded-full px-3 py-1 text-xs font-medium";
     }
     
     switch(stage) {
       case "Assessment":
-        return "bg-orange-100 text-orange-800";
+        return "bg-orange-500/20 text-orange-600 dark:bg-orange-500/30 dark:text-orange-400 border border-orange-200 dark:border-orange-500/30 rounded-full px-3 py-1 text-xs font-medium";
       case "Planning":
-        return "bg-blue-100 text-blue-800";
+        return "bg-blue-500/20 text-blue-600 dark:bg-blue-500/30 dark:text-blue-400 border border-blue-200 dark:border-blue-500/30 rounded-full px-3 py-1 text-xs font-medium";
       case "Implementation":
-        return "bg-purple-100 text-purple-800";
-      case "Review":
-        return "bg-indigo-100 text-indigo-800";
+        return "bg-purple-500/20 text-purple-600 dark:bg-purple-500/30 dark:text-purple-400 border border-purple-200 dark:border-purple-500/30 rounded-full px-3 py-1 text-xs font-medium";
       case "RFP Response Completed":
-        return "bg-green-100 text-green-800";
+        return "bg-emerald-500/20 text-emerald-600 dark:bg-emerald-500/30 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 rounded-full px-3 py-1 text-xs font-medium";
       default:
-        return "bg-gray-100 text-gray-800";
+        return "bg-gray-500/20 text-gray-600 dark:bg-gray-500/30 dark:text-gray-400 border border-gray-200 dark:border-gray-500/30 rounded-full px-3 py-1 text-xs font-medium";
     }
   };
 

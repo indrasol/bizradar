@@ -115,6 +115,11 @@ const App = () => (
                     <RfpWriter />
                   </ProtectedRoute>
                 } />
+                <Route path="/trackers/:id" element={
+                  <ProtectedRoute>
+                    <RfpWriter />
+                  </ProtectedRoute>
+                } />
                 {/* Added both routes for BizradarAI for compatibility */}
                 <Route path="/ask-ai" element={
                   <ProtectedRoute>

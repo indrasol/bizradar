@@ -30,6 +30,7 @@ const OpportunityCard: React.FC<OpportunityCardProps> = ({
 }) => {
   const [isExpandedAI, setIsExpandedAI] = useState(false);
   const [isTracked, setIsTracked] = useState<boolean>(false);
+
   // Determine if this opportunity is already tracked for current user
   useEffect(() => {
     const checkTracked = async () => {
@@ -267,7 +268,6 @@ const OpportunityCard: React.FC<OpportunityCardProps> = ({
           </button>
           <button
             onClick={() => {
-              // 🆕 log generate RFP click
               track({
                 event_name: "generate_rfp",
                 event_type: "button_click",
@@ -278,7 +278,6 @@ const OpportunityCard: React.FC<OpportunityCardProps> = ({
                   opportunity_id: opportunity?.id,
                   title: opportunity?.title,
                   naics_code: opportunity?.naics_code ?? opportunity?.naics_code,
-                  
                 },
               });
               handleBeginResponse(opportunity.id, opportunity);

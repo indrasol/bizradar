@@ -29,20 +29,6 @@ export function RfpOverview({
   onGenerateResponse,
   onGenerateRfp 
 }) {
-  // Add debugging to verify props are received
-  useEffect(() => {
-    console.log("RfpOverview received props:", {
-      title,
-      department,
-      dueDate,
-      status,
-      naicsCode,
-      description: description ? (description.length > 50 ? description.substring(0, 50) + "..." : description) : "None",
-      solicitation_number,
-      published_date,
-      budget
-    });
-  }, [title, department, dueDate, status, naicsCode, description, solicitation_number, published_date]);
 
   // Function to get status color
   const getStatusColor = (status) => {

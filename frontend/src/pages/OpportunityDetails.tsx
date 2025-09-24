@@ -20,41 +20,41 @@ import { supabase } from "@/utils/supabase";  // use shared client
 
 // Find an existing tracker for (user, opportunity); otherwise insert one.
 // Returns the tracker id. This is the only piece both buttons share.
-async function addToTracker(op: Opportunity, userId: string): Promise<number> {
-  // use shared Supabase client
-  const sb = supabase;
-  const oppId = Number(op.id);
+async function addToTracker(op: Opportunity, userId: string): Promise<string> {
+  // Import the trackers API to ensure consistent behavior
+  const { trackersApi } = await import('../api/trackers');
+  
+  // Check if already exists by title (since opportunity_id doesn't exist in schema)
+  const existingTrackers = await trackersApi.getTrackers(userId);
+  
+  console.log('🔍 addToTracker: Looking for existing tracker');
+  console.log('📋 Opportunity title:', op.title);
+  console.log('📋 Available trackers:', existingTrackers.trackers.map(t => ({ id: t.id, title: t.title })));
+  
+  const existingTracker = existingTrackers.trackers.find(t => {
+    const match = t.title === op.title;
+    console.log(`🔍 Comparing: "${t.title}" === "${op.title}" = ${match}`);
+    return match;
+  });
+  
+  if (existingTracker) {
+    console.log('✅ Found existing tracker:', existingTracker.id);
+    return existingTracker.id;
+  }
 
-  // 1) check if it already exists for this user+opportunity
-  const { data: existing, error: findErr } = await sb
-    .from("trackers")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("opportunity_id", oppId)
-    .limit(1)
-    .single();
-    // .maybeSingle();
-  if (findErr) throw findErr;
-  if (existing?.id) return existing.id as number;
+  console.log('❌ No existing tracker found, creating new one');
+  // Create new tracker using API (this also creates the report)
+  const newTracker = await trackersApi.createTracker({
+    title: op.title?.slice(0, 255) ?? "Untitled",
+    description: op.description?.slice(0, 1000) ?? "",
+    stage: "Review",
+    due_date: op.response_date ?? null,
+    naicscode: op.naics_code ?? null,
+    opportunity_id: op.id, // ✅ Add opportunity_id
+  }, userId);
 
-  // 2) create a minimal draft tracker
-  const { data, error } = await sb
-    .from("trackers")
-    .insert({
-      user_id: userId,
-      title: op.title?.slice(0, 255) ?? "Untitled",
-      description: op.description?.slice(0, 1000) ?? null,
-      stage: "Assessment",
-      due_date: op.response_date ?? null,
-      naicscode: op.naics_code ?? null,
-      opportunity_id: oppId,
-      is_submitted: false,
-    })
-    .select("id")
-    .single();
-
-  if (error) throw error;
-  return data!.id as number;
+  console.log('✅ Created new tracker:', newTracker.id);
+  return newTracker.id;
 }
 
 const OpportunityDetails: React.FC = () => {
@@ -63,83 +63,78 @@ const OpportunityDetails: React.FC = () => {
   const { user, logout } = useAuth();
   const track = useTrack();
 
+  console.log('🚀 OpportunityDetails component rendered');
+
   const [opportunity, setOpportunity] = useState<Opportunity | null>(null);
   const [pursuitCount, setPursuitCount] = useState<number>(0);
   const [adding, setAdding] = useState(false);
   const [generating, setGenerating] = useState(false);
  
+  // ————— EFFECTS —————
+  
+
   // ————— HANDLERS —————
 
   // Add to Pursuits → add to tracker (or reuse) and stash trackerId
   const handleAddToPursuits = async () => {
     if (!opportunity || !user?.id) return;
+    
+    setAdding(true);
     try {
-      setAdding(true);
       const trackerId = await addToTracker(opportunity, user.id);
-      // const pursuitId = String(trackerId); 
-      sessionStorage.setItem("currentTrackerId", String(trackerId));
-      setPursuitCount((c) => c + 1);
-    } catch (e) {
-      console.error("Failed to add to Trackers", e);
+      console.log('✅ Added to tracker:', trackerId);
+      
+      track({
+        event_name: "add_to_pursuit",
+        event_type: "button_click",
+        metadata: {
+          opportunity_id: opportunity.id,
+          title: opportunity.title,
+          naics_code: opportunity.naics_code,
+        },
+      });
+      
+      setPursuitCount(prev => prev + 1);
+      toast.success("Added to tracker!");
+    } catch (error) {
+      console.error("Error adding to tracker:", error);
+      toast.error("Failed to add to tracker");
     } finally {
       setAdding(false);
     }
   };
 
-  // Generate Response → **do the same add-to-tracker step**, then navigate
-// Replace the handleGenerateResponse function with this:
-const handleGenerateResponse = async () => {
-  if (!opportunity || !user?.id) return;
-  setGenerating(true);
-  // Log generate response event
-  track({
-    event_name: "generate_rfp",
-    event_type: "button_click",
-    metadata: {
-      search_query: null,
-      stage: "review",
-      section: null,
-      opportunity_id: opportunity.id,
-      title: opportunity.title,
-      naics_code: opportunity.naics_code ?? null,
-    },
-  });
-  try {
-    // 1) Generate a response_id (UUID)
-    const responseId =
-      crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-
-    // 2) Upsert report via backend API
-    await reportsApi.upsertReport(
-      responseId,
-      {
-        rfpTitle: opportunity.title,
-        dueDate: opportunity.response_date || null,
-        sections: [],
-        isSubmitted: false,
+  // Generate Response → check if response exists, continue or create new
+  const handleGenerateResponse = async () => {
+    if (!opportunity || !user?.id) return;
+    
+    setGenerating(true);
+    
+    // Log generate response event
+    track({
+      event_name: "generate_rfp",
+      event_type: "button_click",
+      metadata: {
+        search_query: null,
+        stage: "review",
+        section: null,
+        opportunity_id: opportunity.id,
+        title: opportunity.title,
+        naics_code: opportunity.naics_code ?? null,
       },
-      0,
-      false,
-      user.id
-    );
-
-    // 3) Store contract for RFP builder
-    const contract = {
-      ...opportunity,
-      pursuit_id: responseId,
-      id: opportunity.id,
-    };
-    sessionStorage.setItem("currentContract", JSON.stringify(contract));
-
-    // 4) Navigate to RFP builder
-    navigate(`/contracts/rfp/${responseId}`);
-  } catch (err) {
-    console.error("Failed to generate response", err);
-    toast.error("Failed to initialize report. Please try again.");
-  } finally {
-    setGenerating(false);
-  }
-};
+    });
+    
+    try {
+      const trackerId = await addToTracker(opportunity, user.id);
+      sessionStorage.setItem("currentTrackerId", trackerId);
+      navigate(`/trackers/${trackerId}`);
+    } catch (e) {
+      console.error("Failed to create tracker for response", e);
+      toast.error("Failed to create response");
+    } finally {
+      setGenerating(false);
+    }
+  };
   
   
 
@@ -214,10 +209,14 @@ const handleGenerateResponse = async () => {
   // ————— EFFECTS & HELPERS —————
 
   useEffect(() => {
+    console.log('🔍 Main useEffect: Loading opportunity from sessionStorage');
     const stored = sessionStorage.getItem("selectedOpportunity");
     if (stored) {
-      setOpportunity(JSON.parse(stored));
+      const opportunityData = JSON.parse(stored);
+      console.log('📊 Main useEffect: Opportunity loaded:', opportunityData.title);
+      setOpportunity(opportunityData);
     } else {
+      console.log('❌ Main useEffect: No opportunity in sessionStorage, redirecting');
       navigate("/opportunities");
     }
   }, [id, navigate]);

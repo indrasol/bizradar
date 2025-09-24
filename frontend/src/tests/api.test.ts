@@ -1,5 +1,5 @@
 // src/tests/api.test.ts
-import { API_ENDPOINTS, STRIPE_PRICES, SUPABASE_TABLES } from '@/config/apiEndpoints';
+import { API_ENDPOINTS, SUPABASE_TABLES } from '@/config/apiEndpoints';
 import { apiClient } from '@/lib/api';
 import { subscriptionApi } from '@/api/subscription';
 import { paymentApi } from '@/api/payment';
@@ -16,8 +16,7 @@ async function testEndpoints() {
   console.log('\nAPI_ENDPOINTS:');
   console.log(API_ENDPOINTS);
   
-  console.log('\nSTRIPE_PRICES:');
-  console.log(STRIPE_PRICES);
+  console.log('\nSTRIPE price IDs are resolved via API:');
   
   console.log('\nSUPABASE_TABLES:');
   console.log(SUPABASE_TABLES);

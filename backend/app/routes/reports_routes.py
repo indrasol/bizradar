@@ -32,6 +32,7 @@ class ReportContent(BaseModel):
 
 class CreateReportRequest(BaseModel):
     response_id: str
+    opportunity_id: Optional[int] = None
     content: ReportContent
     completion_percentage: Optional[int] = 0
     is_submitted: Optional[bool] = False
@@ -61,6 +62,7 @@ class ReportResponse(BaseModel):
     id: Optional[str] = None
     response_id: str
     user_id: str
+    opportunity_id: Optional[int] = None
     title: Optional[str] = None
     description: Optional[str] = None
     content: Dict[str, Any]
@@ -191,7 +193,8 @@ async def upsert_report(
             user_id=user_id,
             content=request.content.dict(),
             completion_percentage=request.completion_percentage or 0,
-            is_submitted=request.is_submitted or False
+            is_submitted=request.is_submitted or False,
+            opportunity_id=request.opportunity_id
         )
         
         return ReportResponse(**report)

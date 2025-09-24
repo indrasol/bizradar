@@ -23,6 +23,7 @@ type ReportItem = {
   completion: number;
   is_submitted: boolean;
   content: any | null;
+  opportunity_id?: number;
 };
 
 const stageFromCompletion = (
@@ -36,12 +37,12 @@ const stageFromCompletion = (
 const stageBadgeClasses = (stage: string) => {
   const s = stage.toLowerCase();
   if (s.includes("review"))
-    return "bg-amber-100 text-amber-800 border-amber-200";
+    return "bg-amber-500/20 text-amber-600 dark:bg-amber-500/30 dark:text-amber-400 border border-amber-200 dark:border-amber-500/30";
   if (s.includes("in progress"))
-    return "bg-blue-100 text-blue-800 border-blue-200";
+    return "bg-blue-500/20 text-blue-600 dark:bg-blue-500/30 dark:text-blue-400 border border-blue-200 dark:border-blue-500/30";
   if (s.includes("completed"))
-    return "bg-emerald-100 text-emerald-800 border-emerald-200";
-  return "bg-gray-100 text-gray-800 border-gray-200";
+    return "bg-emerald-500/20 text-emerald-600 dark:bg-emerald-500/30 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30";
+  return "bg-gray-500/20 text-gray-600 dark:bg-gray-500/30 dark:text-gray-400 border border-gray-200 dark:border-gray-500/30";
 };
 
 const niceDate = (d?: string | null) => {
@@ -92,37 +93,40 @@ export default function ReportsList(): JSX.Element {
           return;
         }
 
-        const { data: reports, error: repErr } = await supabase
-          .from("reports")
-          .select(
-            "response_id, user_id, content, completion_percentage, is_submitted, updated_at"
-          )
-          .eq("user_id", userId)
-          .eq("is_submitted", modeSubmitted)
-          .order("updated_at", { ascending: false });
+        try {
+          console.log('Calling reportsApi.getReports with:', { userId, modeSubmitted });
+          const reportsResponse = await reportsApi.getReports(userId, modeSubmitted);
+          console.log('Reports API response:', reportsResponse);
+          console.log('Reports API response type:', typeof reportsResponse);
+          console.log('Reports API response keys:', reportsResponse ? Object.keys(reportsResponse) : 'undefined');
+          const reports = reportsResponse?.reports || [];
+          
+          const merged: ReportItem[] = (reports || []).map((r: any) => {
+            const completion = Math.max(
+              0,
+              Math.min(100, r.completion_percentage ?? 0)
+            );
+            // Use the new schema fields: r.title and r.due_date (extracted from content)
+            const fallbackTitle = r.title || r?.content?.rfpTitle || "Untitled Opportunity";
+            const dueDate = r.due_date || r?.content?.dueDate || null;
+            return {
+              pursuit_id: r.response_id,
+              title: fallbackTitle,
+              due_date: dueDate,
+              created_at: r.updated_at,
+              completion,
+              is_submitted: !!r.is_submitted,
+              content: r.content || null,
+              opportunity_id: r.opportunity_id,
+            };
+          });
 
-        if (repErr) throw repErr;
-
-        const merged: ReportItem[] = (reports || []).map((r: ReportRow) => {
-          const completion = Math.max(
-            0,
-            Math.min(100, r.completion_percentage ?? 0)
-          );
-          const fallbackTitle = r?.content?.rfpTitle || "Untitled Opportunity";
-          const dueDate = r?.content?.dueDate ?? null;
-          return {
-            pursuit_id: r.response_id,
-            title: fallbackTitle,
-            due_date: dueDate,
-            created_at: r.updated_at,
-            completion,
-            is_submitted: !!r.is_submitted,
-            content: r.content || null,
-          };
-        });
-
-        if (!cancelled) {
-          setItems(merged);
+          if (!cancelled) {
+            setItems(merged);
+          }
+        } catch (apiError) {
+          console.error('Reports API error:', apiError);
+          throw apiError;
         }
       } catch (e: any) {
         if (!cancelled) {
@@ -169,13 +173,7 @@ export default function ReportsList(): JSX.Element {
         )
       );
 
-      const { error } = await supabase
-        .from("reports")
-        .update({ is_submitted: checked })
-        .eq("response_id", pursuitId)
-        .eq("user_id", userId); // scope to owner
-
-      if (error) throw error;
+      await reportsApi.toggleSubmittedStatus(pursuitId, userId);
 
       // If the item no longer belongs in this list, remove it (moves between Ongoing/Submitted)
       setItems((prev) => prev.filter((it) => it.is_submitted === modeSubmitted));
@@ -235,8 +233,25 @@ export default function ReportsList(): JSX.Element {
   };
 
   const handleEditResponse = (item: ReportItem) => {
+    console.log('🔍 Reports Edit Debug:', {
+      item: item,
+      opportunity_id: item.opportunity_id,
+      pursuit_id: item.pursuit_id,
+      contractId: item.opportunity_id || item.pursuit_id
+    });
+    
+    console.log('🔍 About to resolve opportunity_id...');
+    
+    // Try to get opportunity_id from the content if it's not directly available
+    const opportunityId = item.opportunity_id || item.content?.opportunity_id || null;
+    console.log('🔍 Opportunity ID resolution:', {
+      direct: item.opportunity_id,
+      fromContent: item.content?.opportunity_id,
+      resolved: opportunityId
+    });
+    
     const contract = {
-      id: item.pursuit_id,
+      id: item.opportunity_id || item.pursuit_id, // Use opportunity_id if available, fallback to pursuit_id
       title: item.title,
       department: "",
       noticeId: null,
@@ -251,6 +266,7 @@ export default function ReportsList(): JSX.Element {
       external_url: "",
       budget: "",
       pursuit_id: item.pursuit_id,
+      opportunity_id: opportunityId, // Include opportunity_id in the contract object
     };
     try {
       sessionStorage.setItem("currentContract", JSON.stringify(contract));

@@ -22,23 +22,27 @@ class ReportsService:
             logger.info(f"Fetching reports for user {user_id}, is_submitted: {is_submitted}")
             
             response = self.supabase.table(self.table_name).select(
-                "id, response_id, user_id, title, description, content, completion_percentage, is_submitted, stage, created_at, updated_at"
+                "response_id, user_id, opportunity_id, title, response_content, completion_percentage, is_submitted, stage, created_at, updated_at"
             ).eq("user_id", user_id).eq("is_submitted", is_submitted).order("updated_at", desc=True).execute()
             
             if response.data:
                 # Transform to match frontend expectations (rfp_responses -> reports format)
                 reports = []
                 for item in response.data:
+                    logger.info(f"🔍 Database item opportunity_id: {item.get('opportunity_id')} (type: {type(item.get('opportunity_id'))})")
                     report = {
-                        "id": item.get("id"),
+                        "id": item["response_id"],  # Use response_id as id since no separate id column exists
                         "response_id": item["response_id"],
-                        "user_id": item["user_id"], 
+                        "user_id": item["user_id"],
+                        "opportunity_id": item.get("opportunity_id"),
                         "title": item.get("title", ""),
-                        "description": item.get("description", ""),
-                        "content": item["content"],
+                        "description": "",  # Default empty since field doesn't exist
+                        "due_date": None,  # Default null since field doesn't exist
+                        "content": item["response_content"],  # Map response_content to content for frontend
                         "completion_percentage": item["completion_percentage"] or 0,
                         "is_submitted": item["is_submitted"],
-                        "stage": item.get("stage", "draft"),
+                        "stage": item.get("stage", "review"),
+                        "submitted_at": None,  # Default null since field doesn't exist
                         "updated_at": item["updated_at"],
                         "created_at": item["created_at"]
                     }
@@ -60,22 +64,25 @@ class ReportsService:
             
             # Use .execute() instead of .maybe_single().execute() to avoid Supabase errors
             response = self.supabase.table(self.table_name).select(
-                "id, response_id, user_id, title, description, content, completion_percentage, is_submitted, stage, created_at, updated_at"
+                "response_id, user_id, opportunity_id, title, response_content, completion_percentage, is_submitted, stage, created_at, updated_at"
             ).eq("response_id", response_id).eq("user_id", user_id).execute()
             
             # Check if we have data
             if response.data and len(response.data) > 0:
                 data = response.data[0]  # Get the first (and should be only) result
                 report = {
-                    "id": data.get("id"),
+                    "id": data["response_id"],  # Use response_id as id since no separate id column exists
                     "response_id": data["response_id"],
                     "user_id": data["user_id"],
+                    "opportunity_id": data.get("opportunity_id"),
                     "title": data.get("title", ""),
-                    "description": data.get("description", ""),
-                    "content": data["content"],
+                    "description": "",  # Default empty since field doesn't exist
+                    "due_date": None,  # Default null since field doesn't exist
+                    "content": data["response_content"],  # Map response_content to content for frontend
                     "completion_percentage": data["completion_percentage"] or 0,
                     "is_submitted": data["is_submitted"],
-                    "stage": data.get("stage", "draft"),
+                    "stage": data.get("stage", "review"),
+                    "submitted_at": None,  # Default null since field doesn't exist
                     "updated_at": data["updated_at"],
                     "created_at": data["created_at"]
                 }
@@ -96,7 +103,7 @@ class ReportsService:
             raise Exception(f"Failed to fetch report: {str(e)}")
     
     async def create_report(self, response_id: str, user_id: str, content: Dict[str, Any], 
-                          completion_percentage: int = 0, is_submitted: bool = False) -> Dict[str, Any]:
+                          completion_percentage: int = 0, is_submitted: bool = False, opportunity_id: int = None) -> Dict[str, Any]:
         """Create a new report"""
         try:
             logger.info(f"Creating report for response {response_id}, user {user_id}")
@@ -107,27 +114,29 @@ class ReportsService:
             report_data = {
                 "response_id": response_id,
                 "user_id": user_id,
+                "opportunity_id": opportunity_id,
                 "title": title,
-                "content": content,
+                "response_content": content,  # Use response_content instead of content
                 "completion_percentage": completion_percentage,
-                "is_submitted": is_submitted,
-                "created_at": datetime.utcnow().isoformat(),
-                "updated_at": datetime.utcnow().isoformat()
+                "is_submitted": is_submitted
             }
             
             response = self.supabase.table(self.table_name).insert(report_data).select().single().execute()
             
             if response.data:
                 created_report = {
-                    "id": response.data.get("id"),
+                    "id": response.data["response_id"],  # Use response_id as id since no separate id column exists
                     "response_id": response.data["response_id"],
                     "user_id": response.data["user_id"],
+                    "opportunity_id": response.data.get("opportunity_id"),
                     "title": response.data.get("title", ""),
-                    "description": response.data.get("description", ""),
-                    "content": response.data["content"],
+                    "description": "",  # Default empty since field doesn't exist
+                    "due_date": None,  # Default null since field doesn't exist
+                    "content": response.data["response_content"],  # Map response_content to content for frontend
                     "completion_percentage": response.data["completion_percentage"],
                     "is_submitted": response.data["is_submitted"],
-                    "stage": "draft",  # Default stage
+                    "stage": response.data.get("stage", "review"),  # Will be auto-calculated by trigger
+                    "submitted_at": None,  # Default null since field doesn't exist
                     "updated_at": response.data["updated_at"],
                     "created_at": response.data["created_at"]
                 }
@@ -151,7 +160,7 @@ class ReportsService:
             }
             
             if content is not None:
-                update_data["content"] = content
+                update_data["response_content"] = content
             if completion_percentage is not None:
                 update_data["completion_percentage"] = completion_percentage
             if is_submitted is not None:
@@ -165,21 +174,24 @@ class ReportsService:
             if response.data is not None:  # Update was successful
                 # Fetch the updated record
                 updated_response = self.supabase.table(self.table_name).select(
-                    "id, response_id, user_id, title, description, content, completion_percentage, is_submitted, stage, created_at, updated_at"
+                    "response_id, user_id, opportunity_id, title, response_content, completion_percentage, is_submitted, stage, created_at, updated_at"
                 ).eq("response_id", response_id).eq("user_id", user_id).execute()
                 
                 if updated_response.data and len(updated_response.data) > 0:
                     data = updated_response.data[0]
                     updated_report = {
-                        "id": data.get("id"),
+                        "id": data["response_id"],  # Use response_id as id since no separate id column exists
                         "response_id": data["response_id"],
                         "user_id": data["user_id"],
+                        "opportunity_id": data.get("opportunity_id"),
                         "title": data.get("title", ""),
-                        "description": data.get("description", ""),
-                        "content": data["content"],
+                        "description": "",  # Default empty since field doesn't exist
+                        "due_date": None,  # Default null since field doesn't exist
+                        "content": data["response_content"],  # Map response_content to content for frontend
                         "completion_percentage": data["completion_percentage"],
                         "is_submitted": data["is_submitted"],
-                        "stage": data.get("stage", "draft"),
+                        "stage": data.get("stage", "review"),  # Will be auto-calculated by trigger
+                        "submitted_at": None,  # Default null since field doesn't exist
                         "updated_at": data["updated_at"],
                         "created_at": data["created_at"]
                     }
@@ -193,7 +205,7 @@ class ReportsService:
             raise Exception(f"Failed to update report: {str(e)}")
     
     async def upsert_report(self, response_id: str, user_id: str, content: Dict[str, Any],
-                          completion_percentage: int = 0, is_submitted: bool = False) -> Dict[str, Any]:
+                          completion_percentage: int = 0, is_submitted: bool = False, opportunity_id: int = None) -> Dict[str, Any]:
         """Create or update a report (upsert operation)"""
         try:
             logger.info(f"Upserting report for response {response_id}, user {user_id}")
@@ -204,11 +216,11 @@ class ReportsService:
             report_data = {
                 "response_id": response_id,
                 "user_id": user_id,
+                "opportunity_id": opportunity_id,
                 "title": title,
-                "content": content,
+                "response_content": content,  # Use response_content instead of content
                 "completion_percentage": completion_percentage,
-                "is_submitted": is_submitted,
-                "updated_at": datetime.utcnow().isoformat()
+                "is_submitted": is_submitted
             }
             
             # Try upsert with conflict resolution on unique constraint (user_id, response_id)
@@ -219,15 +231,18 @@ class ReportsService:
             if response.data and len(response.data) > 0:
                 data = response.data[0]  # upsert returns an array
                 upserted_report = {
-                    "id": data.get("id"),
+                    "id": data["response_id"],  # Use response_id as id since no separate id column exists
                     "response_id": data["response_id"],
                     "user_id": data["user_id"],
+                    "opportunity_id": data.get("opportunity_id"),
                     "title": data.get("title", ""),
-                    "description": data.get("description", ""),
-                    "content": data["content"],
+                    "description": "",  # Default empty since field doesn't exist
+                    "due_date": None,  # Default null since field doesn't exist
+                    "content": data["response_content"],  # Map response_content to content for frontend
                     "completion_percentage": data["completion_percentage"],
                     "is_submitted": data["is_submitted"],
-                    "stage": data.get("stage", "draft"),
+                    "stage": data.get("stage", "review"),  # Will be auto-calculated by trigger
+                    "submitted_at": None,  # Default null since field doesn't exist
                     "updated_at": data["updated_at"],
                     "created_at": data["created_at"]
                 }

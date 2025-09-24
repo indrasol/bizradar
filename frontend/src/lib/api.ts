@@ -11,10 +11,11 @@ import { supabase } from '@/utils/supabase';
 // Create base API client with common functionality
 export const apiClient = {
   async get(url: string, options?: RequestInit) {
+    const authHeaders = await this.getAuthHeaders();
     const response = await fetch(url, {
       method: 'GET',
       headers: {
-        ...this.getAuthHeaders(),
+        ...authHeaders,
         ...options?.headers,
       },
       ...options,
@@ -23,11 +24,12 @@ export const apiClient = {
   },
 
   async post(url: string, data?: any, options?: RequestInit) {
+    const authHeaders = await this.getAuthHeaders();
     const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...this.getAuthHeaders(),
+        ...authHeaders,
         ...options?.headers,
       },
       body: JSON.stringify(data),
@@ -37,11 +39,12 @@ export const apiClient = {
   },
 
   async put(url: string, data?: any, options?: RequestInit) {
+    const authHeaders = await this.getAuthHeaders();
     const response = await fetch(url, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        ...this.getAuthHeaders(),
+        ...authHeaders,
         ...options?.headers,
       },
       body: JSON.stringify(data),
@@ -51,10 +54,11 @@ export const apiClient = {
   },
 
   async delete(url: string, options?: RequestInit) {
+    const authHeaders = await this.getAuthHeaders();
     const response = await fetch(url, {
       method: 'DELETE',
       headers: {
-        ...this.getAuthHeaders(),
+        ...authHeaders,
         ...options?.headers,
       },
       ...options,

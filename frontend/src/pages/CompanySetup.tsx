@@ -83,16 +83,6 @@ const CompanySetup: React.FC = () => {
         user_role: 'user'
       };
 
-      const result = await companyApi.setupCompany(setupData);
-      if (result.success) {
-        console.log('Company setup completed:', result.data);
-        toast.success('Company setup completed successfully! You now have access to the Free Tier.', ResponsivePatterns.toast.config);
-        sessionStorage.setItem('showWelcomeMessage', 'true');
-        navigate('/dashboard');
-      } else {
-        throw new Error(result.message || 'Company setup failed');
-      }
-
       // Save intent and navigate immediately to loader page
       sessionStorage.setItem('pendingCompanySetup', JSON.stringify(setupData));
       sessionStorage.setItem('showWelcomeMessage', 'true');
@@ -103,7 +93,6 @@ const CompanySetup: React.FC = () => {
         error.message || 'Failed to set up company. Please try again.',
         ResponsivePatterns.toast.config
       );
-    } finally {
       setIsLoading(false);
     }
   };
