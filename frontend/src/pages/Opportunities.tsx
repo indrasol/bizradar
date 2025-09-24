@@ -360,26 +360,24 @@ const OpportunitiesPage: React.FC = () => {
     refined_query?: string;
   };
 
-  const PAGE_SIZE = 7;
+  const PAGE_SIZE = 5;
 
-  // Fetch top-k results from enhanced search and slice locally for pagination
-  const fetchEnhancedResults = async (
-    params: { query: string; page?: number; pageSize?: number; onlyActive?: boolean }
-  ): Promise<SearchResult> => {
-    const query = params.query;
-    const pageSize = params.pageSize || PAGE_SIZE;
-    const page = params.page || 1;
-    const onlyActive = params.onlyActive ?? false;
+  // Local cache of the latest enhanced results for client-side pagination
+  const [allEnhancedResults, setAllEnhancedResults] = useState<Opportunity[]>([]);
 
-    const k = Math.max(page * pageSize, pageSize);
-
+  // Single API call to fetch up to 25 results; pagination is client-side (5/page)
+  const fetchInitialEnhancedResults = async (
+    query: string,
+    onlyActive: boolean
+  ): Promise<Opportunity[]> => {
     const response = await fetch(API_ENDPOINTS.ENHANCED_VECTOR_SEARCH, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         query,
-        k,
+        top_k: 25,
         only_active: onlyActive,
+        user_id: tokenService.getUserIdFromToken(),
       }),
     });
 
@@ -390,20 +388,7 @@ const OpportunitiesPage: React.FC = () => {
 
     const docs = Array.isArray(data.results) ? data.results : [];
     const processedResults = processSearchResults(docs);
-
-    const total = processedResults.length; // equals returned top-k
-    const total_pages = Math.max(1, Math.ceil(total / pageSize));
-    const safePage = Math.min(Math.max(1, page), total_pages);
-    const start = (safePage - 1) * pageSize;
-    const end = start + pageSize;
-    const pageItems = processedResults.slice(start, end);
-
-    return {
-      opportunities: pageItems,
-      total,
-      total_pages,
-      page: safePage,
-    };
+    return processedResults;
   };
 
   // Generator function to handle search with streaming results
@@ -495,12 +480,16 @@ const OpportunitiesPage: React.FC = () => {
     setHasSearched(false);
 
     try {
-      const page = params.page || 1;
-      const result = await fetchEnhancedResults({ query, page, pageSize: PAGE_SIZE });
-      setOpportunities(result.opportunities);
-      setTotalResults(result.total);
-      setTotalPages(result.total_pages);
-      setCurrentPage(result.page);
+      // Single API call to fetch all results, then slice locally
+      const results = await fetchInitialEnhancedResults(query, false);
+      setAllEnhancedResults(results);
+      const total = results.length;
+      const total_pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+      const page = 1;
+      setOpportunities(results.slice(0, PAGE_SIZE));
+      setTotalResults(total);
+      setTotalPages(total_pages);
+      setCurrentPage(page);
       setHasSearched(true);
       setRefinedQuery("");
       setShowRefinedQuery(false);
@@ -537,20 +526,12 @@ const OpportunitiesPage: React.FC = () => {
 
   const paginate = async (pageNumber: number) => {
     if (pageNumber === currentPage) return;
-
-    await performAndSetSearch(
-      {
-        query: searchQuery,
-        page: pageNumber,
-        is_new_search: false,
-        sort_by: sortBy,
-        due_date_filter: filterValues.dueDate,
-        posted_date_filter: filterValues.postedDate,
-        naics_code: filterValues.naicsCode,
-        opportunity_type: filterValues.opportunityType,
-      },
-      searchQuery
-    );
+    const total_pages = Math.max(1, Math.ceil(allEnhancedResults.length / PAGE_SIZE));
+    const safePage = Math.min(Math.max(1, pageNumber), total_pages);
+    const start = (safePage - 1) * PAGE_SIZE;
+    const end = start + PAGE_SIZE;
+    setOpportunities(allEnhancedResults.slice(start, end));
+    setCurrentPage(safePage);
   };
 
   const applyFilters = async () => {

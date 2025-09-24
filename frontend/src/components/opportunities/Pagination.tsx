@@ -7,7 +7,7 @@ const Pagination: React.FC<PaginationProps> = ({ hasSearched, isSearching, total
   return (
     hasSearched &&
     !isSearching &&
-    totalResults > 7 && (
+    totalResults > 5 && (
       <div className="flex justify-center items-center my-6">
         <div className="bg-white rounded-full shadow-sm border border-gray-200 flex items-center gap-1 p-1">
           <button
