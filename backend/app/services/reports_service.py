@@ -160,7 +160,7 @@ class ReportsService:
             }
             
             if content is not None:
-                update_data["content"] = content
+                update_data["response_content"] = content
             if completion_percentage is not None:
                 update_data["completion_percentage"] = completion_percentage
             if is_submitted is not None:
@@ -174,21 +174,24 @@ class ReportsService:
             if response.data is not None:  # Update was successful
                 # Fetch the updated record
                 updated_response = self.supabase.table(self.table_name).select(
-                    "id, response_id, user_id, title, description, content, completion_percentage, is_submitted, stage, created_at, updated_at"
+                    "response_id, user_id, opportunity_id, title, response_content, completion_percentage, is_submitted, stage, created_at, updated_at"
                 ).eq("response_id", response_id).eq("user_id", user_id).execute()
                 
                 if updated_response.data and len(updated_response.data) > 0:
                     data = updated_response.data[0]
                     updated_report = {
-                        "id": data.get("id"),
+                        "id": data["response_id"],  # Use response_id as id since no separate id column exists
                         "response_id": data["response_id"],
                         "user_id": data["user_id"],
+                        "opportunity_id": data.get("opportunity_id"),
                         "title": data.get("title", ""),
-                        "description": data.get("description", ""),
-                        "content": data["content"],
+                        "description": "",  # Default empty since field doesn't exist
+                        "due_date": None,  # Default null since field doesn't exist
+                        "content": data["response_content"],  # Map response_content to content for frontend
                         "completion_percentage": data["completion_percentage"],
                         "is_submitted": data["is_submitted"],
-                        "stage": data.get("stage", "draft"),
+                        "stage": data.get("stage", "review"),  # Will be auto-calculated by trigger
+                        "submitted_at": None,  # Default null since field doesn't exist
                         "updated_at": data["updated_at"],
                         "created_at": data["created_at"]
                     }

@@ -15,9 +15,9 @@ interface KanbanViewProps {
 }
 
 const STAGES = [
-  { id: 'Review', title: 'Review', color: 'bg-orange-100 text-orange-800' },
-  { id: 'In Progress', title: 'In Progress', color: 'bg-blue-100 text-blue-800' },
-  { id: 'Completed', title: 'Completed', color: 'bg-green-100 text-green-800' },
+  { id: 'Review', title: 'Review', color: 'bg-amber-500/20 text-amber-600 dark:bg-amber-500/30 dark:text-amber-400 border border-amber-200 dark:border-amber-500/30 rounded-full px-3 py-1 text-xs font-medium' },
+  { id: 'In Progress', title: 'In Progress', color: 'bg-blue-500/20 text-blue-600 dark:bg-blue-500/30 dark:text-blue-400 border border-blue-200 dark:border-blue-500/30 rounded-full px-3 py-1 text-xs font-medium' },
+  { id: 'Completed', title: 'Completed', color: 'bg-emerald-500/20 text-emerald-600 dark:bg-emerald-500/30 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 rounded-full px-3 py-1 text-xs font-medium' },
 ];
 
 const formatDate = (dateString: string) => {
@@ -95,7 +95,7 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
           e.stopPropagation();
           onRfpAction(pursuit);
         }}
-        className="ml-2 px-3 py-1 text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-full transition-colors flex items-center gap-1"
+        className="px-3 py-1 text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-full transition-colors flex items-center gap-1 whitespace-nowrap"
       >
         {icon} {buttonText}
       </button>
