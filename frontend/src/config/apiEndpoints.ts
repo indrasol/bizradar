@@ -93,4 +93,7 @@ export const API_ENDPOINTS = {
   REPORTS_BY_RESPONSE_ID: (responseId: string) => `${API_BASE_URL}/api/reports/${responseId}`,
   REPORTS_UPSERT: `${API_BASE_URL}/api/reports/upsert`,
   REPORTS_TOGGLE_SUBMITTED: (responseId: string) => `${API_BASE_URL}/api/reports/${responseId}/toggle-submitted`,
+  
+  // Orchestrated response endpoint (updates tracker + report atomically)
+  RESPONSES_BY_ID: (responseId: string) => `${API_BASE_URL}/api/responses/${responseId}`,
 };

@@ -4,7 +4,7 @@ import hashlib
 from app.utils.logger import get_logger
 import math
 
-from datetime import datetime, date, timezone
+from datetime import datetime, date
 from fastapi import APIRouter, Request, HTTPException, BackgroundTasks, Query, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -20,7 +20,6 @@ from app.utils.openai_client import get_openai_client
 from app.services.summary_service import process_opportunity_descriptions, fetch_description_from_sam, normalize_bulleted_summary
 from app.utils.redis_connection import RedisClient
 from app.utils.database import fetch_opportunities_from_db
-from app.utils.db_utils import get_supabase_connection
 from collections import deque
 from app.services.filter_service import apply_filters_to_results, sort_results
 import asyncio
@@ -43,56 +42,6 @@ MAX_RECOMMENDATIONS = 2  # Limit to 2 recommendations per query
 # Recommendation queue for prioritization
 recommendation_queue = deque()
 recommendation_lock = asyncio.Lock()
-
-def _get_user_plan(user_id: str) -> str:
-    try:
-        supabase = get_supabase_connection(use_service_key=True)
-        res = (
-            supabase
-            .table("user_subscriptions")
-            .select("current_subscription_plan,status")
-            .eq("user_id", user_id)
-            .single()
-            .execute()
-        )
-        row = (res.data or {}) if hasattr(res, "data") else {}
-        if row and (row.get("status") or "").lower() == "active":
-            return (row.get("current_subscription_plan") or "free").lower()
-    except Exception:
-        pass
-    return "free"
-
-def _get_enhance_quota(plan: str) -> int:
-    plan = (plan or "free").lower()
-    return {"free": 2, "pro": 5, "premium": 10}.get(plan, 2)
-
-def _month_bounds_utc(now: datetime) -> tuple[datetime, datetime]:
-    start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0, tzinfo=timezone.utc)
-    if start.month == 12:
-        end = start.replace(year=start.year + 1, month=1)
-    else:
-        end = start.replace(month=start.month + 1)
-    return start, end
-
-def _count_user_reports_this_month(user_id: str) -> int:
-    try:
-        supabase = get_supabase_connection(use_service_key=True)
-        now = datetime.now(timezone.utc)
-        start, end = _month_bounds_utc(now)
-        # Fetch titles within current month and count non-null titles client-side for reliability
-        res = (
-            supabase
-            .table("reports")
-            .select("title,updated_at")
-            .eq("user_id", user_id)
-            .gte("updated_at", start.isoformat())
-            .lt("updated_at", end.isoformat())
-            .execute()
-        )
-        rows = res.data or []
-        return sum(1 for r in rows if r and r.get("title") not in (None, ""))
-    except Exception:
-        return 0
 
 def sanitize(obj):
     """
@@ -1597,20 +1546,6 @@ async def enhance_rfp_with_ai(request: Request):
         # Check subscription and increment AI RFP usage
         from app.routes.subscription_routes import check_and_increment_usage
         check_and_increment_usage(user_id, "ai_rfp")
-        # Enforce monthly AI enhancements quota by plan using reports count
-        try:
-            plan = _get_user_plan(user_id) if user_id else "free"
-            quota = _get_enhance_quota(plan)
-            used_this_month = _count_user_reports_this_month(user_id) if user_id else 0
-            if used_this_month >= quota:
-                raise HTTPException(
-                    status_code=402,
-                    detail=f"Monthly AI enhancements limit reached for plan '{plan}'. Used {used_this_month}/{quota}."
-                )
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"Quota check failed, defaulting to allow: {e}")
         
         if not company_context or not proposal_context:
             raise HTTPException(status_code=400, detail="Both company_context and proposal_context are required")

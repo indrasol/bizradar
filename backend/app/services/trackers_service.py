@@ -20,7 +20,7 @@ class TrackersService:
         """Get all trackers for a user"""
         try:
             query = self.supabase.table(self.table_name).select(
-                "id, title, description, stage, created_at, updated_at, due_date, user_id, is_submitted, naicscode, opportunity_id"
+                "id, title, description, stage, created_at, updated_at, due_date, user_id, is_submitted, naicscode"
             ).eq("user_id", user_id)
             
             if is_submitted is not None:
@@ -41,8 +41,7 @@ class TrackersService:
                         "due_date": item.get("due_date"),
                         "user_id": item["user_id"],
                         "is_submitted": item.get("is_submitted", False),
-                        "naicscode": item.get("naicscode"),
-                        "opportunity_id": item.get("opportunity_id")
+                        "naicscode": item.get("naicscode")
                     }
                     trackers.append(json_serializable(tracker))
                 return trackers
@@ -55,9 +54,35 @@ class TrackersService:
         """Get a specific tracker by ID"""
         try:
             response = self.supabase.table(self.table_name).select(
-                "id, title, description, stage, created_at, updated_at, due_date, user_id, is_submitted, naicscode, opportunity_id"
+                "id, title, description, stage, created_at, updated_at, due_date, user_id, is_submitted, naicscode"
             ).eq("id", tracker_id).eq("user_id", user_id).single().execute()
             
+            if response.data:
+                tracker = {
+                    "id": response.data.get("id"),
+                    "title": response.data.get("title", ""),
+                    "description": response.data.get("description", ""),
+                    "stage": response.data.get("stage", "Assessment"),
+                    "created_at": response.data["created_at"],
+                    "updated_at": response.data["updated_at"],
+                    "due_date": response.data.get("due_date"),
+                    "user_id": response.data["user_id"],
+                    "is_submitted": response.data.get("is_submitted", False),
+                    "naicscode": response.data.get("naicscode")
+                }
+                return json_serializable(tracker)
+            raise Exception("Tracker not found")
+        except Exception as e:
+            logger.error(f"Error fetching tracker {tracker_id} for user {user_id}: {str(e)}")
+            raise Exception(f"Failed to fetch tracker: {str(e)}")
+
+    async def get_tracker_by_opportunity(self, user_id: str, opportunity_id: int) -> Optional[Dict[str, Any]]:
+        """Get a tracker by user_id and opportunity_id"""
+        try:
+            response = self.supabase.table(self.table_name).select(
+                "id, title, description, stage, created_at, updated_at, due_date, user_id, is_submitted, naicscode, opportunity_id"
+            ).eq("user_id", user_id).eq("opportunity_id", opportunity_id).maybe_single().execute()
+
             if response.data:
                 tracker = {
                     "id": response.data.get("id"),
@@ -73,10 +98,10 @@ class TrackersService:
                     "opportunity_id": response.data.get("opportunity_id")
                 }
                 return json_serializable(tracker)
-            raise Exception("Tracker not found")
+            return None
         except Exception as e:
-            logger.error(f"Error fetching tracker {tracker_id} for user {user_id}: {str(e)}")
-            raise Exception(f"Failed to fetch tracker: {str(e)}")
+            logger.error(f"Error fetching tracker for user {user_id} and opportunity {opportunity_id}: {str(e)}")
+            return None
 
     async def create_tracker(self, user_id: str, title: str, description: str = None, 
                            stage: str = "Assessment", due_date: str = None, 
@@ -147,12 +172,21 @@ class TrackersService:
             if is_submitted is not None:
                 update_data["is_submitted"] = is_submitted
             
-            response = self.supabase.table(self.table_name).update(update_data).eq(
+            # Execute the update
+            update_response = self.supabase.table(self.table_name).update(update_data).eq(
                 "id", tracker_id
-            ).eq("user_id", user_id).select().execute()
+            ).eq("user_id", user_id).execute()
             
-            if response.data and len(response.data) > 0:
-                data = response.data[0]
+            if not update_response.data:
+                raise Exception("No data returned from update operation")
+            
+            # Fetch the updated record
+            fetch_response = self.supabase.table(self.table_name).select(
+                "id, title, description, stage, created_at, updated_at, due_date, user_id, is_submitted, naicscode"
+            ).eq("id", tracker_id).eq("user_id", user_id).single().execute()
+            
+            if fetch_response.data:
+                data = fetch_response.data
                 updated_tracker = {
                     "id": data.get("id"),
                     "title": data.get("title", ""),
@@ -163,11 +197,10 @@ class TrackersService:
                     "due_date": data.get("due_date"),
                     "user_id": data["user_id"],
                     "is_submitted": data.get("is_submitted", False),
-                    "naicscode": data.get("naicscode"),
-                    "opportunity_id": data.get("opportunity_id")
+                    "naicscode": data.get("naicscode")
                 }
                 return json_serializable(updated_tracker)
-            raise Exception("No data returned from update operation")
+            raise Exception("Failed to fetch updated tracker")
         except Exception as e:
             logger.error(f"Error updating tracker {tracker_id} for user {user_id}: {str(e)}")
             raise Exception(f"Failed to update tracker: {str(e)}")

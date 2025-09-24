@@ -280,6 +280,8 @@ const RecommendationsPanel = ({
       }
 
       toast.success("Added to tracker");
+      // Dispatch custom event to update SideBar count
+      window.dispatchEvent(new CustomEvent('trackerUpdated'));
       // TODO: update any local "added" state if you show badges, etc.
     } catch (err: any) {
       toast.error(err?.message || "Could not add to tracker");

@@ -5,48 +5,159 @@ import { ArrowLeft, Loader2 } from 'lucide-react';
 import SideBar from '../components/layout/SideBar';
 
 export default function RfpWriter() {
-  const { contractId } = useParams<{ contractId: string }>();
+  const { contractId, id } = useParams<{ contractId?: string; id?: string }>();
   const navigate = useNavigate();
   const [contract, setContract] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentView, setCurrentView] = useState<'overview' | 'editor'>('editor'); // Start with editor since users come here to generate RFP
+  
+  // Determine if this is a tracker route or contract route
+  // For /trackers/:id route, id will be set
+  // For /contracts/rfp/:contractId route, contractId will be set
+  const isTrackerRoute = !!id;
+  const effectiveId = isTrackerRoute ? id : contractId;
+  
+  console.log('RfpWriter Debug:', {
+    id,
+    contractId,
+    isTrackerRoute,
+    effectiveId,
+    pathname: window.location.pathname
+  });
 
   useEffect(() => {
-    // Try to load contract data from sessionStorage
-    const loadContractData = () => {
-      try {
-        console.log("Attempting to load from sessionStorage");
-        const storedContract = sessionStorage.getItem('currentContract');
-        console.log("Raw data from sessionStorage:", storedContract);
-        
-        if (storedContract) {
-          console.log("Contract data found in sessionStorage");
-          setContract(JSON.parse(storedContract));
-          setLoading(false);
-          return true;
-        }
-        return false;
-      } catch (error) {
-        console.error('Error loading contract data:', error);
-        return false;
+    if (isTrackerRoute) {
+      // For tracker routes, validate the tracker exists first
+      if (!effectiveId) {
+        setError('Invalid tracker ID');
+        setLoading(false);
+        return;
       }
-    };
+      loadTrackerData();
+    } else {
+      // For contract routes, try to load from sessionStorage first
+      const loadContractData = () => {
+        try {
+          console.log("Attempting to load from sessionStorage");
+          const storedContract = sessionStorage.getItem('currentContract');
+          console.log("Raw data from sessionStorage:", storedContract);
+          
+          if (storedContract) {
+            console.log("Contract data found in sessionStorage");
+            setContract(JSON.parse(storedContract));
+            setLoading(false);
+            return true;
+          }
+          return false;
+        } catch (error) {
+          console.error('Error loading contract data:', error);
+          return false;
+        }
+      };
 
-    // First try to load from sessionStorage
-    const contractLoaded = loadContractData();
-    
-    // If not found in sessionStorage, fetch from API
-    if (!contractLoaded) {
-      console.log("Contract not loaded from sessionStorage, fetching from API");
-      fetchContractData();
+      // First try to load from sessionStorage
+      const contractLoaded = loadContractData();
+      
+      // If not found in sessionStorage, fetch from API
+      if (!contractLoaded) {
+        console.log("Contract not loaded from sessionStorage, fetching from API");
+        fetchContractData();
+      }
     }
-  }, [contractId]);
+  }, [effectiveId, isTrackerRoute]);
+
+  const loadTrackerData = async () => {
+    setLoading(true);
+    try {
+      console.log("Loading tracker data for ID:", effectiveId);
+      console.log("Tracker route:", isTrackerRoute);
+      console.log("Effective ID:", effectiveId);
+      
+      // Import APIs
+      const { trackersApi } = await import('../api/trackers');
+      const { reportsApi } = await import('../api/reports');
+      const { supabase } = await import('../utils/supabase');
+      
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+      
+      // Fetch tracker data
+      let tracker;
+      try {
+        tracker = await trackersApi.getTrackerById(effectiveId!, user.id);
+      } catch (error: any) {
+        if (error.message?.includes('500') || error.message?.includes('not found') || error.message?.includes('0 rows')) {
+          console.error('Tracker not found in database:', effectiveId);
+          throw new Error(`Tracker with ID ${effectiveId} not found in database. It may have been deleted.`);
+        }
+        throw error;
+      }
+      
+      if (!tracker) {
+        throw new Error(`Tracker with ID ${effectiveId} not found`);
+      }
+      
+      // Ensure report exists for this tracker
+      try {
+        console.log('Checking for report with response_id:', effectiveId);
+        await reportsApi.getReportByResponseId(effectiveId!, user.id);
+        console.log('Report exists for tracker:', effectiveId);
+      } catch (reportError) {
+        // Report doesn't exist, create it
+        console.log('Creating report for tracker:', effectiveId);
+        console.log('Report error:', reportError);
+        await reportsApi.upsertReport(
+          effectiveId!,
+          {
+            rfpTitle: tracker.title,
+            dueDate: tracker.due_date,
+            sections: [],
+            isSubmitted: false,
+          },
+          0,
+          false,
+          user.id,
+          tracker.opportunity_id // opportunity_id from tracker
+        );
+      }
+      
+      // Create contract object from tracker data
+      const contractData = {
+        id: tracker.opportunity_id || tracker.id, // Use opportunity_id if available, fallback to tracker.id
+        title: tracker.title,
+        description: tracker.description,
+        dueDate: tracker.due_date,
+        response_date: tracker.due_date,
+        pursuit_id: tracker.id, // Use tracker ID as pursuit_id for reports
+        stage: tracker.stage,
+        is_submitted: tracker.is_submitted,
+        opportunity_id: tracker.opportunity_id // Include opportunity_id in the contract object
+      };
+      
+      setContract(contractData);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error loading tracker data:', error);
+      setError(`Failed to load tracker data: ${error.message}`);
+      setLoading(false);
+      
+      // If tracker doesn't exist, redirect back to trackers list after a delay
+      if (error.message.includes('not found')) {
+        setTimeout(() => {
+          navigate('/trackers');
+        }, 2000);
+      }
+    }
+  };
 
   const fetchContractData = async () => {
     setLoading(true);
     try {
-      console.log("Fetching contract data for ID:", contractId);
+      console.log("Fetching contract data for ID:", effectiveId);
       
       // You would replace this with your actual API call
       // For demonstration, using a timeout to simulate API call
@@ -154,10 +265,23 @@ export default function RfpWriter() {
               <div className="bg-red-50 border border-red-200 rounded-lg p-4 sm:p-6 text-center">
                 <p className="text-red-600 mb-3 sm:mb-4 text-sm sm:text-base">{error}</p>
                 <button 
-                  onClick={fetchContractData}
+                  onClick={() => {
+                    if (error.includes('not found')) {
+                      // Clear cache and redirect to trackers list
+                      sessionStorage.clear();
+                      navigate('/trackers');
+                    } else {
+                      // Try to reload the data
+                      if (isTrackerRoute) {
+                        loadTrackerData();
+                      } else {
+                        fetchContractData();
+                      }
+                    }
+                  }}
                   className="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-md text-sm sm:text-base"
                 >
-                  Try Again
+                  {error.includes('not found') ? 'Go to Trackers' : 'Try Again'}
                 </button>
               </div>
             </div>
@@ -203,8 +327,7 @@ export default function RfpWriter() {
           <div className="flex-1 min-h-0 overflow-hidden">
             <RfpContainer 
               contract={contract}
-              pursuitId={contractId}           // <-- use the URL UUID
-              aiOpportunityId={contract?.id}
+              pursuitId={effectiveId}           // <-- use the effective ID (tracker ID or contract ID)
               onViewChange={handleViewChange}
               onBackToOverview={handleBackToOverview}
               currentView={currentView}

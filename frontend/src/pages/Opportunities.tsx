@@ -580,14 +580,26 @@ const OpportunitiesPage: React.FC = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      console.log('🔍 handleAddToTracker: Checking for existing tracker');
+      console.log('📋 Opportunity title:', opportunity.title);
+      
       // Check if already tracked using API
       const trackersResponse = await trackersApi.getTrackers(user.id);
-      const existingTracker = trackersResponse.trackers.find(t => t.title === opportunity.title);
+      console.log('📋 Available trackers:', trackersResponse.trackers.map(t => ({ id: t.id, title: t.title })));
+      
+      const existingTracker = trackersResponse.trackers.find(t => {
+        const match = t.title === opportunity.title;
+        console.log(`🔍 Comparing: "${t.title}" === "${opportunity.title}" = ${match}`);
+        return match;
+      });
 
       if (existingTracker) {
+        console.log('✅ Found existing tracker, removing it:', existingTracker.id);
         // Already tracked → toggle OFF by deleting
         await trackersApi.deleteTracker(existingTracker.id, user.id);
         setPursuitCount((prev) => Math.max(0, prev - 1));
+        // Dispatch custom event to update SideBar count
+        window.dispatchEvent(new CustomEvent('trackerUpdated'));
         try {
           toast.success("Removed from Tracker", {
             description: "This opportunity is no longer being tracked.",
@@ -596,6 +608,8 @@ const OpportunitiesPage: React.FC = () => {
         } catch {}
         return;
       }
+
+      console.log('❌ No existing tracker found, creating new one');
 
       // Create new tracker using API
       const newTracker = await trackersApi.createTracker({
@@ -609,6 +623,8 @@ const OpportunitiesPage: React.FC = () => {
       setShowNotification(true);
       setTimeout(() => setShowNotification(false), 3000);
       setPursuitCount((prev) => prev + 1);
+      // Dispatch custom event to update SideBar count
+      window.dispatchEvent(new CustomEvent('trackerUpdated'));
       // Immediate feedback toast
       try {
         toast.success("Added to Tracker", {
@@ -627,45 +643,77 @@ const handleBeginResponse = async (contractId: string, contractData: Opportunity
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // 1) Generate a pursuit_id (needed for reports and contract linking)
-    const pursuitId =
-      (typeof window !== "undefined" && window.crypto && "randomUUID" in window.crypto)
+    // SIMPLE LOGIC: Check if response exists, if yes load it, if no create new
+    const { reportsApi } = await import('../api/reports');
+    
+    let responseId;
+    let isExisting = false;
+    
+    try {
+      // Try to find existing report by title
+      const existingReports = await reportsApi.getReports(user.id);
+      const existingReport = existingReports.reports.find(r => 
+        r.title && r.title.toLowerCase().trim() === contractData.title.toLowerCase().trim()
+      );
+      
+      if (existingReport) {
+        console.log('✅ Found existing response, loading it:', existingReport.response_id);
+        responseId = existingReport.response_id;
+        isExisting = true;
+      }
+    } catch (error) {
+      console.log('No existing reports found, will create new one');
+    }
+
+    if (!isExisting) {
+      console.log('❌ No existing response found, creating new one');
+      // Generate new response ID
+      responseId = (typeof window !== "undefined" && window.crypto && "randomUUID" in window.crypto)
         ? window.crypto.randomUUID()
         : generateFallbackUUID();
+    }
 
-    // 2) Use backend API to create/upsert report instead of direct Supabase call
-    try {
-      await reportsApi.upsertReport(
-        pursuitId, // This becomes response_id
-        {
-          logo: null,
-          companyName: "",
-          companyWebsite: "",
-          letterhead: "",
-          phone: "",
-          rfpTitle: contractData.title || "",
-          naicsCode: String(contractData.naics_code || "000000"),
-          solicitationNumber: contractData.solicitation_number || "",
-          issuedDate: contractData.published_date || new Date().toISOString(),
-          submittedBy: "",
-          theme: "professional",
-          sections: [], // builder will fill with templates/content
-          isSubmitted: false,
-          dueDate: contractData.response_date || null
-        },
-        0, // completion_percentage
-        false, // is_submitted
-        user.id
-      );
-    } catch (apiError) {
-      console.error("Failed to create report via API:", apiError);
-      toast.error("Failed to initialize report. Please try again.");
-      return;
+    // Clear any old session storage
+    sessionStorage.removeItem("currentContract");
+    sessionStorage.removeItem("currentTrackerId");
+
+    // 2) Create new report only if it doesn't exist
+    if (!isExisting) {
+      try {
+        await reportsApi.upsertReport(
+          responseId,
+          {
+            logo: null,
+            companyName: "",
+            companyWebsite: "",
+            letterhead: "",
+            phone: "",
+            rfpTitle: contractData.title || "",
+            naicsCode: String(contractData.naics_code || "000000"),
+            solicitationNumber: contractData.solicitation_number || "",
+            issuedDate: contractData.published_date || new Date().toISOString(),
+            submittedBy: "",
+            theme: "professional",
+            sections: [],
+            isSubmitted: false,
+            dueDate: contractData.response_date || null
+          },
+          0, // completion_percentage
+          false, // is_submitted
+          user.id,
+          Number(contractData.id) // opportunity_id
+        );
+        console.log(`Created new report entry for response ${responseId}`);
+      } catch (apiError) {
+        console.error("Failed to create report via API:", apiError);
+        toast.error("Failed to initialize report. Please try again.");
+        return;
+      }
     }
 
     // 3) Save contract + pursuit_id for the RFP page to read
     const contract = {
-      id: contractId,
+      id: contractData.id, // Use the actual opportunity ID from contractData
       title: contractData.title,
       department: contractData.agency,
       noticeId: contractData.id,
@@ -679,19 +727,21 @@ const handleBeginResponse = async (contractId: string, contractData: Opportunity
       description: contractData.description || "",
       external_url: contractData.external_url || "",
       budget: contractData.budget || "",
-      pursuit_id: pursuitId, // still attached for linking
+      pursuit_id: responseId, // Use the response ID
     };
 
     sessionStorage.setItem("currentContract", JSON.stringify(contract));
+    sessionStorage.setItem("currentTrackerId", responseId);
 
     try {
-      toast.success("Report initialized", {
-        description: "Opening RFP Builder for this opportunity.",
+      toast.success(isExisting ? "Loading existing response" : "Report initialized", {
+        description: isExisting ? "Opening your saved response." : "Opening RFP Builder for this opportunity.",
         duration: 1500,
       });
     } catch {}
 
-    navigate(`/contracts/rfp/${pursuitId}`);
+    // 4) Always redirect to response builder
+    navigate(`/contracts/rfp/${responseId}`);
 
   } catch (error) {
     console.error("Error initializing report:", error);
@@ -934,7 +984,7 @@ const handleBeginResponse = async (contractId: string, contractData: Opportunity
         </div>
       </div>
       <ScrollToTopButton isVisible={showScrollToTop} scrollToTop={handleScrollToTop} />
-      <NotificationToast show={showNotification} />
+      {/* <NotificationToast show={showNotification} /> */}
     </div>
   );
 };
