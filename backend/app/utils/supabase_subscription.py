@@ -189,7 +189,6 @@ class SubscriptionManager:
             # Base subscription data that should always exist
             subscription_data = {
                 "user_id": user_id,
-                "plan_type": "free",
                 "current_subscription_plan": "free",
                 "status": "active",
                 "start_date": datetime.now(timezone.utc).isoformat(),
@@ -267,7 +266,6 @@ class SubscriptionManager:
             
             subscription_data = {
                 "user_id": user_id,
-                "plan_type": "pro",
                 "current_subscription_plan": "pro",
                 "status": "trial", 
                 "start_date": now.isoformat(),
@@ -297,7 +295,6 @@ class SubscriptionManager:
             
             subscription_data = {
                 "user_id": user_id,
-                "plan_type": new_tier,
                 "current_subscription_plan": new_tier,
                 "status": "active",
                 "start_date": now.isoformat(),
@@ -327,7 +324,6 @@ class SubscriptionManager:
             
             subscription_data = {
                 "user_id": user_id,
-                "plan_type": "free",
                 "current_subscription_plan": "free",
                 "status": "active",
                 "start_date": now.isoformat(),
@@ -377,7 +373,7 @@ class SubscriptionManager:
                     }
                 }
             
-            plan_type = subscription.get("plan_type") or subscription.get("current_subscription_plan") or "free"
+            plan_type = subscription.get("current_subscription_plan") or "free"
             status = subscription.get("status", "active")
             end_date_str = subscription.get("end_date")
             
@@ -466,7 +462,7 @@ class SubscriptionManager:
         """Check if user has access to a specific feature"""
         try:
             status = self.get_subscription_status(user_id)
-            plan_type = status.get("plan_type", "free")
+            plan_type = status.get("plan_type", status.get("current_subscription_plan", "free"))
             
             # Define feature access by tier
             feature_access = {
@@ -488,7 +484,7 @@ class SubscriptionManager:
             if not subscription:
                 return False
             
-            plan_type = subscription.get("plan_type", "free")
+            plan_type = subscription.get("current_subscription_plan", "free")
             tier_config = TIER_CONFIGS.get(plan_type, TIER_CONFIGS["free"])
             
             current_searches = subscription.get("monthly_searches_used", 0)
