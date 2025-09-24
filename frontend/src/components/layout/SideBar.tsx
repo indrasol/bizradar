@@ -163,6 +163,13 @@ const Sidebar = () => {
       }
     };
     loadSubscription();
+    const handleSubscriptionUpdated = () => {
+      // refetch on subscription updates (checkout returns)
+      setSubscriptionLoading(true);
+      subscriptionApi.getCurrentSubscription().then(setCurrentSubscription).finally(() => setSubscriptionLoading(false));
+    };
+    window.addEventListener('subscription-updated', handleSubscriptionUpdated);
+    return () => window.removeEventListener('subscription-updated', handleSubscriptionUpdated);
   }, [user]);
 
   const handleLogout = async () => {

@@ -20,6 +20,28 @@ def _strip_embeddings(obj: Dict[str, Any]) -> Dict[str, Any]:
     obj.pop("embedding_version", None)
     return obj
 
+def _get_user_plan_and_max_results(user_id: Optional[str]) -> tuple[str, int]:
+    plan = "free"
+    max_results = 5
+    try:
+        if user_id:
+            supabase = get_supabase_connection(use_service_key=True)
+            res = (
+                supabase
+                .table("user_subscriptions")
+                .select("current_subscription_plan,status")
+                .eq("user_id", user_id)
+                .single()
+                .execute()
+            )
+            row = (res.data or {}) if hasattr(res, "data") else {}
+            if row and (row.get("status") or "").lower() == "active":
+                plan = (row.get("current_subscription_plan") or "free").lower()
+        max_results = 5 if "free" in plan.lower() else 25
+    except Exception:
+        pass
+    return plan, max_results
+
 
 @router.post("/enhanced/vector-search")
 async def enhanced_vector_search(request: Request):
@@ -53,6 +75,11 @@ async def enhanced_vector_search(request: Request):
     except Exception:
         k = 20
     only_active = bool(data.get("only_active", False))
+
+    # Clamp k by user plan
+    user_id = data.get("user_id") or data.get("userId")
+    plan, max_results = _get_user_plan_and_max_results(user_id)
+    k = min(k, max_results)
 
     # No user gating for this endpoint
 
@@ -103,6 +130,6 @@ async def enhanced_vector_search(request: Request):
             # In case RPC returns full row instead of keyed doc
             docs.append(_strip_embeddings(r))
 
-    return {"results": docs, "count": len(docs)}
+    return {"results": docs, "count": len(docs), "limit": max_results, "plan": plan}
 
 
