@@ -18,15 +18,20 @@ import {
 import SettingsNotification from './SettingsNotification';
 import { useAuth } from '../Auth/useAuth';
 import { supabase } from '../../utils/supabase';
+import { trackersApi } from '@/api/trackers';
+import { profileApi } from '@/api/profile';
 import { toast } from 'sonner';
 import BizradarAIModal from './BizradarAIModal';
 import { subscriptionApi } from '../../api/subscription';
 import { UpgradeModal } from '../subscription/UpgradeModal';
+import { ThemeToggle } from '../ThemeToggle';
+import { useTheme } from '../../contexts/ThemeContext';
 
 const Sidebar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { isThemeToggleDisabled } = useTheme();
 
   const [profile, setProfile] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -75,20 +80,11 @@ const Sidebar = () => {
       setProfileError(null);
 
       try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single();
+        const profile = await profileApi.getUserProfile(user.id);
 
-        if (error) {
-          setProfileError(error.message);
-          throw error;
-        }
-
-        if (data) {
-          setProfile(data);
-          const userRole = (data.role || '').toLowerCase();
+        if (profile) {
+          setProfile(profile);
+          const userRole = (profile.company_info?.role || '').toLowerCase();
           setIsAdmin(userRole === 'admin');
         }
       } catch (err) {
@@ -107,13 +103,13 @@ const Sidebar = () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        const { count, error } = await supabase
-          .from('trackers')
-          .select('id', { count: 'exact' })
-          .eq('user_id', user.id);
-
-        if (error) throw error;
-        setPursuitCount(count || 0);
+        const response = await trackersApi.getTrackers(user.id);
+        
+        if (response.success) {
+          setPursuitCount(response.trackers.length);
+        } else {
+          setPursuitCount(0);
+        }
       } catch (error) {
         // silent
       }
@@ -122,16 +118,24 @@ const Sidebar = () => {
     fetchPursuitCount();
 
     const subscription = supabase
-      .channel('pursuits_channel')
+      .channel('trackers_channel')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'pursuits', filter: `user_id=eq.${supabase.auth.getUser().then(res => res.data.user?.id)}` },
+        { event: '*', schema: 'public', table: 'trackers', filter: `user_id=eq.${supabase.auth.getUser().then(res => res.data.user?.id)}` },
         () => fetchPursuitCount()
       )
       .subscribe();
 
+    // Listen for custom tracker update events
+    const handleTrackerUpdate = () => {
+      fetchPursuitCount();
+    };
+
+    window.addEventListener('trackerUpdated', handleTrackerUpdate);
+
     return () => {
       subscription.unsubscribe();
+      window.removeEventListener('trackerUpdated', handleTrackerUpdate);
     };
   }, []);
 
@@ -227,8 +231,8 @@ const Sidebar = () => {
     if (isNavigating && profile) {
       return {
         showLoading: false,
-        avatarContent: `${profile.first_name?.[0] || ''}${profile.last_name?.[0] || ''}`,
-        displayName: `${profile.first_name} ${profile.last_name}`,
+        avatarContent: `${profile.personal_info?.first_name?.[0] || ''}${profile.personal_info?.last_name?.[0] || ''}`,
+        displayName: `${profile.personal_info?.first_name || ''} ${profile.personal_info?.last_name || ''}`,
         showAdmin: isAdmin
       };
     }
@@ -238,8 +242,8 @@ const Sidebar = () => {
     if (profile) {
       return {
         showLoading: false,
-        avatarContent: `${profile.first_name?.[0] || ''}${profile.last_name?.[0] || ''}`,
-        displayName: `${profile.first_name} ${profile.last_name}`,
+        avatarContent: `${profile.personal_info?.first_name?.[0] || ''}${profile.personal_info?.last_name?.[0] || ''}`,
+        displayName: `${profile.personal_info?.first_name || ''} ${profile.personal_info?.last_name || ''}`,
         showAdmin: isAdmin
       };
     }
@@ -544,6 +548,20 @@ const Sidebar = () => {
             {collapsed && <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 whitespace-nowrap z-50">Settings</div>}
           </Link>
 
+          {/* Theme Toggle */}
+          {!isThemeToggleDisabled && (
+            <div className={`${collapsed ? 'px-2' : 'px-4'} py-2`}>
+              <div className={`group flex ${collapsed ? 'justify-center' : 'items-center justify-between'} -ml-1 pr-3 py-2.5 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors`}>
+                <ThemeToggle collapsed={collapsed} showLabel={!collapsed} />
+                {collapsed && (
+                  <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+                    Theme Toggle
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Admin Zone
           <div className="relative group">
             <Link
@@ -604,7 +622,10 @@ const Sidebar = () => {
         </nav>
 
         {/* Bottom subscription */}
-        <div className={`${collapsed ? 'px-2' : 'px-4'} pt-4 pb-4 border-t border-gray-200 mt-auto`}>
+        <div className={`${collapsed ? 'px-2' : 'px-4'} pt-8 pb-1 border-t border-gray-200 dark:border-white mt-auto`}>
+
+
+
           <button
             onClick={() => setUpgradeOpen(true)}
             className={`group flex ${collapsed ? 'flex-col items-center' : 'items-center gap-3'} px-3 py-3 rounded-xl border border-blue-200 bg-gradient-to-r from-blue-50 to-white shadow-sm hover:shadow-md transition-all duration-300 w-full`}

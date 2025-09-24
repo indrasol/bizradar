@@ -23,12 +23,15 @@ export interface Report {
   id?: string;
   response_id: string;
   user_id: string;
+  opportunity_id?: number;
   title?: string;
   description?: string;
+  due_date?: string;
   content: ReportContent;
   completion_percentage: number;
   is_submitted: boolean;
   stage?: string;
+  submitted_at?: string;
   created_at: string;
   updated_at: string;
 }
@@ -48,7 +51,7 @@ export const reportsApi = {
 // Replace both get functions with:
     async getReports(userId: string, isSubmitted: boolean = false): Promise<ReportsListResponse> {
     const response = await apiClient.get(`${API_ENDPOINTS.REPORTS}?user_id=${userId}&is_submitted=${isSubmitted}`);
-    return response.data;
+    return response;
     },
   
      async getReportByResponseId(responseId: string, userId: string): Promise<Report> {
@@ -58,12 +61,12 @@ export const reportsApi = {
 
     async createReport(reportData: Omit<Report, 'id' | 'created_at' | 'updated_at' | 'stage'>, userId: string): Promise<Report> {
         const response = await apiClient.post(`${API_ENDPOINTS.REPORTS}?user_id=${userId}`, reportData);
-        return response.data;
+        return response;
       },
       
     async updateReport(responseId: string, reportData: Partial<Omit<Report, 'id' | 'response_id' | 'user_id' | 'created_at' | 'stage'>>, userId: string): Promise<Report> {
         const response = await apiClient.put(`${API_ENDPOINTS.REPORTS_BY_RESPONSE_ID(responseId)}?user_id=${userId}`, reportData);
-        return response.data;
+        return response;
     },
 
 async upsertReport(
@@ -71,26 +74,28 @@ async upsertReport(
         content: ReportContent,
         completionPercentage: number,
         isSubmitted: boolean,
-        userId: string
+        userId: string,
+        opportunityId?: number
       ): Promise<Report> {
         const payload = {
           response_id: responseId,  // Backend expects response_id for reports table
+          opportunity_id: opportunityId,
           content,
           completion_percentage: completionPercentage,
           is_submitted: isSubmitted,
         };
         const response = await apiClient.post(`${API_ENDPOINTS.REPORTS_UPSERT}?user_id=${userId}`, payload);
-        return response.data;
+        return response;
 },
 
 async deleteReport(responseId: string, userId: string): Promise<{ success: boolean }> {
     const response = await apiClient.delete(`${API_ENDPOINTS.REPORTS_BY_RESPONSE_ID(responseId)}?user_id=${userId}`);
-    return response.data;
+    return response;
   },
   
   // Fix toggleSubmittedStatus method
   async toggleSubmittedStatus(responseId: string, userId: string): Promise<Report> {
     const response = await apiClient.post(`${API_ENDPOINTS.REPORTS_TOGGLE_SUBMITTED(responseId)}?user_id=${userId}`, {});
-    return response.data;
+    return response;
   }
 };

@@ -80,12 +80,72 @@ export const trackersApi = {
   // Create a new tracker
   async createTracker(trackerData: CreateTrackerRequest, userId: string): Promise<Tracker> {
     const response = await apiClient.post(`${API_ENDPOINTS.TRACKERS}?user_id=${userId}`, trackerData);
+    
+    console.log('🔍 Tracker creation response:', {
+      id: response.id,
+      opportunity_id: response.opportunity_id,
+      title: response.title,
+      fullResponse: response
+    });
+    
+    // Also create a corresponding report entry using the tracker ID as response_id
+    try {
+      const { reportsApi } = await import('./reports');
+      console.log('🔍 Creating report with opportunity_id:', response.opportunity_id);
+      await reportsApi.upsertReport(
+        response.id, // Use tracker ID as response_id
+        {
+          rfpTitle: response.title,
+          dueDate: response.due_date,
+          sections: [],
+          isSubmitted: false,
+        },
+        0, // completion percentage
+        false, // isSubmitted
+        userId,
+        response.opportunity_id // opportunity_id from tracker
+      );
+      console.log(`Created report entry for tracker ${response.id}`);
+    } catch (error) {
+      console.warn('Failed to create report entry for tracker:', error);
+      // Don't throw - tracker creation should still succeed
+    }
+    
     return response;
   },
 
   // Update an existing tracker
   async updateTracker(trackerId: string, trackerData: UpdateTrackerRequest, userId: string): Promise<Tracker> {
     const response = await apiClient.put(`${API_ENDPOINTS.TRACKERS_BY_ID(trackerId)}?user_id=${userId}`, trackerData);
+    
+    // If stage is being updated, also update the corresponding report
+    if (trackerData.stage) {
+      try {
+        const { reportsApi } = await import('./reports');
+        // Get the current report to preserve other data
+        const currentReport = await reportsApi.getReportByResponseId(trackerId, userId);
+        
+        // Update the report with the new stage
+        await reportsApi.upsertReport(
+          trackerId,
+          {
+            rfpTitle: currentReport.content.rfpTitle,
+            dueDate: currentReport.content.dueDate,
+            sections: currentReport.content.sections,
+            isSubmitted: currentReport.is_submitted,
+          },
+          currentReport.completion_percentage,
+          currentReport.is_submitted,
+          userId,
+          currentReport.opportunity_id // preserve opportunity_id
+        );
+        console.log(`Updated report stage for tracker ${trackerId}`);
+      } catch (error) {
+        console.warn('Failed to update report stage for tracker:', error);
+        // Don't throw - tracker update should still succeed
+      }
+    }
+    
     return response;
   },
 

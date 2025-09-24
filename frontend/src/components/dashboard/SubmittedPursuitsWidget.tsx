@@ -299,7 +299,7 @@ const SubmittedPursuitsWidget: React.FC<SubmittedPursuitsWidgetProps> = ({ class
               <div className="flex-1 overflow-y-auto">
                 <RfpResponse 
                   contract={selectedPursuit} 
-                  pursuitId={selectedPursuit.id} 
+                  pursuitId={selectedPursuit.id}
                 />
               </div>
             </div>

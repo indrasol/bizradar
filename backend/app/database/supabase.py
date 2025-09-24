@@ -34,7 +34,7 @@ async def run_supabase_async(func):
     )
 
 # Helper for safer Supabase operations with error handling
-async def safe_supabase_operation(operation, error_message="Supabase operation failed", retries: int = 3, backoff_seconds: float = 0.25):
+async def safe_supabase_operation(operation, error_message="Supabase operation failed", retries: int = 5, backoff_seconds: float = 0.5):
     attempt = 0
     while True:
         try:
@@ -46,7 +46,11 @@ async def safe_supabase_operation(operation, error_message="Supabase operation f
                 "RemoteProtocolError" in error_text or
                 "ConnectionResetError" in error_text or
                 "StreamClosed" in error_text or
-                "ConnectionTerminated" in error_text
+                "ConnectionTerminated" in error_text or
+                "Server disconnected" in error_text or
+                "ConnectionError" in error_text or
+                "TimeoutError" in error_text or
+                "ConnectionRefusedError" in error_text
             )
             if attempt <= retries and is_transient:
                 await asyncio.sleep(backoff_seconds * attempt)

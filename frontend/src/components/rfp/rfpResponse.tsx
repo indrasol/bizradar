@@ -30,6 +30,7 @@ import { supabase } from '../../utils/supabase';
 import { toast } from "sonner";
 import { reportsApi } from '../../api/reports';
 import { trackersApi } from '../../api/trackers';
+import { responseApi } from '../../api/response';
 import html2pdf from 'html2pdf.js';
 import html2canvas from 'html2canvas';
 import { saveAs } from 'file-saver';
@@ -196,6 +197,8 @@ const RfpResponse = ({ contract, pursuitId, aiOpportunityId }: { contract: any; 
 
   const contentRef = useRef<HTMLDivElement>(null);
   const track = useTrack();
+  
+  // Unified save flow: no workflow branching needed; backend decides tracker update
 
   // UUID validation helper
 const isValidUUID = (uuid: string): boolean => {
@@ -206,7 +209,16 @@ const isValidUUID = (uuid: string): boolean => {
 // Read pursuit_id saved by Opportunities page
 const stored = (() => {
   try {
-    return JSON.parse(sessionStorage.getItem("currentContract") || "{}");
+    const data = JSON.parse(sessionStorage.getItem("currentContract") || "{}");
+    console.log('🔍 SessionStorage Contract Debug:', {
+      hasData: !!data.id,
+      contractId: data.id,
+      contractIdType: typeof data.id,
+      isUUID: data.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(data.id),
+      isNumber: data.id && !isNaN(Number(data.id)),
+      fullContract: data
+    });
+    return data;
   } catch {
     return {};
   }
@@ -391,10 +403,16 @@ if (!effectivePursuitId) {
   // LOAD persisted response + stage and load profile data
   useEffect(() => {
     const loadRfpData = async () => {
-      if (!effectivePursuitId) return;
+      if (!effectivePursuitId) {
+        console.log("No effective pursuit ID, skipping data load");
+        return;
+      }
+
 
       try {
         console.log("Loading RFP data for pursuit ID:", effectivePursuitId);
+        console.log("PursuitId prop:", pursuitId);
+        console.log("Contract:", contract);
 
         // Fetch user profile data first
         const userProfile = await fetchUserProfile();
@@ -408,12 +426,70 @@ if (!effectivePursuitId) {
 
         // Use API to fetch RFP data
         try {
+          console.log("🔍 FETCHING EXISTING RESPONSE for ID:", effectivePursuitId);
           const report = await reportsApi.getReportByResponseId(effectivePursuitId, user.id);
+          console.log("✅ FOUND EXISTING RESPONSE:", report);
           const responses = [report]; // Wrap in array to match existing logic
           
           if (responses && responses.length > 0) {
           const data = responses[0];
           console.log("Loaded RFP data:", data);
+          
+          // 🔧 FIX: Update contract with correct opportunity_id from report data
+          console.log('🔧 Contract Fix Debug:', {
+            hasOpportunityId: !!data.opportunity_id,
+            opportunityId: data.opportunity_id,
+            opportunityIdType: typeof data.opportunity_id,
+            currentContractId: contract?.id,
+            currentContractIdType: typeof contract?.id,
+            areEqual: contract?.id === data.opportunity_id,
+            willFix: data.opportunity_id && contract?.id !== data.opportunity_id
+          });
+          
+          if (data.opportunity_id && contract?.id !== data.opportunity_id) {
+            console.log('🔧 Fixing contract.id:', {
+              oldId: contract?.id,
+              newId: data.opportunity_id,
+              oldType: typeof contract?.id,
+              newType: typeof data.opportunity_id
+            });
+            contract.id = data.opportunity_id;
+          } else if (!data.opportunity_id && contract?.id && !isNaN(Number(contract.id))) {
+            // 🔧 NEW FIX: If report has no opportunity_id but contract.id is a number, update the report
+            console.log('🔧 Updating report with opportunity_id:', {
+              reportId: data.response_id,
+              opportunityId: Number(contract.id),
+              contractId: contract.id
+            });
+            
+            // Update the report with the opportunity_id
+            try {
+              await reportsApi.upsertReport(
+                data.response_id,
+                data.content || {},
+                data.completion_percentage || 0,
+                data.is_submitted || false,
+                user.id,
+                Number(contract.id) // Add the opportunity_id
+              );
+              console.log('✅ Successfully updated report with opportunity_id');
+            } catch (updateError) {
+              console.error('❌ Failed to update report with opportunity_id:', updateError);
+            }
+          } else {
+            console.log('🔧 No fix needed:', {
+              reason: !data.opportunity_id ? 'No opportunity_id in data' : 'Contract ID already correct'
+            });
+          }
+          
+          console.log("Content structure:", {
+            hasContent: !!data.content,
+            contentKeys: data.content ? Object.keys(data.content) : 'no content',
+            contentSections: data.content?.sections,
+            contentSectionsType: typeof data.content?.sections,
+            contentSectionsLength: data.content?.sections?.length,
+            fullContent: data.content
+          });
 
           setIsSubmitted(data.is_submitted || false);
           console.log("Setting isSubmitted to:", data.is_submitted);
@@ -434,12 +510,29 @@ if (!effectivePursuitId) {
             setTheme(content.theme || 'professional');
 
             // Load saved sections if they exist, otherwise use default template
+            console.log("Content sections check:", {
+              hasContent: !!content,
+              hasSections: !!content.sections,
+              sectionsType: typeof content.sections,
+              isArray: Array.isArray(content.sections),
+              sectionsLength: content.sections?.length,
+              sectionsValue: content.sections
+            });
+            
             if (Array.isArray(content.sections) && content.sections.length > 0) {
               console.log("Loading saved sections:", content.sections);
               setSections(content.sections);
               
-              // Calculate stage from loaded sections
-              const completedSections = content.sections.filter(section => section.completed).length;
+              // Calculate stage from loaded sections - only count sections with actual content
+              const completedSections = content.sections.filter(section => {
+                // A section is considered complete if it has the completed flag AND has meaningful content
+                const hasContent = section?.content && 
+                  section.content.trim().length > 50 && // At least 50 characters of content
+                  !section.content.includes('Lorem ipsum') && // Not placeholder text
+                  !section.content.includes('Your content here'); // Not placeholder text
+                
+                return section.completed && hasContent;
+              }).length;
               const totalSections = content.sections.length;
               const completionPercentage = totalSections > 0 ? Math.round((completedSections / totalSections) * 100) : 0;
               
@@ -455,6 +548,7 @@ if (!effectivePursuitId) {
               console.log("Calculated stage from sections:", calculatedStage, "Completion:", completionPercentage + "%");
             } else {
               console.log("No saved sections found, using default template");
+              console.log("This appears to be an existing response with no sections saved yet");
               setStage("Review");
               await resetSectionsWithDocxHtml();
             }
@@ -486,7 +580,7 @@ if (!effectivePursuitId) {
 
           console.log("Successfully loaded saved RFP data");
         } else {
-          console.log("No existing RFP response found, loading templates and converting to HTML");
+          console.log("❌ NO EXISTING RFP RESPONSE FOUND, loading templates and converting to HTML");
           
           // Set contract data for new responses
           setRfpTitle(contract?.title || 'Proposal for Cybersecurity Audit & Penetration Testing Services');
@@ -769,8 +863,16 @@ useEffect(() => {
         dueDate: contract?.dueDate || contract?.response_date || null
       };
       
-      // Validate completion percentage
-      const completedSections = contentToSave.sections.filter(section => section?.completed).length;
+      // Validate completion percentage - only count sections with actual content
+      const completedSections = contentToSave.sections.filter(section => {
+        // A section is considered complete if it has the completed flag AND has meaningful content
+        const hasContent = section?.content && 
+          section.content.trim().length > 50 && // At least 50 characters of content
+          !section.content.includes('Lorem ipsum') && // Not placeholder text
+          !section.content.includes('Your content here'); // Not placeholder text
+        
+        return section?.completed && hasContent;
+      }).length;
       const totalSections = contentToSave.sections.length;
       const completionPercentage = totalSections > 0 ? Math.round((completedSections / totalSections) * 100) : 0;
       
@@ -782,6 +884,10 @@ useEffect(() => {
       } else {
         stageToSet = "Review";
       }
+
+      if(isSubmitted && stageToSet === "Completed"){
+        stageToSet = "Submitted";
+      }
       
       console.log('Saving with validated data:', {
         effectivePursuitId,
@@ -789,70 +895,44 @@ useEffect(() => {
         contentKeys: Object.keys(contentToSave),
         sectionsLength: contentToSave.sections?.length || 0,
         completionPercentage,
-        stageToSet
+        completedSections,
+        totalSections,
+        isSubmitted,
+        stageToSet,
+        sectionsDetails: contentToSave.sections.map(section => ({
+          title: section.title,
+          completed: section.completed,
+          hasContent: section?.content && section.content.trim().length > 50,
+          contentLength: section?.content?.trim().length || 0
+        }))
       });
       
-      // Update tracker stage (only if tracker exists) using API
+      // Single orchestrated save: update tracker stage (if applicable) + upsert report
       try {
-        // First check if tracker exists
-        await trackersApi.getTrackerById(effectivePursuitId, user.id);
-        // If we get here, tracker exists, so update it
-        await trackersApi.updateTracker(effectivePursuitId, { stage: stageToSet }, user.id);
-        console.log("Successfully updated tracker stage to:", stageToSet);
-      } catch (trackerErr: any) {
-        if (trackerErr.message?.includes('404') || trackerErr.message?.includes('not found')) {
-          console.log("Tracker not found - this is normal for reports generated without adding to tracker");
-        } else {
-          console.warn("Tracker update failed:", trackerErr);
-        }
-        // Don't fail the save if tracker update fails
-      }
-
-      // Save RFP content to reports table using proper HTTP methods
-      try {
-        // First check if report exists
-        let reportExists = false;
-        try {
-          await reportsApi.getReportByResponseId(effectivePursuitId, user.id);
-          reportExists = true;
-          console.log("Report exists, using PUT to update");
-        } catch (getError: any) {
-          if (getError.message?.includes('404')) {
-            console.log("Report doesn't exist, using POST to create");
-            reportExists = false;
-          } else {
-            throw getError; // Re-throw if it's not a 404
-          }
-        }
-
-        if (reportExists) {
-          // Use PUT to update existing report
-          await reportsApi.updateReport(
-            effectivePursuitId,
-            {
-              content: contentToSave,
-              completion_percentage: completionPercentage,
-              is_submitted: Boolean(isSubmitted)
-            },
-            user.id
-          );
-        } else {
-          // Use POST to create new report
-          await reportsApi.createReport(
-            {
-              response_id: effectivePursuitId,
-              user_id: user.id,
-              content: contentToSave,
-              completion_percentage: completionPercentage,
-              is_submitted: Boolean(isSubmitted)
-            },
-            user.id
-          );
-        }
+        // Call the common backend PUT to keep tracker and report in sync
+        const opportunityId = contract?.id ? Number(contract.id) : undefined;
+        console.log('🔍 Save Debug:', {
+          contractId: contract?.id,
+          contractIdType: typeof contract?.id,
+          opportunityId: opportunityId,
+          opportunityIdType: typeof opportunityId,
+          isNaN: isNaN(opportunityId),
+          contract: contract
+        });
         
-        console.log(`Successfully ${reportExists ? 'updated' : 'created'} RFP data`);
+        await responseApi.putResponse(effectivePursuitId, user.id, {
+          stage: stageToSet,
+          content: contentToSave,
+          completion_percentage: completionPercentage,
+          is_submitted: Boolean(isSubmitted),
+          opportunity_id: opportunityId
+        });
+
+        console.log('Successfully saved RFP data via orchestrated endpoint');
         setLastSaved(new Date().toLocaleTimeString());
         setStage(stageToSet);
+
+        // Dispatch event to notify parent component about tracker/report update
         
         // Dispatch event to notify parent component about tracker update
         if (effectivePursuitId) {
