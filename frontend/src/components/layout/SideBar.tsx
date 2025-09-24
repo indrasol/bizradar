@@ -622,7 +622,8 @@ const Sidebar = () => {
         </nav>
 
         {/* Bottom subscription */}
-        <div className={`${collapsed ? 'px-2' : 'px-4'} pt-8 pb-1 border-t border-gray-200 dark:border-white mt-auto`}>
+        <div className={`${collapsed ? 'px-2' : 'px-4'} pt-4 pb-4 border-t border-gray-200 mt-auto`}>
+
 
 
 

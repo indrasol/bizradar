@@ -37,12 +37,12 @@ const stageFromCompletion = (
 const stageBadgeClasses = (stage: string) => {
   const s = stage.toLowerCase();
   if (s.includes("review"))
-    return "bg-amber-100 text-amber-800 border-amber-200";
+    return "bg-amber-500/20 text-amber-600 dark:bg-amber-500/30 dark:text-amber-400 border border-amber-200 dark:border-amber-500/30";
   if (s.includes("in progress"))
-    return "bg-blue-100 text-blue-800 border-blue-200";
+    return "bg-blue-500/20 text-blue-600 dark:bg-blue-500/30 dark:text-blue-400 border border-blue-200 dark:border-blue-500/30";
   if (s.includes("completed"))
-    return "bg-emerald-100 text-emerald-800 border-emerald-200";
-  return "bg-gray-100 text-gray-800 border-gray-200";
+    return "bg-emerald-500/20 text-emerald-600 dark:bg-emerald-500/30 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30";
+  return "bg-gray-500/20 text-gray-600 dark:bg-gray-500/30 dark:text-gray-400 border border-gray-200 dark:border-gray-500/30";
 };
 
 const niceDate = (d?: string | null) => {
