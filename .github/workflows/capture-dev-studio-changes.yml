@@ -6,8 +6,6 @@ on:
     paths-ignore:
       - 'backend/supabase/migrations/**'
   workflow_dispatch:
-  schedule:
-    - cron: '0 * * * *'
 
 permissions:
   contents: write
