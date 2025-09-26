@@ -45,6 +45,8 @@ const Sidebar = () => {
   const [currentSubscription, setCurrentSubscription] = useState<any>(null);
   const [subscriptionLoading, setSubscriptionLoading] = useState(true);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [hoveredItem, setHoveredItem] = useState<string | null>(null);
+  const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 });
 
   // NEW: Reports expand/collapse
   const [reportsExpanded, setReportsExpanded] = useState(false);
@@ -185,6 +187,21 @@ const Sidebar = () => {
     }
   };
 
+  const handleTooltipHover = (itemName: string, event: React.MouseEvent) => {
+    if (!collapsed) return;
+    
+    const rect = event.currentTarget.getBoundingClientRect();
+    setTooltipPosition({
+      top: rect.top + rect.height / 2 - 12, // Center vertically
+      left: rect.right + 8 // 8px to the right of the element
+    });
+    setHoveredItem(itemName);
+  };
+
+  const handleTooltipLeave = () => {
+    setHoveredItem(null);
+  };
+
   const handleNavigation = useCallback(
     (path: string, e: React.MouseEvent) => {
       if (location.pathname === path) return;
@@ -257,7 +274,7 @@ const Sidebar = () => {
   }, [profileLoading, profile, isAdmin, user, isNavigating]);
 
   return (
-    <div className={`h-full min-h-0 bg-gray-50 border-r border-gray-200 transition-all duration-300 flex flex-col ${collapsed ? 'w-20' : 'w-64'}`}>
+    <div className={`h-full min-h-0 bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 transition-all duration-300 flex flex-col ${collapsed ? 'w-20' : 'w-64'} relative`}>
       {isNavigating && (
         <div className="absolute top-0 left-0 right-0 z-50">
           <div className="h-0.5 bg-blue-200 overflow-hidden">
@@ -336,7 +353,11 @@ const Sidebar = () => {
           <Link
             to="/dashboard"
             onClick={(e) => handleNavigation('/dashboard', e)}
-            onMouseEnter={() => handleRoutePreload('/dashboard')}
+            onMouseEnter={(e) => {
+              handleRoutePreload('/dashboard');
+              handleTooltipHover('Dashboard', e);
+            }}
+            onMouseLeave={handleTooltipLeave}
             className={`group flex items-center ${collapsed ? 'justify-center' : 'gap-3'} px-3 py-2.5 rounded-lg transition-all duration-300 transform ${
               (() => {
                 const state = getNavItemState('/dashboard');
@@ -359,14 +380,17 @@ const Sidebar = () => {
               <Home className={`w-5 h-5 transition-transform duration-300 ${getNavItemState('/dashboard').isPending ? 'scale-110' : ''}`} />
             </div>
             {!collapsed && <span className="font-medium">Dashboard</span>}
-            {collapsed && <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 whitespace-nowrap z-50">Home</div>}
           </Link>
 
           {/* Opportunities */}
           <Link
             to="/opportunities"
             onClick={(e) => handleNavigation('/opportunities', e)}
-            onMouseEnter={() => handleRoutePreload('/opportunities')}
+            onMouseEnter={(e) => {
+              handleRoutePreload('/opportunities');
+              handleTooltipHover('Opportunities', e);
+            }}
+            onMouseLeave={handleTooltipLeave}
             className={`group flex items-center ${collapsed ? 'justify-center' : 'gap-3'} px-3 py-2.5 rounded-lg transition-all duration-300 transform ${
               (() => {
                 const state = getNavItemState('/opportunities');
@@ -389,14 +413,17 @@ const Sidebar = () => {
               <Search className={`w-5 h-5 transition-transform duration-300 ${getNavItemState('/opportunities').isPending ? 'scale-110' : ''}`} />
             </div>
             {!collapsed && <span className="font-medium">Opportunities</span>}
-            {collapsed && <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 whitespace-nowrap z-50">Opportunities</div>}
           </Link>
 
           {/* My Tracker */}
           <Link
             to="/trackers"
             onClick={(e) => handleNavigation('/trackers', e)}
-            onMouseEnter={() => handleRoutePreload('/trackers')}
+            onMouseEnter={(e) => {
+              handleRoutePreload('/trackers');
+              handleTooltipHover(`My Tracker ${pursuitCount > 0 ? `(${pursuitCount})` : ''}`, e);
+            }}
+            onMouseLeave={handleTooltipLeave}
             className={`group flex items-center ${collapsed ? 'justify-center' : 'gap-3'} px-3 py-2.5 rounded-lg transition-all duration-300 transform ${
               (() => {
                 const state = getNavItemState('/trackers');
@@ -433,7 +460,6 @@ const Sidebar = () => {
                 )} */}
               </div>
             )}
-            {collapsed && <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 whitespace-nowrap z-50">My Tracker {pursuitCount > 0 ? `(${pursuitCount})` : ''}</div>}
           </Link>
 
           {/* NEW: Reports (expandable) */}
@@ -441,6 +467,8 @@ const Sidebar = () => {
             <button
               type="button"
               onClick={() => setReportsExpanded((v) => !v)}
+              onMouseEnter={(e) => handleTooltipHover('Reports', e)}
+              onMouseLeave={handleTooltipLeave}
               className={`w-full group flex items-center ${collapsed ? 'justify-center' : 'gap-3'} px-3 py-2.5 rounded-lg transition-all duration-300 ${
                 location.pathname.startsWith('/reports') ? 'bg-blue-100 text-blue-700 shadow-sm' : 'text-gray-700 hover:bg-gray-100'
               }`}
@@ -453,11 +481,6 @@ const Sidebar = () => {
                 <ChevronRight
                   className={`ml-auto w-4 h-4 text-gray-400 transition-transform ${reportsExpanded ? 'rotate-90' : ''}`}
                 />
-              )}
-              {collapsed && (
-                <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 whitespace-nowrap z-50">
-                  Reports
-                </div>
               )}
             </button>
 
@@ -491,7 +514,11 @@ const Sidebar = () => {
           <Link
             to="/analytics"
             onClick={(e) => handleNavigation('/analytics', e)}
-            onMouseEnter={() => handleRoutePreload('/analytics')}
+            onMouseEnter={(e) => {
+              handleRoutePreload('/analytics');
+              handleTooltipHover('Analytics', e);
+            }}
+            onMouseLeave={handleTooltipLeave}
             className={`group flex items-center ${collapsed ? 'justify-center' : 'gap-3'} px-3 py-2.5 rounded-lg transition-all duration-300 transform ${
               (() => {
                 const state = getNavItemState('/analytics');
@@ -514,14 +541,17 @@ const Sidebar = () => {
               <BarChart3 className={`w-5 h-5 transition-transform duration-300 ${getNavItemState('/analytics').isPending ? 'scale-110' : ''}`} />
             </div>
             {!collapsed && <span className="font-medium">Analytics</span>}
-            {collapsed && <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 whitespace-nowrap z-50">Analytics</div>}
           </Link>
 
           {/* Settings */}
           <Link
             to="/settings"
             onClick={(e) => handleNavigation('/settings', e)}
-            onMouseEnter={() => handleRoutePreload('/settings')}
+            onMouseEnter={(e) => {
+              handleRoutePreload('/settings');
+              handleTooltipHover('Settings', e);
+            }}
+            onMouseLeave={handleTooltipLeave}
             className={`group flex items-center ${collapsed ? 'justify-center' : 'gap-3'} px-3 py-2.5 rounded-lg transition-all duration-300 transform ${
               (() => {
                 const state = getNavItemState('/settings');
@@ -545,19 +575,17 @@ const Sidebar = () => {
               <SettingsNotification />
             </div>
             {!collapsed && <span className="font-medium">Settings</span>}
-            {collapsed && <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 whitespace-nowrap z-50">Settings</div>}
           </Link>
 
           {/* Theme Toggle */}
           {!isThemeToggleDisabled && (
-            <div className={`${collapsed ? 'px-2' : 'px-4'} py-2`}>
-              <div className={`group flex ${collapsed ? 'justify-center' : 'items-center justify-between'} -ml-1 pr-3 py-2.5 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors`}>
+            <div
+              onMouseEnter={(e) => handleTooltipHover('Theme Toggle', e)}
+              onMouseLeave={handleTooltipLeave}
+              className={`group flex items-center ${collapsed ? 'justify-center' : 'gap-3'} px-3 py-2.5 rounded-lg transition-all duration-300 text-gray-700 hover:bg-gray-100`}
+            >
+              <div className="flex items-center justify-center">
                 <ThemeToggle collapsed={collapsed} showLabel={!collapsed} />
-                {collapsed && (
-                  <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
-                    Theme Toggle
-                  </div>
-                )}
               </div>
             </div>
           )}
@@ -622,13 +650,21 @@ const Sidebar = () => {
         </nav>
 
         {/* Bottom subscription */}
-        <div className={`${collapsed ? 'px-2' : 'px-4'} pt-4 pb-4 border-t border-gray-200 mt-auto`}>
+        <div className={`${collapsed ? 'px-2' : 'px-4'} pt-4 pb-4 border-t border-gray-200 dark:border-black mt-auto sidebar-separator`}>
 
 
 
 
           <button
             onClick={() => setUpgradeOpen(true)}
+            onMouseEnter={(e) => handleTooltipHover(
+              subscriptionLoading
+                ? 'Loading...'
+                : currentSubscription
+                ? `${currentSubscription.plan_type?.[0]?.toUpperCase()}${currentSubscription.plan_type?.slice(1)} Plan`
+                : 'Free Plan', e
+            )}
+            onMouseLeave={handleTooltipLeave}
             className={`group flex ${collapsed ? 'flex-col items-center' : 'items-center gap-3'} px-3 py-3 rounded-xl border border-blue-200 bg-gradient-to-r from-blue-50 to-white shadow-sm hover:shadow-md transition-all duration-300 w-full`}
           >
             {(() => {
@@ -659,16 +695,6 @@ const Sidebar = () => {
                 <span className="inline-flex h-4 w-4 items-center justify-center bg-blue-100 text-blue-600 rounded-full text-xs font-medium">U</span>
               </div>
             )}
-            {collapsed && (
-              <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
-                {subscriptionLoading
-                  ? 'Loading...'
-                  : currentSubscription
-                  ? `${currentSubscription.plan_type?.[0]?.toUpperCase()}${currentSubscription.plan_type?.slice(1)} Plan`
-                  : 'Free Plan'}{' '}
-                <span className="ml-1 px-1 bg-blue-600 rounded text-xs">Upgrade</span>
-              </div>
-            )}
           </button>
         </div>
       </div>
@@ -687,6 +713,19 @@ const Sidebar = () => {
           })();
         }}
       />
+
+      {/* Dynamic Tooltip */}
+      {collapsed && hoveredItem && (
+        <div
+          className="fixed px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap z-[9999] pointer-events-none"
+          style={{
+            top: `${tooltipPosition.top}px`,
+            left: `${tooltipPosition.left}px`
+          }}
+        >
+          {hoveredItem}
+        </div>
+      )}
 
       <style>{`
         @keyframes slideRight {

@@ -63,6 +63,20 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children, disableT
     }
   }, [disableThemeToggle]);
 
+  // Reset theme to light when transitioning from public to protected routes
+  useEffect(() => {
+    if (!disableThemeToggle) {
+      // When theme toggle is enabled (protected routes), ensure we start with light theme
+      // This handles the case where user logs in and should get default light theme
+      const savedTheme = localStorage.getItem('theme');
+      if (!savedTheme) {
+        setThemeState('Light');
+        applyTheme('Light');
+        localStorage.setItem('theme', 'Light');
+      }
+    }
+  }, [disableThemeToggle]);
+
   // Apply theme whenever it changes
   useEffect(() => {
     applyTheme(theme);

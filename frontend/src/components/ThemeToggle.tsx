@@ -20,17 +20,23 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({
     return null;
   }
 
+  const handleToggle = (event: React.MouseEvent<HTMLButtonElement>) => {
+    toggleTheme();
+    // Remove focus from the button to hide the focus ring immediately
+    event.currentTarget.blur();
+  };
+
   if (collapsed) {
     return (
       <button
-        onClick={toggleTheme}
-        className={`p-2 rounded-lg transition-colors hover:bg-muted ${className}`}
+        onClick={handleToggle}
+        className={`w-5 h-5 transition-all duration-300 text-gray-600 group-hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${className}`}
         aria-label={`Switch to ${theme === "Light" ? "dark" : "light"} theme`}
       >
         {theme === "Light" ? (
-          <Moon className="w-5 h-5 text-blue-500" />
+          <Moon className="w-5 h-5" />
         ) : (
-          <Sun className="w-5 h-5 text-yellow-500" />
+          <Sun className="w-5 h-5" />
         )}
       </button>
     );
@@ -40,7 +46,7 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({
     <div className={`flex items-center space-x-3 ${className}`}>
       <Sun className={`w-5 h-5 ${theme === "Light" ? "text-yellow-500" : "text-yellow-400"}`} />
       <button
-        onClick={toggleTheme}
+        onClick={handleToggle}
         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 border ${
           theme === "Dark" ? "bg-blue-600 border-blue-500" : "bg-gray-200 border-gray-300"
         }`}

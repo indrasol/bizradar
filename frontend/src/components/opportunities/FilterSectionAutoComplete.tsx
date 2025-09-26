@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { ChevronUp, ChevronDown } from "lucide-react";
 import { FilterSectionProps } from "@/models/opportunities";
 
@@ -18,7 +18,12 @@ const FilterSectionAutocomplete: React.FC<FilterSectionProps> = ({ title, icon, 
 
     const [naicsSuggestions, setNaicsSuggestions] = useState([]);
     const [showNaicsDropdown, setShowNaicsDropdown] = useState(false);
-    const [naicsValue, setNaicsValue] = useState('');
+    const [naicsValue, setNaicsValue] = useState(selectedValue || '');
+
+    // Sync naicsValue with selectedValue prop
+    useEffect(() => {
+        setNaicsValue(selectedValue || '');
+    }, [selectedValue]);
 
     const handleNaicsInputChange = (e) => {
         const value = e.target.value;

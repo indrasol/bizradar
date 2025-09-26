@@ -149,14 +149,14 @@ const OpportunitiesPage: React.FC = () => {
 
   useEffect(() => {
     // Apply filters when filter values change and we have an active search
-    if (searchQuery.trim() && hasSearched) {
+    if (searchQuery.trim() && hasSearched && allEnhancedResults.length > 0) {
       applyFilters();
     }
-  }, [filterValues.opportunityType, filterValues.dueDate, filterValues.postedDate, filterValues.naicsCode]);
+  }, [filterValues.opportunityType, filterValues.dueDate, filterValues.postedDate, filterValues.naicsCode, filterValues.customPostedDateFrom, filterValues.customPostedDateTo]);
 
   useEffect(() => {
     // Apply sort when sort value changes and we have an active search
-    if (searchQuery.trim() && hasSearched) {
+    if (searchQuery.trim() && hasSearched && allEnhancedResults.length > 0) {
       applySort();
     }
   }, [sortBy]);
@@ -364,6 +364,8 @@ const OpportunitiesPage: React.FC = () => {
 
   // Local cache of the latest enhanced results for client-side pagination
   const [allEnhancedResults, setAllEnhancedResults] = useState<Opportunity[]>([]);
+  // Current filtered results for pagination
+  const [currentFilteredResults, setCurrentFilteredResults] = useState<Opportunity[]>([]);
 
   // Single API call to fetch up to 25 results; pagination is client-side (5/page)
   const fetchInitialEnhancedResults = async (
@@ -483,6 +485,10 @@ const OpportunitiesPage: React.FC = () => {
       // Single API call to fetch all results, then slice locally
       const results = await fetchInitialEnhancedResults(query, false);
       setAllEnhancedResults(results);
+      
+      // Initialize filtered results with all results (no filters applied initially)
+      setCurrentFilteredResults(results);
+      
       const total = results.length;
       const total_pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
       const page = 1;
@@ -526,48 +532,97 @@ const OpportunitiesPage: React.FC = () => {
 
   const paginate = async (pageNumber: number) => {
     if (pageNumber === currentPage) return;
-    const total_pages = Math.max(1, Math.ceil(allEnhancedResults.length / PAGE_SIZE));
+    
+    // Use filtered results if available, otherwise use all results
+    const resultsToPaginate = currentFilteredResults.length > 0 ? currentFilteredResults : allEnhancedResults;
+    
+    const total_pages = Math.max(1, Math.ceil(resultsToPaginate.length / PAGE_SIZE));
     const safePage = Math.min(Math.max(1, pageNumber), total_pages);
     const start = (safePage - 1) * PAGE_SIZE;
     const end = start + PAGE_SIZE;
-    setOpportunities(allEnhancedResults.slice(start, end));
+    setOpportunities(resultsToPaginate.slice(start, end));
     setCurrentPage(safePage);
   };
 
   const applyFilters = async () => {
-    if (!searchQuery.trim()) return;
+    if (!searchQuery.trim() || allEnhancedResults.length === 0) return;
 
-    await performAndSetSearch(
-      {
-        query: searchQuery,
-        page: 1,
-        sort_by: sortBy,
-        is_new_search: true,
-        due_date_filter: filterValues.dueDate,
-        posted_date_filter: filterValues.postedDate,
-        naics_code: filterValues.naicsCode,
-        opportunity_type: filterValues.opportunityType,
-      },
-      searchQuery
-    );
+    console.log(`🔍 applyFilters called with filterValues:`, filterValues);
+    console.log(`📊 Total opportunities to filter: ${allEnhancedResults.length}`);
+
+    // Apply client-side filters to the already fetched results
+    const filteredResults = applyClientSideFilters(allEnhancedResults, filterValues);
+    
+    // Update the current filtered results for pagination
+    setCurrentFilteredResults(filteredResults);
+    
+    // Update the displayed results with filtered data
+    const total = filteredResults.length;
+    const total_pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    const page = 1;
+    
+    console.log(`📈 Filter results: ${total} opportunities, ${total_pages} pages`);
+    
+    setOpportunities(filteredResults.slice(0, PAGE_SIZE));
+    setTotalResults(total);
+    setTotalPages(total_pages);
+    setCurrentPage(page);
+    setHasSearched(true);
   };
 
   const applySort = async () => {
-    if (!searchQuery.trim()) return;
+    if (!searchQuery.trim() || allEnhancedResults.length === 0) return;
 
-    await performAndSetSearch(
-      {
-        query: searchQuery,
-        page: 1,
-        sort_by: sortBy,
-        is_new_search: false,
-        due_date_filter: filterValues.dueDate,
-        posted_date_filter: filterValues.postedDate,
-        naics_code: filterValues.naicsCode,
-        opportunity_type: filterValues.opportunityType,
-      },
-      searchQuery
-    );
+    // Get the current filtered results or use all results if no filters applied
+    const baseResults = currentFilteredResults.length > 0 ? currentFilteredResults : allEnhancedResults;
+    
+    // Apply client-side sorting to the results
+    let sortedResults = [...baseResults];
+    
+    switch (sortBy) {
+      case "relevance":
+        // Keep original order (already sorted by relevance from vector search)
+        break;
+      case "due_date":
+        sortedResults.sort((a, b) => {
+          if (!a.response_date && !b.response_date) return 0;
+          if (!a.response_date) return 1;
+          if (!b.response_date) return -1;
+          return new Date(a.response_date).getTime() - new Date(b.response_date).getTime();
+        });
+        break;
+      case "posted_date":
+        sortedResults.sort((a, b) => {
+          if (!a.published_date && !b.published_date) return 0;
+          if (!a.published_date) return 1;
+          if (!b.published_date) return -1;
+          return new Date(b.published_date).getTime() - new Date(a.published_date).getTime();
+        });
+        break;
+      case "budget":
+        sortedResults.sort((a, b) => {
+          const budgetA = parseFloat(a.budget?.replace(/[^0-9.-]/g, '') || '0');
+          const budgetB = parseFloat(b.budget?.replace(/[^0-9.-]/g, '') || '0');
+          return budgetB - budgetA; // Descending order (highest first)
+        });
+        break;
+      default:
+        break;
+    }
+    
+    // Update the current filtered results for pagination
+    setCurrentFilteredResults(sortedResults);
+    
+    // Update the displayed results with sorted data
+    const total = sortedResults.length;
+    const total_pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    const page = 1;
+    
+    setOpportunities(sortedResults.slice(0, PAGE_SIZE));
+    setTotalResults(total);
+    setTotalPages(total_pages);
+    setCurrentPage(page);
+    setHasSearched(true);
   };
 
   const handleSuggestedQueryClick = async (query) => {
@@ -766,6 +821,8 @@ const handleBeginResponse = async (contractId: string, contractData: Opportunity
     setHasSearched(false);
     setShowRefinedQuery(false);
     setRefinedQuery("");
+    setAllEnhancedResults([]);
+    setCurrentFilteredResults([]);
     setFilterValues({
       dueDate: "none",
       postedDate: "all",
@@ -776,6 +833,130 @@ const handleBeginResponse = async (contractId: string, contractData: Opportunity
       customPostedDateFrom: "",
       customPostedDateTo: "",
     });
+  };
+
+  // Client-side filter functions
+  const filterByDueDate = (opportunities: Opportunity[], dueDateFilter: string): Opportunity[] => {
+    if (dueDateFilter === "none") return opportunities;
+    
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    return opportunities.filter(opp => {
+      if (!opp.response_date) return dueDateFilter === "active_only" ? opp.active !== false : false;
+      
+      const dueDate = new Date(opp.response_date);
+      const daysDiff = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      
+      switch (dueDateFilter) {
+        case "active_only":
+          return opp.active !== false;
+        case "due_in_7_days":
+          return daysDiff >= 0 && daysDiff <= 7;
+        case "next_30_days":
+          return daysDiff >= 0 && daysDiff <= 30;
+        case "next_3_months":
+          return daysDiff >= 0 && daysDiff <= 90;
+        case "next_12_months":
+          return daysDiff >= 0 && daysDiff <= 365;
+        default:
+          return true;
+      }
+    });
+  };
+
+  const filterByPostedDate = (opportunities: Opportunity[], postedDateFilter: string, customFrom?: string, customTo?: string): Opportunity[] => {
+    if (postedDateFilter === "all") return opportunities;
+    
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    return opportunities.filter(opp => {
+      if (!opp.published_date) return false;
+      
+      const postedDate = new Date(opp.published_date);
+      const daysDiff = Math.ceil((today.getTime() - postedDate.getTime()) / (1000 * 60 * 60 * 24));
+      
+      switch (postedDateFilter) {
+        case "past_day":
+          return daysDiff <= 1;
+        case "past_week":
+          return daysDiff <= 7;
+        case "past_month":
+          return daysDiff <= 30;
+        case "past_year":
+          return daysDiff <= 365;
+        case "custom_date":
+          if (!customFrom || !customTo) return true;
+          const fromDate = new Date(customFrom);
+          const toDate = new Date(customTo);
+          return postedDate >= fromDate && postedDate <= toDate;
+        default:
+          return true;
+      }
+    });
+  };
+
+  const filterByNaicsCode = (opportunities: Opportunity[], naicsCode: string): Opportunity[] => {
+    if (!naicsCode || naicsCode.trim() === "") return opportunities;
+    
+    const searchCode = naicsCode.trim();
+    console.log(`🏷️ Filtering by NAICS code: "${searchCode}"`);
+    
+    const filtered = opportunities.filter(opp => {
+      if (!opp.naics_code) {
+        console.log(`❌ Opportunity "${opp.title}" has no NAICS code`);
+        return false;
+      }
+      
+      // Check for exact match or starts with (for partial codes)
+      const oppNaics = opp.naics_code.toString();
+      const matches = oppNaics === searchCode || oppNaics.startsWith(searchCode);
+      
+      if (matches) {
+        console.log(`✅ Opportunity "${opp.title}" matches NAICS: ${oppNaics}`);
+      }
+      
+      return matches;
+    });
+    
+    console.log(`🏷️ NAICS filter result: ${filtered.length} out of ${opportunities.length} opportunities`);
+    return filtered;
+  };
+
+  const filterByOpportunityType = (opportunities: Opportunity[], opportunityType: string): Opportunity[] => {
+    if (opportunityType === "all") return opportunities;
+    
+    return opportunities.filter(opp => {
+      switch (opportunityType) {
+        case "federal":
+          return opp.platform === "sam.gov" || opp.platform === "sam";
+        default:
+          return true;
+      }
+    });
+  };
+
+  const applyClientSideFilters = (opportunities: Opportunity[], filters: FilterValues): Opportunity[] => {
+    let filtered = [...opportunities];
+    
+    console.log(`🔍 Applying client-side filters to ${opportunities.length} opportunities:`, filters);
+    
+    // Apply each filter in sequence
+    filtered = filterByDueDate(filtered, filters.dueDate);
+    console.log(`📅 After due date filter (${filters.dueDate}): ${filtered.length} results`);
+    
+    filtered = filterByPostedDate(filtered, filters.postedDate, filters.customPostedDateFrom, filters.customPostedDateTo);
+    console.log(`📆 After posted date filter (${filters.postedDate}): ${filtered.length} results`);
+    
+    filtered = filterByNaicsCode(filtered, filters.naicsCode);
+    console.log(`🏷️ After NAICS filter (${filters.naicsCode}): ${filtered.length} results`);
+    
+    filtered = filterByOpportunityType(filtered, filters.opportunityType);
+    console.log(`🏛️ After opportunity type filter (${filters.opportunityType}): ${filtered.length} results`);
+    
+    console.log(`✅ Final filtered results: ${filtered.length} opportunities`);
+    return filtered;
   };
 
   const processSearchResults = (results: any[]): Opportunity[] => {
