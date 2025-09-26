@@ -1591,6 +1591,11 @@ html:not(.dark) button.bg-gradient-to-r.from-blue-600.to-purple-600 *,
     border-color: hsl(var(--primary) / 0.3) !important;
   }
 
+  /* Force black border for sidebar separator in dark theme only */
+  .dark .sidebar-separator {
+    border-top-color: black !important;
+  }
+
   .dark .hover\\:shadow-md:hover {
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3) !important;
   }

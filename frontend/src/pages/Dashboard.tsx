@@ -1412,7 +1412,7 @@ const BizRadarDashboard = () => {
 
               {/* Row 3: Deadlines Widget - Full width */}
               <div>
-                <DeadlinesNextWidget className="h-64" />
+                <DeadlinesNextWidget className="h-80" />
               </div>
             </div>
           </div>

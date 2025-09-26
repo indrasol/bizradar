@@ -424,6 +424,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       // Clear tokens and session marker
       tokenService.clearTokens();
       sessionStorage.removeItem("userActiveSession");
+      
+      // Clear theme preference to reset to default light theme
+      localStorage.removeItem("theme");
+      
       // Clear search/session related data
       sessionStorage.removeItem("lastOpportunitiesSearchState");
       sessionStorage.removeItem("aiRecommendations");
