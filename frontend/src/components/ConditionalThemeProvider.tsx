@@ -17,6 +17,7 @@ const ConditionalThemeProvider: React.FC<ConditionalThemeProviderProps> = ({ chi
     '/register',
     '/forgot-password',
     '/reset-password',
+    '/logout',
     '/terms',
     '/privacy',
     '/contracts' // This might be public based on your App.tsx

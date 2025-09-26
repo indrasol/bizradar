@@ -162,8 +162,9 @@ const SubmittedPursuitsWidget: React.FC<SubmittedPursuitsWidgetProps> = ({ class
   // Calculate dynamic height based on content
   const getWidgetHeight = () => {
     if (isLoading) return 'h-32'; // Loading state
-    if (filteredPursuits.length === 0) return 'h-48'; // Empty state
-    // For 1 or more items, expand to show viewport for ~3 items; if more, container will scroll
+    if (filteredPursuits.length === 0) return 'h-64'; // Empty state
+    if (filteredPursuits.length === 1) return 'h-72'; // Single item - comfortable height
+    // For 2+ items, use full height (576px) - no scroll for 2-3 items, scroll for 4+
     return 'h-[36rem]';
   };
 
@@ -191,13 +192,13 @@ const SubmittedPursuitsWidget: React.FC<SubmittedPursuitsWidgetProps> = ({ class
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className={`flex-1 ${filteredPursuits.length > 0 ? 'overflow-y-auto p-4' : 'overflow-hidden flex items-center justify-center'}`}>
         {isLoading ? (
             <div className="flex items-center justify-center h-32">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-muted-foreground"></div>
             </div>
           ) : filteredPursuits.length === 0 ? (
-            <div className="text-center py-8">
+            <div className="text-center">
               <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
                 <CheckCircle2 className="h-8 w-8 text-muted-foreground" />
               </div>
