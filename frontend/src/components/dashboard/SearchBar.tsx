@@ -42,7 +42,7 @@ export const SearchBar = ({
     // 🆕 fire the log immediately (one POST)
     track({
       event_name: "search_initiated",
-      event_type: "btn_click",
+      event_type: "button_click",
       metadata: {
         search_query: query,
         stage: null,

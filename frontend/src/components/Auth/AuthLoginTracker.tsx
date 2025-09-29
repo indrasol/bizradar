@@ -13,7 +13,12 @@ export default function AuthLoginTracker() {
         const provider = (session?.user?.app_metadata as any)?.provider || "password";
         const payload = { event_name: "login-success", event_type: "button_click", metadata: {query: null, stage: null, opportunity_id: null, naics_code: null, rfp_title: null}};
         console.log("[track]", payload);
-        try { await track(payload); } catch {}
+        
+        try { 
+          await track(payload); 
+        } catch (error) {
+          console.warn("Failed to track login event:", error);
+        }
         didTrackThisSession.current = true;
       }
       if (event === "SIGNED_OUT") didTrackThisSession.current = false;

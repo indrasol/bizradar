@@ -10,7 +10,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ searchQuery, setSearchQuery, hand
     // Track the search submit (Enter key or button click)
     track({
       event_name: "search_initiated",
-      event_type: "btn_click",
+      event_type: "button_click",
       metadata: {
         search_query: searchQuery,
         stage: null,

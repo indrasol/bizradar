@@ -81,6 +81,8 @@ async def put_orchestrated_response(
         if not has_report_change and not request.tracker_stage:
             raise HTTPException(status_code=400, detail="Nothing to update")
 
+        logger.info("response_id", response_id);
+        logger.info("user_id", user_id);
         result = await responses_service.put_response(
             response_id=response_id,
             user_id=user_id,

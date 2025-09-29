@@ -1,8 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Bot, PenLine, CheckCircle, Trash2, CheckSquare } from 'lucide-react';
+import { Bot, PenLine, CheckCircle, Trash2, CheckSquare, FileText } from 'lucide-react';
 import { Pursuit } from './types';
 import { format, parseISO, isValid } from 'date-fns';
 import AILoader from './AILoader';
+import { trackersApi } from '@/api/trackers';
+import { supabase } from '@/utils/supabase';
+import { toast } from 'sonner';
 
 interface ListViewProps {
   pursuits: Pursuit[];
@@ -11,6 +14,7 @@ interface ListViewProps {
   onDelete: (id: string) => void;
   onAskAI: (pursuit: Pursuit) => void;
   onToggleSubmission: (id: string) => void;
+  onPursuitUpdate?: (id: string, updates: Partial<Pursuit>) => void;
   highlightedPursuitId?: string | null;
   fadingOutPursuitId?: string | null;
 }
@@ -57,12 +61,15 @@ export const ListView: React.FC<ListViewProps> = ({
   onDelete,
   onAskAI,
   onToggleSubmission,
+  onPursuitUpdate,
   highlightedPursuitId,
   fadingOutPursuitId,
 }) => {
   const internalRef = React.useRef<HTMLDivElement>(null);
   const highlightedRowRef = useRef<HTMLTableRowElement>(null);
   const [aiProcessing, setAiProcessing] = useState<{ pursuitId: string; title: string } | null>(null);
+  const [trackersWithReports, setTrackersWithReports] = useState<Set<string>>(new Set());
+  const [generatingResponse, setGeneratingResponse] = useState<string | null>(null);
 
   const getStageColor = (stage: string): string => {
     const s = (stage || "").toLowerCase();
@@ -113,7 +120,119 @@ export const ListView: React.FC<ListViewProps> = ({
     }
   };
 
+  // 🎯 NEW: Check which trackers have reports
+  const checkTrackersWithReports = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const reportChecks = await Promise.all(
+        pursuits.map(async (pursuit) => {
+          const hasReport = await trackersApi.hasReport(pursuit.id, user.id);
+          return { pursuitId: pursuit.id, hasReport };
+        })
+      );
+
+      const trackersWithReportsSet = new Set(
+        reportChecks.filter(check => check.hasReport).map(check => check.pursuitId)
+      );
+      
+      setTrackersWithReports(trackersWithReportsSet);
+    } catch (error) {
+      console.error('Error checking trackers with reports:', error);
+    }
+  };
+
+  // 🎯 NEW: Handle Generate Response button click
+  const handleGenerateResponse = async (pursuit: Pursuit) => {
+    try {
+      setGeneratingResponse(pursuit.id);
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("Please log in to generate response");
+        return;
+      }
+
+      const result = await trackersApi.generateResponse(pursuit.id, user.id);
+      
+      if (result.success) {
+        // Add this tracker to the set of trackers with reports
+        setTrackersWithReports(prev => new Set([...prev, pursuit.id]));
+        
+        // Navigate to RFP response builder immediately
+        onRfpAction(pursuit);
+      } else {
+        toast.error(result.message);
+      }
+    } catch (error) {
+      console.error('Error generating response:', error);
+      toast.error("Failed to generate response. Please try again.");
+    } finally {
+      setGeneratingResponse(null);
+    }
+  };
+
+  // Check trackers with reports when component mounts or pursuits change
+  useEffect(() => {
+    if (pursuits.length > 0) {
+      checkTrackersWithReports();
+    }
+  }, [pursuits]);
+  
+  // Listen for report submission events
+  useEffect(() => {
+    const handleReportSubmitted = (event: Event) => {
+      const customEvent = event as CustomEvent<{ responseId: string }>;
+      const { responseId } = customEvent.detail;
+      
+      console.log("Report submitted event received for responseId:", responseId);
+      
+      // Update the local state to reflect the submission
+      if (onPursuitUpdate) {
+        // Call the parent's update function to update the pursuit
+        onPursuitUpdate(responseId, { is_submitted: true });
+      }
+    };
+    
+    window.addEventListener('report-submitted', handleReportSubmitted);
+    
+    return () => {
+      window.removeEventListener('report-submitted', handleReportSubmitted);
+    };
+  }, []);
+
   const renderRfpActionButton = (pursuit: Pursuit) => {
+    const hasReport = trackersWithReports.has(pursuit.id);
+    const isGenerating = generatingResponse === pursuit.id;
+    
+    // If no report exists, show "Generate Response" button
+    if (!hasReport) {
+      return (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            handleGenerateResponse(pursuit);
+          }}
+          disabled={isGenerating}
+          className="px-3 py-1 text-xs bg-green-50 text-green-600 hover:bg-green-100 rounded-full transition-colors flex items-center gap-1 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isGenerating ? (
+            <>
+              <div className="w-3 h-3 border border-green-600 border-t-transparent rounded-full animate-spin"></div>
+              Generating...
+            </>
+          ) : (
+            <>
+              <FileText className="w-3 h-3" />
+              Generate Response
+            </>
+          )}
+        </button>
+      );
+    }
+    
+    // If report exists, show the appropriate action button
     let buttonText = "Edit Response";
     let icon = <PenLine className="w-3 h-3" />;
     
@@ -239,7 +358,7 @@ export const ListView: React.FC<ListViewProps> = ({
                   <td className="px-4 py-4 whitespace-nowrap text-sm text-center w-28">
                     {pursuit.is_submitted ? (
                       <CheckSquare className="w-5 h-5 text-green-600 dark:text-green-400 mx-auto" />
-                    ) : pursuit.stage === "RFP Response Completed" ? (
+                    ) : pursuit.stage === "RFP Response Completed" || pursuit.stage === "Completed" || pursuit.stage.toLowerCase().includes("completed") ? (
                       <div className="flex justify-center">
                         <button
                           onClick={(e) => {

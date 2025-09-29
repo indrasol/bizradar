@@ -93,9 +93,57 @@ async deleteReport(responseId: string, userId: string): Promise<{ success: boole
     return response;
   },
   
-  // Fix toggleSubmittedStatus method
+  // Toggle submission status of a report
   async toggleSubmittedStatus(responseId: string, userId: string): Promise<Report> {
-    const response = await apiClient.post(`${API_ENDPOINTS.REPORTS_TOGGLE_SUBMITTED(responseId)}?user_id=${userId}`, {});
-    return response;
+    try {
+      // First try the dedicated toggle endpoint
+      const response = await apiClient.post(`${API_ENDPOINTS.REPORTS_TOGGLE_SUBMITTED(responseId)}?user_id=${userId}`, {});
+      console.log('Successfully toggled report submission status via dedicated endpoint');
+      
+      // Also update the tracker to keep them in sync
+      try {
+        const { trackersApi } = await import('./trackers');
+        await trackersApi.syncTrackerWithReport(responseId, "Completed", true, userId);
+        console.log('Successfully synced tracker submission status');
+      } catch (trackerError) {
+        console.warn('Failed to sync tracker submission status:', trackerError);
+        // Continue even if tracker update fails
+      }
+      
+      return response;
+    } catch (error) {
+      console.warn('Toggle endpoint failed, falling back to direct update:', error);
+      
+      // Fallback: Get current report and update it directly
+      try {
+        const report = await this.getReportByResponseId(responseId, userId);
+        
+        // Update the report with submission status = true
+        const updatedReport = await this.updateReport(responseId, {
+          is_submitted: true,
+          content: {
+            ...report.content,
+            isSubmitted: true
+          },
+          completion_percentage: 100, // Mark as 100% complete when submitted
+        }, userId);
+        
+        // Also update the tracker to keep them in sync
+        try {
+          const { trackersApi } = await import('./trackers');
+          await trackersApi.syncTrackerWithReport(responseId, "Completed", true, userId);
+          console.log('Successfully synced tracker submission status (fallback path)');
+        } catch (trackerError) {
+          console.warn('Failed to sync tracker submission status (fallback path):', trackerError);
+          // Continue even if tracker update fails
+        }
+        
+        console.log('Successfully updated report submission status via direct update');
+        return updatedReport;
+      } catch (fallbackError) {
+        console.error('Both toggle methods failed:', fallbackError);
+        throw fallbackError;
+      }
+    }
   }
 };
