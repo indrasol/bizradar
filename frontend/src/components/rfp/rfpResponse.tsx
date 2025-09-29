@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import mammoth from "mammoth";
 import {
   Download,
@@ -307,6 +307,7 @@ if (!effectivePursuitId) {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [lastSaved, setLastSaved] = useState<string | null>(null);
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
+  const [saveError, setSaveError] = useState(false);
   const [hasUserInteracted, setHasUserInteracted] = useState(false);
 
   const [naicsCode, setNaicsCode] = useState(() => 
@@ -381,6 +382,15 @@ if (!effectivePursuitId) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 🔧 FIX: Reset state on component mount
+  useEffect(() => {
+    console.log("🔄 Component mounted, resetting state");
+    setStage("Review");
+    setSections([]);
+    setIsSubmitted(false);
+    setLastSaved("");
+  }, []); // Run once on mount
+
   const [proposalData, setProposalData] = useState({
     logo: null,
     companyName: '',
@@ -400,6 +410,22 @@ if (!effectivePursuitId) {
     console.log('isSubmitted state:', isSubmitted);
   }, [isSubmitted]);
 
+  // 🔧 FIX: Reset state when switching to a new tracker
+  useEffect(() => {
+    if (effectivePursuitId) {
+      console.log("🔄 Resetting state for new tracker:", effectivePursuitId);
+      
+      // Reset all state to defaults
+      setStage("Review");
+      setSections([]);
+      setIsSubmitted(false);
+      setLastSaved("");
+      
+      // Clear cached data
+      sessionStorage.removeItem("currentContract");
+    }
+  }, [effectivePursuitId]);
+
   // LOAD persisted response + stage and load profile data
   useEffect(() => {
     const loadRfpData = async () => {
@@ -413,6 +439,13 @@ if (!effectivePursuitId) {
         console.log("Loading RFP data for pursuit ID:", effectivePursuitId);
         console.log("PursuitId prop:", pursuitId);
         console.log("Contract:", contract);
+
+        // 🔧 FIX: Reset state before loading new data
+        console.log("🔄 Resetting state before loading data for:", effectivePursuitId);
+        setStage("Review");
+        setSections([]);
+        setIsSubmitted(false);
+        setLastSaved("");
 
         // Fetch user profile data first
         const userProfile = await fetchUserProfile();
@@ -815,26 +848,27 @@ useEffect(() => {
   const saveRfpData = async (showNotification = true) => {
     try {
       setIsSaving(true);
+      setSaveError(false);
       
       // Validate user authentication
       const { data: { user } } = await supabase.auth.getUser();
       if (!user?.id) {
         toast?.error("Authentication required. Please log in again.");
-        return;
+        return false;
       }
       
       // Validate pursuit ID
       if (!effectivePursuitId || !isValidUUID(effectivePursuitId)) {
         console.error("Invalid pursuit ID:", effectivePursuitId);
         toast?.error("Invalid pursuit ID. Please try generating the response again.");
-        return;
+        return false;
       }
       
       // Validate user ID
       if (!isValidUUID(user.id)) {
         console.error("Invalid user ID:", user.id);
         toast?.error("Invalid user session. Please log in again.");
-        return;
+        return false;
       }
       
       // Fetch user profile with error handling
@@ -920,6 +954,11 @@ useEffect(() => {
           contract: contract
         });
         
+        console.log("effectivePursuitId", effectivePursuitId);
+        console.log("user.id", user.id);
+  
+        
+        // Single orchestrated save: updates both tracker and report in one call
         await responseApi.putResponse(effectivePursuitId, user.id, {
           stage: stageToSet,
           content: contentToSave,
@@ -927,8 +966,8 @@ useEffect(() => {
           is_submitted: Boolean(isSubmitted),
           opportunity_id: opportunityId
         });
-
-        console.log('Successfully saved RFP data via orchestrated endpoint');
+        
+        console.log('✅ Successfully saved RFP data and synced tracker stage via orchestrated endpoint');
         setLastSaved(new Date().toLocaleTimeString());
         setStage(stageToSet);
 
@@ -995,9 +1034,12 @@ useEffect(() => {
       if (showNotification) {
         toast?.error("Failed to save RFP response. Please try again.");
       }
+      setSaveError(true);
+      return false;
     } finally {
       setIsSaving(false);
     }
+    return true;
   };
 
   const handleLogoUpload = (e) => {
@@ -1051,10 +1093,11 @@ useEffect(() => {
       } catch {}
     }
 
-    // Update only the is_submitted status using PUT request
+    // Update both the report and tracker submission status
     try {
       console.log(`Updating submission status to ${newSubmittedState} for response ${effectivePursuitId}`);
       
+      // Update report submission status
       await reportsApi.updateReport(
         effectivePursuitId,
         {
@@ -1062,6 +1105,26 @@ useEffect(() => {
         },
         user.id
       );
+      
+      // Also update the tracker to keep them in sync
+      try {
+        const { trackersApi } = await import('@/api/trackers');
+        await trackersApi.syncTrackerWithReport(
+          effectivePursuitId, 
+          "Completed", // Keep stage as "Completed" regardless of submission status
+          newSubmittedState, 
+          user.id
+        );
+        console.log(`Successfully synced tracker submission status to ${newSubmittedState}`);
+      } catch (trackerError) {
+        console.warn('Failed to sync tracker submission status:', trackerError);
+        // Continue even if tracker update fails
+      }
+      
+      // Dispatch event to notify other components about the submission change
+      window.dispatchEvent(new CustomEvent('report-submitted', { 
+        detail: { responseId: effectivePursuitId } 
+      }));
       
       console.log(`Successfully updated submission status to ${newSubmittedState}`);
       toast.success(newSubmittedState ? "Marked as submitted" : "Marked as ongoing");
@@ -1780,9 +1843,21 @@ useEffect(() => {
     setShowMergedPreview(true);
   };
 
-  const completionPercentage = Math.round(
-    (sections.filter(section => section.completed).length / sections.length) * 100
-  );
+  // 🔧 FIX: Use useMemo to properly calculate completion percentage
+  const completionPercentage = useMemo(() => {
+    if (!sections || sections.length === 0) return 0;
+    
+    const completedSections = sections.filter(section => {
+      const hasContent = section?.content && 
+        section.content.trim().length > 50 &&
+        !section.content.includes('Lorem ipsum') &&
+        !section.content.includes('Your content here');
+      
+      return section.completed && hasContent;
+    }).length;
+    
+    return Math.round((completedSections / sections.length) * 100);
+  }, [sections]);
 
   const closeRfpBuilder = (): void => {
     if (pursuitId) {
@@ -2186,11 +2261,32 @@ useEffect(() => {
               </div>
               <div className="flex gap-3 items-center flex-wrap">
                 <button
-                  onClick={() => saveRfpData(true)}
-                  disabled={isSaving || isSubmitted}
-                  className={`inline-flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-3 py-2 rounded-lg shadow-sm ${(isSaving || isSubmitted) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50 hover:border-gray-400'} transition-all`}
+                  onClick={() => saveError ? saveRfpData(true) : saveRfpData(true)}
+                  disabled={isSubmitted}
+                  className={`inline-flex items-center gap-2 ${
+                    saveError 
+                      ? 'bg-red-50 border-red-300 hover:bg-red-100' 
+                      : isSaving 
+                        ? 'bg-blue-50' 
+                        : 'bg-white'
+                  } border ${saveError ? 'border-red-300' : 'border-gray-300'} text-gray-700 px-3 py-2 rounded-lg shadow-sm  ${
+                    isSubmitted ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50 hover:border-gray-400'
+                  } transition-all`}
                 >
-                  <Save className="w-4 h-4" /> {isSaving ? 'Saving...' : 'Save'}
+                  {isSaving ? (
+                    <>
+                      <div className="animate-spin w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full" />
+                      <span className="text-blue-600">Saving...</span>
+                    </>
+                  ) : saveError ? (
+                    <>
+                      <X className="w-4 h-4 text-red-500" /> Try Again
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" /> Save
+                    </>
+                  )}
                 </button>
 
                 {lastSaved && (

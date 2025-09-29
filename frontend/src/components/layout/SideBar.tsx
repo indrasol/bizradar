@@ -578,6 +578,7 @@ const Sidebar = () => {
           </Link>
 
           {/* Theme Toggle */}
+        {/* Theme Toggle */}
           {!isThemeToggleDisabled && (
             <div
               onMouseEnter={(e) => handleTooltipHover('Theme Toggle', e)}
@@ -655,6 +656,7 @@ const Sidebar = () => {
 
 
 
+          <div className="pt-4"></div>
           <button
             onClick={() => setUpgradeOpen(true)}
             onMouseEnter={(e) => handleTooltipHover(
@@ -665,15 +667,15 @@ const Sidebar = () => {
                 : 'Free Plan', e
             )}
             onMouseLeave={handleTooltipLeave}
-            className={`group flex ${collapsed ? 'flex-col items-center' : 'items-center gap-3'} px-3 py-3 rounded-xl border border-blue-200 bg-gradient-to-r from-blue-50 to-white shadow-sm hover:shadow-md transition-all duration-300 w-full`}
+            className={`flex ${collapsed ? 'flex-col items-center' : 'items-center gap-3'} px-3 py-3 rounded-xl border border-blue-200 bg-gradient-to-r from-blue-50 to-white shadow-sm hover:shadow-md transition-all duration-300 w-full`}
           >
             {(() => {
               const planType = currentSubscription?.plan_type || 'free';
               const planIcon = getPlanIcon(planType);
               const IconComponent = planIcon.icon;
               return (
-                <div className={`p-1.5 rounded-lg ${planIcon.bgColor} shadow-sm`}>
-                  <IconComponent className={`w-4 h-4 ${planIcon.textColor}`} />
+                <div className={`p-1.5 rounded-lg ${planIcon.bgColor} shadow-sm pointer-events-none`}>
+                  <IconComponent className="w-4 h-4 text-white" style={{ color: 'white !important', fill: 'white' }} />
                 </div>
               );
             })()}
@@ -687,12 +689,22 @@ const Sidebar = () => {
                     : 'Free Plan'}
                 </span>
                 <div className="ml-auto flex items-center">
-                  <span className="px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded-full text-xs font-medium">Upgrade</span>
+                  <span className="px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded-full text-xs font-medium hover:bg-blue-200 hover:text-blue-700 transition-colors">Upgrade</span>
                 </div>
               </>
             ) : (
               <div className="mt-1">
                 <span className="inline-flex h-4 w-4 items-center justify-center bg-blue-100 text-blue-600 rounded-full text-xs font-medium">U</span>
+              </div>
+            )}
+            {collapsed && (
+              <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                {subscriptionLoading
+                  ? 'Loading...'
+                  : currentSubscription
+                  ? `${currentSubscription.plan_type?.[0]?.toUpperCase()}${currentSubscription.plan_type?.slice(1)} Plan`
+                  : 'Free Plan'}{' '}
+                <span className="ml-1 px-1 bg-blue-600 rounded text-xs">Upgrade</span>
               </div>
             )}
           </button>
