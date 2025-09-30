@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional
 from app.utils.logger import get_logger
 from app.utils.openai_client import get_openai_client
 from app.utils.db_utils import get_supabase_connection
+from app.config.settings import SEARCH_RESULT_LIMIT, PRO_SEARCH_RESULT_LIMIT
  
 
 
@@ -22,7 +23,7 @@ def _strip_embeddings(obj: Dict[str, Any]) -> Dict[str, Any]:
 
 def _get_user_plan_and_max_results(user_id: Optional[str]) -> tuple[str, int]:
     plan = "free"
-    max_results = 5
+    max_results = SEARCH_RESULT_LIMIT
     try:
         if user_id:
             supabase = get_supabase_connection(use_service_key=True)
@@ -37,7 +38,7 @@ def _get_user_plan_and_max_results(user_id: Optional[str]) -> tuple[str, int]:
             row = (res.data or {}) if hasattr(res, "data") else {}
             if row and (row.get("status") or "").lower() == "active":
                 plan = (row.get("current_subscription_plan") or "free").lower()
-        max_results = 5 if "free" in plan.lower() else 25
+        max_results = max_results if "free" in plan.lower() else PRO_SEARCH_RESULT_LIMIT
     except Exception:
         pass
     return plan, max_results
