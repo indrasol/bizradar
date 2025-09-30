@@ -13,11 +13,14 @@ import {
   Clock,
   AlertTriangle,
   Check,
+  Lock,
 } from "lucide-react";
 import { OpportunityCardProps } from "@/models/opportunities";
 // 🆕 add tracker
 import { useTrack } from "@/logging";
 import { supabase } from "@/utils/supabase";
+import { useRfpUsage } from "@/hooks/useRfpUsage";
+import { toast } from "sonner";
 
 const OpportunityCard: React.FC<OpportunityCardProps> = ({
   opportunity,
@@ -30,6 +33,7 @@ const OpportunityCard: React.FC<OpportunityCardProps> = ({
 }) => {
   const [isExpandedAI, setIsExpandedAI] = useState(false);
   const [isTracked, setIsTracked] = useState<boolean>(false);
+  const { isLimitReached, usageStatus } = useRfpUsage();
 
   // Determine if this opportunity is already tracked for current user
   useEffect(() => {
@@ -266,27 +270,39 @@ const OpportunityCard: React.FC<OpportunityCardProps> = ({
             {isTracked ? <Check size={14} /> : <Plus size={14} />}
             <span>{isTracked ? "Added to Tracker" : "Add to Tracker"}</span>
           </button>
-          <button
-            onClick={() => {
-              track({
-                event_name: "generate_rfp",
-                event_type: "button_click",
-                metadata: {
-                  search_query:"null",
-                  stage: "review",
-                  section: null,
-                  opportunity_id: opportunity?.id,
-                  title: opportunity?.title,
-                  naics_code: opportunity?.naics_code ?? opportunity?.naics_code,
-                },
-              });
-              handleBeginResponse(opportunity.id, opportunity);
-            }}
-            className="px-3 py-1.5 bg-green-50 text-green-600 hover:bg-green-100 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 border border-green-200"
-          >
-            <FileText size={14} />
-            <span>Generate Response</span>
-          </button>
+          {isLimitReached ? (
+            <button
+              disabled={true}
+              onClick={() => {}} // Empty function since button is disabled
+              className="px-3 py-1.5 bg-gray-100 text-gray-500 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 border border-gray-200 disabled:opacity-60 disabled:cursor-not-allowed"
+              title={usageStatus?.message || "You've reached your monthly limit of RFP reports. Upgrade your plan to generate more reports."}
+            >
+              <Lock size={14} />
+              <span>Generate Response</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                track({
+                  event_name: "generate_rfp",
+                  event_type: "button_click",
+                  metadata: {
+                    search_query: "null",
+                    stage: "review",
+                    section: null,
+                    opportunity_id: opportunity?.id,
+                    title: opportunity?.title,
+                    naics_code: opportunity?.naics_code ?? opportunity?.naics_code,
+                  },
+                });
+                handleBeginResponse(opportunity.id, opportunity);
+              }}
+              className="px-3 py-1.5 bg-green-50 text-green-600 hover:bg-green-100 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 border border-green-200"
+            >
+              <FileText size={14} />
+              <span>Generate Response</span>
+            </button>
+          )}
         </div>
       </div>
 

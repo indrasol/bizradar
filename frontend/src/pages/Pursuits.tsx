@@ -430,7 +430,8 @@ export default function Pursuits(): JSX.Element {
         assignee: "Unassigned",
         assigneeInitials: "UA",
         is_submitted: tracker.is_submitted || false,
-        naicscode: tracker.naicscode || ""
+        naicscode: tracker.naicscode || "",
+        opportunity_id: tracker.opportunity_id
       }));
       
       // Update cache

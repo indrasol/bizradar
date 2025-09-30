@@ -25,6 +25,7 @@ from app.routes.event_handler import event_router as events_router
 from app.routes.event_routes import events_router
 from app.routes.reports_routes import router as reports_router
 from app.routes.responses_routes import router as responses_router
+from app.routes.rfp_usage_routes import router as rfp_usage_router
 from app.utils.logger import get_logger
 from app.services.parse_website import parse_company_website_mcp
 import asyncio
@@ -125,6 +126,8 @@ app.include_router(profile_router, prefix="/api/profile", tags=["profile"])
 app.include_router(reports_router, prefix="/api", tags=["reports"])
 # Orchestrated responses routes (atomic tracker+report updates)
 app.include_router(responses_router, prefix="/api", tags=["responses"])
+# RFP usage tracking routes
+app.include_router(rfp_usage_router, prefix="/api", tags=["rfp-usage"])
 # Events/session tracking routes
 app.include_router(events_router, prefix="/api/events", tags=["events"])
 # app.include_router(events_router,prefix="/api", tags=["events"])

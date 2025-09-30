@@ -151,6 +151,38 @@ export const trackersApi = {
     try {
       // First, get the tracker details
       const tracker = await this.getTrackerById(trackerId, userId);
+      console.log('🔍 Tracker details in generateResponse:', tracker);
+      
+      // If tracker has opportunity_id, check usage limits
+      if (tracker.opportunity_id) {
+        try {
+          // Import rfpUsageApi dynamically to avoid circular dependencies
+          const { rfpUsageApi } = await import('./rfpUsage');
+          
+          // Check if user can generate a report for this opportunity
+          const check = await rfpUsageApi.checkOpportunity(tracker.opportunity_id);
+          console.log('🔍 Usage check result in generateResponse:', check);
+          
+          if (!check.can_generate) {
+            console.error('❌ Cannot generate report: limit reached');
+            return { 
+              success: false, 
+              message: check.status.message || "You've reached your monthly limit of RFP reports. Upgrade your plan to generate more reports."
+            };
+          }
+          
+          // If under limit and not an existing report, record usage immediately
+          if (check.reason === 'under_limit') {
+            console.log('🔍 Recording usage for opportunity in generateResponse:', tracker.opportunity_id);
+            await rfpUsageApi.recordUsage(tracker.opportunity_id);
+          }
+        } catch (usageError) {
+          console.error('Error checking usage limits:', usageError);
+          // Continue with report creation even if usage check fails
+        }
+      } else {
+        console.warn('⚠️ No opportunity_id found in tracker. Skipping usage check.');
+      }
       
       // Create the report using the tracker ID as response_id
       const { reportsApi } = await import('./reports');

@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Bot, PenLine, CheckCircle, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Bot, PenLine, CheckCircle, Trash2, ChevronLeft, ChevronRight, Lock } from 'lucide-react';
 import { Pursuit } from './types';
 import { format, parseISO, isValid } from 'date-fns';
 import AILoader from './AILoader';
+import { useRfpUsage } from '@/hooks/useRfpUsage';
 
 interface KanbanViewProps {
   pursuits: Pursuit[];
@@ -69,6 +70,7 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
   const [aiProcessing, setAiProcessing] = useState<{ pursuitId: string; title: string } | null>(null);
+  const { isLimitReached } = useRfpUsage();
 
   const getPursuitsForStage = (stageId: string) => {
     return pursuits.filter(pursuit => pursuit.stage === stageId);
@@ -87,6 +89,23 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
     } else if (pursuit.stage.includes("RFP Response Initiated")) {
       buttonText = "Continue Response";
       icon = <PenLine className="w-3 h-3" />;
+    }
+    
+    // Check if this is a new response that hasn't been started yet
+    const isNewResponse = !pursuit.stage.includes("RFP Response") && buttonText === "Edit Response";
+    
+    // If the user has reached their limit, only disable buttons for new responses
+    // Allow continuing responses that are already in progress or viewing submitted ones
+    if (isLimitReached && isNewResponse) {
+      return (
+        <button
+          disabled={true}
+          className="px-3 py-1 text-xs bg-gray-100 text-gray-500 rounded-full transition-colors flex items-center gap-1 whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed"
+          title="You've reached your monthly limit of RFP reports. Upgrade your plan to generate more reports."
+        >
+          <Lock className="w-3 h-3" /> Generate Response
+        </button>
+      );
     }
     
     return (
