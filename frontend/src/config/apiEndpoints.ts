@@ -94,6 +94,11 @@ export const API_ENDPOINTS = {
   REPORTS_UPSERT: `${API_BASE_URL}/api/reports/upsert`,
   REPORTS_TOGGLE_SUBMITTED: (responseId: string) => `${API_BASE_URL}/api/reports/${responseId}/toggle-submitted`,
   
+  // RFP usage tracking endpoints
+  RFP_USAGE_STATUS: `${API_BASE_URL}/api/rfp-usage/status`,
+  RFP_USAGE_CHECK_OPPORTUNITY: (opportunityId: number) => `${API_BASE_URL}/api/rfp-usage/check-opportunity/${opportunityId}`,
+  RFP_USAGE_RECORD: (opportunityId: number) => `${API_BASE_URL}/api/rfp-usage/record/${opportunityId}`,
+  
   // Orchestrated response endpoint (updates tracker + report atomically)
   RESPONSES_BY_ID: (responseId: string) => `${API_BASE_URL}/api/responses/${responseId}`,
 };

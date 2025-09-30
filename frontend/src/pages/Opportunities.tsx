@@ -10,6 +10,8 @@ import ScrollToTopButton from "@/components/opportunities/ScrollToTopButton";
 import NotificationToast from "@/components/opportunities/NotificationToast";
 import { reportsApi } from '@/api/reports';
 import { trackersApi } from '@/api/trackers';
+import { rfpUsageApi } from '@/api/rfpUsage';
+import { useRfpUsage } from '@/hooks/useRfpUsage';
 
 import { toast } from "sonner";
 import { FilterValues, Opportunity, SearchParams } from "@/models/opportunities";
@@ -37,7 +39,7 @@ const OpportunitiesPage: React.FC = () => {
   const { logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  
+  const { isLimitReached, usageStatus, refetch: refetchUsage } = useRfpUsage();
   
   // Get current date for header
   const currentDate = new Date().toLocaleDateString("en-US", {
@@ -680,6 +682,9 @@ const OpportunitiesPage: React.FC = () => {
       setPursuitCount((prev) => prev + 1);
       // Dispatch custom event to update SideBar count
       window.dispatchEvent(new CustomEvent('trackerUpdated'));
+      
+      // Refresh usage status to ensure limits are correctly applied
+      refetchUsage();
       // Immediate feedback toast
       try {
         toast.success("Added to Tracker", {
@@ -697,6 +702,20 @@ const handleBeginResponse = async (contractId: string, contractData: Opportunity
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
+
+    // NEW: Check if user can generate a report for this opportunity
+    const numericOpportunityId = Number(contractData.id);
+    const check = await rfpUsageApi.checkOpportunity(numericOpportunityId);
+    
+    if (!check.can_generate) {
+      toast.error(check.status.message);
+      return;
+    }
+    
+    // If under limit and not an existing report, record usage immediately
+    if (check.reason === 'under_limit') {
+      await rfpUsageApi.recordUsage(numericOpportunityId);
+    }
 
     // SIMPLE LOGIC: Check if response exists, if yes load it, if no create new
     const { reportsApi } = await import('../api/reports');

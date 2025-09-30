@@ -1,11 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Bot, PenLine, CheckCircle, Trash2, CheckSquare, FileText } from 'lucide-react';
+import { Bot, PenLine, CheckCircle, Trash2, CheckSquare, FileText, Lock } from 'lucide-react';
 import { Pursuit } from './types';
 import { format, parseISO, isValid } from 'date-fns';
 import AILoader from './AILoader';
 import { trackersApi } from '@/api/trackers';
+import { rfpUsageApi } from '@/api/rfpUsage';
 import { supabase } from '@/utils/supabase';
 import { toast } from 'sonner';
+import { useRfpUsage } from '@/hooks/useRfpUsage';
 
 interface ListViewProps {
   pursuits: Pursuit[];
@@ -70,6 +72,7 @@ export const ListView: React.FC<ListViewProps> = ({
   const [aiProcessing, setAiProcessing] = useState<{ pursuitId: string; title: string } | null>(null);
   const [trackersWithReports, setTrackersWithReports] = useState<Set<string>>(new Set());
   const [generatingResponse, setGeneratingResponse] = useState<string | null>(null);
+  const { isLimitReached, usageStatus, refetch: refetchUsage } = useRfpUsage();
 
   const getStageColor = (stage: string): string => {
     const s = (stage || "").toLowerCase();
@@ -143,7 +146,7 @@ export const ListView: React.FC<ListViewProps> = ({
     }
   };
 
-  // 🎯 NEW: Handle Generate Response button click
+  // Handle Generate Response button click
   const handleGenerateResponse = async (pursuit: Pursuit) => {
     try {
       setGeneratingResponse(pursuit.id);
@@ -151,6 +154,58 @@ export const ListView: React.FC<ListViewProps> = ({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         toast.error("Please log in to generate response");
+        return;
+      }
+      
+      console.log('🔍 Pursuit data:', pursuit);
+      console.log('🔍 Checking opportunity_id:', pursuit.opportunity_id);
+      
+      // Check if we've already reached the limit
+      if (isLimitReached) {
+        toast.error(usageStatus?.message || "You've reached your monthly limit of RFP reports. Upgrade your plan to generate more reports.");
+        setGeneratingResponse(null);
+        return;
+      }
+      
+      // WORKAROUND: The backend has a bug where get_tracker_by_id doesn't include opportunity_id
+      try {
+        // First check if pursuit has opportunity_id (from Pursuits.tsx mapping)
+        if (pursuit.opportunity_id) {
+          const numericOpportunityId = Number(pursuit.opportunity_id);
+          console.log('🔍 Using opportunity_id from pursuit object:', numericOpportunityId);
+          
+          // Check if user can generate a report for this opportunity
+          const check = await rfpUsageApi.checkOpportunity(numericOpportunityId);
+          console.log('🔍 Usage check result:', check);
+          
+          if (!check.can_generate) {
+            toast.error(check.status.message);
+            setGeneratingResponse(null);
+            refetchUsage();
+            return;
+          }
+          
+          // If under limit and not an existing report, record usage immediately
+          if (check.reason === 'under_limit') {
+            console.log('🔍 Recording usage for opportunity:', numericOpportunityId);
+            
+            // Record usage with direct API call
+            const recordResult = await rfpUsageApi.recordUsage(numericOpportunityId);
+            console.log('🔍 Record usage result:', recordResult);
+            
+            // Show success message
+            toast.success("Usage recorded successfully");
+            
+            // Refresh usage status
+            refetchUsage();
+          }
+        } else {
+          console.warn('⚠️ No opportunity_id found in pursuit object. Skipping usage check.');
+        }
+      } catch (error) {
+        console.error('Error checking usage limits:', error);
+        toast.error("Failed to check usage limits. Please try again.");
+        setGeneratingResponse(null);
         return;
       }
 
@@ -208,19 +263,48 @@ export const ListView: React.FC<ListViewProps> = ({
     
     // If no report exists, show "Generate Response" button
     if (!hasReport) {
+      // If limit is reached and no existing report, show locked button
+      if (isLimitReached) {
+        return (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              toast.error(usageStatus?.message || "You've reached your monthly limit of RFP reports. Upgrade your plan to generate more reports.");
+            }}
+            className="px-3 py-1 text-xs bg-gray-100 text-gray-500 rounded-full transition-colors flex items-center gap-1 whitespace-nowrap cursor-not-allowed"
+            title={usageStatus?.message || "Monthly limit reached"}
+          >
+            <Lock className="w-3 h-3" />
+            Generate Response
+          </button>
+        );
+      }
+      
       return (
         <button
           onClick={(e) => {
             e.stopPropagation();
-            handleGenerateResponse(pursuit);
+            if (!isLimitReached) {
+              handleGenerateResponse(pursuit);
+            }
           }}
-          disabled={isGenerating}
-          className="px-3 py-1 text-xs bg-green-50 text-green-600 hover:bg-green-100 rounded-full transition-colors flex items-center gap-1 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={isGenerating || isLimitReached}
+          className={`px-3 py-1 text-xs rounded-full transition-colors flex items-center gap-1 whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed ${
+            isLimitReached 
+              ? "bg-gray-100 text-gray-500 border border-gray-200" 
+              : "bg-green-50 text-green-600 hover:bg-green-100"
+          }`}
+          title={isLimitReached ? (usageStatus?.message || "You've reached your monthly limit of RFP reports") : ""}
         >
           {isGenerating ? (
             <>
               <div className="w-3 h-3 border border-green-600 border-t-transparent rounded-full animate-spin"></div>
               Generating...
+            </>
+          ) : isLimitReached ? (
+            <>
+              <Lock className="w-3 h-3" />
+              Generate Response
             </>
           ) : (
             <>
@@ -415,4 +499,4 @@ export const ListView: React.FC<ListViewProps> = ({
       </div>
     </>
   );
-}; 
+};
