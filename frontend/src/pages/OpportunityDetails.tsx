@@ -50,7 +50,7 @@ async function addToTracker(op: Opportunity, userId: string): Promise<string> {
     stage: "Review",
     due_date: op.response_date ?? null,
     naicscode: op.naics_code ?? null,
-    opportunity_id: op.id, // ✅ Add opportunity_id
+    opportunity_id: Number(op.id), // ✅ Ensure numeric ID for backend/typing
   }, userId);
 
   console.log('✅ Created new tracker:', newTracker.id);
