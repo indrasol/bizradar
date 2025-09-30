@@ -14,6 +14,7 @@ import { useTrack } from "@/logging";
 import { reportsApi } from '@/api/reports';
 import { toast } from "sonner";
 import { supabase } from "@/utils/supabase";  // use shared client
+import { useRfpUsage } from "@/hooks/useRfpUsage";
 
 
 // —— Inline Supabase client (remove if you have a shared client) ——
@@ -45,12 +46,14 @@ async function addToTracker(op: Opportunity, userId: string): Promise<string> {
   console.log('❌ No existing tracker found, creating new one');
   // Create new tracker using API (this also creates the report)
   const newTracker = await trackersApi.createTracker({
-    title: op.title?.slice(0, 255) ?? "Untitled",
-    description: op.description?.slice(0, 1000) ?? "",
+    title: String(op.title || "Untitled").slice(0, 255),
+    description: String(op.description || "").slice(0, 1000),
     stage: "Review",
-    due_date: op.response_date ?? null,
-    naicscode: op.naics_code ?? null,
-    opportunity_id: Number(op.id), // ✅ Ensure numeric ID for backend/typing
+    // Send ISO string or omit if missing
+    due_date: op.response_date ? new Date(op.response_date).toISOString() : undefined,
+    // Optional string field
+    naicscode: op.naics_code != null ? String(op.naics_code) : undefined,
+    opportunity_id: Number(op.id),
   }, userId);
 
   console.log('✅ Created new tracker:', newTracker.id);
@@ -69,6 +72,8 @@ const OpportunityDetails: React.FC = () => {
   const [pursuitCount, setPursuitCount] = useState<number>(0);
   const [adding, setAdding] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const { isLimitReached, usageStatus, loading: usageLoading } = useRfpUsage();
+  const [isTracked, setIsTracked] = useState<boolean>(false);
  
   // ————— EFFECTS —————
   
@@ -95,6 +100,7 @@ const OpportunityDetails: React.FC = () => {
       });
       
       setPursuitCount(prev => prev + 1);
+      setIsTracked(true);
       toast.success("Added to tracker!");
     } catch (error) {
       console.error("Error adding to tracker:", error);
@@ -221,6 +227,27 @@ const OpportunityDetails: React.FC = () => {
     }
   }, [id, navigate]);
 
+  // Mirror OpportunityCard: check if already tracked for this user/opportunity title
+  useEffect(() => {
+    const checkTracked = async () => {
+      try {
+        if (!opportunity?.title) return;
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const { data } = await supabase
+          .from('trackers')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('title', opportunity.title)
+          .limit(1);
+        setIsTracked(Boolean(data && data.length > 0));
+      } catch {
+        // ignore
+      }
+    };
+    checkTracked();
+  }, [opportunity?.title]);
+
   const calculateDaysRemaining = (dueDate: string | null): { days: number; isPastDue: boolean } => {
     if (!dueDate) return { days: 0, isPastDue: false };
     const today = new Date();
@@ -311,22 +338,39 @@ const OpportunityDetails: React.FC = () => {
                     <button
                       onClick={handleAddToPursuits}
                       disabled={adding || !user?.id}
-                      className="px-2 lg:px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-lg text-xs font-medium transition-colors shadow-sm flex items-center gap-1"
+                      className={`px-2 lg:px-3 py-1.5 disabled:opacity-60 rounded-lg text-xs font-medium transition-colors shadow-sm flex items-center gap-1 ${
+                        isTracked ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "bg-blue-600 hover:bg-blue-700 text-white"
+                      }`}
                     >
-                      <Plus size={14} />
-                      <span className="hidden sm:inline">{adding ? "Adding..." : "Add to Tracker"}</span>
-                      <span className="sm:hidden">{adding ? "Adding..." : "Add"}</span>
+                      {isTracked ? <CheckCircle size={14} /> : <Plus size={14} />}
+                      <span className="hidden sm:inline">{adding ? (isTracked ? "Updating..." : "Adding...") : (isTracked ? "Added to Tracker" : "Add to Tracker")}</span>
+                      <span className="sm:hidden">{adding ? (isTracked ? "Updating..." : "Adding...") : (isTracked ? "Added" : "Add")}</span>
                     </button>
 
-                    <button
-                      onClick={handleGenerateResponse}
-                      disabled={generating || !user?.id}
-                      className="px-2 lg:px-3 py-1.5 bg-green-50 text-green-600 hover:bg-green-100 disabled:opacity-60 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 border border-green-200"
-                    >
-                      <FileText size={14} />
-                      <span className="hidden sm:inline">{generating ? "Preparing..." : "Generate Response"}</span>
-                      <span className="sm:hidden">{generating ? "Preparing..." : "Generate"}</span>
-                    </button>
+                    <div className="relative group inline-block">
+                      <button
+                        onClick={handleGenerateResponse}
+                        disabled={generating || !user?.id || usageLoading || isLimitReached}
+                        className="px-2 lg:px-3 py-1.5 bg-green-50 text-green-600 hover:bg-green-100 disabled:opacity-60 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 border border-green-200"
+                      >
+                        <FileText size={14} />
+                        <span className="hidden sm:inline">{generating ? "Preparing..." : "Generate Response"}</span>
+                        <span className="sm:hidden">{generating ? "Preparing..." : "Generate"}</span>
+                      </button>
+                      {isLimitReached && (
+                        <div className="pointer-events-none z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 absolute right-0 mt-2 w-[360px] max-w-[90vw] rounded-xl border bg-white text-slate-800 shadow-2xl border-slate-200 dark:bg-slate-900 dark:text-white dark:border-slate-700">
+                          <div className="px-4 py-2.5 border-b text-sm font-semibold border-slate-200 dark:border-slate-700">Upgrade Your Plan</div>
+                          <div className="p-4 text-xs text-slate-600 dark:text-slate-300 space-y-2">
+                            <div className="font-medium text-slate-800 dark:text-white">Current Plan: Free</div>
+                            <div>Unlock more AI-assisted RFP drafts per month and advanced features.</div>
+                            <div className="flex items-center gap-2">
+                              <span className="inline-block px-2 py-1 rounded bg-blue-600 text-white text-[10px]">Pro: 5 drafts</span>
+                              <span className="inline-block px-2 py-1 rounded bg-amber-600 text-white text-[10px]">Premium: 10 drafts</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
 
                     {opportunity.external_url && (
                       <a
