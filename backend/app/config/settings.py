@@ -89,14 +89,8 @@ STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY_BIZ")
 STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY_BIZ")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET_BIZ")
 REDIRECT_URL = os.getenv("REDIRECT_URL_BIZ", "http://localhost:8080")
-
-# Verify Stripe keys are loaded
-# if not STRIPE_SECRET_KEY:
-#     print("WARNING: STRIPE_SECRET_KEY is not set in environment variables")
-# if not STRIPE_PUBLISHABLE_KEY:
-#     print("WARNING: STRIPE_PUBLISHABLE_KEY is not set in environment variables")
-# if not STRIPE_WEBHOOK_SECRET:
-#     print("WARNING: STRIPE_WEBHOOK_SECRET is not set in environment variables")
+SEARCH_RESULT_LIMIT = int(os.getenv("SEARCH_RESULT_LIMIT_BIZ", "10"))
+PRO_SEARCH_RESULT_LIMIT = int(os.getenv("PRO_SEARCH_RESULT_LIMIT_BIZ", "25"))
 
 # CACHE DB REDIS
 REDIS_HOST = os.getenv("REDISHOSTBIZ")

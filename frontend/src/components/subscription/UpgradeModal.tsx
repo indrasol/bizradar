@@ -118,6 +118,41 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
     }
   };
 
+  const handleDowngrade = async (targetPlan: string) => {
+    if (!targetPlan) return;
+    setLoading(true);
+    setError(null);
+    try {
+      // Downgrade to free uses cancel endpoint
+      if (targetPlan === 'free') {
+        await subscriptionApi.cancelSubscription();
+        toast({
+          title: 'Downgraded to Free',
+          description: 'Your subscription has been downgraded to the Free plan.',
+        });
+        // Close and refresh
+        onClose();
+        await refreshSubscription();
+        onSuccess?.();
+        // Emit subscription updated event for any listeners
+        window.dispatchEvent(new Event('subscription-updated'));
+      } else {
+        // For paid downgrades (e.g., Premium -> Pro), reuse checkout flow
+        await handleCheckout(targetPlan);
+      }
+    } catch (err) {
+      console.error('Error during downgrade:', err);
+      setError('Failed to process downgrade. Please try again.');
+      toast({
+        title: 'Downgrade Error',
+        description: 'There was an error processing your downgrade.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleUpgrade = async () => {
     if (!selectedPlan) return;
     await handleCheckout(selectedPlan);
@@ -313,28 +348,95 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
             </div>
           )}
 
-          {selectedPlan && selectedPlan !== 'free' && (
-            <div className="mt-8 flex justify-end">
-              <button
-                onClick={handleUpgrade}
-                disabled={loading}
-                className={`w-full py-3 px-6 rounded-lg font-medium text-white transition-colors flex items-center justify-center ${
-                  loading
-                    ? 'bg-gray-400 cursor-not-allowed'
-                    : 'bg-blue-600 hover:bg-blue-700'
-                }`}
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" />
-                    Processing...
-                  </>
-                ) : (
-                  'Upgrade Now'
-                )}
-              </button>
-            </div>
-          )}
+          {(() => {
+            if (!selectedPlan) return null;
+            const currentBase = currentSubscription
+              ? (currentSubscription.plan_type.split('_')[0] === 'basic'
+                  ? 'pro'
+                  : currentSubscription.plan_type.split('_')[0])
+              : null;
+            const rank: Record<string, number> = { free: 0, pro: 1, premium: 2 };
+            const isDowngradeToFree = currentBase && selectedPlan === 'free' && currentBase !== 'free';
+            const isDowngradeToPro = currentBase === 'premium' && selectedPlan === 'pro';
+            const isUpgrade = selectedPlan !== 'free' && (!currentBase || rank[selectedPlan] > rank[currentBase]);
+
+            if (isDowngradeToFree) {
+              return (
+                <div className="mt-8 flex justify-end">
+                  <button
+                    onClick={() => handleDowngrade('free')}
+                    disabled={loading}
+                    className={`w-full py-3 px-6 rounded-lg font-medium text-white transition-colors flex items-center justify-center ${
+                      loading
+                        ? 'bg-gray-400 cursor-not-allowed'
+                        : 'bg-red-600 hover:bg-red-700'
+                    }`}
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" />
+                        Processing...
+                      </>
+                    ) : (
+                      'Downgrade to Free'
+                    )}
+                  </button>
+                </div>
+              );
+            }
+
+            if (isDowngradeToPro) {
+              return (
+                <div className="mt-8 flex justify-end">
+                  <button
+                    onClick={() => handleDowngrade('pro')}
+                    disabled={loading}
+                    className={`w-full py-3 px-6 rounded-lg font-medium text-white transition-colors flex items-center justify-center ${
+                      loading
+                        ? 'bg-gray-400 cursor-not-allowed'
+                        : 'bg-amber-600 hover:bg-amber-700'
+                    }`}
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" />
+                        Processing...
+                      </>
+                    ) : (
+                      'Downgrade to Pro'
+                    )}
+                  </button>
+                </div>
+              );
+            }
+
+            if (isUpgrade) {
+              return (
+                <div className="mt-8 flex justify-end">
+                  <button
+                    onClick={handleUpgrade}
+                    disabled={loading}
+                    className={`w-full py-3 px-6 rounded-lg font-medium text-white transition-colors flex items-center justify-center ${
+                      loading
+                        ? 'bg-gray-400 cursor-not-allowed'
+                        : 'bg-blue-600 hover:bg-blue-700'
+                    }`}
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" />
+                        Processing...
+                      </>
+                    ) : (
+                      'Upgrade Now'
+                    )}
+                  </button>
+                </div>
+              );
+            }
+
+            return null;
+          })()}
         </div>
       </div>
     </div>
