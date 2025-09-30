@@ -4,6 +4,8 @@ import { Pursuit } from './types';
 import { format, parseISO, isValid } from 'date-fns';
 import AILoader from './AILoader';
 import { useRfpUsage } from '@/hooks/useRfpUsage';
+import { supabase } from '@/utils/supabase';
+import { trackersApi } from '@/api/trackers';
 
 interface KanbanViewProps {
   pursuits: Pursuit[];
@@ -71,6 +73,8 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
   const [canScrollRight, setCanScrollRight] = useState(true);
   const [aiProcessing, setAiProcessing] = useState<{ pursuitId: string; title: string } | null>(null);
   const { isLimitReached } = useRfpUsage();
+  const [trackersWithReports, setTrackersWithReports] = useState<Set<string>>(new Set());
+  const [reportsChecked, setReportsChecked] = useState<boolean>(false);
 
   const getPursuitsForStage = (stageId: string) => {
     return pursuits.filter(pursuit => pursuit.stage === stageId);
@@ -91,12 +95,14 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
       icon = <PenLine className="w-3 h-3" />;
     }
     
-    // Check if this is a new response that hasn't been started yet
-    const isNewResponse = !pursuit.stage.includes("RFP Response") && buttonText === "Edit Response";
-    
-    // If the user has reached their limit, only disable buttons for new responses
-    // Allow continuing responses that are already in progress or viewing submitted ones
-    if (isLimitReached && isNewResponse) {
+    // Determine if report already exists for this pursuit
+    const hasReport = trackersWithReports.has(pursuit.id);
+
+    // Only disable for NEW responses when limit reached. If report exists, always allow editing.
+    const isNewResponse = !hasReport;
+    const shouldDisable = isLimitReached && reportsChecked && isNewResponse;
+
+    if (shouldDisable) {
       return (
         <button
           disabled={true}
@@ -141,6 +147,36 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
       }, 100);
     }
   }, [highlightedPursuitId, pursuits]);
+
+  // On mount or when pursuits change, precompute which trackers already have reports
+  useEffect(() => {
+    const checkReports = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const results = await Promise.all(
+          pursuits.map(async (p) => {
+            try {
+              const exists = await trackersApi.hasReport(p.id, user.id);
+              return { id: p.id, exists };
+            } catch {
+              return { id: p.id, exists: false };
+            }
+          })
+        );
+        const setIds = new Set(results.filter(r => r.exists).map(r => r.id));
+        setTrackersWithReports(setIds);
+      } finally {
+        setReportsChecked(true);
+      }
+    };
+    if (pursuits.length > 0) {
+      checkReports();
+    } else {
+      setTrackersWithReports(new Set());
+      setReportsChecked(true);
+    }
+  }, [pursuits]);
 
   // Check scroll position on mount and when pursuits change
   useEffect(() => {

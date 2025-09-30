@@ -456,10 +456,11 @@ export const ListView: React.FC<ListViewProps> = ({
                         </button>
                       </div>
                     ) : (
-                      <div className="flex justify-center tooltip relative">
-                        <div className="w-5 h-5 border border-gray-200 dark:border-gray-400 rounded bg-gray-100 dark:bg-gray-700/70 opacity-90 cursor-not-allowed dark:ring-1 dark:ring-white/25"></div>
-                        <div className="tooltip-text opacity-0 group-hover:opacity-100 absolute mt-8 -translate-x-1/2 left-1/2 p-2 bg-gray-800 text-white text-xs rounded w-48 transition-all pointer-events-none">
-                          Please complete the RFP before submitting
+                      <div className="relative flex justify-center">
+                        <div className="peer w-5 h-5 border border-gray-200 dark:border-gray-400 rounded bg-gray-100 dark:bg-gray-700/70 opacity-90 cursor-not-allowed dark:ring-1 dark:ring-white/25"></div>
+                        <div className="pointer-events-none absolute -top-1.5 translate-y-[-100%] left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded bg-gray-900 text-white text-[9px] leading-tight whitespace-nowrap opacity-0 peer-hover:opacity-100 shadow-md">
+                          Complete the RFP to submit
+                          <span className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-3 border-r-3 border-t-3 border-l-transparent border-r-transparent border-t-gray-900"></span>
                         </div>
                       </div>
                     )}

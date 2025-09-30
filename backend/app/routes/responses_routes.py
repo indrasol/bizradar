@@ -78,11 +78,12 @@ async def put_orchestrated_response(
             or (request.completion_percentage is not None)
             or (request.is_submitted is not None)
         )
-        if not has_report_change and not request.tracker_stage:
+        # Use the defined 'stage' field; 'tracker_stage' does not exist on the model
+        if not has_report_change and not request.stage:
             raise HTTPException(status_code=400, detail="Nothing to update")
 
-        logger.info("response_id", response_id);
-        logger.info("user_id", user_id);
+        logger.info(f"response_id: {response_id}")
+        logger.info(f"user_id: {user_id}")
         result = await responses_service.put_response(
             response_id=response_id,
             user_id=user_id,

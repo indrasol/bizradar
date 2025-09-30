@@ -174,15 +174,12 @@ class TrackersService:
             if is_submitted is not None:
                 update_data["is_submitted"] = is_submitted
             
-            # Execute the update
+            # Execute the update (PostgREST may not return body without Prefer header)
             update_response = self.supabase.table(self.table_name).update(update_data).eq(
                 "id", tracker_id
             ).eq("user_id", user_id).execute()
-            
-            if not update_response.data:
-                raise Exception("No data returned from update operation")
-            
-            # Fetch the updated record
+
+            # Regardless of body, fetch the updated record explicitly for consistency
             fetch_response = self.supabase.table(self.table_name).select(
                 "id, title, description, stage, created_at, updated_at, due_date, user_id, is_submitted, naicscode"
             ).eq("id", tracker_id).eq("user_id", user_id).single().execute()
