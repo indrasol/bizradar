@@ -22,6 +22,9 @@ from app.utils.redis_connection import RedisClient
 from app.utils.database import fetch_opportunities_from_db
 from collections import deque
 from app.services.filter_service import apply_filters_to_results, sort_results
+from app.utils.db_utils import get_supabase_connection
+from app.config.settings import SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_KEY
+import requests
 import asyncio
 from typing import List
 from fastapi import FastAPI, Request
@@ -1535,39 +1538,42 @@ async def enhance_rfp_with_ai(request: Request):
         data = await request.json()
         logger.info("Enhance RFP with AI request received")
         
-        # Extract the context data from the request
-        company_context = data.get("company_context", {})
-        proposal_context = data.get("proposal_context", {})
-        
-        logger.info(f"proposal context: {proposal_context}")
-        
-        pursuit_id = data.get("pursuitId")
+        pursuit_id = data.get("aiOpportunityId")
         user_id = data.get("userId")
         # Check subscription and increment AI RFP usage
         from app.routes.subscription_routes import check_and_increment_usage
         check_and_increment_usage(user_id, "ai_rfp")
+
+        # Fetch company_context and proposal_context via Supabase RPC, excluding embeddings
+        company_context = {}
+        proposal_context = {}
+        try:
+            supabase = get_supabase_connection(use_service_key=True)
+            # Ensure pursuit_id is an integer where possible
+            parsed_pursuit_id = None
+            try:
+                if pursuit_id is not None:
+                    parsed_pursuit_id = int(pursuit_id)
+            except Exception:
+                parsed_pursuit_id = None
+
+            rpc_res = (
+                supabase
+                .rpc(
+                    "get_contexts_excluding_embeddings",
+                    {"in_user_id": user_id, "in_pursuit_id": parsed_pursuit_id},
+                )
+                .execute()
+            )
+            rows = getattr(rpc_res, "data", None)
+            if rows:
+                row = rows[0] if isinstance(rows, list) else rows
+                if isinstance(row, dict):
+                    company_context = row.get("company_context") or {}
+                    proposal_context = row.get("proposal_context") or {}
+        except Exception as ctx_err:
+            logger.error(f"Error fetching contexts via RPC: {str(ctx_err)}")
         
-        if not company_context or not proposal_context:
-            raise HTTPException(status_code=400, detail="Both company_context and proposal_context are required")
-        
-        # --- NEW: Replace proposal_description URL with actual description ---
-        if (
-            proposal_context.get("proposal_description") 
-            and isinstance(proposal_context["proposal_description"], str)
-            and proposal_context["proposal_description"].startswith("http")
-        ):
-            desc_url = proposal_context["proposal_description"]
-            logger.info(f"Fetching actual description from SAM API: {desc_url}")
-            actual_desc = await fetch_description_from_sam(desc_url)
-            if actual_desc:
-                proposal_context["proposal_description"] = actual_desc
-                logger.info("Replaced proposal_description with actual description text.")
-            else:
-                logger.warning("Failed to fetch description from SAM API, leaving as URL.")
-        # --- END NEW ---
-        
-        # --- Redis cache check ---
-        # Create a unique hash for the context
         context_str = json.dumps({"company_context": company_context, "proposal_context": proposal_context}, sort_keys=True)
         context_hash = hashlib.md5(context_str.encode()).hexdigest()
         cache_key = f"enhanced_rfp:{user_id}:{pursuit_id}:{context_hash}"
@@ -1675,3 +1681,69 @@ async def get_refined_query(request: Request):
         return {"success": True, "refined_query": refined_query}
     except Exception as e:
         return {"success": False, "message": str(e)}
+
+@search_router.post("/enhance-rfp-with-ai2")
+async def enhance_rfp_with_ai2(request: Request):
+    """
+    Enhance RFP response with AI by processing the provided data and returning enhanced content
+    """
+    try:
+        data = await request.json()
+        logger.info("Enhance RFP with AI (edge) request received")
+
+        pursuit_id = data.get("aiOpportunityId")
+        user_id = data.get("userId")
+
+        # Check subscription and increment AI RFP usage
+        from app.routes.subscription_routes import check_and_increment_usage
+        check_and_increment_usage(user_id, "ai_rfp")
+
+        if not user_id:
+            raise HTTPException(status_code=400, detail="Missing userId")
+
+        # Build Edge Function URL and headers
+        if not SUPABASE_URL:
+            raise HTTPException(status_code=500, detail="SUPABASE_URL not configured")
+
+        fn_url = f"{SUPABASE_URL}/functions/v1/enhance-rfp-with-ai2"
+        token = SUPABASE_SERVICE_KEY or SUPABASE_ANON_KEY
+        if not token:
+            raise HTTPException(status_code=500, detail="Supabase keys not configured")
+
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        }
+
+        payload = {
+            "ai_enhanced_opportunity": pursuit_id,
+            "user_id": user_id,
+            "provider": "openai",
+        }
+
+        # Optional: allow caller to specify provider ("mistral" | "ollama" | "openai")
+        provider = data.get("provider")
+        if provider:
+            payload["provider"] = provider
+
+        try:
+            resp = requests.post(fn_url, headers=headers, json=payload, timeout=60)
+        except Exception as req_err:
+            logger.error(f"Error calling Edge Function: {str(req_err)}")
+            raise HTTPException(status_code=502, detail=f"Edge Function request failed: {str(req_err)}")
+
+        if not resp.ok:
+            logger.error(f"Edge Function error: {resp.status_code} {resp.text}")
+            raise HTTPException(status_code=resp.status_code, detail=f"Edge Function error: {resp.text}")
+
+        try:
+            result = resp.json()
+        except Exception:
+            logger.error("Failed to parse Edge Function JSON response")
+            raise HTTPException(status_code=502, detail="Invalid response from Edge Function")
+
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error enhancing RFP with AI: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to enhance RFP: {str(e)}")

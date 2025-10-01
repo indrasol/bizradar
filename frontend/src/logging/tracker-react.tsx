@@ -7,8 +7,10 @@ import React, {
 } from "react";
 import { useGeolocation } from "@uidotdev/usehooks";
 import { postEvent, configureTracker, type ClientEvent } from "./tracker";
+import { extractSessionId } from "../utils/jwtUtils";
+import { supabase } from "../utils/supabase";
 
-type TrackPayload = Omit<ClientEvent, "latitude" | "longitude" | "created_at">;
+type TrackPayload = Omit<ClientEvent, "latitude" | "longitude" | "created_at" | "session_id" | "user_agent">;
 
 type TrackerCtxValue = {
   track: (e: TrackPayload) => void;
@@ -33,21 +35,57 @@ export function TrackerProvider({
     ? (geo.longitude as number)
     : null;
 
+  // Track current session and session_id
+  const [currentSessionId, setCurrentSessionId] = React.useState<string | null>(null);
+
   // Configure tracker endpoint
   useEffect(() => {
     configureTracker({ endpoint });
   }, [endpoint]);
 
-  // Attach UTC timestamp + lat/lon and send
+  // Listen for auth state changes and extract session_id
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (session?.access_token) {
+          const sessionId = extractSessionId(session.access_token);
+          setCurrentSessionId(sessionId);
+          console.log('🔐 Session ID extracted for tracking:', sessionId);
+        } else {
+          setCurrentSessionId(null);
+          console.log('🔐 No session, clearing session_id for tracking');
+        }
+      }
+    );
+
+    // Also check current session on mount
+    const getCurrentSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        const sessionId = extractSessionId(session.access_token);
+        setCurrentSessionId(sessionId);
+        console.log('🔐 Initial session ID extracted for tracking:', sessionId);
+      }
+    };
+    
+    getCurrentSession();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+   // Attach UTC timestamp + lat/lon + session_id + user_agent and send
   const track = useCallback(
     (e: TrackPayload) => {
       const ts = Number.isFinite(geo.timestamp as number)
         ? (geo.timestamp as number)
         : Date.now();
       const created_at = new Date(ts).toISOString(); // UTC
-      postEvent({ ...e, latitude, longitude, created_at });
+      const user_agent = navigator.userAgent;
+      postEvent({ ...e, latitude, longitude, created_at, session_id: currentSessionId, user_agent });
     },
-    [latitude, longitude, geo.timestamp]
+    [latitude, longitude, geo.timestamp, currentSessionId]
   );
 
   // Universal browser/tab close logging
@@ -81,9 +119,15 @@ export function TrackerProvider({
 
 export function useTrack() {
   const ctx = useContext(TrackerCtx);
-  if (!ctx) throw new Error("useTrack must be used within TrackerProvider");
+  if (!ctx) {
+    // Return a no-op function if context is not available
+    // This prevents errors during component initialization
+    console.warn("useTrack called outside TrackerProvider, returning no-op function");
+    return () => {}; // No-op function
+  }
   return ctx.track;
 }
+
 
 /** Convenience: bind an event name once, reuse with varying types/metadata */
 export function useEventTracker(event_name: string) {

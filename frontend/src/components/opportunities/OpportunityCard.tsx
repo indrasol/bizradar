@@ -13,11 +13,14 @@ import {
   Clock,
   AlertTriangle,
   Check,
+  Lock,
 } from "lucide-react";
 import { OpportunityCardProps } from "@/models/opportunities";
 // 🆕 add tracker
 import { useTrack } from "@/logging";
 import { supabase } from "@/utils/supabase";
+import { useRfpUsage } from "@/hooks/useRfpUsage";
+import { toast } from "sonner";
 
 const OpportunityCard: React.FC<OpportunityCardProps> = ({
   opportunity,
@@ -30,6 +33,7 @@ const OpportunityCard: React.FC<OpportunityCardProps> = ({
 }) => {
   const [isExpandedAI, setIsExpandedAI] = useState(false);
   const [isTracked, setIsTracked] = useState<boolean>(false);
+  const { isLimitReached, usageStatus } = useRfpUsage();
 
   // Determine if this opportunity is already tracked for current user
   useEffect(() => {
@@ -266,27 +270,51 @@ const OpportunityCard: React.FC<OpportunityCardProps> = ({
             {isTracked ? <Check size={14} /> : <Plus size={14} />}
             <span>{isTracked ? "Added to Tracker" : "Add to Tracker"}</span>
           </button>
-          <button
-            onClick={() => {
-              track({
-                event_name: "generate_rfp",
-                event_type: "button_click",
-                metadata: {
-                  search_query:"null",
-                  stage: "review",
-                  section: null,
-                  opportunity_id: opportunity?.id,
-                  title: opportunity?.title,
-                  naics_code: opportunity?.naics_code ?? opportunity?.naics_code,
-                },
-              });
-              handleBeginResponse(opportunity.id, opportunity);
-            }}
-            className="px-3 py-1.5 bg-green-50 text-green-600 hover:bg-green-100 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 border border-green-200"
-          >
-            <FileText size={14} />
-            <span>Generate Response</span>
-          </button>
+          {isLimitReached ? (
+            <div className="relative group inline-block">
+              <button
+                disabled={true}
+                onClick={() => {}}
+                className="px-3 py-1.5 bg-gray-100 text-gray-500 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 border border-gray-200 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                <Lock size={14} />
+                <span>Generate Response</span>
+              </button>
+              <div className="pointer-events-none z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 absolute right-0 mt-2 w-[360px] max-w-[90vw] rounded-xl border bg-white text-slate-800 shadow-2xl border-slate-200 dark:bg-slate-900 dark:text-white dark:border-slate-700">
+                <div className="px-4 py-2.5 border-b text-sm font-semibold border-slate-200 dark:border-slate-700">Upgrade Your Plan</div>
+                <div className="p-4 text-xs text-slate-600 dark:text-slate-300 space-y-2">
+                  <div className="font-medium text-slate-800 dark:text-white">Current Plan: Free</div>
+                  <div>Unlock more AI-assisted RFP drafts per month and advanced features.</div>
+                  <div className="flex items-center gap-2">
+                    <span className="inline-block px-2 py-1 rounded bg-blue-600 text-white text-[10px]">Pro: 5 drafts</span>
+                    <span className="inline-block px-2 py-1 rounded bg-amber-600 text-white text-[10px]">Premium: 10 drafts</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => {
+                track({
+                  event_name: "generate_rfp",
+                  event_type: "button_click",
+                  metadata: {
+                    search_query: "null",
+                    stage: "review",
+                    section: null,
+                    opportunity_id: opportunity?.id,
+                    title: opportunity?.title,
+                    naics_code: opportunity?.naics_code ?? opportunity?.naics_code,
+                  },
+                });
+                handleBeginResponse(opportunity.id, opportunity);
+              }}
+              className="px-3 py-1.5 bg-green-50 text-green-600 hover:bg-green-100 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 border border-green-200"
+            >
+              <FileText size={14} />
+              <span>Generate Response</span>
+            </button>
+          )}
         </div>
       </div>
 

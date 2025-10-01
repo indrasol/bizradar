@@ -263,6 +263,21 @@ class ReportsService:
         try:
             logger.info(f"Deleting report for response {response_id}, user {user_id}")
             
+            # First get the report to check if it has an opportunity_id
+            report = await self.get_report_by_response_id(response_id, user_id)
+            if not report:
+                logger.warning(f"Report not found for response {response_id}")
+                return False
+                
+            # IMPORTANT: Check if this report has an associated opportunity_id
+            # If it does, we should NOT delete the usage record
+            opportunity_id = report.get("opportunity_id")
+            if opportunity_id:
+                logger.info(f"Report has opportunity_id {opportunity_id}, usage record will be preserved")
+                # We could add code here to check if there's a usage record, but we'll skip that
+                # The important thing is that we don't delete any usage records
+            
+            # Now delete the report
             response = self.supabase.table(self.table_name).delete().eq(
                 "response_id", response_id
             ).eq("user_id", user_id).execute()

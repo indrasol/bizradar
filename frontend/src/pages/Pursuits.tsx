@@ -430,7 +430,8 @@ export default function Pursuits(): JSX.Element {
         assignee: "Unassigned",
         assigneeInitials: "UA",
         is_submitted: tracker.is_submitted || false,
-        naicscode: tracker.naicscode || ""
+        naicscode: tracker.naicscode || "",
+        opportunity_id: tracker.opportunity_id
       }));
       
       // Update cache
@@ -704,8 +705,53 @@ export default function Pursuits(): JSX.Element {
         return;
       }
       
+      // First, make sure a report exists for this tracker
+      try {
+        const { reportsApi } = await import('../api/reports');
+        
+        // Check if report exists
+        let report;
+        try {
+          report = await reportsApi.getReportByResponseId(pursuitId, user.id);
+        } catch (error) {
+          // Report doesn't exist, create one
+          console.log("No report found for this tracker. Creating one before marking as submitted...");
+          
+          // Get tracker details
+          const tracker = await trackersApi.getTrackerById(pursuitId, user.id);
+          
+          // Create a minimal report
+          report = await reportsApi.upsertReport(
+            pursuitId,
+            {
+              rfpTitle: tracker.title,
+              dueDate: tracker.due_date,
+              sections: [],
+              isSubmitted: true, // Mark as submitted immediately
+            },
+            100, // 100% completion since we're marking as submitted
+            true, // isSubmitted = true
+            user.id,
+            tracker.opportunity_id
+          );
+          
+          console.log("Created report and marked as submitted:", report);
+        }
+        
+        if (report && !report.is_submitted) {
+          // Update report submission status
+          await reportsApi.toggleSubmittedStatus(pursuitId, user.id);
+          console.log("Updated report submission status to submitted");
+        }
+      } catch (reportError) {
+        console.error("Error managing report for submission:", reportError);
+        toast?.error("Could not update report submission status. Please try again.");
+        return; // Don't proceed if report update fails
+      }
+      
       // Toggle tracker submission status using API
       await trackersApi.toggleSubmittedStatus(pursuitId, user.id);
+      console.log("Updated tracker submission status to submitted");
       
       // Update the local state
       setPursuits(pursuits.map(pursuit => 
@@ -715,6 +761,17 @@ export default function Pursuits(): JSX.Element {
       ));
       
       toast?.success("Proposal marked as submitted!");
+      
+      // Refresh the tracker list to ensure consistency
+      setTimeout(() => {
+        fetchTrackers(true);
+      }, 500);
+      
+      // Dispatch event to notify other components about the submission change
+      window.dispatchEvent(new CustomEvent('report-submitted', { 
+        detail: { responseId: pursuitId } 
+      }));
+      
     } catch (error: any) {
       console.error("Error toggling submission:", error);
       toast?.error("Failed to update submission status. Please try again.");
@@ -1126,6 +1183,15 @@ export default function Pursuits(): JSX.Element {
                       onDelete={handleRemovePursuit}
                       onAskAI={handleAskAI}
                       onToggleSubmission={handleToggleSubmission}
+                      onPursuitUpdate={(id, updates) => {
+                        setPursuits(prevPursuits =>
+                          prevPursuits.map(pursuit =>
+                            pursuit.id === id
+                              ? { ...pursuit, ...updates }
+                              : pursuit
+                          )
+                        );
+                      }}
                       highlightedPursuitId={highlightedPursuitId}
                       fadingOutPursuitId={fadingOutPursuitId}
                     />

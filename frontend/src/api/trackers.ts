@@ -77,74 +77,174 @@ export const trackersApi = {
     return response;
   },
 
-  // Create a new tracker
+  // Create a new tracker (with check for existing reports)
   async createTracker(trackerData: CreateTrackerRequest, userId: string): Promise<Tracker> {
+    // First, check if a report already exists for this opportunity title
+    let existingReport = null;
+    let existingReportStage = null;
+    let existingReportSubmitted = false;
+    
+    try {
+      // Import reports API dynamically to avoid circular dependencies
+      const { reportsApi } = await import('./reports');
+      
+      // Get all reports for this user
+      const reportsResponse = await reportsApi.getReports(userId);
+      
+      if (reportsResponse.success && reportsResponse.reports.length > 0) {
+        // Find a report with matching title
+        const matchingReport = reportsResponse.reports.find(
+          report => report.title?.toLowerCase() === trackerData.title?.toLowerCase()
+        );
+        
+        if (matchingReport) {
+          console.log('🔍 Found existing report with matching title:', matchingReport.title);
+          existingReport = matchingReport;
+          
+          // Extract stage and submission status
+          existingReportStage = matchingReport.stage || 'Review';
+          existingReportSubmitted = matchingReport.is_submitted || false;
+        }
+      }
+    } catch (error) {
+      console.warn('Could not check for existing reports:', error);
+      // Continue with tracker creation even if report check fails
+    }
+    
+    // Update tracker data with existing report info if found
+    if (existingReport) {
+      trackerData.stage = existingReportStage;
+      
+      // Create tracker with synced data
+      console.log('🔄 Creating tracker with synced data from existing report:', {
+        title: trackerData.title,
+        stage: trackerData.stage
+      });
+    }
+    
+    // Create the tracker
     const response = await apiClient.post(`${API_ENDPOINTS.TRACKERS}?user_id=${userId}`, trackerData);
     
-    console.log('🔍 Tracker creation response:', {
+    console.log('✅ Tracker created:', {
       id: response.id,
       opportunity_id: response.opportunity_id,
       title: response.title,
-      fullResponse: response
+      stage: response.stage
     });
     
-    // Also create a corresponding report entry using the tracker ID as response_id
+    // If we found an existing report, update the tracker's is_submitted status if needed
+    if (existingReport && existingReportSubmitted) {
+      try {
+        await this.updateTracker(response.id, { is_submitted: true }, userId);
+        response.is_submitted = true;
+        console.log('✅ Updated tracker submission status to match existing report');
+      } catch (error) {
+        console.error('Failed to update tracker submission status:', error);
+      }
+    }
+    
+    return response;
+  },
+
+  // 🎯 NEW: Generate Response - Create report for existing tracker
+  async generateResponse(trackerId: string, userId: string): Promise<{ success: boolean; message: string }> {
     try {
+      // First, get the tracker details
+      const tracker = await this.getTrackerById(trackerId, userId);
+      console.log('🔍 Tracker details in generateResponse:', tracker);
+      
+      // If tracker has opportunity_id, check usage limits
+      if (tracker.opportunity_id) {
+        try {
+          // Import rfpUsageApi dynamically to avoid circular dependencies
+          const { rfpUsageApi } = await import('./rfpUsage');
+          
+          // Check if user can generate a report for this opportunity
+          const check = await rfpUsageApi.checkOpportunity(tracker.opportunity_id);
+          console.log('🔍 Usage check result in generateResponse:', check);
+          
+          if (!check.can_generate) {
+            console.error('❌ Cannot generate report: limit reached');
+            return { 
+              success: false, 
+              message: check.status.message || "You've reached your monthly limit of RFP reports. Upgrade your plan to generate more reports."
+            };
+          }
+          
+          // If under limit and not an existing report, record usage immediately
+          if (check.reason === 'under_limit') {
+            console.log('🔍 Recording usage for opportunity in generateResponse:', tracker.opportunity_id);
+            await rfpUsageApi.recordUsage(tracker.opportunity_id);
+          }
+        } catch (usageError) {
+          console.error('Error checking usage limits:', usageError);
+          // Continue with report creation even if usage check fails
+        }
+      } else {
+        console.warn('⚠️ No opportunity_id found in tracker. Skipping usage check.');
+      }
+      
+      // Create the report using the tracker ID as response_id
       const { reportsApi } = await import('./reports');
-      console.log('🔍 Creating report with opportunity_id:', response.opportunity_id);
+      console.log('🔍 Creating report for tracker:', trackerId);
+      
       await reportsApi.upsertReport(
-        response.id, // Use tracker ID as response_id
+        trackerId, // Use tracker ID as response_id
         {
-          rfpTitle: response.title,
-          dueDate: response.due_date,
+          rfpTitle: tracker.title,
+          dueDate: tracker.due_date,
           sections: [],
           isSubmitted: false,
         },
         0, // completion percentage
         false, // isSubmitted
         userId,
-        response.opportunity_id // opportunity_id from tracker
+        tracker.opportunity_id // opportunity_id from tracker
       );
-      console.log(`Created report entry for tracker ${response.id}`);
+      
+      console.log(`✅ Report created for tracker ${trackerId}`);
+      return { success: true, message: "Response generated successfully!" };
+      
     } catch (error) {
-      console.warn('Failed to create report entry for tracker:', error);
-      // Don't throw - tracker creation should still succeed
+      console.error('Failed to generate response:', error);
+      return { success: false, message: "Failed to generate response. Please try again." };
     }
-    
-    return response;
+  },
+
+  // 🎯 NEW: Check if a tracker has an associated report
+  async hasReport(trackerId: string, userId: string): Promise<boolean> {
+    try {
+      const { reportsApi } = await import('./reports');
+      await reportsApi.getReportByResponseId(trackerId, userId);
+      return true; // If no error, report exists
+    } catch (error) {
+      return false; // If error, report doesn't exist
+    }
+  },
+
+  // 🎯 NEW: Sync tracker stage with report progress
+  async syncTrackerWithReport(trackerId: string, stage: string, isSubmitted: boolean, userId: string): Promise<void> {
+    try {
+      console.log(`🔄 Syncing tracker ${trackerId} with stage: ${stage}, submitted: ${isSubmitted}`);
+      
+      // Update the tracker stage and submission status
+      await this.updateTracker(trackerId, {
+        stage: stage,
+        is_submitted: isSubmitted
+      }, userId);
+      
+      console.log(`✅ Successfully synced tracker ${trackerId} stage to: ${stage}`);
+    } catch (error) {
+      console.error('Failed to sync tracker with report:', error);
+      throw error;
+    }
   },
 
   // Update an existing tracker
   async updateTracker(trackerId: string, trackerData: UpdateTrackerRequest, userId: string): Promise<Tracker> {
     const response = await apiClient.put(`${API_ENDPOINTS.TRACKERS_BY_ID(trackerId)}?user_id=${userId}`, trackerData);
     
-    // If stage is being updated, also update the corresponding report
-    if (trackerData.stage) {
-      try {
-        const { reportsApi } = await import('./reports');
-        // Get the current report to preserve other data
-        const currentReport = await reportsApi.getReportByResponseId(trackerId, userId);
-        
-        // Update the report with the new stage
-        await reportsApi.upsertReport(
-          trackerId,
-          {
-            rfpTitle: currentReport.content.rfpTitle,
-            dueDate: currentReport.content.dueDate,
-            sections: currentReport.content.sections,
-            isSubmitted: currentReport.is_submitted,
-          },
-          currentReport.completion_percentage,
-          currentReport.is_submitted,
-          userId,
-          currentReport.opportunity_id // preserve opportunity_id
-        );
-        console.log(`Updated report stage for tracker ${trackerId}`);
-      } catch (error) {
-        console.warn('Failed to update report stage for tracker:', error);
-        // Don't throw - tracker update should still succeed
-      }
-    }
+    console.log(`✅ Successfully updated tracker ${trackerId}:`, trackerData);
     
     return response;
   },

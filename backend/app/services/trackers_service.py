@@ -20,7 +20,7 @@ class TrackersService:
         """Get all trackers for a user"""
         try:
             query = self.supabase.table(self.table_name).select(
-                "id, title, description, stage, created_at, updated_at, due_date, user_id, is_submitted, naicscode"
+                "id, title, description, stage, created_at, updated_at, due_date, user_id, is_submitted, naicscode, opportunity_id"
             ).eq("user_id", user_id)
             
             if is_submitted is not None:
@@ -41,7 +41,8 @@ class TrackersService:
                         "due_date": item.get("due_date"),
                         "user_id": item["user_id"],
                         "is_submitted": item.get("is_submitted", False),
-                        "naicscode": item.get("naicscode")
+                        "naicscode": item.get("naicscode"),
+                        "opportunity_id": item.get("opportunity_id")
                     }
                     trackers.append(json_serializable(tracker))
                 return trackers
@@ -54,7 +55,7 @@ class TrackersService:
         """Get a specific tracker by ID"""
         try:
             response = self.supabase.table(self.table_name).select(
-                "id, title, description, stage, created_at, updated_at, due_date, user_id, is_submitted, naicscode"
+                "id, title, description, stage, created_at, updated_at, due_date, user_id, is_submitted, naicscode, opportunity_id"
             ).eq("id", tracker_id).eq("user_id", user_id).single().execute()
             
             if response.data:
@@ -68,7 +69,8 @@ class TrackersService:
                     "due_date": response.data.get("due_date"),
                     "user_id": response.data["user_id"],
                     "is_submitted": response.data.get("is_submitted", False),
-                    "naicscode": response.data.get("naicscode")
+                    "naicscode": response.data.get("naicscode"),
+                    "opportunity_id": response.data.get("opportunity_id")
                 }
                 return json_serializable(tracker)
             raise Exception("Tracker not found")
@@ -172,15 +174,12 @@ class TrackersService:
             if is_submitted is not None:
                 update_data["is_submitted"] = is_submitted
             
-            # Execute the update
+            # Execute the update (PostgREST may not return body without Prefer header)
             update_response = self.supabase.table(self.table_name).update(update_data).eq(
                 "id", tracker_id
             ).eq("user_id", user_id).execute()
-            
-            if not update_response.data:
-                raise Exception("No data returned from update operation")
-            
-            # Fetch the updated record
+
+            # Regardless of body, fetch the updated record explicitly for consistency
             fetch_response = self.supabase.table(self.table_name).select(
                 "id, title, description, stage, created_at, updated_at, due_date, user_id, is_submitted, naicscode"
             ).eq("id", tracker_id).eq("user_id", user_id).single().execute()

@@ -117,32 +117,33 @@ def initialize_tables():
     """
     Initialize required database tables if they don't exist
     """
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
+    # try:
+    #     conn = get_db_connection()
+    #     cursor = conn.cursor()
         
-        # Create ETL history table
-        create_etl_history_table = '''
-        CREATE TABLE IF NOT EXISTS etl_history (
-            id SERIAL PRIMARY KEY,
-            time_fetched TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            total_records INTEGER DEFAULT 0,
-            sam_gov_count INTEGER DEFAULT 0,
-            sam_gov_new_count INTEGER DEFAULT 0,
-            freelancer_count INTEGER DEFAULT 0,
-            freelancer_new_count INTEGER DEFAULT 0,
-            status VARCHAR(50),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-        '''
+    #     # Create ETL history table
+    #     create_etl_history_table = '''
+    #     CREATE TABLE IF NOT EXISTS etl_history (
+    #         id SERIAL PRIMARY KEY,
+    #         time_fetched TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    #         total_records INTEGER DEFAULT 0,
+    #         sam_gov_count INTEGER DEFAULT 0,
+    #         sam_gov_new_count INTEGER DEFAULT 0,
+    #         freelancer_count INTEGER DEFAULT 0,
+    #         freelancer_new_count INTEGER DEFAULT 0,
+    #         status VARCHAR(50),
+    #         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    #     );
+    #     '''
         
-        cursor.execute(create_etl_history_table)
-        conn.commit()
-        cursor.close()
-        conn.close()
-        logger.info("Database tables initialized successfully")
-    except Exception as e:
-        logger.error(f"Failed to initialize database tables: {e}")
-        raise
+    #     cursor.execute(create_etl_history_table)
+    #     conn.commit()
+    #     cursor.close()
+    #     conn.close()
+    #     logger.info("Database tables initialized successfully")
+    # except Exception as e:
+    #     logger.error(f"Failed to initialize database tables: {e}")
+    #     raise
+    pass
     
 get_db_connection_params()
