@@ -156,7 +156,14 @@ const OpportunityDetails: React.FC = () => {
       } as any;
       sessionStorage.setItem("currentContract", JSON.stringify(contract));
       sessionStorage.removeItem("currentTrackerId");
-      navigate(`/contracts/rfp/${opportunity.id}`);
+      const responseId = (typeof window !== "undefined" && (window as any).crypto && "randomUUID" in (window as any).crypto)
+        ? (window as any).crypto.randomUUID()
+        : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+            const r = Math.random() * 16 | 0;
+            const v = c === 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+          });
+      navigate(`/contracts/rfp/${responseId}`);
     } catch (e) {
       console.error("Failed to create tracker for response", e);
       toast.error("Failed to create response");

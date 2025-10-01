@@ -75,6 +75,8 @@ const FilterSectionAutocomplete: React.FC<FilterSectionProps> = ({ title, icon, 
             {isActive && (
                 <div className="px-5 pb-4">
                     <div className="ml-7">
+                        {/* Add top spacing so the input never overlaps the section title */}
+                        <div className="mt-3"></div>
                         <div className="mb-2 relative">
                             <input
                                 type="text"
