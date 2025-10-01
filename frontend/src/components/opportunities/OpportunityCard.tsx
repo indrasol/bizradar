@@ -32,6 +32,7 @@ const OpportunityCard: React.FC<OpportunityCardProps> = ({
   refinedQuery,
 }) => {
   const [isExpandedAI, setIsExpandedAI] = useState(false);
+  const [showUpgrade, setShowUpgrade] = useState(false);
   const [isTracked, setIsTracked] = useState<boolean>(false);
   const { isLimitReached, usageStatus } = useRfpUsage();
 
@@ -271,7 +272,11 @@ const OpportunityCard: React.FC<OpportunityCardProps> = ({
             <span>{isTracked ? "Added to Tracker" : "Add to Tracker"}</span>
           </button>
           {isLimitReached ? (
-            <div className="relative group inline-block">
+            <div
+              className="relative inline-block"
+              onMouseEnter={() => setShowUpgrade(true)}
+              onMouseLeave={() => setShowUpgrade(false)}
+            >
               <button
                 disabled={true}
                 onClick={() => {}}
@@ -280,17 +285,37 @@ const OpportunityCard: React.FC<OpportunityCardProps> = ({
                 <Lock size={14} />
                 <span>Generate Response</span>
               </button>
-              <div className="pointer-events-none z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 absolute right-0 mt-2 w-[360px] max-w-[90vw] rounded-xl border bg-white text-slate-800 shadow-2xl border-slate-200 dark:bg-slate-900 dark:text-white dark:border-slate-700">
-                <div className="px-4 py-2.5 border-b text-sm font-semibold border-slate-200 dark:border-slate-700">Upgrade Your Plan</div>
-                <div className="p-4 text-xs text-slate-600 dark:text-slate-300 space-y-2">
-                  <div className="font-medium text-slate-800 dark:text-white">Current Plan: Free</div>
-                  <div>Unlock more AI-assisted RFP drafts per month and advanced features.</div>
-                  <div className="flex items-center gap-2">
-                    <span className="inline-block px-2 py-1 rounded bg-blue-600 text-white text-[10px]">Pro: 5 drafts</span>
-                    <span className="inline-block px-2 py-1 rounded bg-amber-600 text-white text-[10px]">Premium: 10 drafts</span>
+              {showUpgrade && (
+                <div
+                  className="z-50 absolute right-0 mt-2 w-[360px] max-w-[90vw] rounded-xl border bg-white text-slate-800 shadow-2xl border-slate-200 dark:bg-slate-900 dark:text-white dark:border-slate-700"
+                  onMouseEnter={() => setShowUpgrade(true)}
+                  onMouseLeave={() => setShowUpgrade(false)}
+                >
+                  <div className="px-4 py-2.5 border-b text-sm font-semibold border-slate-200 dark:border-slate-700">Upgrade Your Plan</div>
+                  <div className="p-4 text-xs text-slate-600 dark:text-slate-300 space-y-2">
+                    <div className="font-medium text-slate-800 dark:text-white">Current Plan: Free</div>
+                    <div>Unlock more AI-assisted RFP drafts per month and advanced features.</div>
+                    <div className="flex items-center gap-2">
+                      <a
+                        href="https://checkout.stripe.com/c/pay/cs_test_b1FxfURfXbt6I7wmkXTfPgFkMVhIrcwXvPYvzlWMi4JbfAVT7lWKZfcyon#fidkdWxOYHwnPyd1blpxYHZxWjA0V2JvdjVDTlFOPUxGUHV3SUBcS0s3R1dDck92cWc9fDRiVDVpcEpqNVQwM3VxfHFrUEB8NXB0N2JfVnBpRlxyNm81VGtpMm1NfEs0RFV9X3wwdl9BVWF8NTVPNnMyUlxqSScpJ2N3amhWYHdzYHcnP3F3cGApJ2dkZm5id2pwa2FGamlqdyc/JyZjY2NjY2MnKSdpZHxqcHFRfHVgJz8naHBpcWxabHFgaCcpJ2BrZGdpYFVpZGZgbWppYWB3dic/cXdwYHgl"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-block px-2 py-1 rounded bg-blue-600 text-white text-[10px] hover:bg-blue-700"
+                      >
+                        Pro: 5 drafts
+                      </a>
+                      <a
+                        href="https://checkout.stripe.com/c/pay/cs_test_b1FxfURfXbt6I7wmkXTfPgFkMVhIrcwXvPYvzlWMi4JbfAVT7lWKZfcyon#fidkdWxOYHwnPyd1blpxYHZxWjA0V2JvdjVDTlFOPUxGUHV3SUBcS0s3R1dDck92cWc9fDRiVDVpcEpqNVQwM3VxfHFrUEB8NXB0N2JfVnBpRlxyNm81VGtpMm1NfEs0RFV9X3wwdl9BVWF8NTVPNnMyUlxqSScpJ2N3amhWYHdzYHcnP3F3cGApJ2dkZm5id2pwa2FGamlqdyc/JyZjY2NjY2MnKSdpZHxqcHFRfHVgJz8naHBpcWxabHFgaCcpJ2BrZGdpYFVpZGZgbWppYWB3dic/cXdwYHgl"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-block px-2 py-1 rounded bg-amber-600 text-white text-[10px] hover:bg-amber-700"
+                      >
+                        Premium: 10 drafts
+                      </a>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           ) : (
             <button
