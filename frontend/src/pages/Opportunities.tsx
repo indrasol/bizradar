@@ -862,14 +862,16 @@ const handleBeginResponse = async (contractId: string, contractData: Opportunity
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
     return opportunities.filter(opp => {
-      if (!opp.response_date) return dueDateFilter === "active_only" ? opp.active !== false : false;
+      // Exclude items with no due date in filtered views
+      if (!opp.response_date) return false;
       
       const dueDate = new Date(opp.response_date);
       const daysDiff = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
       
       switch (dueDateFilter) {
         case "active_only":
-          return opp.active !== false;
+          // Only show truly active items and not past due
+          return opp.active === true && daysDiff >= 0;
         case "due_in_7_days":
           return daysDiff >= 0 && daysDiff <= 7;
         case "next_30_days":
