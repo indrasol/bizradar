@@ -194,7 +194,7 @@ export const ListView: React.FC<ListViewProps> = ({
             console.log('🔍 Record usage result:', recordResult);
             
             // Show success message
-            toast.success("Usage recorded successfully");
+            // toast.success("Usage recorded successfully");
             
             // Refresh usage status
             refetchUsage();
