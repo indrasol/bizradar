@@ -26,7 +26,7 @@ def get_subscription_status(user_id: str = Query(...)):
     try:
         return subscription_manager.get_subscription_status(user_id, create_if_missing=True)
     except Exception as e:
-        logger.error(f"Error getting subscription status: {str(e)}")
+        # logger.error(f"Error getting subscription status: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to get subscription status")
 
 @router.get("/tiers")
@@ -47,7 +47,7 @@ def upgrade_subscription(request: SubscriptionUpgradeRequest, user_id: str = Que
             stripe_subscription_id=request.stripe_subscription_id
         )
         
-        logger.info(f"User {user_id} upgraded to {request.plan_type}")
+        # logger.info(f"User {user_id} upgraded to {request.plan_type}")
         return {
             "success": True,
             "message": f"Successfully upgraded to {request.plan_type} tier",
@@ -63,7 +63,7 @@ def cancel_subscription(user_id: str = Query(...)):
     try:
         result = subscription_manager.cancel_subscription(user_id)
         
-        logger.info(f"User {user_id} cancelled subscription")
+        # logger.info(f"User {user_id} cancelled subscription")
         return {
             "success": True,
             "message": "Subscription cancelled successfully. Downgraded to free tier.",
@@ -79,14 +79,14 @@ def start_trial(user_id: str = Query(...)):
     try:
         result = subscription_manager.create_trial_subscription(user_id)
         
-        logger.info(f"User {user_id} started trial")
+        # logger.info(f"User {user_id} started trial")
         return {
             "success": True,
             "message": "Trial started successfully",
             "subscription": result
         }
     except Exception as e:
-        logger.error(f"Error starting trial: {str(e)}")
+        # logger.error(f"Error starting trial: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to start trial")
 
 @router.get("/usage")
@@ -100,7 +100,7 @@ def get_usage_stats(user_id: str = Query(...)):
             "plan_type": status.get("plan_type", "free")
         }
     except Exception as e:
-        logger.error(f"Error getting usage stats: {str(e)}")
+        # logger.error(f"Error getting usage stats: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to get usage statistics")
 
 @router.post("/usage/increment")
@@ -137,7 +137,7 @@ def increment_usage(request: UsageIncrementRequest, user_id: str = Query(...)):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error incrementing usage: {str(e)}")
+        # logger.error(f"Error incrementing usage: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to increment usage")
 
 @router.get("/feature-access/{feature}")
@@ -152,7 +152,7 @@ def check_feature_access(feature: str, user_id: str = Query(...)):
             "user_id": user_id
         }
     except Exception as e:
-        logger.error(f"Error checking feature access: {str(e)}")
+        # logger.error(f"Error checking feature access: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to check feature access")
 
 @router.post("/usage/reset")
@@ -171,7 +171,7 @@ def reset_monthly_usage(user_id: str = Query(...)):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error resetting usage: {str(e)}")
+        # logger.error(f"Error resetting usage: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to reset usage")
 
 # Middleware for checking subscription access
@@ -224,7 +224,7 @@ async def add_rfp_boost_pack(user_id: str = Query(...)):
             "data": result
         }
     except Exception as e:
-        logger.error(f"Error adding RFP Boost Pack for user {user_id}: {str(e)}")
+        # logger.error(f"Error adding RFP Boost Pack for user {user_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/addon/rfp-boost")
@@ -240,7 +240,7 @@ async def remove_rfp_boost_pack(user_id: str = Query(...)):
         else:
             raise HTTPException(status_code=404, detail="RFP Boost Pack not found or already cancelled")
     except Exception as e:
-        logger.error(f"Error removing RFP Boost Pack for user {user_id}: {str(e)}")
+        # logger.error(f"Error removing RFP Boost Pack for user {user_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/addons")
@@ -253,5 +253,5 @@ async def get_user_addons(user_id: str = Query(...)):
             "data": addons
         }
     except Exception as e:
-        logger.error(f"Error fetching add-ons for user {user_id}: {str(e)}")
+        # logger.error(f"Error fetching add-ons for user {user_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

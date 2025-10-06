@@ -9,12 +9,12 @@ import { rfpUsageApi } from '@/api/rfpUsage';
  */
 export async function testGetUsageStatus() {
   try {
-    console.log('📊 Testing getUsageStatus()...');
+    // console.log('📊 Testing getUsageStatus()...');
     const status = await rfpUsageApi.getUsageStatus();
-    console.log('📊 Usage status:', status);
+    // console.log('📊 Usage status:', status);
     return status;
   } catch (error) {
-    console.error('❌ Error getting usage status:', error);
+    // console.error('❌ Error getting usage status:', error);
     return null;
   }
 }
@@ -24,12 +24,12 @@ export async function testGetUsageStatus() {
  */
 export async function testCheckOpportunity(opportunityId: number) {
   try {
-    console.log(`📊 Testing checkOpportunity(${opportunityId})...`);
+    // console.log(`📊 Testing checkOpportunity(${opportunityId})...`);
     const result = await rfpUsageApi.checkOpportunity(opportunityId);
-    console.log('📊 Opportunity check result:', result);
+    // console.log('📊 Opportunity check result:', result);
     return result;
   } catch (error) {
-    console.error('❌ Error checking opportunity:', error);
+    // console.error('❌ Error checking opportunity:', error);
     return null;
   }
 }
@@ -39,12 +39,12 @@ export async function testCheckOpportunity(opportunityId: number) {
  */
 export async function testRecordUsage(opportunityId: number) {
   try {
-    console.log(`📊 Testing recordUsage(${opportunityId})...`);
+    // console.log(`📊 Testing recordUsage(${opportunityId})...`);
     const result = await rfpUsageApi.recordUsage(opportunityId);
-    console.log('📊 Record usage result:', result);
+    // console.log('📊 Record usage result:', result);
     return result;
   } catch (error) {
-    console.error('❌ Error recording usage:', error);
+    // console.error('❌ Error recording usage:', error);
     return null;
   }
 }
@@ -69,9 +69,9 @@ export async function runFullTest(opportunityId: number) {
   console.group(`Step 3: Record usage for opportunity ${opportunityId}`);
   if (checkResult?.can_generate) {
     const recordResult = await testRecordUsage(opportunityId);
-    console.log('Record result:', recordResult);
+    // console.log('Record result:', recordResult);
   } else {
-    console.log('Cannot record usage - limit reached or existing report');
+    // console.log('Cannot record usage - limit reached or existing report');
   }
   console.groupEnd();
   

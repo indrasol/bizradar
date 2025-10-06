@@ -227,7 +227,7 @@ async def get_tracker_stats(user_id: str = Query(..., description="User ID")):
     try:
         supabase = get_supabase_client()
         
-        logger.info(f"Fetching tracker stats for user {user_id}")
+        # logger.info(f"Fetching tracker stats for user {user_id}")
         
         # Directly execute Supabase query synchronously
         response = supabase.table('trackers').select(
@@ -278,7 +278,7 @@ async def get_tracker_stats(user_id: str = Query(..., description="User ID")):
             "due_this_week": due_this_week
         }
         
-        logger.info(f"Tracker stats for user {user_id}: {stats}")
+        # logger.info(f"Tracker stats for user {user_id}: {stats}")
         
         return {
             "success": True,
@@ -286,7 +286,7 @@ async def get_tracker_stats(user_id: str = Query(..., description="User ID")):
         }
         
     except Exception as e:
-        logger.error(f"Error fetching tracker stats: {str(e)}")
+        # logger.error(f"Error fetching tracker stats: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail=f"Failed to fetch tracker stats: {str(e)}"
@@ -301,7 +301,7 @@ async def get_trackers(
 ):
     """Get all trackers for a user"""
     try:
-        logger.info(f"GET /trackers - user_id: {user_id}, is_submitted: {is_submitted}")
+        # logger.info(f"GET /trackers - user_id: {user_id}, is_submitted: {is_submitted}")
         trackers = await trackers_service.get_trackers(user_id, is_submitted)
         
         tracker_responses = [TrackerResponse(**tracker) for tracker in trackers]
@@ -313,7 +313,7 @@ async def get_trackers(
             message=f"Found {len(tracker_responses)} trackers"
         )
     except Exception as e:
-        logger.error(f"Error in GET /trackers: {str(e)}")
+        # logger.error(f"Error in GET /trackers: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch trackers: {str(e)}")
 
 @router.get("/{tracker_id}", response_model=TrackerResponse)
@@ -323,7 +323,7 @@ async def get_tracker_by_id(
 ):
     """Get a specific tracker by ID"""
     try:
-        logger.info(f"GET /trackers/{tracker_id} - user_id: {user_id}")
+        # logger.info(f"GET /trackers/{tracker_id} - user_id: {user_id}")
         tracker = await trackers_service.get_tracker_by_id(tracker_id, user_id)
         return TrackerResponse(**tracker)
     except Exception as e:
@@ -339,7 +339,7 @@ async def create_tracker(
 ):
     """Create a new tracker"""
     try:
-        logger.info(f"POST /trackers - user_id: {user_id}, title: {request.title}")
+        # logger.info(f"POST /trackers - user_id: {user_id}, title: {request.title}")
         tracker = await trackers_service.create_tracker(
             user_id=user_id,
             title=request.title,
@@ -351,7 +351,7 @@ async def create_tracker(
         )
         return TrackerResponse(**tracker)
     except Exception as e:
-        logger.error(f"Error in POST /trackers: {str(e)}")
+        # logger.error(f"Error in POST /trackers: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to create tracker: {str(e)}")
 
 @router.put("/{tracker_id}", response_model=TrackerResponse)
@@ -362,7 +362,7 @@ async def update_tracker(
 ):
     """Update an existing tracker"""
     try:
-        logger.info(f"PUT /trackers/{tracker_id} - user_id: {user_id}")
+        # logger.info(f"PUT /trackers/{tracker_id} - user_id: {user_id}")
         tracker = await trackers_service.update_tracker(
             tracker_id=tracker_id,
             user_id=user_id,
@@ -375,7 +375,7 @@ async def update_tracker(
         )
         return TrackerResponse(**tracker)
     except Exception as e:
-        logger.error(f"Error in PUT /trackers/{tracker_id}: {str(e)}")
+        # logger.error(f"Error in PUT /trackers/{tracker_id}: {str(e)}")
         if "not found" in str(e).lower():
             raise HTTPException(status_code=404, detail=f"Tracker not found: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to update tracker: {str(e)}")
@@ -387,11 +387,11 @@ async def delete_tracker(
 ):
     """Delete a tracker"""
     try:
-        logger.info(f"DELETE /trackers/{tracker_id} - user_id: {user_id}")
+        # logger.info(f"DELETE /trackers/{tracker_id} - user_id: {user_id}")
         result = await trackers_service.delete_tracker(tracker_id, user_id)
         return result
     except Exception as e:
-        logger.error(f"Error in DELETE /trackers/{tracker_id}: {str(e)}")
+        # logger.error(f"Error in DELETE /trackers/{tracker_id}: {str(e)}")
         if "not found" in str(e).lower():
             raise HTTPException(status_code=404, detail=f"Tracker not found: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to delete tracker: {str(e)}")
@@ -403,11 +403,11 @@ async def toggle_tracker_submitted(
 ):
     """Toggle the submitted status of a tracker"""
     try:
-        logger.info(f"POST /trackers/{tracker_id}/toggle-submitted - user_id: {user_id}")
+        # logger.info(f"POST /trackers/{tracker_id}/toggle-submitted - user_id: {user_id}")
         tracker = await trackers_service.toggle_submitted_status(tracker_id, user_id)
         return TrackerResponse(**tracker)
     except Exception as e:
-        logger.error(f"Error in POST /trackers/{tracker_id}/toggle-submitted: {str(e)}")
+        # logger.error(f"Error in POST /trackers/{tracker_id}/toggle-submitted: {str(e)}")
         if "not found" in str(e).lower():
             raise HTTPException(status_code=404, detail=f"Tracker not found: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to toggle submitted status: {str(e)}")

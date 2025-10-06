@@ -102,7 +102,7 @@ const OtpVerification: React.FC<OtpVerificationProps> = ({
         result = await verifyEmailOtp(email, otpString);
       }
       
-      console.log("OTP verification result:", result);
+      // console.log("OTP verification result:", result);
       
       toast.success("Successfully verified!", {
         description: isSignup ? "Welcome to Bizradar!" : "You're now logged in!",

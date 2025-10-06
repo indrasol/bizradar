@@ -11,7 +11,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from app.database.supabase import get_supabase_client
 from app.utils.logger import get_logger
 
-logger = get_logger(__name__)
+# logger = get_logger(__name__)
 
 def fix_database_schema():
     """Add missing columns to user_subscriptions table"""
@@ -52,22 +52,22 @@ def fix_database_schema():
         
         for i, sql in enumerate(sql_commands, 1):
             try:
-                logger.info(f"Executing SQL command {i}/{len(sql_commands)}")
+                # logger.info(f"Executing SQL command {i}/{len(sql_commands)}")
                 result = supabase.rpc('exec_sql', {'sql': sql.strip()}).execute()
-                logger.info(f"Command {i} executed successfully")
+                # logger.info(f"Command {i} executed successfully")
             except Exception as e:
-                logger.warning(f"Command {i} failed (this might be expected): {str(e)}")
+                # logger.warning(f"Command {i} failed (this might be expected): {str(e)}")
                 # Continue with other commands even if one fails
                 continue
         
-        logger.info("Database schema fix completed successfully!")
-        print("✅ Database schema has been updated successfully!")
-        print("✅ Missing columns added: monthly_searches_used, ai_rfp_responses_used")
-        print("✅ Plan type constraints updated to support 'pro' and 'premium'")
+        # logger.info("Database schema fix completed successfully!")
+        # print("✅ Database schema has been updated successfully!")
+        # print("✅ Missing columns added: monthly_searches_used, ai_rfp_responses_used")
+        # print("✅ Plan type constraints updated to support 'pro' and 'premium'")
         
     except Exception as e:
-        logger.error(f"Error fixing database schema: {str(e)}")
-        print(f"❌ Error fixing database schema: {str(e)}")
+        # logger.error(f"Error fixing database schema: {str(e)}")
+        # print(f"❌ Error fixing database schema: {str(e)}")
         return False
     
     return True
@@ -79,26 +79,26 @@ def test_subscription_creation():
         import uuid
         
         test_user_id = str(uuid.uuid4())
-        logger.info(f"Testing subscription creation with user ID: {test_user_id}")
+        # logger.info(f"Testing subscription creation with user ID: {test_user_id}")
         
         result = subscription_manager.get_subscription_status(test_user_id, create_if_missing=True)
-        logger.info("✅ Subscription creation test passed!")
-        print("✅ Subscription creation test passed!")
-        print(f"Created subscription: {result.get('plan_type', 'unknown')} tier")
+        # logger.info("✅ Subscription creation test passed!")
+        # print("✅ Subscription creation test passed!")
+        # print(f"Created subscription: {result.get('plan_type', 'unknown')} tier")
         
         return True
         
     except Exception as e:
-        logger.error(f"Subscription creation test failed: {str(e)}")
-        print(f"❌ Subscription creation test failed: {str(e)}")
+        # logger.error(f"Subscription creation test failed: {str(e)}")
+        # print(f"❌ Subscription creation test failed: {str(e)}")
         return False
 
 if __name__ == "__main__":
-    print("🔧 Fixing database schema for subscription system...")
+    # print("🔧 Fixing database schema for subscription system...")
     
     if fix_database_schema():
-        print("\n🧪 Testing subscription creation...")
+        # print("\n🧪 Testing subscription creation...")
         test_subscription_creation()
     else:
-        print("❌ Database schema fix failed. Please check the logs.")
+        # print("❌ Database schema fix failed. Please check the logs.")
         sys.exit(1)

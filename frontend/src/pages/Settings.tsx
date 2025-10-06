@@ -233,7 +233,7 @@ export const Settings = () => {
     setCodesLoading(true);
     
     // Security features removed - using Supabase Auth built-in security only
-    console.log('Security extras disabled - relying on Supabase Auth built-in features');
+    // console.log('Security extras disabled - relying on Supabase Auth built-in features');
     
     // Set empty defaults since we're not using custom security tables
     setBackupCodes([]);
@@ -348,7 +348,7 @@ export const Settings = () => {
       
       // If we have valid cached data, use it immediately
       if (cacheValid) {
-        console.log("Using cached settings data");
+        // console.log("Using cached settings data");
         setUserProfile(settingsCache.profile);
         setUserCompany(settingsCache.company);
         setUserPreferences(settingsCache.preferences);
@@ -443,7 +443,7 @@ export const Settings = () => {
         // Continue with existing cached data or defaults
       }
       // Security settings disabled - using Supabase Auth built-in security
-      console.log("Custom security settings disabled - using Supabase Auth defaults");
+      // console.log("Custom security settings disabled - using Supabase Auth defaults");
       setSecurityInfo({
         twoFactorEnabled: false, // Managed by Supabase Auth
         loginNotifications: true, // Default enabled
@@ -498,7 +498,7 @@ export const Settings = () => {
                 companyDescription: company.description,
               })
             );
-            console.log("Saved user profile to sessionStorage on load");
+            // console.log("Saved user profile to sessionStorage on load");
           }
         }
       }
@@ -624,7 +624,7 @@ export const Settings = () => {
           const result = await response.json();
           if (response.ok) {
             toast.success("Company website scraped and markdown generated.");
-            console.log("Scrape result:", result);
+            // console.log("Scrape result:", result);
             // Update company with markdown if successful
             if (userCompany?.id) {
               const { error: markdownError } = await supabase
@@ -665,7 +665,7 @@ export const Settings = () => {
             companyDescription: companyInfo.description,
           })
         );
-        console.log("Saved user profile to sessionStorage");
+        // console.log("Saved user profile to sessionStorage");
       }
       toast.success("Personal information updated successfully");
       setEditingPersonal(false);
@@ -738,7 +738,7 @@ export const Settings = () => {
           break;
       }
       // Security settings updates disabled - using Supabase Auth built-in features
-      console.log("Security setting update disabled:", setting, "=", value);
+      // console.log("Security setting update disabled:", setting, "=", value);
       setSecurityInfo((prev) => ({
         ...prev,
         [setting]: value,

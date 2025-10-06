@@ -37,7 +37,7 @@ const pursuitsCache = {
     pursuitsCache.data = null;
     pursuitsCache.timestamp = 0;
     pursuitsCache.filter = null;
-    console.log('Cleared pursuits cache');
+  // console.log('Cleared pursuits cache');
   };
 
 export default function Pursuits(): JSX.Element {
@@ -94,7 +94,7 @@ export default function Pursuits(): JSX.Element {
   // Function to handle navigation to BizRadar AI with tracker context
   const navigateToBizRadarAI = async (pursuit: Pursuit, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent row click event from firing
-    console.log("Ask BizRadar AI button clicked for tracker:", pursuit);
+    // console.log("Ask BizRadar AI button clicked for tracker:", pursuit);
     
     try {
       // Fetch the noticeId from the sam_gov table using the title
@@ -117,7 +117,7 @@ export default function Pursuits(): JSX.Element {
       }
 
       const noticeId = data ? data.notice_id : null;
-      console.log("Found notice ID:", noticeId);
+      // console.log("Found notice ID:", noticeId);
       
       // Get the current user ID
       const { data: { user } } = await supabase.auth.getUser();
@@ -152,9 +152,9 @@ export default function Pursuits(): JSX.Element {
         }
         
         const responseData = await backendResponse.json();
-        console.log("Successfully hit backend endpoint:", responseData);
+        // console.log("Successfully hit backend endpoint:", responseData);
       } catch (apiError) {
-        console.error("Error hitting backend endpoint:", apiError);
+        // console.error("Error hitting backend endpoint:", apiError);
         // Continue with navigation even if the API call fails
       }
       
@@ -174,7 +174,7 @@ export default function Pursuits(): JSX.Element {
         }
       });
     } catch (error) {
-      console.error("Error navigating to BizRadarAI:", error);
+      // console.error("Error navigating to BizRadarAI:", error);
       toast?.error("An error occurred. Please try again.");
     }
   };
@@ -253,16 +253,16 @@ export default function Pursuits(): JSX.Element {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
-        console.log("No user logged in");
+    // console.log("No user logged in");
         return;
       }
       
-      console.log("Adding to trackers:", {
-        title: opportunity.title || "Untitled",
-        description: opportunity.description || "",
-        stage: "Assessment",
-        user_id: user.id
-      });
+    // console.log("Adding to trackers:", {
+    //     title: opportunity.title || "Untitled",
+    //     description: opportunity.description || "",
+    //     stage: "Assessment",
+    //     user_id: user.id
+    //   });
       
       // Create new tracker using API
       const trackerData = {
@@ -274,7 +274,7 @@ export default function Pursuits(): JSX.Element {
       
       const newTracker = await trackersApi.createTracker(trackerData, user.id);
       
-      console.log("Added successfully:", newTracker);
+      // console.log("Added successfully:", newTracker);
       
       if (newTracker) {
         // Show notification
@@ -315,7 +315,7 @@ export default function Pursuits(): JSX.Element {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
-        console.log("No user logged in");
+    // console.log("No user logged in");
         return;
       }
 
@@ -348,7 +348,7 @@ export default function Pursuits(): JSX.Element {
       
       setPursuits(prevPursuits => [formattedPursuit, ...prevPursuits]);
     } catch (error) {
-      console.error("Error creating pursuit:", error);
+      // console.error("Error creating pursuit:", error);
       toast?.error("Failed to create tracker. Please try again.");
     }
   };
@@ -381,8 +381,8 @@ export default function Pursuits(): JSX.Element {
         pursuitsCache.filter === filter;
       
       // If we have valid cached data, use it immediately
-      if (cacheValid) {
-        console.log("Using cached pursuits data");
+    if (cacheValid) {
+      // console.log("Using cached pursuits data");
         setPursuits(pursuitsCache.data);
         
         // Still mark as loading to show we're checking for updates
@@ -414,7 +414,7 @@ export default function Pursuits(): JSX.Element {
         
         // Show retry option
         setTimeout(() => {
-          console.log('Retrying fetch after error...');
+          // console.log('Retrying fetch after error...');
           fetchTrackers();
         }, 3000);
         return;
@@ -484,7 +484,7 @@ export default function Pursuits(): JSX.Element {
           filter: `user_id=eq.${supabase.auth.getUser().then(res => res.data.user?.id)}` 
         }, 
         (payload) => {
-          console.log('Change received!', payload);
+        // console.log('Change received!', payload);
           fetchTrackers(); // Refresh the list when changes occur
         }
       )
@@ -612,7 +612,7 @@ export default function Pursuits(): JSX.Element {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
-        console.log("No user logged in");
+    // console.log("No user logged in");
         return;
       }
       
@@ -715,7 +715,7 @@ export default function Pursuits(): JSX.Element {
           report = await reportsApi.getReportByResponseId(pursuitId, user.id);
         } catch (error) {
           // Report doesn't exist, create one
-          console.log("No report found for this tracker. Creating one before marking as submitted...");
+          // console.log("No report found for this tracker. Creating one before marking as submitted...");
           
           // Get tracker details
           const tracker = await trackersApi.getTrackerById(pursuitId, user.id);
@@ -735,13 +735,13 @@ export default function Pursuits(): JSX.Element {
             tracker.opportunity_id
           );
           
-          console.log("Created report and marked as submitted:", report);
+          // console.log("Created report and marked as submitted:", report);
         }
         
         if (report && !report.is_submitted) {
           // Update report submission status
           await reportsApi.toggleSubmittedStatus(pursuitId, user.id);
-          console.log("Updated report submission status to submitted");
+          // console.log("Updated report submission status to submitted");
         }
       } catch (reportError) {
         console.error("Error managing report for submission:", reportError);
@@ -751,7 +751,7 @@ export default function Pursuits(): JSX.Element {
       
       // Toggle tracker submission status using API
       await trackersApi.toggleSubmittedStatus(pursuitId, user.id);
-      console.log("Updated tracker submission status to submitted");
+      // console.log("Updated tracker submission status to submitted");
       
       // Update the local state
       setPursuits(pursuits.map(pursuit => 
@@ -783,7 +783,7 @@ export default function Pursuits(): JSX.Element {
       const customEvent = event as CustomEvent<RfpSaveEventDetail>;
       const { pursuitId, stage, percentage } = customEvent.detail;
 
-      console.log("RFP saved event received:", { pursuitId, stage, percentage });
+    // console.log("RFP saved event received:", { pursuitId, stage, percentage });
 
       // Update the pursuit in your list immediately for better UX
       setPursuits(prevPursuits => 
@@ -797,7 +797,7 @@ export default function Pursuits(): JSX.Element {
       // Also refresh data from server to ensure consistency
       try {
         await fetchTrackers(true); // Force refresh
-        console.log("Refreshed trackers data after RFP save");
+        // console.log("Refreshed trackers data after RFP save");
       } catch (error) {
         console.error("Error refreshing trackers after RFP save:", error);
       }

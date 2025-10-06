@@ -94,11 +94,11 @@ export default function ReportsList(): JSX.Element {
         }
 
         try {
-          console.log('Calling reportsApi.getReports with:', { userId, modeSubmitted });
+          // console.log('Calling reportsApi.getReports with:', { userId, modeSubmitted });
           const reportsResponse = await reportsApi.getReports(userId, modeSubmitted);
-          console.log('Reports API response:', reportsResponse);
-          console.log('Reports API response type:', typeof reportsResponse);
-          console.log('Reports API response keys:', reportsResponse ? Object.keys(reportsResponse) : 'undefined');
+          // console.log('Reports API response:', reportsResponse);
+          // console.log('Reports API response type:', typeof reportsResponse);
+          // console.log('Reports API response keys:', reportsResponse ? Object.keys(reportsResponse) : 'undefined');
           const reports = reportsResponse?.reports || [];
           
           const merged: ReportItem[] = (reports || []).map((r: any) => {
@@ -125,12 +125,12 @@ export default function ReportsList(): JSX.Element {
             setItems(merged);
           }
         } catch (apiError) {
-          console.error('Reports API error:', apiError);
+          // console.error('Reports API error:', apiError);
           throw apiError;
         }
       } catch (e: any) {
         if (!cancelled) {
-          console.error("Failed to load reports:", e);
+      // console.error("Failed to load reports:", e);
           toast.error("Failed to load reports.");
           setItems([]);
         }
@@ -180,7 +180,7 @@ export default function ReportsList(): JSX.Element {
 
       toast.success(checked ? "Marked as submitted" : "Marked as ongoing");
     } catch (e: any) {
-      console.error(e);
+      // console.error(e);
       toast.error("Failed to update submission state.");
       // Revert
       setItems((prev) =>
@@ -233,22 +233,13 @@ export default function ReportsList(): JSX.Element {
   };
 
   const handleEditResponse = (item: ReportItem) => {
-    console.log('🔍 Reports Edit Debug:', {
-      item: item,
-      opportunity_id: item.opportunity_id,
-      pursuit_id: item.pursuit_id,
-      contractId: item.opportunity_id || item.pursuit_id
-    });
+    // console.log('🔍 Reports Edit Debug:', { item, opportunity_id: item.opportunity_id, pursuit_id: item.pursuit_id });
     
-    console.log('🔍 About to resolve opportunity_id...');
+    // console.log('🔍 About to resolve opportunity_id...');
     
     // Try to get opportunity_id from the content if it's not directly available
     const opportunityId = item.opportunity_id || item.content?.opportunity_id || null;
-    console.log('🔍 Opportunity ID resolution:', {
-      direct: item.opportunity_id,
-      fromContent: item.content?.opportunity_id,
-      resolved: opportunityId
-    });
+    // console.log('🔍 Opportunity ID resolution:', { direct: item.opportunity_id, fromContent: item.content?.opportunity_id, resolved: opportunityId });
     
     const contract = {
       id: item.opportunity_id || item.pursuit_id, // Use opportunity_id if available, fallback to pursuit_id

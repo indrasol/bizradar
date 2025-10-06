@@ -9,7 +9,7 @@ export const subscriptionApi = {
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
-      console.log("No user logged in");
+      // console.log("No user logged in");
       return null;
     }
     

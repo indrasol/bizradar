@@ -17,18 +17,18 @@ stripe.api_key = settings.get_stripe_secret_key()
 
 # Configure logging
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
-logger = logging.getLogger(__name__)
-logger.info(f"######################################################")
+# logger = logging.getLogger(__name__)
+# logger.info(f"######################################################")
 # Sanitize webhook secret to avoid trailing/leading whitespace issues
 WEBHOOK_SECRET = (STRIPE_WEBHOOK_SECRET or "").strip()
 masked_whsec = ("******" + WEBHOOK_SECRET[-4:]) if WEBHOOK_SECRET else "None"
-logger.info(f"STRIPE_WEBHOOK_SECRET (masked): {masked_whsec}")
-logger.info(f"######################################################")
+# logger.info(f"STRIPE_WEBHOOK_SECRET (masked): {masked_whsec}")
+# logger.info(f"######################################################")
 
 def validate_stripe_config():
     """Validate that Stripe is properly configured"""
     if not stripe.api_key or stripe.api_key == '':
-        logger.error("Stripe API key not configured")
+        # logger.error("Stripe API key not configured")
         raise HTTPException(
             status_code=500, 
             detail="Stripe API key not configured. Please check environment variables."
@@ -61,10 +61,10 @@ def hydrate_event_if_needed(event: Dict[str, Any]) -> Dict[str, Any]:
                 full_evt = stripe.Event.retrieve(evt_id)
                 return full_evt
             except Exception as retrieve_error:
-                logger.warning(f"Failed to hydrate thin event {evt_id}: {str(retrieve_error)}")
-        return event
+                # logger.warning(f"Failed to hydrate thin event {evt_id}: {str(retrieve_error)}")
+                return event
     except Exception as e:
-        logger.warning(f"hydrate_event_if_needed error: {str(e)}")
+        # logger.warning(f"hydrate_event_if_needed error: {str(e)}")
         return event
 
 
@@ -88,10 +88,10 @@ def get_plan_by_price_id(price_id: str) -> Optional[Dict[str, Any]]:
             plan_period = row.get('plan_period')
             if plan_type and plan_id:
                 return { 'id': plan_id, 'plan_type': plan_type, 'plan_period': plan_period }
-        logger.error(f"Unknown price ID in subscriptions: {price_id}")
+        # logger.error(f"Unknown price ID in subscriptions: {price_id}")
         return None
     except Exception as e:
-        logger.error(f"Error fetching plan for price_id {price_id}: {str(e)}")
+        # logger.error(f"Error fetching plan for price_id {price_id}: {str(e)}")
         return None
 
 
@@ -164,7 +164,7 @@ def get_user_id_from_customer(customer_id: str) -> str:
                 )
                 link_data = getattr(link_res, 'data', None) or []
                 if link_data:
-                    logger.info(f"Linked Stripe customer {customer_id} to user {metadata_user_id} via metadata.user_id")
+                    # logger.info(f"Linked Stripe customer {customer_id} to user {metadata_user_id} via metadata.user_id")
                     return metadata_user_id
 
             customer_email = getattr(customer, 'email', None)
@@ -179,18 +179,18 @@ def get_user_id_from_customer(customer_id: str) -> str:
                 link_data = getattr(link_res, 'data', None) or []
                 if link_data:
                     linked_id = link_data[0]['id']
-                    logger.info(f"Linked Stripe customer {customer_id} to user {linked_id} via email {customer_email}")
+                    # logger.info(f"Linked Stripe customer {customer_id} to user {linked_id} via email {customer_email}")
                     return linked_id
 
-            logger.error(f"No user found to link with Stripe customer ID: {customer_id}")
+            # logger.error(f"No user found to link with Stripe customer ID: {customer_id}")
             raise HTTPException(status_code=400, detail="User not found")
         except Exception as e:
-            logger.error(f"Error fetching customer from Stripe: {str(e)}")
+            # logger.error(f"Error fetching customer from Stripe: {str(e)}")
             raise HTTPException(status_code=500, detail="Error processing webhook")
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error fetching user ID from customer: {str(e)}")
+        # logger.error(f"Error fetching user ID from customer: {str(e)}")
         raise HTTPException(status_code=500, detail="Error processing webhook")
 
 
@@ -240,7 +240,7 @@ def update_user_subscription(
                 update_payload['prev_subscription_plan_id'] = prev_plan_id
 
             supabase.table('user_subscriptions').update(update_payload).eq('user_id', user_id).execute()
-            logger.info(f"Updated existing subscription for user {user_id} to {plan_type} ({status})")
+            # logger.info(f"Updated existing subscription for user {user_id} to {plan_type} ({status})")
         else:
             now_iso = datetime.now(timezone.utc).isoformat()
             insert_payload = {
@@ -256,9 +256,9 @@ def update_user_subscription(
                 'ai_rfp_responses_used': 0,
             }
             supabase.table('user_subscriptions').upsert(insert_payload, on_conflict='user_id').execute()
-            logger.info(f"Created new subscription for user {user_id} to {plan_type} ({status})")
+            # logger.info(f"Created new subscription for user {user_id} to {plan_type} ({status})")
     except Exception as e:
-        logger.error(f"Error updating user subscription: {str(e)}")
+        # logger.error(f"Error updating user subscription: {str(e)}")
         raise
 
 
@@ -268,22 +268,22 @@ async def stripe_webhook(request: Request):
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature")
     content_type = request.headers.get("content-type")
-    logger.info(f"Webhook received: content-type={content_type}, body_len={len(payload)}, sig_header_present={bool(sig_header)}")
+    # logger.info(f"Webhook received: content-type={content_type}, body_len={len(payload)}, sig_header_present={bool(sig_header)}")
 
     # Only require signature header if a webhook secret is configured
     if WEBHOOK_SECRET and not sig_header:
-        logger.error("Missing Stripe-Signature header while secret is configured")
+        # logger.error("Missing Stripe-Signature header while secret is configured")
         raise HTTPException(status_code=400, detail="Missing Stripe-Signature header")
     
     # Validate webhook secret is configured
     if not WEBHOOK_SECRET:
-        logger.error("STRIPE_WEBHOOK_SECRET is not configured")
-        logger.warning("Attempting to parse webhook without signature verification")
+        # logger.error("STRIPE_WEBHOOK_SECRET is not configured")
+        # logger.warning("Attempting to parse webhook without signature verification")
         try:
             # Parse without signature verification (for development/testing)
             event = json.loads(payload.decode('utf-8'))
         except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse webhook payload as JSON: {str(e)}")
+            # logger.error(f"Failed to parse webhook payload as JSON: {str(e)}")
             raise HTTPException(status_code=400, detail="Invalid payload format")
     else:
         try:
@@ -291,12 +291,12 @@ async def stripe_webhook(request: Request):
             event = stripe.Webhook.construct_event(payload, sig_header, WEBHOOK_SECRET)
         except ValueError as e:
             # Invalid payload
-            logger.error(f"Invalid payload: {str(e)}")
+            # logger.error(f"Invalid payload: {str(e)}")
             raise HTTPException(status_code=400, detail="Invalid payload")
         except stripe.error.SignatureVerificationError as e:
             # Invalid signature
             # Log short diagnostics to help differentiate bad secret vs altered body
-            logger.error(f"Invalid signature: {str(e)} | body_len={len(payload)} | sig_prefix={(sig_header or '')[:16]}")
+            # logger.error(f"Invalid signature: {str(e)} | body_len={len(payload)} | sig_prefix={(sig_header or '')[:16]}")
             raise HTTPException(status_code=400, detail="Invalid signature")
     
     # Keep original for potential thin-payload helpers, then hydrate if possible
@@ -308,7 +308,7 @@ async def stripe_webhook(request: Request):
         event_type = event["type"]
     except Exception:
         event_type = getattr(event, "type", None) or getattr(original_event, "type", None) or "unknown"
-    logger.info(f"Received event: {event_type}")
+    # logger.info(f"Received event: {event_type}")
     
     if event_type == "checkout.session.completed":
         # Prefer snapshot payload
@@ -332,10 +332,11 @@ async def stripe_webhook(request: Request):
                     if ro_id and "checkout.session" in ro_type:
                         session = stripe.checkout.Session.retrieve(ro_id)
             except Exception as e:
-                logger.warning(f"Unable to hydrate checkout session from thin payload: {str(e)}")
+                # logger.warning(f"Unable to hydrate checkout session from thin payload: {str(e)}")
+                pass
 
         if not session:
-            logger.error("Missing session data for checkout.session.completed")
+            # logger.error("Missing session data for checkout.session.completed")
             return {"status": "success"}
         await handle_checkout_session_completed(session)
     elif event_type in [
@@ -362,33 +363,36 @@ async def stripe_webhook(request: Request):
                     if ro_id and "subscription" in ro_type:
                         subscription = stripe.Subscription.retrieve(ro_id)
             except Exception as e:
-                logger.warning(f"Unable to hydrate subscription from thin payload: {str(e)}")
+                # logger.warning(f"Unable to hydrate subscription from thin payload: {str(e)}")
+                pass
 
         if not subscription:
-            logger.error(f"No subscription object available for event {event_type}")
+            # logger.error(f"No subscription object available for event {event_type}")
             return {"status": "success"}
         await handle_subscription_updated(subscription)
     else:
         # Gracefully handle unrelated thin events (e.g., billing.meter) without failing
         obj_type = original_event.get("object") if isinstance(original_event, dict) else getattr(original_event, "object", None)
         if obj_type == "v2.core.event":
-            logger.info(f"Thin event received and ignored (no handler): {event_type}")
+            # logger.info(f"Thin event received and ignored (no handler): {event_type}")
+            pass
         else:
-            logger.info(f"Event received and ignored (no handler): {event_type}")
+            # logger.info(f"Event received and ignored (no handler): {event_type}")
+            pass
     
     return {"status": "success"}
 
 
 async def handle_checkout_session_completed(session: Dict[str, Any]) -> None:
     """Handle successful checkout session"""
-    logger.info(f"Processing checkout.session.completed for session: {session['id']}")
+    # logger.info(f"Processing checkout.session.completed for session: {session['id']}")
     
     # Get the customer ID and subscription ID from the session
     customer_id = session.get("customer")
     subscription_id = session.get("subscription")
     
     if not customer_id or not subscription_id:
-        logger.error("Missing customer_id or subscription_id in session")
+        # logger.error("Missing customer_id or subscription_id in session")
         return
     
     # Retrieve the subscription to get the plan details
@@ -396,16 +400,17 @@ async def handle_checkout_session_completed(session: Dict[str, Any]) -> None:
         subscription = stripe.Subscription.retrieve(subscription_id)
         await handle_subscription_updated(subscription)
     except Exception as e:
-        logger.error(f"Error retrieving subscription {subscription_id}: {str(e)}")
+        # logger.error(f"Error retrieving subscription {subscription_id}: {str(e)}")
+        pass
 
 
 async def handle_subscription_updated(subscription: Dict[str, Any]) -> None:
     """Handle subscription created/updated events"""
-    logger.info(f"Processing subscription update: {subscription['id']}")
+    # logger.info(f"Processing subscription update: {subscription['id']}")
     
     customer_id = subscription.get("customer")
     if not customer_id:
-        logger.error("No customer ID in subscription")
+        # logger.error("No customer ID in subscription")
         return
     
     # Get the price ID from the subscription
@@ -414,13 +419,13 @@ async def handle_subscription_updated(subscription: Dict[str, Any]) -> None:
         price_id = subscription["items"]["data"][0].get("price", {}).get("id")
     
     if not price_id:
-        logger.error(f"No price ID found in subscription {subscription['id']}")
+        # logger.error(f"No price ID found in subscription {subscription['id']}")
         return
     
     # Map price ID to plan via DB lookup
     plan = get_plan_by_price_id(price_id)
     if not plan:
-        logger.error(f"Unknown price ID: {price_id}")
+        # logger.error(f"Unknown price ID: {price_id}")
         return
     plan_type = plan['plan_type']
     plan_id = plan['id']
@@ -444,11 +449,13 @@ async def handle_subscription_updated(subscription: Dict[str, Any]) -> None:
             plan_period=plan_period
         )
         
-        logger.info(f"Successfully updated subscription for user {user_id} to {plan_type} ({status})")
+        # logger.info(f"Successfully updated subscription for user {user_id} to {plan_type} ({status})")
     except HTTPException as e:
-        logger.error(f"HTTP error updating subscription: {e.detail}")
+        # logger.error(f"HTTP error updating subscription: {e.detail}")
+        pass
     except Exception as e:
-        logger.error(f"Error updating subscription: {str(e)}")
+        # logger.error(f"Error updating subscription: {str(e)}")
+        pass
 
 @router.get("/api/stripe/price-id")
 def get_stripe_price_id(plan_type: str, billing_cycle: str = "monthly"):
@@ -480,7 +487,7 @@ def get_stripe_price_id(plan_type: str, billing_cycle: str = "monthly"):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error resolving Stripe price id: {str(e)}")
+        # logger.error(f"Error resolving Stripe price id: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to resolve price id")
 
 @router.get("/api/stripe/billing-history")
@@ -489,18 +496,18 @@ def get_billing_history(user_id: str):
     try:
         validate_stripe_config()
         supabase = get_supabase_connection(use_service_key=True)
-        print(f"Getting billing history for user {user_id}")
+        # print(f"Getting billing history for user {user_id}")
         prof = supabase.table('profiles').select('stripe_customer_id').eq('id', user_id).limit(1).execute()
-        print(f"Profile: {prof}")
+        # print(f"Profile: {prof}")
         data = getattr(prof, 'data', None) or []
         if not data or not data[0].get('stripe_customer_id'):
             raise HTTPException(status_code=404, detail="Stripe customer not found for user")
         customer_id = data[0]['stripe_customer_id']
-        print(f"Customer ID: {customer_id}")
+        # print(f"Customer ID: {customer_id}")
         invoices = stripe.Invoice.list(customer=customer_id, limit=3)
         items = []
         for inv in invoices.data:
-            print(f"Invoice: {inv}")
+            # print(f"Invoice: {inv}")
             items.append({
                 "id": inv.id,
                 "number": getattr(inv, 'number', None),
@@ -512,10 +519,10 @@ def get_billing_history(user_id: str):
                 "invoice_pdf": getattr(inv, 'invoice_pdf', None),
                 "currency": getattr(inv, 'currency', 'usd')
             })
-        print(f"Items: {items}")
+        # print(f"Items: {items}")
         return { "invoices": items }
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error fetching billing history: {str(e)}")
+        # logger.error(f"Error fetching billing history: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to fetch billing history")

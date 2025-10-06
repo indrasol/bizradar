@@ -73,7 +73,7 @@ const CompanySetup: React.FC = () => {
         throw new Error('User not authenticated');
       }
 
-      console.log('Setting up company with data:', formData);
+      // console.log('Setting up company with data:', formData);
 
       const setupData: CompanySetupData = {
         user_id: user.id,
@@ -88,7 +88,7 @@ const CompanySetup: React.FC = () => {
       sessionStorage.setItem('showWelcomeMessage', 'true');
       navigate('/setup-complete');
     } catch (error: any) {
-      console.error('Error setting up company:', error);
+      // console.error('Error setting up company:', error);
       toast.error(
         error.message || 'Failed to set up company. Please try again.',
         ResponsivePatterns.toast.config

@@ -111,7 +111,7 @@ const Signup = ({
 
   // Handle signup form submission
   const onSignupSubmit = async (values: SignupFormValues) => {
-    console.log("Signup values:", values);
+    // console.log("Signup values:", values);
 
     setIsLoading(true);
     setError(null);

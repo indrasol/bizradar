@@ -50,10 +50,10 @@ export function TrackerProvider({
         if (session?.access_token) {
           const sessionId = extractSessionId(session.access_token);
           setCurrentSessionId(sessionId);
-          console.log('🔐 Session ID extracted for tracking:', sessionId);
+          // console.log('🔐 Session ID extracted for tracking:', sessionId);
         } else {
           setCurrentSessionId(null);
-          console.log('🔐 No session, clearing session_id for tracking');
+          // console.log('🔐 No session, clearing session_id for tracking');
         }
       }
     );
@@ -64,7 +64,7 @@ export function TrackerProvider({
       if (session?.access_token) {
         const sessionId = extractSessionId(session.access_token);
         setCurrentSessionId(sessionId);
-        console.log('🔐 Initial session ID extracted for tracking:', sessionId);
+        // console.log('🔐 Initial session ID extracted for tracking:', sessionId);
       }
     };
     

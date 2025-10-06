@@ -170,7 +170,7 @@ export const GovernmentContracts = () => {
       naicsCode: result.naics_code?.toString() || "N/A",
     }));
   
-    console.log("Formatted results:", formattedResults);
+    // console.log("Formatted results:", formattedResults);
     setContracts(formattedResults);
   };
 

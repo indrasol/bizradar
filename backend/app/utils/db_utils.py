@@ -18,7 +18,7 @@ except Exception:
     create_client = None  # Lazily error when used
 
 # Configure logging
-logger = get_logger(__name__)
+# logger = get_logger(__name__)
 
 class MissingEnvironmentVariableError(Exception):
     pass
@@ -65,10 +65,10 @@ def get_db_connection():
         conn = psycopg2.connect(**connection_params)
         return conn
     except MissingEnvironmentVariableError as e:
-        logger.error(f"Missing env var: {e}")
+        # logger.error(f"Missing env var: {e}")
         raise
     except Exception as e:
-        logger.error(f"Database connection error: {e}")
+        # logger.error(f"Database connection error: {e}")
         raise
 
 def get_supabase_connection(use_service_key: bool = True):
@@ -90,11 +90,12 @@ def get_supabase_connection(use_service_key: bool = True):
 
         url = SUPABASE_URL
         service_key = SUPABASE_SERVICE_KEY
-        print(f"Service key: {service_key}")
+        # print(f"Service key: {service_key}")
         anon_key = SUPABASE_ANON_KEY
-        print(f"Anon key: {anon_key}")
+        # print(f"Anon key: {anon_key}")
         key = service_key if (use_service_key and service_key) else (anon_key or service_key)
-        print(f"Key: {key}")
+        # Do not log the actual key value
+        # print(f"Key type: {'service' if use_service_key and service_key else 'anon'}")
         if not url or not key:
             raise MissingEnvironmentVariableError(
                 "Missing SUPABASE_URL and/or SUPABASE_*_KEY settings"
@@ -103,14 +104,14 @@ def get_supabase_connection(use_service_key: bool = True):
             raise RuntimeError(
                 "Supabase client not installed. Please install with: pip install supabase"
             )
-        print(f"URL: {url}")
-        print(f"Key: {key}")
+        # print(f"URL: {url}")
+        # print(f"Key: {key}")
         client = create_client(url, key)
-        print(f"Client: {client}")
-        logger.info("Supabase client initialized")
+        # print(f"Client: {client}")
+        # logger.info("Supabase client initialized")
         return client
     except Exception as e:
-        logger.error(f"Supabase client initialization error: {e}")
+        # logger.error(f"Supabase client initialization error: {e}")
         raise
 
 def initialize_tables():

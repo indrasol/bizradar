@@ -39,7 +39,7 @@ const TrackerStatsWidget: React.FC<TrackerStatsWidgetProps> = ({ className = '' 
       const { success, stats } = (await trackersApi.getTrackerStats(user.id)) || {};
       if (success) {
         setStats(stats);
-        console.log('Fetched tracker stats:', stats);
+        // console.log('Fetched tracker stats:', stats);
       } else {
         console.warn('API returned success=false');
         setStats({
@@ -52,7 +52,7 @@ const TrackerStatsWidget: React.FC<TrackerStatsWidgetProps> = ({ className = '' 
       }
       
     } catch (error) {
-      console.error('Error fetching tracker stats:', error);
+      // console.error('Error fetching tracker stats:', error);
       toast.error('Failed to load tracker statistics');
       setStats({
         total: 0,

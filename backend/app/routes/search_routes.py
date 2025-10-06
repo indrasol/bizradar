@@ -126,11 +126,11 @@ async def process_documents(request: Request):
     in AI conversations.
     """
     try:
-        logger.info("process-documents endpoint called")
+        # logger.info("process-documents endpoint called")
         
         # Parse request data
         data = await request.json()
-        logger.info(f"Request data parsed successfully, contains {len(data.get('files', []))} files")
+        # logger.info(f"Request data parsed successfully, contains {len(data.get('files', []))} files")
         
         # Extract parameters from the request
         pursuit_id = data.get("pursuitId")
@@ -153,7 +153,7 @@ async def process_documents(request: Request):
         
         # Import the document processing service
         from services.doc_processing import process_multiple_files, get_file_icon
-        logger.info("Successfully imported document processing service")
+        # logger.info("Successfully imported document processing service")
         
         # Process files using the service
         processed_files = process_multiple_files(files)
@@ -176,7 +176,7 @@ async def process_documents(request: Request):
         redis_client = RedisClient()
         context_key = f"user:{user_id}:doc_context"
         redis_client.set_json(context_key, processed_files, expiry=86400)
-        logger.info(f"Stored document context in Redis with key {context_key}")
+        # logger.info(f"Stored document context in Redis with key {context_key}")
         
         # Also store the file metadata (without the text content) for UI display
         ui_file_info = [{
@@ -197,7 +197,7 @@ async def process_documents(request: Request):
         }
         
     except Exception as e:
-        logger.error(f"Unhandled error in process-documents endpoint: {str(e)}")
+        # logger.error(f"Unhandled error in process-documents endpoint: {str(e)}")
         return JSONResponse(
             status_code=500,
             content={
@@ -222,7 +222,7 @@ async def test_redis_connection(request: Request):
             "timestamp": str(datetime.now())
         }
     except Exception as e:
-        logger.error(f"Redis test error: {e}")
+        # logger.error(f"Redis test error: {e}")
         return {"connection_status": "failed", "error": str(e), "timestamp": str(datetime.now())}
 
 @search_router.post("/search-opportunities")
@@ -582,7 +582,7 @@ async def get_cached_recommendations(request: Request):
         return {"recommendations": [], "cached": False}
 
     except Exception as e:
-        logger.error(f"Error processing request: {str(e)}")
+        # logger.error(f"Error processing request: {str(e)}")
         return {"error": str(e)}
 
 @search_router.post("/get-opportunities-by-ids")
@@ -643,7 +643,7 @@ async def get_opportunities_by_ids(request: Request):
         return {"results": results}
 
     except Exception as e:
-        logger.error(f"Error processing request: {str(e)}")
+        # logger.error(f"Error processing request: {str(e)}")
         return {"error": str(e)}
 
 @search_router.post("/clear-cache")
@@ -729,7 +729,7 @@ async def get_ai_recommendations(request: Request):
         # Enforce subscription/trial access
         ensure_active_access(user_id)
 
-        logger.info(f"Received AI recommendations request with {len(opportunities)} opportunities")
+        # logger.info(f"Received AI recommendations request with {len(opportunities)} opportunities")
         if not company_description:
             raise HTTPException(status_code=400, detail="Company description is required")
 
@@ -741,7 +741,7 @@ async def get_ai_recommendations(request: Request):
             
             cached_recs = redis_client.get_json(rec_cache_key)
             if cached_recs:
-                logger.info(f"Returning cached recommendations for query: {search_query}")
+                # logger.info(f"Returning cached recommendations for query: {search_query}")
                 return {
                     "recommendations": cached_recs,
                     "fromCache": True,
@@ -763,7 +763,7 @@ async def get_ai_recommendations(request: Request):
         # 2) Poll for client disconnect and cancel if it occurs
         while not ai_task.done():
             if await request.is_disconnected():
-                logger.info("Client disconnected, cancelling AI task")
+                # logger.info("Client disconnected, cancelling AI task")
                 ai_task.cancel()
                 break
             await asyncio.sleep(0.1)
@@ -775,7 +775,7 @@ async def get_ai_recommendations(request: Request):
             # Client aborted -- return an HTTP 499
             return JSONResponse(status_code=499, content={"detail": "Client disconnected. Recommendation cancelled."})
         except Exception as e:
-            logger.error(f"Error generating AI recommendations: {e}")
+            # logger.error(f"Error generating AI recommendations: {e}")
             recommendations = {"recommendations": []}
 
         # 4) Validate and enhance output
@@ -825,7 +825,7 @@ async def get_ai_recommendations(request: Request):
         }
 
     except Exception as e:
-        logger.error(f"Error processing request: {str(e)}")
+        # logger.error(f"Error processing request: {str(e)}")
         return {"error": str(e)}
 
 @search_router.post("/generate-rfp/{contract_id}")
@@ -834,7 +834,7 @@ async def generate_rfp(contract_id: str, request: Request):
     Generate RFP (Request for Proposal) for a specific contract
     with enhanced error handling and flexible path resolution
     """
-    print("Generating RFP")
+    # print("Generating RFP")
     try:
         # Create output directory with robust path handling
         output_dir = os.path.join(os.path.dirname(__file__), "..", "services", "generated_rfps")
@@ -934,7 +934,7 @@ async def ask_ai(request: Request):
 Please provide clear, concise, and professional responses focused on helping users understand and work with RFP documents."""
 
         client = get_openai_client()
-        logger.info("OpenAI client initialized successfully")
+        # logger.info("OpenAI client initialized successfully")
         response = client.chat.completions.create(
             model="gpt-4-turbo-preview",
             messages=[
@@ -945,14 +945,14 @@ Please provide clear, concise, and professional responses focused on helping use
             max_tokens=500,
             n=1
         )
-        logger.info("OpenAI response received")
+        # logger.info("OpenAI response received")
         return {
             "response": response.choices[0].message.content,
             "tokens_used": response.usage.total_tokens if response.usage else None
         }
 
     except Exception as e:
-        print(f"Error in ask-ai endpoint: {str(e)}")
+        # print(f"Error in ask-ai endpoint: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @search_router.post("/process-document")
@@ -990,7 +990,7 @@ async def process_document(request: Request):
             max_tokens=4000,
             n=1
         )
-        logger.info("OpenAI response received")
+        # logger.info("OpenAI response received")
         processed_content = response.choices[0].message.content
         
         # Strip any potential markdown code blocks
@@ -1006,7 +1006,7 @@ async def process_document(request: Request):
         }
 
     except Exception as e:
-        print(f"Comprehensive document processing error: {str(e)}")
+        # print(f"Comprehensive document processing error: {str(e)}")
         raise HTTPException(
             status_code=500, 
             detail={
@@ -1032,7 +1032,7 @@ async def generate_company_markdown_endpoint(request: Request):
         if not company_url:
             raise HTTPException(status_code=400, detail="Missing 'companyUrl' in request body")
 
-        logger.info(f"Generating markdown for company: {company_url}")
+        # logger.info(f"Generating markdown for company: {company_url}")
         
         markdown = await generate_company_markdown(company_url)
 
@@ -1144,14 +1144,14 @@ async def ask_bizradar_ai(request: Request):
     """
     try:
         # Log that the endpoint was called
-        logger.info("ask-bizradar-ai endpoint called")
+        # logger.info("ask-bizradar-ai endpoint called")
         
         # Parse request data with error handling
         try:
             data = await request.json()
-            logger.info(f"Request data parsed successfully")
+            # logger.info(f"Request data parsed successfully")
         except Exception as e:
-            logger.error(f"Error parsing request data: {str(e)}")
+            # logger.error(f"Error parsing request data: {str(e)}")
             return JSONResponse(
                 status_code=400,
                 content={
@@ -1180,7 +1180,7 @@ async def ask_bizradar_ai(request: Request):
         
         # Validate required parameters
         if not pursuit_id or not pursuit_context:
-            logger.warning("Missing required parameters: pursuit_id or pursuit_context")
+            # logger.warning("Missing required parameters: pursuit_id or pursuit_context")
             return JSONResponse(
                 status_code=400,
                 content={
@@ -1193,9 +1193,9 @@ async def ask_bizradar_ai(request: Request):
         # Import the askBizradar script with error handling
         try:
             from services.askBizradar import process_bizradar_request
-            logger.info("Successfully imported process_bizradar_request function")
+            # logger.info("Successfully imported process_bizradar_request function")
         except ImportError as e:
-            logger.error(f"Error importing askBizradar module: {str(e)}")
+            # logger.error(f"Error importing askBizradar module: {str(e)}")
             return JSONResponse(
                 status_code=500,
                 content={
@@ -1215,7 +1215,7 @@ async def ask_bizradar_ai(request: Request):
                 user_query=user_query,
                 document_context=documents   # New: Pass documents to processing function
             )
-            logger.info("Successfully processed BizRadar AI request")
+            # logger.info("Successfully processed BizRadar AI request")
             
             # Ensure there's always an ai_response in the result
             if "ai_response" not in result:
@@ -1225,9 +1225,9 @@ async def ask_bizradar_ai(request: Request):
             return result
             
         except Exception as e:
-            logger.error(f"Error in process_bizradar_request: {str(e)}")
+            # logger.error(f"Error in process_bizradar_request: {str(e)}")
             import traceback
-            logger.error(traceback.format_exc())
+            # logger.error(traceback.format_exc())
             
             return JSONResponse(
                 status_code=500,
@@ -1239,9 +1239,9 @@ async def ask_bizradar_ai(request: Request):
             )
 
     except Exception as e:
-        logger.error(f"Unhandled error in ask-bizradar-ai endpoint: {str(e)}")
+        # logger.error(f"Unhandled error in ask-bizradar-ai endpoint: {str(e)}")
         import traceback
-        logger.error(traceback.format_exc())
+        # logger.error(traceback.format_exc())
         
         return JSONResponse(
             status_code=500,
@@ -1277,7 +1277,7 @@ async def summarize_descriptions_for_stream(opportunities: list):
                     cached_summary = redis_client.get_json(summary_key)
                     
                     if cached_summary:
-                        logger.info(f"Using cached summary for opportunity {opp['id']}")
+                        # logger.info(f"Using cached summary for opportunity {opp['id']}")
                         opp["summary"] = normalize_bulleted_summary(cached_summary)
                     # Also check for cached title
                     title_key = f"title:{opp['id']}"
@@ -1289,7 +1289,7 @@ async def summarize_descriptions_for_stream(opportunities: list):
         logger.error(f"Error checking Redis cache: {str(e)}")
     
     # Process opportunities
-    logger.info(f"Generating summaries for {len(opportunities)} opportunities")
+    # logger.info(f"Generating summaries for {len(opportunities)} opportunities")
     for opp in opportunities:
         try:
             if "summary" not in opp:
@@ -1390,7 +1390,7 @@ async def summarize_descriptions(request: Request):
                     except Exception as cache_error:
                         logger.error(f"Error caching results: {str(cache_error)}")
             except Exception as opp_error:
-                logger.error(f"Error processing opportunity {opportunity.get('id', 'unknown')}: {str(opp_error)}")
+                # logger.error(f"Error processing opportunity {opportunity.get('id', 'unknown')}: {str(opp_error)}")
                 return {
                     "success": False,
                     "message": str(opp_error),
@@ -1404,7 +1404,7 @@ async def summarize_descriptions(request: Request):
         }
         
     except Exception as e:
-        logger.error(f"Error summarizing descriptions: {str(e)}")
+        # logger.error(f"Error summarizing descriptions: {str(e)}")
         return {"success": False, "error": str(e), "opportunity": opportunity}
 
 @search_router.get("/opportunities")
@@ -1526,7 +1526,7 @@ async def download_file(file_type: str, filename: str):
         )
         
     except Exception as e:
-        logger.error(f"Error downloading file: {str(e)}")
+        # logger.error(f"Error downloading file: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to download file: {str(e)}")
 
 @search_router.post("/enhance-rfp-with-ai")
@@ -1581,7 +1581,7 @@ async def enhance_rfp_with_ai(request: Request):
         # Check Redis for cached enhanced RFP
         cached_result = redis_client.get_json(cache_key)
         if cached_result:
-            logger.info(f"Returning cached enhanced RFP for pursuit ID: {pursuit_id}")
+            # logger.info(f"Returning cached enhanced RFP for pursuit ID: {pursuit_id}")
             return cached_result
         
         # Prepare the data structure for AI processing using the provided format
@@ -1621,7 +1621,7 @@ async def enhance_rfp_with_ai(request: Request):
         - Improving the overall proposal structure
         
         Return the enhanced data in the same JSON format."""
-        logger.info("OpenAI client initialized successfully")
+        # logger.info("OpenAI client initialized successfully")
         response = client.chat.completions.create(
             model="gpt-4.1-mini",
             messages=[
@@ -1632,7 +1632,7 @@ async def enhance_rfp_with_ai(request: Request):
             max_tokens=4000,
             n=1
         )
-        logger.info("OpenAI response received")
+        # logger.info("OpenAI response received")
         enhanced_content = response.choices[0].message.content
         print("--------------------------------")
         print(enhanced_content)
@@ -1689,7 +1689,7 @@ async def enhance_rfp_with_ai2(request: Request):
     """
     try:
         data = await request.json()
-        logger.info("Enhance RFP with AI (edge) request received")
+        # logger.info("Enhance RFP with AI (edge) request received")
 
         pursuit_id = data.get("aiOpportunityId")
         user_id = data.get("userId")
@@ -1729,21 +1729,21 @@ async def enhance_rfp_with_ai2(request: Request):
         try:
             resp = requests.post(fn_url, headers=headers, json=payload, timeout=60)
         except Exception as req_err:
-            logger.error(f"Error calling Edge Function: {str(req_err)}")
+            # logger.error(f"Error calling Edge Function: {str(req_err)}")
             raise HTTPException(status_code=502, detail=f"Edge Function request failed: {str(req_err)}")
 
         if not resp.ok:
-            logger.error(f"Edge Function error: {resp.status_code} {resp.text}")
+            # logger.error(f"Edge Function error: {resp.status_code} {resp.text}")
             raise HTTPException(status_code=resp.status_code, detail=f"Edge Function error: {resp.text}")
 
         try:
             result = resp.json()
         except Exception:
-            logger.error("Failed to parse Edge Function JSON response")
+            # logger.error("Failed to parse Edge Function JSON response")
             raise HTTPException(status_code=502, detail="Invalid response from Edge Function")
 
         return result
         
     except Exception as e:
-        logger.error(f"Error enhancing RFP with AI: {str(e)}")
+        # logger.error(f"Error enhancing RFP with AI: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to enhance RFP: {str(e)}")

@@ -187,7 +187,7 @@ def upsert_with_history_sb(supabase, row: Dict[str, Any], archived_by: str = "up
     changed = False
     for k, v in row.items():
         if k in existing and existing[k] != v:
-            logger.info(f"Change detected for notice_id {row['notice_id']} in field '{k}'. DB: '{existing[k]}', API: '{v}'")
+            # logger.info(f"Change detected for notice_id {row['notice_id']} in field '{k}'. DB: '{existing[k]}', API: '{v}'")
             changed = True
             break
 
@@ -250,10 +250,10 @@ def insert_data(rows):
                 logger.error(f"Error upserting record {notice_id}: {e}")
                 skipped += 1
                 continue
-        logger.info(f"Database upsert complete. Inserted/Updated: {inserted}, Skipped: {skipped}")
+        # logger.info(f"Database upsert complete. Inserted/Updated: {inserted}, Skipped: {skipped}")
         return {"inserted": inserted, "skipped": skipped}
     except Exception as e:
-        logger.error(f"Error during Supabase operations: {e}")
+        # logger.error(f"Error during Supabase operations: {e}")
         return {"error": str(e), "inserted": inserted, "skipped": skipped}
 
 # === CSV Processing Functions ===
@@ -397,14 +397,14 @@ async def process_csv_file(csv_file_path: str, batch_size: int = 1000) -> Dict[s
     if not os.path.exists(csv_file_path):
         return {"source": "csv_import", "count": 0, "error": f"CSV file not found: {csv_file_path}"}
     
-    logger.info(f"Starting CSV import from: {csv_file_path}")
+    # logger.info(f"Starting CSV import from: {csv_file_path}")
     
     all_opportunities = []
     total_processed = 0
     
     try:
         # Use pandas to read the large CSV file efficiently with proper encoding
-        logger.info("Reading CSV file with pandas...")
+        # logger.info("Reading CSV file with pandas...")
         
         # Try different encodings
         encodings = ['utf-8', 'latin-1', 'cp1252', 'iso-8859-1']
@@ -465,7 +465,7 @@ async def process_csv_file(csv_file_path: str, batch_size: int = 1000) -> Dict[s
             end_idx = min(start_idx + batch_size, len(df))
             batch_df = df.iloc[start_idx:end_idx]
             
-            logger.info(f"Processing batch {start_idx//batch_size + 1}: rows {start_idx+1}-{end_idx}")
+            # logger.info(f"Processing batch {start_idx//batch_size + 1}: rows {start_idx+1}-{end_idx}")
             
             batch_opportunities = []
             for _, row in batch_df.iterrows():
@@ -480,9 +480,9 @@ async def process_csv_file(csv_file_path: str, batch_size: int = 1000) -> Dict[s
                     total_processed += 1
             
             all_opportunities.extend(batch_opportunities)
-            logger.info(f"Batch complete: {len(batch_opportunities)} opportunities found, {total_processed} total processed")
+            # logger.info(f"Batch complete: {len(batch_opportunities)} opportunities found, {total_processed} total processed")
         
-        logger.info(f"CSV processing complete: {total_processed} opportunities found out of {len(df)} total rows")
+        # logger.info(f"CSV processing complete: {total_processed} opportunities found out of {len(df)} total rows")
         
         # Generate AI summaries for all opportunities
         logger.info("Generating AI summaries for opportunities...")
@@ -517,7 +517,7 @@ async def process_csv_file(csv_file_path: str, batch_size: int = 1000) -> Dict[s
                     opp["due_date"] = None
                     opp["funding"] = ""
             except Exception as e:
-                logger.error(f"Error generating AI summary for {opp.get('notice_id')}: {e}")
+                # logger.error(f"Error generating AI summary for {opp.get('notice_id')}: {e}")
                 # Continue with default values
                 opp["objective"] = ""
                 opp["expected_outcome"] = ""
@@ -538,7 +538,7 @@ async def process_csv_file(csv_file_path: str, batch_size: int = 1000) -> Dict[s
         
         # Insert into database
         if all_opportunities:
-            logger.info(f"Preparing to insert {len(all_opportunities)} opportunities into database")
+            # logger.info(f"Preparing to insert {len(all_opportunities)} opportunities into database")
             result = insert_data(all_opportunities)
             
             # Return detailed results exactly as in original code
@@ -614,9 +614,9 @@ async def process_csv_file(csv_file_path: str, batch_size: int = 1000) -> Dict[s
                         total_refreshed += len(updates)
 
                 db_results["indexed_count"] = total_refreshed
-                logger.info(f"Supabase vector refresh complete. Embeddings updated: {total_refreshed}")
+                # logger.info(f"Supabase vector refresh complete. Embeddings updated: {total_refreshed}")
             except Exception as e:
-                logger.error(f"Error during Supabase vector refresh: {e}")
+                # logger.error(f"Error during Supabase vector refresh: {e}")
                 db_results["indexing_error"] = str(e)
 
             # --- Post-ETL: Mark records as inactive if not in latest CSV fetch (exactly as in original) ---
@@ -641,12 +641,12 @@ async def process_csv_file(csv_file_path: str, batch_size: int = 1000) -> Dict[s
                             chunk = to_deactivate[i:i+CHUNK]
                             supabase.table("ai_enhanced_opportunities").update({"active": False}).in_("notice_id", chunk).execute()
                             marked_inactive += len(chunk)
-                    logger.info(f"Marked {marked_inactive} records as inactive (not present in latest CSV fetch)")
+                    # logger.info(f"Marked {marked_inactive} records as inactive (not present in latest CSV fetch)")
                     db_results["marked_inactive"] = marked_inactive
                 else:
                     logger.warning("No notice_ids found in latest CSV fetch for inactive marking step.")
             except Exception as e:
-                logger.error(f"Error during post-ETL inactive marking step: {e}")
+                # logger.error(f"Error during post-ETL inactive marking step: {e}")
                 db_results["inactive_marking_error"] = str(e)
                 
             return db_results
@@ -674,12 +674,12 @@ async def import_from_csv(csv_file_path: str = None) -> Dict[str, Any]:
     if os.path.isdir(csv_file_path):
         csv_file_path = os.path.join(csv_file_path, "ContractOpportunitiesFullCSV.csv")
     
-    logger.info(f"Starting CSV import process from: {csv_file_path}")
+    # logger.info(f"Starting CSV import process from: {csv_file_path}")
     
     # Process the CSV file
     result = await process_csv_file(csv_file_path)
     
-    logger.info(f"CSV import process complete: {result}")
+    # logger.info(f"CSV import process complete: {result}")
     return result
 
 # Function to handle command line arguments (exactly as in original)

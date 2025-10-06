@@ -592,7 +592,7 @@ def check_search(query="cybersecurity"):
                 filter={"source": source}
             )
             
-            logger.info(f"Results for {source}: {len(results.matches)} matches")
+            # logger.info(f"Results for {source}: {len(results.matches)} matches")
     except Exception as e:
         logger.error(f"Error during test search: {str(e)}")
 
@@ -607,39 +607,39 @@ def index_all_to_pinecone(incremental=True, sources=None):
     start_time = time.time()
     
     # Check the index first
-    logger.info("Checking Pinecone index before indexing...")
+    # logger.info("Checking Pinecone index before indexing...")
     before_stats = describe_index_stats()
     
     total_indexed = 0
     
     # Index SAM.gov records if requested or if no specific sources are specified
     if not sources or "sam_gov" in sources:
-        logger.info("Starting to index SAM.gov records...")
+        # logger.info("Starting to index SAM.gov records...")
         sam_indexed = index_sam_gov_to_pinecone(incremental=incremental)
         total_indexed += sam_indexed
     
     # Index Freelancer records if requested or if no specific sources are specified
     if not sources or "freelancer" in sources:
-        logger.info("\nStarting to index Freelancer projects...")
+        # logger.info("\nStarting to index Freelancer projects...")
         freelancer_indexed = index_freelancer_data_table_to_pinecone(incremental=incremental)
         total_indexed += freelancer_indexed
     
     # Check the index after indexing
-    logger.info("Checking Pinecone index after indexing...")
+    # logger.info("Checking Pinecone index after indexing...")
     after_stats = describe_index_stats()
     
     # Log the difference
     if before_stats and after_stats:
         vectors_added = after_stats.total_vector_count - before_stats.total_vector_count
-        logger.info(f"Added {vectors_added} vectors to the index (total processed: {total_indexed})")
+        # logger.info(f"Added {vectors_added} vectors to the index (total processed: {total_indexed})")
     
     # Run a test search
-    logger.info("\nTesting search functionality...")
+    # logger.info("\nTesting search functionality...")
     check_search()
     check_search("web development")
     
     elapsed_time = time.time() - start_time
-    logger.info(f"\nIndexing completed in {elapsed_time:.2f} seconds!")
+    # logger.info(f"\nIndexing completed in {elapsed_time:.2f} seconds!")
     return {"total_indexed": total_indexed, "elapsed_time": elapsed_time}
 
 def cleanup_orphaned_sam_gov_vectors():
@@ -647,7 +647,7 @@ def cleanup_orphaned_sam_gov_vectors():
     Remove Pinecone vectors for notice_ids that no longer exist in the sam_gov table.
     Only deletes vectors that are not clearly from other sources (e.g., skips those starting with 'freelancer_').
     """
-    logger.info("Starting cleanup of orphaned Pinecone vectors for sam_gov...")
+    # logger.info("Starting cleanup of orphaned Pinecone vectors for sam_gov...")
     index = get_index()
     pinecone_ids = set()
     try:
@@ -669,14 +669,14 @@ def cleanup_orphaned_sam_gov_vectors():
             cursor.execute("SELECT notice_id FROM sam_gov")
             db_ids = set(str(row[0]) for row in cursor.fetchall())
     except Exception as e:
-        logger.error(f"Error fetching notice_ids from sam_gov: {e}")
+        # logger.error(f"Error fetching notice_ids from sam_gov: {e}")
         return 0
     finally:
         connection.close()
-    logger.info(f"Found {len(db_ids)} notice_ids in sam_gov table.")
+    # logger.info(f"Found {len(db_ids)} notice_ids in sam_gov table.")
     # 3. Find orphaned vectors
     orphaned_ids = list(pinecone_ids - db_ids)
-    logger.info(f"Found {len(orphaned_ids)} orphaned sam_gov vectors to delete.")
+    # logger.info(f"Found {len(orphaned_ids)} orphaned sam_gov vectors to delete.")
     # 4. Delete orphaned vectors in batches of 1000
     deleted = 0
     batch_size = 1000
@@ -687,7 +687,7 @@ def cleanup_orphaned_sam_gov_vectors():
                 index.delete(ids=batch)
                 deleted += len(batch)
                 logger.info(f"Deleted batch {i//batch_size+1}: {len(batch)} sam_gov vectors.")
-            logger.info(f"Deleted {deleted} orphaned sam_gov vectors from Pinecone.")
+            # logger.info(f"Deleted {deleted} orphaned sam_gov vectors from Pinecone.")
         except Exception as e:
             logger.error(f"Error deleting orphaned vectors: {e}")
     return deleted
@@ -700,7 +700,7 @@ def cleanup_to_only_sam_gov_vectors():
     Returns the total number of vectors deleted.
     """
     import re
-    logger.info("Starting full Pinecone cleanup: keep only valid sam_gov vectors (and remove orphans)...")
+    # logger.info("Starting full Pinecone cleanup: keep only valid sam_gov vectors (and remove orphans)...")
     index = get_index()
     pinecone_ids = set()
     try:
@@ -708,9 +708,9 @@ def cleanup_to_only_sam_gov_vectors():
             for vector_id in batch:
                 pinecone_ids.add(str(vector_id))
     except Exception as e:
-        logger.error(f"Error listing Pinecone vectors: {e}")
+        # logger.error(f"Error listing Pinecone vectors: {e}")
         return 0
-    logger.info(f"Found {len(pinecone_ids)} total vectors in Pinecone.")
+    # logger.info(f"Found {len(pinecone_ids)} total vectors in Pinecone.")
     # Separate sam_gov and non-sam_gov vectors
     sam_gov_ids = set()
     non_sam_gov_ids = set()
@@ -728,7 +728,7 @@ def cleanup_to_only_sam_gov_vectors():
             index.delete(ids=batch_ids)
             logger.info(f"Deleted batch {i//1000+1}: {len(batch_ids)} non-sam_gov vectors.")
             total_deleted += len(batch_ids)
-        logger.info(f"Deleted {len(non_sam_gov_ids)} non-sam_gov vectors from Pinecone.")
+        # logger.info(f"Deleted {len(non_sam_gov_ids)} non-sam_gov vectors from Pinecone.")
     # Get all notice_ids in sam_gov table
     from utils.db_utils import get_db_connection
     conn = get_db_connection()
@@ -739,7 +739,7 @@ def cleanup_to_only_sam_gov_vectors():
             db_notice_ids = set(str(row[0]) for row in cur.fetchall())
     finally:
         conn.close()
-    logger.info(f"Found {len(db_notice_ids)} notice_ids in sam_gov table.")
+    # logger.info(f"Found {len(db_notice_ids)} notice_ids in sam_gov table.")
     # Delete orphaned sam_gov vectors
     orphaned_ids = []
     for vid in sam_gov_ids:
@@ -752,8 +752,8 @@ def cleanup_to_only_sam_gov_vectors():
             index.delete(ids=batch_ids)
             logger.info(f"Deleted batch {i//1000+1}: {len(batch_ids)} orphaned sam_gov vectors.")
             total_deleted += len(batch_ids)
-        logger.info(f"Deleted {len(orphaned_ids)} orphaned sam_gov vectors from Pinecone.")
-    logger.info(f"Total vectors deleted: {total_deleted} (non-sam_gov: {len(non_sam_gov_ids)}, orphaned sam_gov: {len(orphaned_ids)})")
+        # logger.info(f"Deleted {len(orphaned_ids)} orphaned sam_gov vectors from Pinecone.")
+    # logger.info(f"Total vectors deleted: {total_deleted} (non-sam_gov: {len(non_sam_gov_ids)}, orphaned sam_gov: {len(orphaned_ids)})")
     return total_deleted
 
 if __name__ == "__main__":
