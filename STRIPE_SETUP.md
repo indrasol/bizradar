@@ -20,7 +20,7 @@ FRONTEND_URL=http://localhost:3000  # Update with your frontend URL
 
 ```
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_your_publishable_key_here
-NEXT_PUBLIC_API_URL=http://localhost:5000  # Update with your backend URL
+NEXT_PUBLIC_API_URL=http://localhost:8000  # Update with your backend URL
 ```
 
 ## Webhook Setup
@@ -51,7 +51,7 @@ Use these test card numbers in Stripe test mode:
 Use the Stripe CLI to forward webhooks to your local development server:
 
 ```bash
-stripe listen --forward-to localhost:5000/webhooks/stripe
+stripe listen --forward-to localhost:8000/webhooks/stripe
 ```
 
 ## Security Considerations

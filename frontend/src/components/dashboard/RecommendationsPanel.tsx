@@ -89,7 +89,7 @@ const RecommendationsPanel = ({
   
   const API_BASE_URL =
     window.location.hostname === "localhost"
-      ? "http://localhost:5000"
+      ? "http://localhost:8000"
       : (import.meta.env.VITE_API_BASE_URL as string);
   const abortCtrlRef = useRef<AbortController | null>(null);
 

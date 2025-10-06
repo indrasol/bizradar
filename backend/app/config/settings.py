@@ -107,13 +107,13 @@ def get_stripe_secret_key():
     if not key:
         # Try alternative environment variable names as fallback
         key = os.getenv('STRIPE_SECRET_KEY', '')
-    if not key:
+    # if not key:
         # print("CRITICAL ERROR: No Stripe secret key found in environment variables")
         # print("Looking for: STRIPE_SECRET_KEY_BIZ or STRIPE_SECRET_KEY")
         # print("Current environment variables:")
         # print(f"  STRIPE_SECRET_KEY_BIZ: {'SET' if os.getenv('STRIPE_SECRET_KEY_BIZ') else 'NOT SET'}")
         # print(f"  STRIPE_SECRET_KEY: {'SET' if os.getenv('STRIPE_SECRET_KEY') else 'NOT SET'}")
-        return key
+    return key
 #OTHERS
 IMPORT_USER=os.getenv("IMPORTUSERBIZ")
 
