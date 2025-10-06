@@ -22,7 +22,7 @@ const CreateTrackerDialog = lazy(() => import("@/components/pursuits/CreatePursu
 
 const isDevelopment = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
 const API_BASE_URL = isDevelopment
-  ? "http://localhost:5000"
+  ? "http://localhost:8000"
   : import.meta.env.VITE_API_BASE_URL;
 
 // Global cache for pursuits data

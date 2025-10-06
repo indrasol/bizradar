@@ -320,7 +320,7 @@ Ensure the following environment variables are set:
 ### API Base URL Logic
 
 The frontend automatically determines the correct API base URL:
-- Development: `http://localhost:5000`
+- Development: `http://localhost:8000`
 - Production: Uses `VITE_API_BASE_URL` environment variable
 
 ## Error Handling

@@ -39,7 +39,7 @@ def test_enhance_rfp_endpoint():
     }
     
     # API endpoint URL
-    url = "http://localhost:5000/enhance-rfp-with-ai"
+    url = "http://localhost:8000/enhance-rfp-with-ai"
     
     try:
         print("Testing enhance-rfp-with-ai endpoint...")
@@ -66,7 +66,7 @@ def test_enhance_rfp_endpoint():
             print(f"Response: {response.text}")
             
     except requests.exceptions.ConnectionError:
-        print("❌ Connection error: Make sure the backend server is running on localhost:5000")
+        print("❌ Connection error: Make sure the backend server is running on localhost:8000")
     except requests.exceptions.Timeout:
         print("❌ Timeout error: Request took too long")
     except Exception as e:
