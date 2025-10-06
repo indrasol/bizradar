@@ -92,21 +92,21 @@ const rfpPreview: React.FC<rfpPreviewProps> = ({
 
         // Force a repaint
         const computedStyle = window.getComputedStyle(clonedSection);
-        console.log(`Section ${i + 1} computed styles:`, {
-          display: computedStyle.display,
-          visibility: computedStyle.visibility,
-          height: computedStyle.height,
-        });
+        // console.log(`Section ${i + 1} computed styles:`, {
+        //   display: computedStyle.display,
+        //   visibility: computedStyle.visibility,
+        //   height: computedStyle.height,
+        // });
 
         const sectionHeightPx = clonedSection.offsetHeight * scale;
         if (sectionHeightPx === 0) {
-          console.warn(`Section ${i + 1} has zero height, skipping.`);
+          // console.warn(`Section ${i + 1} has zero height, skipping.`);
           tempContainer.removeChild(clonedSection);
           continue;
         }
 
-        console.log(`Section ${i + 1} height (px, scaled): ${sectionHeightPx}`);
-        console.log(`Section ${i + 1} content:`, clonedSection.outerHTML);
+        // console.log(`Section ${i + 1} height (px, scaled): ${sectionHeightPx}`);
+        // console.log(`Section ${i + 1} content:`, clonedSection.outerHTML);
 
         tempContainer.removeChild(clonedSection);
 
@@ -135,15 +135,15 @@ const rfpPreview: React.FC<rfpPreviewProps> = ({
             foreignObjectRendering: false,
           });
 
-          console.log('Canvas dimensions for page', pageIndex + 1, ':', { width: canvas.width, height: canvas.height });
+          // console.log('Canvas dimensions for page', pageIndex + 1, ':', { width: canvas.width, height: canvas.height });
 
           const dataUrl = canvas.toDataURL('image/jpeg', 0.98);
-          console.log('Data URL length for page', pageIndex + 1, ':', dataUrl.length);
+          // console.log('Data URL length for page', pageIndex + 1, ':', dataUrl.length);
 
           let imgHeight = (canvas.height * pageWidth) / canvas.width;
           imgHeight = Math.min(imgHeight, pageHeight);
 
-          console.log('Calculated imgHeight for page', pageIndex + 1, ':', imgHeight);
+          // console.log('Calculated imgHeight for page', pageIndex + 1, ':', imgHeight);
 
           if (!canvas.width || !canvas.height || !isFinite(imgHeight) || imgHeight <= 0) {
             console.error('Invalid canvas dimensions or imgHeight for page', pageIndex + 1, ':', {
@@ -188,7 +188,7 @@ const rfpPreview: React.FC<rfpPreviewProps> = ({
         // Minimal delay to ensure rendering
         await new Promise((resolve) => setTimeout(resolve, 100));
 
-        console.log('Last page elements:', currentPageElements.map(el => el.outerHTML));
+        // console.log('Last page elements:', currentPageElements.map(el => el.outerHTML));
         console.log('Rendering last page with elements:', tempContainer.innerHTML);
 
         const canvas = await html2canvas(tempContainer, {
@@ -201,15 +201,15 @@ const rfpPreview: React.FC<rfpPreviewProps> = ({
           foreignObjectRendering: false,
         });
 
-        console.log('Last page canvas dimensions:', { width: canvas.width, height: canvas.height });
+        // console.log('Last page canvas dimensions:', { width: canvas.width, height: canvas.height });
 
         const dataUrl = canvas.toDataURL('image/jpeg', 0.98);
-        console.log('Last page data URL length:', dataUrl.length);
+        // console.log('Last page data URL length:', dataUrl.length);
 
         let imgHeight = (canvas.height * pageWidth) / canvas.width;
         imgHeight = Math.min(imgHeight, pageHeight);
 
-        console.log('Last page imgHeight:', imgHeight);
+        // console.log('Last page imgHeight:', imgHeight);
 
         if (!canvas.width || !canvas.height || !isFinite(imgHeight) || imgHeight <= 0) {
           console.error('Invalid canvas dimensions or imgHeight for last page:', {
@@ -258,7 +258,7 @@ const rfpPreview: React.FC<rfpPreviewProps> = ({
       if (sectionElements.length === 0) {
         throw new Error('No sections found in content');
       }
-      console.log('Section elements:', sectionElements.map(s => s.outerHTML));
+      // console.log('Section elements:', sectionElements.map(s => s.outerHTML));
 
       const alignmentMap: { [key: string]: typeof AlignmentType[keyof typeof AlignmentType] } = {
         center: AlignmentType.CENTER,
@@ -395,7 +395,7 @@ const rfpPreview: React.FC<rfpPreviewProps> = ({
   };
 
   const enhanceWithAI = () => {
-    console.log('Enhance with AI clicked');
+    // console.log('Enhance with AI clicked');
   };
 
   return (

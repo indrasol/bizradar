@@ -33,22 +33,22 @@ export const authDiagnostics = {
   logOtpAttempt(email: string, type: 'send' | 'verify', success: boolean, error?: any) {
     const diagnostics = this.collectDiagnosticInfo();
     
-    console.group(`🔐 OTP ${type.toUpperCase()} - ${success ? 'SUCCESS' : 'FAILED'}`);
-    console.log('Email:', email);
-    console.log('Timestamp:', diagnostics.timestamp);
-    console.log('Network Status:', diagnostics.networkStatus);
-    console.log('Supabase URL:', diagnostics.supabaseUrl);
+    // console.group(`🔐 OTP ${type.toUpperCase()} - ${success ? 'SUCCESS' : 'FAILED'}`);
+    // console.log('Email:', email);
+    // console.log('Timestamp:', diagnostics.timestamp);
+    // console.log('Network Status:', diagnostics.networkStatus);
+    // console.log('Supabase URL:', diagnostics.supabaseUrl);
     
     if (!success && error) {
-      console.error('Error Details:', error);
-      console.log('Error Type:', typeof error);
-      console.log('Error Message:', error.message || 'No message');
-      console.log('Error Status:', error.status || 'No status');
-      console.log('Error Code:', error.code || 'No code');
+      // console.error('Error Details:', error);
+      // console.log('Error Type:', typeof error);
+      // console.log('Error Message:', error.message || 'No message');
+      // console.log('Error Status:', error.status || 'No status');
+      // console.log('Error Code:', error.code || 'No code');
     }
     
-    console.log('Full Diagnostics:', diagnostics);
-    console.groupEnd();
+    // console.log('Full Diagnostics:', diagnostics);
+    // console.groupEnd();
   },
 
   /**
@@ -131,9 +131,9 @@ export const authDiagnostics = {
     try {
       sessionStorage.removeItem("userActiveSession");
       // Don't clear supabase session as it's managed by supabase client
-      console.log('✅ Authentication storage cleared');
+      // console.log('✅ Authentication storage cleared');
     } catch (error) {
-      console.error('❌ Failed to clear auth storage:', error);
+      // console.error('❌ Failed to clear auth storage:', error);
     }
   },
 

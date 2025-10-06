@@ -18,13 +18,7 @@ export default function RfpWriter() {
   const isTrackerRoute = !!id;
   const effectiveId = isTrackerRoute ? id : contractId;
   
-  console.log('RfpWriter Debug:', {
-    id,
-    contractId,
-    isTrackerRoute,
-    effectiveId,
-    pathname: window.location.pathname
-  });
+  // console.log('RfpWriter Debug:', { id, contractId, isTrackerRoute, effectiveId });
 
   useEffect(() => {
     if (isTrackerRoute) {
@@ -39,19 +33,19 @@ export default function RfpWriter() {
       // For contract routes, try to load from sessionStorage first
       const loadContractData = () => {
         try {
-          console.log("Attempting to load from sessionStorage");
+          // console.log("Attempting to load from sessionStorage");
           const storedContract = sessionStorage.getItem('currentContract');
-          console.log("Raw data from sessionStorage:", storedContract);
+          // console.log("Raw data from sessionStorage:", storedContract);
           
           if (storedContract) {
-            console.log("Contract data found in sessionStorage");
+            // console.log("Contract data found in sessionStorage");
             setContract(JSON.parse(storedContract));
             setLoading(false);
             return true;
           }
           return false;
         } catch (error) {
-          console.error('Error loading contract data:', error);
+          // console.error('Error loading contract data:', error);
           return false;
         }
       };
@@ -61,7 +55,7 @@ export default function RfpWriter() {
       
       // If not found in sessionStorage, fetch from API
       if (!contractLoaded) {
-        console.log("Contract not loaded from sessionStorage, fetching from API");
+        // console.log("Contract not loaded from sessionStorage, fetching from API");
         fetchContractData();
       }
     }
@@ -70,9 +64,7 @@ export default function RfpWriter() {
   const loadTrackerData = async () => {
     setLoading(true);
     try {
-      console.log("Loading tracker data for ID:", effectiveId);
-      console.log("Tracker route:", isTrackerRoute);
-      console.log("Effective ID:", effectiveId);
+      // console.log("Loading tracker data for ID:", effectiveId);
       
       // Import APIs
       const { trackersApi } = await import('../api/trackers');
@@ -91,25 +83,24 @@ export default function RfpWriter() {
         tracker = await trackersApi.getTrackerById(effectiveId!, user.id);
       } catch (error: any) {
         if (error.message?.includes('500') || error.message?.includes('not found') || error.message?.includes('0 rows')) {
-          console.error('Tracker not found in database:', effectiveId);
-          throw new Error(`Tracker with ID ${effectiveId} not found in database. It may have been deleted.`);
+          // console.error('Tracker not found in database:', effectiveId);
+          // throw new Error(`Tracker with ID ${effectiveId} not found in database. It may have been deleted.`);
         }
         throw error;
       }
       
       if (!tracker) {
-        throw new Error(`Tracker with ID ${effectiveId} not found`);
+        // throw new Error(`Tracker with ID ${effectiveId} not found`);
       }
       
       // Ensure report exists for this tracker
       try {
-        console.log('Checking for report with response_id:', effectiveId);
+        // console.log('Checking for report with response_id:', effectiveId);
         await reportsApi.getReportByResponseId(effectiveId!, user.id);
-        console.log('Report exists for tracker:', effectiveId);
+        // console.log('Report exists for tracker:', effectiveId);
       } catch (reportError) {
         // Report doesn't exist, create it
-        console.log('Creating report for tracker:', effectiveId);
-        console.log('Report error:', reportError);
+        // console.log('Creating report for tracker:', effectiveId);
         await reportsApi.upsertReport(
           effectiveId!,
           {
@@ -141,7 +132,7 @@ export default function RfpWriter() {
       setContract(contractData);
       setLoading(false);
     } catch (error) {
-      console.error('Error loading tracker data:', error);
+      // console.error('Error loading tracker data:', error);
       setError(`Failed to load tracker data: ${error.message}`);
       setLoading(false);
       
@@ -157,7 +148,7 @@ export default function RfpWriter() {
   const fetchContractData = async () => {
     setLoading(true);
     try {
-      console.log("Fetching contract data for ID:", effectiveId);
+      // console.log("Fetching contract data for ID:", effectiveId);
       
       // You would replace this with your actual API call
       // For demonstration, using a timeout to simulate API call
@@ -174,7 +165,7 @@ export default function RfpWriter() {
           description: "This is a placeholder description for the contract. In a real implementation, this would be fetched from your API."
         };
         
-        console.log("Setting fallback contract data:", fallbackData);
+        // console.log("Setting fallback contract data:", fallbackData);
         setContract(fallbackData);
         setLoading(false);
       }, 1000);
@@ -189,7 +180,7 @@ export default function RfpWriter() {
       setContract(data);
       */
     } catch (error) {
-      console.error('Error fetching contract data:', error);
+      // console.error('Error fetching contract data:', error);
       setError('Failed to load contract details. Please try again later.');
       setLoading(false);
     }
@@ -291,7 +282,7 @@ export default function RfpWriter() {
     );
   }
 
-  console.log("Rendering RfpContainer with contract:", contract);
+  // console.log("Rendering RfpContainer with contract:", contract);
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">

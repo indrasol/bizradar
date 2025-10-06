@@ -139,7 +139,7 @@ const OpportunitiesPage: React.FC = () => {
       }
     } catch (e) {
       // Ignore corrupted saved state
-      console.warn("Failed to restore last opportunities search state", e);
+      // console.warn("Failed to restore last opportunities search state", e);
     } finally {
       // Defer releasing the guard to the next tick to ensure effects triggered by
       // the above state updates do not auto-fetch.
@@ -175,7 +175,7 @@ const OpportunitiesPage: React.FC = () => {
         if (error) throw error;
         setPursuitCount(count || 0);
       } catch (error) {
-        console.error("Error fetching pursuit count:", error);
+        // console.error("Error fetching pursuit count:", error);
       }
     };
     fetchPursuitCount();
@@ -399,11 +399,7 @@ const OpportunitiesPage: React.FC = () => {
   const executeSearch = async (
     params: Partial<SearchParams>
   ): Promise<SearchResult> => {
-    console.log({
-      user_id: tokenService.getUserIdFromToken(),
-      page_size: 7,
-      ...params,
-    });
+    // console.log({ user_id: tokenService.getUserIdFromToken(), page_size: 7, ...params });
   
     const response = await fetch(`${API_BASE_URL}/search-opportunities`, {
       method: "POST",
@@ -453,7 +449,7 @@ const OpportunitiesPage: React.FC = () => {
              setTotalPages(data.total_pages || 1);
        setCurrentPage(data.page || 1);
       setHasSearched(true);
-      console.log("Adding results")
+      // console.log("Adding results")
     }
          return {
        opportunities: summarized_results,
@@ -549,8 +545,8 @@ const OpportunitiesPage: React.FC = () => {
   const applyFilters = async () => {
     if (!searchQuery.trim() || allEnhancedResults.length === 0) return;
 
-    console.log(`🔍 applyFilters called with filterValues:`, filterValues);
-    console.log(`📊 Total opportunities to filter: ${allEnhancedResults.length}`);
+    // console.log(`🔍 applyFilters called with filterValues:`, filterValues);
+    // console.log(`📊 Total opportunities to filter: ${allEnhancedResults.length}`);
 
     // Apply client-side filters to the already fetched results
     const filteredResults = applyClientSideFilters(allEnhancedResults, filterValues);
@@ -563,7 +559,7 @@ const OpportunitiesPage: React.FC = () => {
     const total_pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
     const page = 1;
     
-    console.log(`📈 Filter results: ${total} opportunities, ${total_pages} pages`);
+    // console.log(`📈 Filter results: ${total} opportunities, ${total_pages} pages`);
     
     setOpportunities(filteredResults.slice(0, PAGE_SIZE));
     setTotalResults(total);
@@ -637,21 +633,21 @@ const OpportunitiesPage: React.FC = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      console.log('🔍 handleAddToTracker: Checking for existing tracker');
-      console.log('📋 Opportunity title:', opportunity.title);
+      // console.log('🔍 handleAddToTracker: Checking for existing tracker');
+      // console.log('📋 Opportunity title:', opportunity.title);
       
       // Check if already tracked using API
       const trackersResponse = await trackersApi.getTrackers(user.id);
-      console.log('📋 Available trackers:', trackersResponse.trackers.map(t => ({ id: t.id, title: t.title })));
+      // console.log('📋 Available trackers:', trackersResponse.trackers.map(t => ({ id: t.id, title: t.title })));
       
       const existingTracker = trackersResponse.trackers.find(t => {
         const match = t.title === opportunity.title;
-        console.log(`🔍 Comparing: "${t.title}" === "${opportunity.title}" = ${match}`);
+        // console.log(`🔍 Comparing: "${t.title}" === "${opportunity.title}" = ${match}`);
         return match;
       });
 
       if (existingTracker) {
-        console.log('✅ Found existing tracker, removing it:', existingTracker.id);
+        // console.log('✅ Found existing tracker, removing it:', existingTracker.id);
         // Already tracked → toggle OFF by deleting
         await trackersApi.deleteTracker(existingTracker.id, user.id);
         setPursuitCount((prev) => Math.max(0, prev - 1));
@@ -666,7 +662,7 @@ const OpportunitiesPage: React.FC = () => {
         return;
       }
 
-      console.log('❌ No existing tracker found, creating new one');
+      // console.log('❌ No existing tracker found, creating new one');
 
       // Create new tracker using API
       const newTracker = await trackersApi.createTracker({
@@ -693,7 +689,7 @@ const OpportunitiesPage: React.FC = () => {
         });
       } catch {}
     } catch (error) {
-      console.error("Error adding to tracker:", error);
+      // console.error("Error adding to tracker:", error);
     }
   };
 
@@ -731,16 +727,16 @@ const handleBeginResponse = async (contractId: string, contractData: Opportunity
       );
       
       if (existingReport) {
-        console.log('✅ Found existing response, loading it:', existingReport.response_id);
+        // console.log('✅ Found existing response, loading it:', existingReport.response_id);
         responseId = existingReport.response_id;
         isExisting = true;
       }
     } catch (error) {
-      console.log('No existing reports found, will create new one');
+      // console.log('No existing reports found, will create new one');
     }
 
     if (!isExisting) {
-      console.log('❌ No existing response found, creating new one');
+      // console.log('❌ No existing response found, creating new one');
       // Generate new response ID
       responseId = (typeof window !== "undefined" && window.crypto && "randomUUID" in window.crypto)
         ? window.crypto.randomUUID()
@@ -777,9 +773,9 @@ const handleBeginResponse = async (contractId: string, contractData: Opportunity
           user.id,
           Number(contractData.id) // opportunity_id
         );
-        console.log(`Created new report entry for response ${responseId}`);
+        // console.log(`Created new report entry for response ${responseId}`);
       } catch (apiError) {
-        console.error("Failed to create report via API:", apiError);
+        // console.error("Failed to create report via API:", apiError);
         toast.error("Failed to initialize report. Please try again.");
         return;
       }
@@ -818,7 +814,7 @@ const handleBeginResponse = async (contractId: string, contractData: Opportunity
     navigate(`/contracts/rfp/${responseId}`);
 
   } catch (error) {
-    console.error("Error initializing report:", error);
+    // console.error("Error initializing report:", error);
     toast.error("An error occurred. Please try again.");
   }
 };
@@ -922,11 +918,11 @@ const handleBeginResponse = async (contractId: string, contractData: Opportunity
     if (!naicsCode || naicsCode.trim() === "") return opportunities;
     
     const searchCode = naicsCode.trim();
-    console.log(`🏷️ Filtering by NAICS code: "${searchCode}"`);
+    // console.log(`🏷️ Filtering by NAICS code: "${searchCode}"`);
     
     const filtered = opportunities.filter(opp => {
       if (!opp.naics_code) {
-        console.log(`❌ Opportunity "${opp.title}" has no NAICS code`);
+        // console.log(`❌ Opportunity "${opp.title}" has no NAICS code`);
         return false;
       }
       
@@ -934,14 +930,14 @@ const handleBeginResponse = async (contractId: string, contractData: Opportunity
       const oppNaics = opp.naics_code.toString();
       const matches = oppNaics === searchCode || oppNaics.startsWith(searchCode);
       
-      if (matches) {
-        console.log(`✅ Opportunity "${opp.title}" matches NAICS: ${oppNaics}`);
-      }
+      // if (matches) {
+      //   console.log(`✅ Opportunity "${opp.title}" matches NAICS: ${oppNaics}`);
+      // }
       
       return matches;
     });
     
-    console.log(`🏷️ NAICS filter result: ${filtered.length} out of ${opportunities.length} opportunities`);
+    // console.log(`🏷️ NAICS filter result: ${filtered.length} out of ${opportunities.length} opportunities`);
     return filtered;
   };
 
@@ -961,22 +957,22 @@ const handleBeginResponse = async (contractId: string, contractData: Opportunity
   const applyClientSideFilters = (opportunities: Opportunity[], filters: FilterValues): Opportunity[] => {
     let filtered = [...opportunities];
     
-    console.log(`🔍 Applying client-side filters to ${opportunities.length} opportunities:`, filters);
+    // console.log(`🔍 Applying client-side filters to ${opportunities.length} opportunities:`, filters);
     
     // Apply each filter in sequence
     filtered = filterByDueDate(filtered, filters.dueDate);
-    console.log(`📅 After due date filter (${filters.dueDate}): ${filtered.length} results`);
+    // console.log(`📅 After due date filter (${filters.dueDate}): ${filtered.length} results`);
     
     filtered = filterByPostedDate(filtered, filters.postedDate, filters.customPostedDateFrom, filters.customPostedDateTo);
-    console.log(`📆 After posted date filter (${filters.postedDate}): ${filtered.length} results`);
+    // console.log(`📆 After posted date filter (${filters.postedDate}): ${filtered.length} results`);
     
     filtered = filterByNaicsCode(filtered, filters.naicsCode);
-    console.log(`🏷️ After NAICS filter (${filters.naicsCode}): ${filtered.length} results`);
+    // console.log(`🏷️ After NAICS filter (${filters.naicsCode}): ${filtered.length} results`);
     
     filtered = filterByOpportunityType(filtered, filters.opportunityType);
-    console.log(`🏛️ After opportunity type filter (${filters.opportunityType}): ${filtered.length} results`);
+    // console.log(`🏛️ After opportunity type filter (${filters.opportunityType}): ${filtered.length} results`);
     
-    console.log(`✅ Final filtered results: ${filtered.length} opportunities`);
+    // console.log(`✅ Final filtered results: ${filtered.length} opportunities`);
     return filtered;
   };
 
@@ -1075,7 +1071,7 @@ const handleBeginResponse = async (contractId: string, contractData: Opportunity
 
       return processedOpps.length > 0 ? processedOpps : opps;
     } catch (error) {
-      console.error("Error getting summaries:", error);
+      // console.error("Error getting summaries:", error);
       return opps;
     }
   };
@@ -1098,7 +1094,7 @@ const handleBeginResponse = async (contractId: string, contractData: Opportunity
           return opportunity;
         }
     } catch (error) {
-      console.error("Error getting summaries for opportunity:", error);
+      // console.error("Error getting summaries for opportunity:", error);
       return opportunity;
     }
   };

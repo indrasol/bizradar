@@ -221,7 +221,7 @@ async def get_tracker_stats(user_id: str = Query(..., description="User ID")):
     try:
         supabase = get_supabase_client()
         
-        logger.info(f"Fetching tracker stats for user {user_id}")
+        # logger.info(f"Fetching tracker stats for user {user_id}")
         
         # Define the Supabase operation as a proper function
         def execute_stats_query():
@@ -280,7 +280,7 @@ async def get_tracker_stats(user_id: str = Query(..., description="User ID")):
             "due_this_week": due_this_week
         }
         
-        logger.info(f"Tracker stats for user {user_id}: {stats}")
+        # logger.info(f"Tracker stats for user {user_id}: {stats}")
         
         return {
             "success": True,
@@ -288,7 +288,7 @@ async def get_tracker_stats(user_id: str = Query(..., description="User ID")):
         }
         
     except Exception as e:
-        logger.error(f"Error fetching tracker stats: {str(e)}")
+        # logger.error(f"Error fetching tracker stats: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail=f"Failed to fetch tracker stats: {str(e)}"

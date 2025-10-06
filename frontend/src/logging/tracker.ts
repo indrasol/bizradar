@@ -19,7 +19,7 @@ const DEV = (import.meta as any)?.env?.DEV === true;
 const log = (...args: any[]) => DEV && console.log("[Tracker]", ...args);
 // ----------------------------------------------------------------------------
 
-log("init endpoint =", ENDPOINT);
+// log("init endpoint =", ENDPOINT);
 
 export function configureTracker(opts: { endpoint?: string }) {
   if (opts.endpoint) ENDPOINT = opts.endpoint;

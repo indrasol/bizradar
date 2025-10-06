@@ -73,7 +73,7 @@ export function RfpContainer({ initialContent = '', contract, pursuitId, onViewC
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
-        console.log("No user logged in");
+        // console.log("No user logged in");
         toast?.error("You must be logged in to generate an RFP response.");
         setGeneratingRfp(false);
         return;
@@ -125,7 +125,7 @@ export function RfpContainer({ initialContent = '', contract, pursuitId, onViewC
               
               trackerExists = true;
             } catch (createError) {
-              console.error("Error creating tracker:", createError);
+              // console.error("Error creating tracker:", createError);
               toast?.error("Failed to create tracker. Please try again.");
               setGeneratingRfp(false);
               return;
@@ -157,7 +157,7 @@ export function RfpContainer({ initialContent = '', contract, pursuitId, onViewC
           setExistingRfpData(newReport as RfpResponseData);
           toast?.success("New RFP response created successfully!");
         } catch (createError) {
-          console.error("Error creating RFP response:", createError);
+          // console.error("Error creating RFP response:", createError);
           toast?.error("Failed to create RFP response. Please try again.");
           setGeneratingRfp(false);
           return;
@@ -165,7 +165,7 @@ export function RfpContainer({ initialContent = '', contract, pursuitId, onViewC
       }
       
     } catch (error) {
-      console.error("Error in handleGenerateRfp:", error);
+      // console.error("Error in handleGenerateRfp:", error);
       toast?.error("Failed to generate RFP response. Please try again.");
     } finally {
       setGeneratingRfp(false);

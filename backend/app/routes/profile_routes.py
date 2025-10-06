@@ -148,14 +148,14 @@ async def get_user_profile(
             updated_at=profile_data.get('updated_at')
         )
         
-        logger.info(f"Successfully fetched profile for user {user_id}")
+        # logger.info(f"Successfully fetched profile for user {user_id}")
         
         return user_profile
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error fetching user profile: {str(e)}")
+        # logger.error(f"Error fetching user profile: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail=f"Failed to fetch user profile: {str(e)}"
@@ -177,7 +177,7 @@ async def update_personal_info(
     try:
         supabase = get_supabase_client()
         
-        logger.info(f"Updating personal info for user {user_id}")
+        # logger.info(f"Updating personal info for user {user_id}")
         
         # Prepare update data (only include non-None values)
         # Note: full_name is a generated column and cannot be updated directly
@@ -203,10 +203,10 @@ async def update_personal_info(
             try:
                 update_query = supabase.table('profiles').update(update_data).eq('id', user_id)
                 result = update_query.execute()
-                logger.debug(f"Personal info update executed successfully for user {user_id}")
+                # logger.debug(f"Personal info update executed successfully for user {user_id}")
                 return result
             except Exception as e:
-                logger.error(f"Error executing personal info update: {str(e)}")
+                # logger.error(f"Error executing personal info update: {str(e)}")
                 raise
         
         # Execute update using safe operation
@@ -221,7 +221,7 @@ async def update_personal_info(
                 detail="User profile not found or no changes made"
             )
         
-        logger.info(f"Successfully updated personal info for user {user_id}")
+        # logger.info(f"Successfully updated personal info for user {user_id}")
         
         return {
             "success": True,
@@ -254,7 +254,7 @@ async def update_company_info(
     try:
         supabase = get_supabase_client()
         
-        logger.info(f"Updating company info for user {user_id}")
+        # logger.info(f"Updating company info for user {user_id}")
         
         # Prepare update data (only include non-None values)
         update_data = {}
@@ -285,10 +285,10 @@ async def update_company_info(
             try:
                 update_query = supabase.table('profiles').update(update_data).eq('id', user_id)
                 result = update_query.execute()
-                logger.debug(f"Company info update executed successfully for user {user_id}")
+                # logger.debug(f"Company info update executed successfully for user {user_id}")
                 return result
             except Exception as e:
-                logger.error(f"Error executing company info update: {str(e)}")
+                # logger.error(f"Error executing company info update: {str(e)}")
                 raise
         
         # Execute update using safe operation
@@ -303,7 +303,7 @@ async def update_company_info(
                 detail="User profile not found or no changes made"
             )
         
-        logger.info(f"Successfully updated company info for user {user_id}")
+        # logger.info(f"Successfully updated company info for user {user_id}")
         
         return {
             "success": True,
@@ -314,7 +314,7 @@ async def update_company_info(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error updating company info: {str(e)}")
+        # logger.error(f"Error updating company info: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail=f"Failed to update company information: {str(e)}"
@@ -335,7 +335,7 @@ async def get_profile_summary(
     try:
         supabase = get_supabase_client()
         
-        logger.info(f"Fetching profile summary for user {user_id}")
+        # logger.info(f"Fetching profile summary for user {user_id}")
         
         # Define the Supabase operation
         def execute_query():
@@ -346,7 +346,7 @@ async def get_profile_summary(
                 result = query.execute()
                 return result
             except Exception as e:
-                logger.error(f"Error executing profile summary query: {str(e)}")
+                # logger.error(f"Error executing profile summary query: {str(e)}")
                 raise
         
         # Execute query using safe operation
@@ -378,7 +378,7 @@ async def get_profile_summary(
             "role": profile_data.get('role')
         }
         
-        logger.info(f"Successfully fetched profile summary for user {user_id}")
+        # logger.info(f"Successfully fetched profile summary for user {user_id}")
         
         return {
             "success": True,
@@ -388,7 +388,7 @@ async def get_profile_summary(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error fetching profile summary: {str(e)}")
+        # logger.error(f"Error fetching profile summary: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail=f"Failed to fetch profile summary: {str(e)}"

@@ -27,14 +27,14 @@ class RedisClient:
                     from config.settings import REDIS_HOST as redis_host, REDIS_PORT as redis_port, REDIS_USERNAME as redis_username, REDIS_PASSWORD as redis_password
                 except ImportError:
                     redis_port = None
-                logger.info(f"Redis connection parameters - Host: {redis_host}, Port: {redis_port}, Username: {redis_username}")
+                # logger.info(f"Redis connection parameters - Host: {redis_host}, Port: {redis_port}, Username: {redis_username}")
                 # redis_host     = os.getenv("REDIS_HOST")
                 # redis_port     = int(os.getenv("REDIS_PORT", 6379))
                 # redis_username = os.getenv("REDIS_USERNAME")
                 # redis_password = os.getenv("REDIS_PASSWORD")
 
                 if not (redis_host and redis_username and redis_password):
-                    logger.warning("Missing Redis credentials (host, username, or password)")
+                    # logger.warning("Missing Redis credentials (host, username, or password)")
                     cls._instance.client = None
                     return cls._instance
 
@@ -46,13 +46,13 @@ class RedisClient:
                     password=redis_password,
                     decode_responses=True
                 )
-                logger.info(f"Connecting to Redis at {redis_host}:{redis_port} as user '{redis_username}'")
+                # logger.info(f"Connecting to Redis at {redis_host}:{redis_port} as user '{redis_username}'")
 
                 # Test connection
                 cls._instance.client.ping()
-                logger.info("Successfully connected to Redis")
+                # logger.info("Successfully connected to Redis")
             except Exception as e:
-                logger.error(f"Failed to connect to Redis: {e}")
+                # logger.error(f"Failed to connect to Redis: {e}")
                 cls._instance.client = None
         return cls._instance
 

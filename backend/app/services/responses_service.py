@@ -31,13 +31,13 @@ class ResponsesService:
         updated_tracker: Optional[Dict[str, Any]] = None
 
         # Update tracker stage if user_id, opportunity_id, and stage are provided
-        self.logger.info(f"🔍 Tracker Update Debug: user_id={user_id}, opportunity_id={opportunity_id}, stage={stage}")
+        # self.logger.info(f"🔍 Tracker Update Debug: user_id={user_id}, opportunity_id={opportunity_id}, stage={stage}")
         if user_id and opportunity_id and stage:
             try:
                 # Find tracker by user_id and opportunity_id
-                self.logger.info(f"🔍 Looking for tracker with user_id={user_id}, opportunity_id={opportunity_id}")
+                # self.logger.info(f"🔍 Looking for tracker with user_id={user_id}, opportunity_id={opportunity_id}")
                 tracker = await self.trackers_service.get_tracker_by_opportunity(user_id, opportunity_id)
-                self.logger.info(f"🔍 Tracker found: {tracker is not None}")
+                # self.logger.info(f"🔍 Tracker found: {tracker is not None}")
                 if tracker:
                     updated_tracker = await self.trackers_service.update_tracker(
                         tracker_id=tracker["id"],
@@ -49,9 +49,9 @@ class ResponsesService:
                         naicscode=None,
                         is_submitted=None,
                     )
-                    self.logger.info(
-                        f"Updated tracker {tracker['id']} stage to {stage} for user {user_id} and opportunity {opportunity_id}"
-                    )
+                    # self.logger.info(
+                    #     f"Updated tracker {tracker['id']} stage to {stage} for user {user_id} and opportunity {opportunity_id}"
+                    # )
                 else:
                     # No tracker exists for this user/opportunity combo - skip tracker update
                     self.logger.info(

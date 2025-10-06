@@ -98,7 +98,7 @@ export const trackersApi = {
         );
         
         if (matchingReport) {
-          console.log('🔍 Found existing report with matching title:', matchingReport.title);
+          // console.log('🔍 Found existing report with matching title:', matchingReport.title);
           existingReport = matchingReport;
           
           // Extract stage and submission status
@@ -125,21 +125,21 @@ export const trackersApi = {
     // Create the tracker
     const response = await apiClient.post(`${API_ENDPOINTS.TRACKERS}?user_id=${userId}`, trackerData);
     
-    console.log('✅ Tracker created:', {
-      id: response.id,
-      opportunity_id: response.opportunity_id,
-      title: response.title,
-      stage: response.stage
-    });
+    // console.log('✅ Tracker created:', {
+    //   id: response.id,
+    //   opportunity_id: response.opportunity_id,
+    //   title: response.title,
+    //   stage: response.stage
+    // });
     
     // If we found an existing report, update the tracker's is_submitted status if needed
     if (existingReport && existingReportSubmitted) {
       try {
         await this.updateTracker(response.id, { is_submitted: true }, userId);
         response.is_submitted = true;
-        console.log('✅ Updated tracker submission status to match existing report');
+        // console.log('✅ Updated tracker submission status to match existing report');
       } catch (error) {
-        console.error('Failed to update tracker submission status:', error);
+        // console.error('Failed to update tracker submission status:', error);
       }
     }
     
@@ -151,7 +151,7 @@ export const trackersApi = {
     try {
       // First, get the tracker details
       const tracker = await this.getTrackerById(trackerId, userId);
-      console.log('🔍 Tracker details in generateResponse:', tracker);
+      // console.log('🔍 Tracker details in generateResponse:', tracker);
       
       // If tracker has opportunity_id, check usage limits
       if (tracker.opportunity_id) {
@@ -161,7 +161,7 @@ export const trackersApi = {
           
           // Check if user can generate a report for this opportunity
           const check = await rfpUsageApi.checkOpportunity(tracker.opportunity_id);
-          console.log('🔍 Usage check result in generateResponse:', check);
+          // console.log('🔍 Usage check result in generateResponse:', check);
           
           if (!check.can_generate) {
             console.error('❌ Cannot generate report: limit reached');
@@ -173,20 +173,20 @@ export const trackersApi = {
           
           // If under limit and not an existing report, record usage immediately
           if (check.reason === 'under_limit') {
-            console.log('🔍 Recording usage for opportunity in generateResponse:', tracker.opportunity_id);
+            // console.log('🔍 Recording usage for opportunity in generateResponse:', tracker.opportunity_id);
             await rfpUsageApi.recordUsage(tracker.opportunity_id);
           }
         } catch (usageError) {
-          console.error('Error checking usage limits:', usageError);
+          // console.error('Error checking usage limits:', usageError);
           // Continue with report creation even if usage check fails
         }
       } else {
-        console.warn('⚠️ No opportunity_id found in tracker. Skipping usage check.');
+        // console.warn('⚠️ No opportunity_id found in tracker. Skipping usage check.');
       }
       
       // Create the report using the tracker ID as response_id
       const { reportsApi } = await import('./reports');
-      console.log('🔍 Creating report for tracker:', trackerId);
+      // console.log('🔍 Creating report for tracker:', trackerId);
       
       await reportsApi.upsertReport(
         trackerId, // Use tracker ID as response_id
@@ -202,11 +202,11 @@ export const trackersApi = {
         tracker.opportunity_id // opportunity_id from tracker
       );
       
-      console.log(`✅ Report created for tracker ${trackerId}`);
+      // console.log(`✅ Report created for tracker ${trackerId}`);
       return { success: true, message: "Response generated successfully!" };
       
     } catch (error) {
-      console.error('Failed to generate response:', error);
+      // console.error('Failed to generate response:', error);
       return { success: false, message: "Failed to generate response. Please try again." };
     }
   },
@@ -225,7 +225,7 @@ export const trackersApi = {
   // 🎯 NEW: Sync tracker stage with report progress
   async syncTrackerWithReport(trackerId: string, stage: string, isSubmitted: boolean, userId: string): Promise<void> {
     try {
-      console.log(`🔄 Syncing tracker ${trackerId} with stage: ${stage}, submitted: ${isSubmitted}`);
+      // console.log(`🔄 Syncing tracker ${trackerId} with stage: ${stage}, submitted: ${isSubmitted}`);
       
       // Update the tracker stage and submission status
       await this.updateTracker(trackerId, {
@@ -233,9 +233,9 @@ export const trackersApi = {
         is_submitted: isSubmitted
       }, userId);
       
-      console.log(`✅ Successfully synced tracker ${trackerId} stage to: ${stage}`);
+      // console.log(`✅ Successfully synced tracker ${trackerId} stage to: ${stage}`);
     } catch (error) {
-      console.error('Failed to sync tracker with report:', error);
+      // console.error('Failed to sync tracker with report:', error);
       throw error;
     }
   },
@@ -244,7 +244,7 @@ export const trackersApi = {
   async updateTracker(trackerId: string, trackerData: UpdateTrackerRequest, userId: string): Promise<Tracker> {
     const response = await apiClient.put(`${API_ENDPOINTS.TRACKERS_BY_ID(trackerId)}?user_id=${userId}`, trackerData);
     
-    console.log(`✅ Successfully updated tracker ${trackerId}:`, trackerData);
+    // console.log(`✅ Successfully updated tracker ${trackerId}:`, trackerData);
     
     return response;
   },
@@ -290,6 +290,6 @@ export const trackersApi = {
       const url = pursuitsApi.createCalendarUrl(d as any);
       window.open(url, '_blank');
     });
-    console.warn('Bulk .ics export is not implemented. Opened individual calendar links instead.');
+    // console.warn('Bulk .ics export is not implemented. Opened individual calendar links instead.');
   }
 };

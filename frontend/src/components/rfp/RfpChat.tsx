@@ -130,7 +130,7 @@ export function RfpChat({
           ) || ""
         };
         
-        console.log("Sending highlight context to editor:", highlightContext);
+        // console.log("Sending highlight context to editor:", highlightContext);
         
         // Pass the highlight context to the parent component
         onUpdateContent("", highlightContext); // Empty string as we're not updating content, just highlighting

@@ -47,22 +47,22 @@ def should_download_new_file(filepath, max_age_days=1):
     Download if the file does not exist or is older than max_age_days.
     """
     if not os.path.exists(filepath):
-        logger.info(f"File {filepath} does not exist, will download.")
+        # logger.info(f"File {filepath} does not exist, will download.")
         return True
 
     modified_time = datetime.fromtimestamp(os.path.getmtime(filepath), tz=timezone.utc)
     now = datetime.now(tz=timezone.utc)
     age = now - modified_time
 
-    logger.info(f"File last modified (UTC): {modified_time}")
-    logger.info(f"Current time (UTC): {now}")
-    logger.info(f"File age: {age}")
+    # logger.info(f"File last modified (UTC): {modified_time}")
+    # logger.info(f"Current time (UTC): {now}")
+    # logger.info(f"File age: {age}")
 
     if age > timedelta(days=max_age_days):
-        logger.info(f"File {filepath} is older than {max_age_days} day(s), will download new file.")
+        # logger.info(f"File {filepath} is older than {max_age_days} day(s), will download new file.")
         return True
 
-    logger.info(f"File {filepath} is fresh; skipping download.")
+    # logger.info(f"File {filepath} is fresh; skipping download.")
     return False
 
 def download_with_resume(url, filepath):
@@ -87,7 +87,7 @@ def download_with_resume(url, filepath):
                 progress.update(len(chunk))
 
     progress.close()
-    logger.info("Download complete.")
+    # logger.info("Download complete.")
 
 def check_duplicates(cursor, notice_ids):
     format_ids = tuple(notice_ids)
@@ -179,7 +179,7 @@ def process_chunk(chunk, conn_params):
 def import_csv_to_db():
     start = time.time()
     ensure_dir()
-    logger.info("Starting import...")
+    # logger.info("Starting import...")
 
     # Step 1: Download if necessary
     if should_download_new_file(LOCAL_FILE):
@@ -219,7 +219,7 @@ def import_csv_to_db():
         encoding="cp1252",
         encoding_errors="replace"
     ), start=1):
-        logger.info(f"Processing chunk #{chunk_num}...")
+        # logger.info(f"Processing chunk #{chunk_num}...")
         records,skipped  = process_chunk(chunk, conn_params)
         records_len = len(records)
  
@@ -240,7 +240,7 @@ def import_csv_to_db():
     pool.close()
     pool.join() 
 
-    logger.info(f"Import finished: Total inserted: {total_inserted}, Total skipped: {total_skipped}  in {time.time() - start:.2f}s")
+    # logger.info(f"Import finished: Total inserted: {total_inserted}, Total skipped: {total_skipped}  in {time.time() - start:.2f}s")
 
     # Step 4: Clean up file (optional: retain for a day)
     # try:

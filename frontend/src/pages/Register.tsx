@@ -65,7 +65,7 @@ const Register = () => {
 
   // Handle login form submission (Send OTP)
   const onLoginSubmit = async (values: LoginFormValues) => {
-    console.log("Login values:", values);
+    // console.log("Login values:", values);
 
     setIsLoading(true);
     setError(null);
@@ -124,7 +124,7 @@ const Register = () => {
 
   // Handle signup form submission (Send OTP)
   const onSignupSubmit = async (values: RegistrationFormValues) => {
-    console.log("Signup values:", values);
+    // console.log("Signup values:", values);
     
     setIsLoading(true);
     setError(null);
@@ -177,7 +177,7 @@ const Register = () => {
 
   // Handle successful OTP verification
   const handleOtpSuccess = async () => {
-    console.log("handleOtpSuccess called, otpData:", otpData);
+    // console.log("handleOtpSuccess called, otpData:", otpData);
     
     try {
       // Wait a bit for session to be fully established
@@ -192,7 +192,7 @@ const Register = () => {
         session = data.session;
         
         if (!session) {
-          console.log(`No session found, retrying... (${retries} attempts left)`);
+          // console.log(`No session found, retrying... (${retries} attempts left)`);
           await new Promise(resolve => setTimeout(resolve, 500));
           retries--;
         }
@@ -202,11 +202,11 @@ const Register = () => {
         throw new Error("No active session after verification");
       }
       
-      console.log("Session found:", session.user.id);
+      // console.log("Session found:", session.user.id);
       
       // For new signups, always go to company setup first
       if (otpData?.isSignup) {
-        console.log("New signup detected, navigating to company setup");
+        // console.log("New signup detected, navigating to company setup");
 
         navigate('/company-setup');
         track({
@@ -218,7 +218,7 @@ const Register = () => {
         // Emergency fallback
         setTimeout(() => {
           if (window.location.pathname === '/register') {
-            console.log("New signup navigation failed, forcing redirect");
+            // console.log("New signup navigation failed, forcing redirect");
             window.location.href = '/company-setup';
           }
         }, 1000);
@@ -226,11 +226,11 @@ const Register = () => {
       }
       
       // For existing users logging in, check if they have company setup
-      console.log("Checking company setup for existing user...");
+      // console.log("Checking company setup for existing user...");
       
       try {
         const { companyApi } = await import('../api/company');
-        console.log("Company API imported successfully");
+        // console.log("Company API imported successfully");
         
         // Add timeout to company setup check
         const hasSetupPromise = companyApi.hasCompanySetup(session.user.id);
@@ -240,28 +240,28 @@ const Register = () => {
         
         const hasSetup = true;
         
-        console.log("Company setup status:", hasSetup);
+        // console.log("Company setup status:", hasSetup);
         
         if (hasSetup) {
           // User has company setup, redirect to dashboard
-          console.log("User has company setup, navigating to dashboard");
+          // console.log("User has company setup, navigating to dashboard");
           navigate('/dashboard');
         } else {
           // User doesn't have company setup, redirect to setup
-          console.log("User needs company setup, navigating to company setup");
+          // console.log("User needs company setup, navigating to company setup");
           navigate('/company-setup');
         }
         
         // Emergency fallback - if navigation doesn't work, force page reload
         setTimeout(() => {
           if (window.location.pathname === '/register') {
-            console.log("Navigation failed, forcing page redirect");
+            // console.log("Navigation failed, forcing page redirect");
             window.location.href = hasSetup ? '/dashboard' : '/company-setup';
           }
         }, 1000);
       } catch (error) {
-        console.error("Error checking company setup:", error);
-        console.log("Company setup check failed, using fallback navigation");
+        // console.error("Error checking company setup:", error);
+        // console.log("Company setup check failed, using fallback navigation");
         
         // Simple fallback: check if user has basic profile info
         try {
@@ -272,60 +272,60 @@ const Register = () => {
             .single();
           
           if (profileData?.first_name && profileData?.last_name) {
-            console.log("User has profile info, navigating to dashboard");
+            // console.log("User has profile info, navigating to dashboard");
             navigate('/dashboard');
             // Emergency fallback
             setTimeout(() => {
               if (window.location.pathname === '/register') {
-                console.log("Dashboard navigation failed, forcing redirect");
+                // console.log("Dashboard navigation failed, forcing redirect");
                 window.location.href = '/dashboard';
               }
             }, 1000);
           } else {
-            console.log("User missing profile info, navigating to company setup");
+            // console.log("User missing profile info, navigating to company setup");
             navigate('/company-setup');
             // Emergency fallback
             setTimeout(() => {
               if (window.location.pathname === '/register') {
-                console.log("Company setup navigation failed, forcing redirect");
+                  // console.log("Company setup navigation failed, forcing redirect");
                 window.location.href = '/company-setup';
               }
             }, 1000);
           }
         } catch (profileError) {
-          console.error("Profile check also failed:", profileError);
-          console.log("Final fallback: navigating to dashboard");
+          // console.error("Profile check also failed:", profileError);
+          // console.log("Final fallback: navigating to dashboard");
           navigate('/dashboard');
           // Emergency fallback
           setTimeout(() => {
             if (window.location.pathname === '/register') {
-              console.log("Final fallback navigation failed, forcing redirect");
+              // console.log("Final fallback navigation failed, forcing redirect");
               window.location.href = '/dashboard';
             }
           }, 1000);
         }
       }
     } catch (error) {
-      console.error("Error in OTP success handler:", error);
+      // console.error("Error in OTP success handler:", error);
       // Fallback to original logic in case of error
-      console.log("Error fallback navigation");
+      // console.log("Error fallback navigation");
       if (otpData?.isSignup) {
-        console.log("Fallback: new signup -> company setup");
+        // console.log("Fallback: new signup -> company setup");
         navigate('/company-setup');
         // Emergency fallback
         setTimeout(() => {
           if (window.location.pathname === '/register') {
-            console.log("Error fallback company setup navigation failed, forcing redirect");
+            // console.log("Error fallback company setup navigation failed, forcing redirect");
             window.location.href = '/company-setup';
           }
         }, 1000);
       } else {
-        console.log("Fallback: existing user -> dashboard");
+        // console.log("Fallback: existing user -> dashboard");
         navigate('/dashboard');
         // Emergency fallback
         setTimeout(() => {
           if (window.location.pathname === '/register') {
-            console.log("Error fallback dashboard navigation failed, forcing redirect");
+            // console.log("Error fallback dashboard navigation failed, forcing redirect");
             window.location.href = '/dashboard';
           }
         }, 1000);

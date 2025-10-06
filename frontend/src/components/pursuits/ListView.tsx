@@ -157,8 +157,8 @@ export const ListView: React.FC<ListViewProps> = ({
         return;
       }
       
-      console.log('🔍 Pursuit data:', pursuit);
-      console.log('🔍 Checking opportunity_id:', pursuit.opportunity_id);
+      // console.log('🔍 Pursuit data:', pursuit);
+      // console.log('🔍 Checking opportunity_id:', pursuit.opportunity_id);
       
       // Check if we've already reached the limit
       if (isLimitReached) {
@@ -172,11 +172,11 @@ export const ListView: React.FC<ListViewProps> = ({
         // First check if pursuit has opportunity_id (from Pursuits.tsx mapping)
         if (pursuit.opportunity_id) {
           const numericOpportunityId = Number(pursuit.opportunity_id);
-          console.log('🔍 Using opportunity_id from pursuit object:', numericOpportunityId);
+          // console.log('🔍 Using opportunity_id from pursuit object:', numericOpportunityId);
           
           // Check if user can generate a report for this opportunity
           const check = await rfpUsageApi.checkOpportunity(numericOpportunityId);
-          console.log('🔍 Usage check result:', check);
+          // console.log('🔍 Usage check result:', check);
           
           if (!check.can_generate) {
             toast.error(check.status.message);
@@ -191,7 +191,7 @@ export const ListView: React.FC<ListViewProps> = ({
             
             // Record usage with direct API call
             const recordResult = await rfpUsageApi.recordUsage(numericOpportunityId);
-            console.log('🔍 Record usage result:', recordResult);
+            // console.log('🔍 Record usage result:', recordResult);
             
             // Show success message
             // toast.success("Usage recorded successfully");
@@ -200,10 +200,10 @@ export const ListView: React.FC<ListViewProps> = ({
             refetchUsage();
           }
         } else {
-          console.warn('⚠️ No opportunity_id found in pursuit object. Skipping usage check.');
+          // console.warn('⚠️ No opportunity_id found in pursuit object. Skipping usage check.');
         }
       } catch (error) {
-        console.error('Error checking usage limits:', error);
+        // console.error('Error checking usage limits:', error);
         toast.error("Failed to check usage limits. Please try again.");
         setGeneratingResponse(null);
         return;
@@ -241,7 +241,7 @@ export const ListView: React.FC<ListViewProps> = ({
       const customEvent = event as CustomEvent<{ responseId: string }>;
       const { responseId } = customEvent.detail;
       
-      console.log("Report submitted event received for responseId:", responseId);
+      // console.log("Report submitted event received for responseId:", responseId);
       
       // Update the local state to reflect the submission
       if (onPursuitUpdate) {

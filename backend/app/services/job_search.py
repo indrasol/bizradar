@@ -261,7 +261,7 @@ def search_jobs(
         if norm > 0:
             embedding = (np.array(embedding) / norm).tolist()
         embed_end = time.time()
-        logger.info(f"Embedding generation took {embed_end - embed_start:.3f} seconds")
+        # logger.info(f"Embedding generation took {embed_end - embed_start:.3f} seconds")
 
         # Pinecone query
         pinecone_start = time.time()
@@ -284,9 +284,9 @@ def search_jobs(
             )
             if not results.matches:
                 pinecone_end = time.time()
-                logger.info(f"Pinecone query took {pinecone_end - pinecone_start:.3f} seconds (no matches)")
+                # logger.info(f"Pinecone query took {pinecone_end - pinecone_start:.3f} seconds (no matches)")
                 total_end = time.time()
-                logger.info(f"Total search_jobs time: {total_end - total_start:.3f} seconds")
+                # logger.info(f"Total search_jobs time: {total_end - total_start:.3f} seconds")
                 return []
 
             scores = [m.score for m in results.matches]
@@ -408,10 +408,10 @@ def search_jobs(
         # all_results = sort_results(all_results,sort_by)
         sort_job_results(all_results, sort_by)
         sort_end = time.time()
-        logger.info(f"Sorting took {sort_end - sort_start:.3f} seconds")
+        # logger.info(f"Sorting took {sort_end - sort_start:.3f} seconds")
 
         total_end = time.time()
-        logger.info(f"Total search_jobs time: {total_end - total_start:.3f} seconds")
+        # logger.info(f"Total search_jobs time: {total_end - total_start:.3f} seconds")
         return all_results
     except Exception as e:
         logger.error(f"Search error: {e}")
@@ -421,7 +421,7 @@ def search_jobs(
 def sort_job_results(all_results:List[Dict], sort_by: Optional[str] = "relevance" ) -> List[Dict]:
     try:
         # Debug logging
-        logger.info(f"Sorting {len(all_results)} results by {sort_by}")
+        # logger.info(f"Sorting {len(all_results)} results by {sort_by}")
         
         if not all_results:
             return []
@@ -453,11 +453,11 @@ def sort_job_results(all_results:List[Dict], sort_by: Optional[str] = "relevance
                             
                         return (days_until_due, -(x.get('relevance_score', 0)))
                     except Exception as e:
-                        logger.error(f"Error parsing date {response_date}: {e}")
+                        # logger.error(f"Error parsing date {response_date}: {e}")
                         return (float('inf'), 0)
                         
                 except Exception as e:
-                    logger.error(f"Error in sort key calculation: {e}")
+                    # logger.error(f"Error in sort key calculation: {e}")
                     return (float('inf'), 0)
 
             all_results.sort(key=get_sort_key)
@@ -468,7 +468,7 @@ def sort_job_results(all_results:List[Dict], sort_by: Optional[str] = "relevance
                     date_str = str(x.get('published_date', '2000-01-01')).split('T')[0]
                     return datetime.strptime(date_str, '%Y-%m-%d')
                 except Exception as e:
-                    logger.error(f"Error parsing date: {e}")
+                    # logger.error(f"Error parsing date: {e}")
                     return datetime(2000, 1, 1)
             
             all_results.sort(key=get_date_key, reverse=True)
@@ -482,14 +482,14 @@ def sort_job_results(all_results:List[Dict], sort_by: Optional[str] = "relevance
                         return float(score)
                     return score
                 except Exception as e:
-                    logger.error(f"Error getting relevance score: {e}")
+                    # logger.error(f"Error getting relevance score: {e}")
                     return 0
             
             all_results.sort(key=get_relevance_key, reverse=True)
 
         return all_results
     except Exception as e:
-        logger.error(f"Sort error: {e}")
+        # logger.error(f"Sort error: {e}")
         return []
 
 # In-memory LRU cache for DB results (for repeated queries within process lifetime)

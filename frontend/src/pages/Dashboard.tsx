@@ -245,7 +245,7 @@ const BizRadarDashboard = () => {
       const startDateStr = startDate.toISOString().split('T')[0];
       const endDateStr = queryEndDate.toISOString().split('T')[0];
 
-      console.log(`Fetching data for ${monthName} ${year}: ${startDateStr} to ${endDateStr}`);
+      // console.log(`Fetching data for ${monthName} ${year}: ${startDateStr} to ${endDateStr}`);
 
       // Query sam_gov table for this month's pursuits
       const { data: monthPursuits, error } = await supabase
@@ -265,7 +265,7 @@ const BizRadarDashboard = () => {
       });
 
     } catch (error) {
-      console.error(`Error fetching data for ${monthName} ${year}:`, error);
+      // console.error(`Error fetching data for ${monthName} ${year}:`, error);
       toast.error("Failed to load pursuits data");
     } finally {
       setIsLoading(false);
@@ -378,7 +378,7 @@ const BizRadarDashboard = () => {
       } = await supabase.auth.getUser();
 
       if (!user) {
-        console.log("No user logged in");
+        // console.log("No user logged in");
         return;
       }
 
@@ -398,7 +398,7 @@ const BizRadarDashboard = () => {
       
       const newTracker = await trackersApi.createTracker(trackerData, user.id);
 
-      console.log("Added successfully:", newTracker);
+      // console.log("Added successfully:", newTracker);
 
       if (newTracker) {
         // Show success message

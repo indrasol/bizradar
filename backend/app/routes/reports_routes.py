@@ -84,7 +84,7 @@ async def get_reports(
 ):
     """Get all reports for a user"""
     try:
-        logger.info(f"GET /reports - user_id: {user_id}, is_submitted: {is_submitted}")
+        # logger.info(f"GET /reports - user_id: {user_id}, is_submitted: {is_submitted}")
         
         reports = await reports_service.get_reports(user_id, is_submitted)
         
@@ -95,7 +95,7 @@ async def get_reports(
         )
         
     except Exception as e:
-        logger.error(f"Error in GET /reports: {str(e)}")
+        # logger.error(f"Error in GET /reports: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch reports: {str(e)}")
 
 @router.get("/reports/{response_id}", response_model=ReportResponse)
@@ -105,7 +105,7 @@ async def get_report_by_response_id(
 ):
     """Get a specific report by response ID"""
     try:
-        logger.info(f"GET /reports/{response_id} - user_id: {user_id}")
+        # logger.info(f"GET /reports/{response_id} - user_id: {user_id}")
         
         report = await reports_service.get_report_by_response_id(response_id, user_id)
         
@@ -127,7 +127,7 @@ async def create_report(
 ):
     """Create a new report"""
     try:
-        logger.info(f"POST /reports - response_id: {request.response_id}, user_id: {user_id}")
+        # logger.info(f"POST /reports - response_id: {request.response_id}, user_id: {user_id}")
         
         report = await reports_service.create_report(
             response_id=request.response_id,
@@ -140,7 +140,7 @@ async def create_report(
         return ReportResponse(**report)
         
     except Exception as e:
-        logger.error(f"Error in POST /reports: {str(e)}")
+        # logger.error(f"Error in POST /reports: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to create report: {str(e)}")
 
 @router.put("/reports/{response_id}", response_model=ReportResponse)
@@ -186,7 +186,7 @@ async def upsert_report(
         except ValueError:
             raise HTTPException(status_code=422, detail="user_id must be a valid UUID")
             
-        logger.info(f"POST /reports/upsert - response_id: {request.response_id}, user_id: {user_id}")
+        # logger.info(f"POST /reports/upsert - response_id: {request.response_id}, user_id: {user_id}")
         
         report = await reports_service.upsert_report(
             response_id=request.response_id,
@@ -202,10 +202,10 @@ async def upsert_report(
     except HTTPException:
         raise
     except ValueError as ve:
-        logger.error(f"Validation error in POST /reports/upsert: {str(ve)}")
+        # logger.error(f"Validation error in POST /reports/upsert: {str(ve)}")
         raise HTTPException(status_code=422, detail=str(ve))
     except Exception as e:
-        logger.error(f"Error in POST /reports/upsert: {str(e)}")
+        # logger.error(f"Error in POST /reports/upsert: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to upsert report: {str(e)}")
 
 @router.delete("/reports/{response_id}")
@@ -215,14 +215,14 @@ async def delete_report(
 ):
     """Delete a report"""
     try:
-        logger.info(f"DELETE /reports/{response_id} - user_id: {user_id}")
+        # logger.info(f"DELETE /reports/{response_id} - user_id: {user_id}")
         
         success = await reports_service.delete_report(response_id, user_id)
         
         return {"success": success, "message": "Report deleted successfully"}
         
     except Exception as e:
-        logger.error(f"Error in DELETE /reports/{response_id}: {str(e)}")
+        # logger.error(f"Error in DELETE /reports/{response_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to delete report: {str(e)}")
 
 @router.post("/reports/{response_id}/toggle-submitted", response_model=ReportResponse)
@@ -232,14 +232,14 @@ async def toggle_submitted_status(
 ):
     """Toggle the submitted status of a report"""
     try:
-        logger.info(f"POST /reports/{response_id}/toggle-submitted - user_id: {user_id}")
+        # logger.info(f"POST /reports/{response_id}/toggle-submitted - user_id: {user_id}")
         
         report = await reports_service.toggle_submitted_status(response_id, user_id)
         
         return ReportResponse(**report)
         
     except Exception as e:
-        logger.error(f"Error in POST /reports/{response_id}/toggle-submitted: {str(e)}")
+        # logger.error(f"Error in POST /reports/{response_id}/toggle-submitted: {str(e)}")
         if "not found" in str(e).lower():
             raise HTTPException(status_code=404, detail="Report not found")
         if "must be 100% complete" in str(e).lower():
