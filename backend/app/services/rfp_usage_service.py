@@ -20,7 +20,7 @@ class RfpUsageService:
 
     async def get_monthly_limit(self, user_id: str) -> int:
         """Get the monthly RFP generation limit for a user based on their subscription tier"""
-        self.logger.info(f"Getting monthly limit for user {user_id}")
+        # self.logger.info(f"Getting monthly limit for user {user_id}")
         
         try:
             # Get the user's subscription status from the subscription manager
@@ -42,16 +42,16 @@ class RfpUsageService:
             
             # Default to free tier limit if tier not found
             limit = limits.get(str(tier).lower(), limits["free"])
-            self.logger.info(f"User {user_id} has tier {tier} with monthly limit of {limit} reports")
+            # self.logger.info(f"User {user_id} has tier {tier} with monthly limit of {limit} reports")
             return limit
         except Exception as e:
-            self.logger.error(f"Error getting subscription tier for user {user_id}: {str(e)}")
+            # self.logger.error(f"Error getting subscription tier for user {user_id}: {str(e)}")
             # Default to free tier limit on error
             return 2
 
     async def get_usage_count(self, user_id: str, month_year: str) -> int:
         """Get the number of unique opportunities a user has generated reports for in a given month"""
-        self.logger.info(f"Getting usage count for user {user_id} for {month_year}")
+        # self.logger.info(f"Getting usage count for user {user_id} for {month_year}")
         
         try:
             response = self.supabase.table(self.table_name) \
@@ -61,17 +61,17 @@ class RfpUsageService:
                 .execute()
             
             if not response.data:
-                self.logger.info(f"No usage records found for user {user_id} in {month_year}")
+                # self.logger.info(f"No usage records found for user {user_id} in {month_year}")
                 return 0
             
             # Count unique opportunity_ids
             unique_opportunities = set(record.get("opportunity_id") for record in response.data)
             count = len(unique_opportunities)
             
-            self.logger.info(f"User {user_id} has used {count} reports in {month_year}")
+            # self.logger.info(f"User {user_id} has used {count} reports in {month_year}")
             return count
         except Exception as e:
-            self.logger.error(f"Error getting usage count: {str(e)}")
+            # self.logger.error(f"Error getting usage count: {str(e)}")
             # Default to 0 on error to avoid blocking users
             return 0
 
@@ -80,7 +80,7 @@ class RfpUsageService:
         if month_year is None:
             month_year = await self.get_current_month_year()
         
-        self.logger.info(f"Checking if user {user_id} has generated report for opportunity {opportunity_id} in {month_year}")
+        # self.logger.info(f"Checking if user {user_id} has generated report for opportunity {opportunity_id} in {month_year}")
         
         try:
             response = self.supabase.table(self.table_name) \
@@ -91,17 +91,17 @@ class RfpUsageService:
                 .execute()
             
             exists = len(response.data) > 0
-            self.logger.info(f"Report exists: {exists}")
+            # self.logger.info(f"Report exists: {exists}")
             return exists
         except Exception as e:
-            self.logger.error(f"Error checking if report exists: {str(e)}")
+            # self.logger.error(f"Error checking if report exists: {str(e)}")
             # Default to False on error to avoid blocking users
             return False
 
     async def record_report_generation(self, user_id: str, opportunity_id: int) -> bool:
         """Record that a user has generated a report for a specific opportunity"""
         month_year = await self.get_current_month_year()
-        self.logger.info(f"Recording report generation for user {user_id}, opportunity {opportunity_id} in {month_year}")
+        # self.logger.info(f"Recording report generation for user {user_id}, opportunity {opportunity_id} in {month_year}")
         
         try:
             # Use upsert to handle both new records and updates
@@ -115,10 +115,10 @@ class RfpUsageService:
                 .execute()
             
             success = len(response.data) > 0
-            self.logger.info(f"Report generation recorded: {success}")
+            # self.logger.info(f"Report generation recorded: {success}")
             return success
         except Exception as e:
-            self.logger.error(f"Error recording report generation: {str(e)}")
+            # self.logger.error(f"Error recording report generation: {str(e)}")
             return False
 
     async def can_generate_report(self, user_id: str, opportunity_id: int) -> Tuple[bool, Dict[str, Any]]:
@@ -137,12 +137,12 @@ class RfpUsageService:
                 - reason: One of 'under_limit', 'existing_report', or 'limit_reached'
         """
         month_year = await self.get_current_month_year()
-        self.logger.info(f"Checking if user {user_id} can generate report for opportunity {opportunity_id}")
+        # self.logger.info(f"Checking if user {user_id} can generate report for opportunity {opportunity_id}")
         
         # Check if the user has already generated a report for this opportunity
         already_generated = await self.has_generated_report(user_id, opportunity_id, month_year)
         if already_generated:
-            self.logger.info(f"User {user_id} has already generated a report for opportunity {opportunity_id}")
+            # self.logger.info(f"User {user_id} has already generated a report for opportunity {opportunity_id}")
             return True, {
                 "monthly_limit": await self.get_monthly_limit(user_id),
                 "current_usage": await self.get_usage_count(user_id, month_year),
@@ -159,7 +159,7 @@ class RfpUsageService:
         
         # Check if the user has reached their limit
         if current_usage >= monthly_limit:
-            self.logger.info(f"User {user_id} has reached their monthly limit of {monthly_limit} reports")
+            # self.logger.info(f"User {user_id} has reached their monthly limit of {monthly_limit} reports")
             return False, {
                 "monthly_limit": monthly_limit,
                 "current_usage": current_usage,
@@ -169,7 +169,7 @@ class RfpUsageService:
                 "reason": "limit_reached"
             }
         
-        self.logger.info(f"User {user_id} can generate report for opportunity {opportunity_id} ({current_usage}/{monthly_limit} used)")
+        # self.logger.info(f"User {user_id} can generate report for opportunity {opportunity_id} ({current_usage}/{monthly_limit} used)")
         return True, {
             "monthly_limit": monthly_limit,
             "current_usage": current_usage,

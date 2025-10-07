@@ -28,22 +28,22 @@ async function addToTracker(op: Opportunity, userId: string): Promise<string> {
   // Check if already exists by title (since opportunity_id doesn't exist in schema)
   const existingTrackers = await trackersApi.getTrackers(userId);
   
-  console.log('🔍 addToTracker: Looking for existing tracker');
-  console.log('📋 Opportunity title:', op.title);
-  console.log('📋 Available trackers:', existingTrackers.trackers.map(t => ({ id: t.id, title: t.title })));
+  // console.log('🔍 addToTracker: Looking for existing tracker');
+  // console.log('📋 Opportunity title:', op.title);
+  // console.log('📋 Available trackers:', existingTrackers.trackers.map(t => ({ id: t.id, title: t.title })));
   
   const existingTracker = existingTrackers.trackers.find(t => {
     const match = t.title === op.title;
-    console.log(`🔍 Comparing: "${t.title}" === "${op.title}" = ${match}`);
+    // console.log(`🔍 Comparing: "${t.title}" === "${op.title}" = ${match}`);
     return match;
   });
   
   if (existingTracker) {
-    console.log('✅ Found existing tracker:', existingTracker.id);
+    // console.log('✅ Found existing tracker:', existingTracker.id);
     return existingTracker.id;
   }
 
-  console.log('❌ No existing tracker found, creating new one');
+  // console.log('❌ No existing tracker found, creating new one');
   // Create new tracker using API (this also creates the report)
   const newTracker = await trackersApi.createTracker({
     title: String(op.title || "Untitled").slice(0, 255),
@@ -56,7 +56,7 @@ async function addToTracker(op: Opportunity, userId: string): Promise<string> {
     opportunity_id: Number(op.id),
   }, userId);
 
-  console.log('✅ Created new tracker:', newTracker.id);
+  // console.log('✅ Created new tracker:', newTracker.id);
   return newTracker.id;
 }
 
@@ -66,7 +66,7 @@ const OpportunityDetails: React.FC = () => {
   const { user, logout } = useAuth();
   const track = useTrack();
 
-  console.log('🚀 OpportunityDetails component rendered');
+  // console.log('🚀 OpportunityDetails component rendered');
 
   const [opportunity, setOpportunity] = useState<Opportunity | null>(null);
   const [pursuitCount, setPursuitCount] = useState<number>(0);
@@ -88,7 +88,7 @@ const OpportunityDetails: React.FC = () => {
     setAdding(true);
     try {
       const trackerId = await addToTracker(opportunity, user.id);
-      console.log('✅ Added to tracker:', trackerId);
+      // console.log('✅ Added to tracker:', trackerId);
       
       track({
         event_name: "add_to_pursuit",
@@ -245,14 +245,14 @@ const OpportunityDetails: React.FC = () => {
   // ————— EFFECTS & HELPERS —————
 
   useEffect(() => {
-    console.log('🔍 Main useEffect: Loading opportunity from sessionStorage');
+    // console.log('🔍 Main useEffect: Loading opportunity from sessionStorage');
     const stored = sessionStorage.getItem("selectedOpportunity");
     if (stored) {
       const opportunityData = JSON.parse(stored);
-      console.log('📊 Main useEffect: Opportunity loaded:', opportunityData.title);
+      // console.log('📊 Main useEffect: Opportunity loaded:', opportunityData.title);
       setOpportunity(opportunityData);
     } else {
-      console.log('❌ Main useEffect: No opportunity in sessionStorage, redirecting');
+      // console.log('❌ Main useEffect: No opportunity in sessionStorage, redirecting');
       navigate("/opportunities");
     }
   }, [id, navigate]);

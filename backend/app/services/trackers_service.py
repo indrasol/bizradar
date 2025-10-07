@@ -48,7 +48,7 @@ class TrackersService:
                 return trackers
             return []
         except Exception as e:
-            logger.error(f"Error fetching trackers for user {user_id}: {str(e)}")
+            # logger.error(f"Error fetching trackers for user {user_id}: {str(e)}")
             raise Exception(f"Failed to fetch trackers: {str(e)}")
 
     async def get_tracker_by_id(self, tracker_id: str, user_id: str) -> Dict[str, Any]:
@@ -75,7 +75,7 @@ class TrackersService:
                 return json_serializable(tracker)
             raise Exception("Tracker not found")
         except Exception as e:
-            logger.error(f"Error fetching tracker {tracker_id} for user {user_id}: {str(e)}")
+            # logger.error(f"Error fetching tracker {tracker_id} for user {user_id}: {str(e)}")
             raise Exception(f"Failed to fetch tracker: {str(e)}")
 
     async def get_tracker_by_opportunity(self, user_id: str, opportunity_id: int) -> Optional[Dict[str, Any]]:
@@ -102,7 +102,7 @@ class TrackersService:
                 return json_serializable(tracker)
             return None
         except Exception as e:
-            logger.error(f"Error fetching tracker for user {user_id} and opportunity {opportunity_id}: {str(e)}")
+            # logger.error(f"Error fetching tracker for user {user_id} and opportunity {opportunity_id}: {str(e)}")
             return None
 
     async def create_tracker(self, user_id: str, title: str, description: str = None, 

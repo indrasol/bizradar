@@ -208,7 +208,7 @@ const DocumentEditor = forwardRef(
         const img = doc.querySelector('img');
         if (img && img.src) {
           editor.chain().focus().setImage({ src: img.src, alt: img.alt || undefined }).run();
-          console.log('Image inserted:', img.src);
+          // console.log('Image inserted:', img.src);
         } else {
           toast('Invalid image HTML string.');
         }

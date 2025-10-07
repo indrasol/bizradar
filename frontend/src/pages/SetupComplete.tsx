@@ -25,7 +25,7 @@ const SetupComplete: React.FC = () => {
         const result = await companyApi.setupCompany(setupData);
         
         if (result.success) {
-          console.log('Company setup completed:', result.data);
+          // console.log('Company setup completed:', result.data);
           setSetupStatus('completed');
           toast.success('Company setup completed successfully! You now have access to the Free Tier.', ResponsivePatterns.toast.config);
           

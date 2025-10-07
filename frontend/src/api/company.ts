@@ -40,7 +40,7 @@ export const companyApi = {
       const response = await apiClient.post(API_ENDPOINTS.COMPANY_SETUP, data);
       return response;
     } catch (error) {
-      console.error('Error setting up company:', error);
+      // console.error('Error setting up company:', error);
       throw error;
     }
   },
@@ -57,7 +57,7 @@ export const companyApi = {
       const response = await apiClient.get(`${API_ENDPOINTS.COMPANY_PROFILE}?user_id=${encodeURIComponent(userId)}`);
       return response;
     } catch (error) {
-      console.error('Error fetching company profile:', error);
+      // console.error('Error fetching company profile:', error);
       throw error;
     }
   },
@@ -74,7 +74,7 @@ export const companyApi = {
       const response = await apiClient.put(API_ENDPOINTS.COMPANY_UPDATE, data);
       return response;
     } catch (error) {
-      console.error('Error updating company:', error);
+      // console.error('Error updating company:', error);
       throw error;
     }
   },
@@ -87,7 +87,7 @@ export const companyApi = {
       const response = await this.getCompanyProfile(userId);
       return response.success && response.data !== null;
     } catch (error) {
-      console.error('Error checking company setup:', error);
+      // console.error('Error checking company setup:', error);
       return false;
     }
   }

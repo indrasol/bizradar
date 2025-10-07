@@ -10,7 +10,7 @@ import UpgradeBlocker from '@/components/subscription/UpgradeBlocker';
 // Define your API base URL
 const isDevelopment = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
 const API_BASE_URL = isDevelopment
-  ? "http://localhost:5000"
+  ? "http://localhost:8000"
   : import.meta.env.VITE_API_BASE_URL;
 
 interface AuthContextType {
@@ -228,11 +228,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         // --- Device/Session Tracking Logic ---
         // Generate or retrieve a unique device_id for this browser
         // Device tracking removed - using Supabase Auth built-in session management only
-        console.log('Login successful - relying on Supabase Auth session management');
+      // console.log('Login successful - relying on Supabase Auth session management');
       }
     } catch (error) {
       const authError = error as AuthError;
-      console.error('Login error:', authError);
+      // console.error('Login error:', authError);
       throw new Error(authError.message || 'Failed to login');
     } finally {
       setLoading(false);
@@ -406,10 +406,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           if (!response.ok) {
             console.warn("Error clearing user cache:", await response.text());
           } else {
-            console.log("User cache cleared successfully");
+            // console.log("User cache cleared successfully");
           }
         } catch (e) {
-          console.error("Error clearing user cache:", e);
+          // console.error("Error clearing user cache:", e);
           // Continue with logout even if cache clearing fails
         }
       }
@@ -439,7 +439,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       // Optional related localStorage keys that shouldn't persist across accounts
       localStorage.removeItem("auth_user");
     } catch (error) {
-      console.error('Logout error:', error);
+      // console.error('Logout error:', error);
       throw new Error('Failed to logout');
     }
   };
@@ -454,7 +454,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       if (error) throw error;
     } catch (error) {
       const authError = error as AuthError;
-      console.error('Reset password error:', authError);
+      // console.error('Reset password error:', authError);
       throw new Error(authError.message || 'Failed to send reset password email');
     }
   };
@@ -469,7 +469,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       } = await supabase.auth.getUser();
 
       if (userError) {
-        console.error('Failed to get user:', userError.message);
+        // console.error('Failed to get user:', userError.message);
         throw new Error('Failed to get current user details');
       }
 
@@ -482,7 +482,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       });
 
       if (signInError) {
-        console.error('Old password is incorrect:', signInError.message);
+        // console.error('Old password is incorrect:', signInError.message);
         throw new Error('Incorrect current password. Please verify and re-enter.');
       }
 
@@ -491,12 +491,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       });
 
       if (updateError) {
-        console.error('Update new password error:', updateError);
+        // console.error('Update new password error:', updateError);
         throw new Error('Failed to update password');
       }
     } catch (error) {
       const authError = error as AuthError;
-      console.error('Update password error:', authError);
+      // console.error('Update password error:', authError);
       throw new Error(authError.message || 'Failed to update password');
     }
   };
@@ -534,7 +534,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         if (profileError) throw profileError;
       }
     } catch (error) {
-      console.error('Update profile error:', error);
+      // console.error('Update profile error:', error);
       throw new Error('Failed to update profile');
     }
   };
@@ -550,14 +550,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       })
 
       if (error) {
-        console.error("OAuth sign-in failed:", error.message)
+        // console.error("OAuth sign-in failed:", error.message)
         // Optional: show toast, alert, or return the error message
         return error.message
       }
 
       // Usually this doesn't reach here because the browser redirects
     } catch (err: any) {
-      console.error("Unexpected error during OAuth:", err.message)
+      // console.error("Unexpected error during OAuth:", err.message)
       return "Unexpected login error"
     }
   };
@@ -566,7 +566,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     try {
       const { error } = await supabase.auth.signInWithOtp({ phone });
       if (error) {
-        console.error("Failed to send OTP:", error);
+        // console.error("Failed to send OTP:", error);
         throw new Error(error.message);
       }
     } catch (error) {
@@ -576,7 +576,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const verifyPhoneOtp = async (phone: string, otp: string) => {
     try {
-      console.log("Attempting SMS OTP verification for phone:", phone);
+      // console.log("Attempting SMS OTP verification for phone:", phone);
       
       const { data, error } = await supabase.auth.verifyOtp({
         phone,
@@ -585,12 +585,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       });
 
       if (error) {
-        console.error("SMS OTP verification error:", error);
-        console.error("Error details:", {
-          message: error.message,
-          status: error.status,
-          code: error.code || 'unknown'
-        });
+        // console.error("SMS OTP verification error:", error);
+        // console.error("Error details:", {
+        //   message: error.message,
+        //   status: error.status,
+        //   code: error.code || 'unknown'
+        // });
         
         // Provide more specific error messages based on error type
         if (error.message?.includes('403') || error.status === 403) {
@@ -630,7 +630,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       const { error } = await supabase.auth.updateUser({ phone });
 
       if (error) {
-        console.error("Phone update error:", error);
+        // console.error("Phone update error:", error);
         throw new Error(error.message);
       }
 
@@ -643,7 +643,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   // Email OTP functions
   const sendEmailOtp = async (email: string) => {
     try {
-      console.log("Sending OTP to email:", email);
+      // console.log("Sending OTP to email:", email);
       
       const { error } = await supabase.auth.signInWithOtp({ 
         email,
@@ -653,12 +653,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       });
       
       if (error) {
-        console.error("Failed to send email OTP:", error);
-        console.error("Error details:", {
-          message: error.message,
-          status: error.status,
-          code: error.code || 'unknown'
-        });
+        // console.error("Failed to send email OTP:", error);
+        // console.error("Error details:", {
+        //   message: error.message,
+        //   status: error.status,
+        //   code: error.code || 'unknown'
+        // });
         
         // Provide more specific error messages
         if (error.message?.includes('rate limit') || error.message?.includes('too many')) {
@@ -670,7 +670,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         }
       }
       
-      console.log("OTP sent successfully to:", email);
+      // console.log("OTP sent successfully to:", email);
       authDiagnostics.logOtpAttempt(email, 'send', true);
     } catch (error) {
       authDiagnostics.logOtpAttempt(email, 'send', false, error);
@@ -680,7 +680,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const verifyEmailOtp = async (email: string, otp: string, firstName?: string, lastName?: string) => {
     try {
-      console.log("Attempting OTP verification for email:", email);
+      // console.log("Attempting OTP verification for email:", email);
       
       const { data, error } = await supabase.auth.verifyOtp({
         email,
@@ -689,12 +689,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       });
 
       if (error) {
-        console.error("Email OTP verification error:", error);
-        console.error("Error details:", {
-          message: error.message,
-          status: error.status,
-          code: error.code || 'unknown'
-        });
+        // console.error("Email OTP verification error:", error);
+        // console.error("Error details:", {
+        //   message: error.message,
+        //   status: error.status,
+        //   code: error.code || 'unknown'
+        // });
         
         // Provide more specific error messages based on error type
         if (error.message?.includes('403') || error.status === 403) {
@@ -735,7 +735,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         sessionStorage.setItem("userActiveSession", "true");
 
         // Device tracking removed - Supabase Auth handles session management automatically
-        console.log('Email OTP verification successful - session managed by Supabase Auth');
+        // console.log('Email OTP verification successful - session managed by Supabase Auth');
 
         // Create trial subscription for new signups
         if (firstName && lastName) {
@@ -786,7 +786,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       });
       
       if (error) {
-        console.error("Failed to send signup OTP:", error);
+        // console.error("Failed to send signup OTP:", error);
         throw new Error(error.message);
       }
     } catch (error) {
@@ -805,7 +805,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
       return !!existingUser;
     } catch (error) {
-      console.error("Error checking user existence:", error);
+      // console.error("Error checking user existence:", error);
       // In case of error, assume user doesn't exist to allow them to try signup
       return false;
     }

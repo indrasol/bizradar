@@ -210,14 +210,7 @@ const isValidUUID = (uuid: string): boolean => {
 const stored = (() => {
   try {
     const data = JSON.parse(sessionStorage.getItem("currentContract") || "{}");
-    console.log('🔍 SessionStorage Contract Debug:', {
-      hasData: !!data.id,
-      contractId: data.id,
-      contractIdType: typeof data.id,
-      isUUID: data.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(data.id),
-      isNumber: data.id && !isNaN(Number(data.id)),
-      fullContract: data
-    });
+    // console.log('🔍 SessionStorage Contract Debug:', { hasData: !!data.id, contractId: data.id, contractIdType: typeof data.id });
     return data;
   } catch {
     return {};
@@ -232,20 +225,15 @@ const effectivePursuitId: string | undefined = (() => {
     contract?.pursuit_id
   ].filter(Boolean);
   
-  console.log('Debug data:', {
-    pursuitId: { value: pursuitId, type: typeof pursuitId },
-    storedPursuitId: { value: stored?.pursuit_id, type: typeof stored?.pursuit_id },
-    contractPursuitId: { value: contract?.pursuit_id, type: typeof contract?.pursuit_id },
-    contractId: { value: contract?.id, type: typeof contract?.id }
-  });
+  // console.log('Debug data:', { pursuitId, storedPursuitId: stored?.pursuit_id, contractPursuitId: contract?.pursuit_id, contractId: contract?.id });
   
-  console.log('Pursuit ID candidates:', candidates.map(id => ({ id, type: typeof id, isValid: id ? isValidUUID(String(id)) : false })));
+  // console.log('Pursuit ID candidates:', candidates.map(id => ({ id, type: typeof id, isValid: id ? isValidUUID(String(id)) : false })));
   
   // Find the first valid UUID
   for (const id of candidates) {
     const idStr = String(id);
     if (id && isValidUUID(idStr)) {
-      console.log('Using valid pursuit ID:', idStr);
+      // console.log('Using valid pursuit ID:', idStr);
       return idStr;
     }
   }
@@ -260,16 +248,10 @@ const effectivePursuitId: string | undefined = (() => {
   return undefined;
 })();
 
-console.log('effectivePursuitId:', effectivePursuitId, typeof effectivePursuitId, 'isValid:', effectivePursuitId ? isValidUUID(effectivePursuitId) : false);
+// console.log('effectivePursuitId:', effectivePursuitId, typeof effectivePursuitId, 'isValid:', effectivePursuitId ? isValidUUID(effectivePursuitId) : false);
 
 if (!effectivePursuitId) {
-  console.warn("Missing or invalid pursuit_id. Available data:", {
-    pursuitId,
-    storedPursuitId: stored?.pursuit_id,
-    contractPursuitId: contract?.pursuit_id,
-    sessionStorageKeys: Object.keys(stored || {})
-  });
-  console.warn("Open this page via 'Generate Response' so we know which tracker to save to.");
+  // console.warn("Missing or invalid pursuit_id.");
 }
 
 
@@ -345,15 +327,15 @@ if (!effectivePursuitId) {
       const arrayBuffer = await response.arrayBuffer();
       // @ts-ignore
       const { value: html } = await mammoth.convertToHtml({ arrayBuffer });
-      if (/<img\s/i.test(html)) {
-        const imgMatch = html.match(/<img[^>]*>/i);
-        if (imgMatch) {
-          const imgTag = imgMatch[0];
-          console.log(`Image detected in HTML from docx: ${docxUrl}. First 50 chars: ${imgTag.substring(0, 50)}`);
-        } else {
-          console.log(`Image detected in HTML from docx: ${docxUrl}, but could not extract <img> tag.`);
-        }
-      }
+      // if (/<img\s/i.test(html)) {
+      //   const imgMatch = html.match(/<img[^>]*>/i);
+      //   if (imgMatch) {
+      //     const imgTag = imgMatch[0];
+      //     console.log(`Image detected in HTML from docx: ${docxUrl}. First 50 chars: ${imgTag.substring(0, 50)}`);
+      //   } else {
+      //     console.log(`Image detected in HTML from docx: ${docxUrl}, but could not extract <img> tag.`);
+      //   }
+      // }
       return html;
     } catch (error) {
       console.error('Error converting docx to HTML:', error);
@@ -384,7 +366,7 @@ if (!effectivePursuitId) {
 
   // 🔧 FIX: Reset state on component mount
   useEffect(() => {
-    console.log("🔄 Component mounted, resetting state");
+    // console.log("🔄 Component mounted, resetting state");
     setStage("Review");
     setSections([]);
     setIsSubmitted(false);
@@ -407,13 +389,13 @@ if (!effectivePursuitId) {
   });
 
   useEffect(() => {
-    console.log('isSubmitted state:', isSubmitted);
+    // console.log('isSubmitted state:', isSubmitted);
   }, [isSubmitted]);
 
   // 🔧 FIX: Reset state when switching to a new tracker
   useEffect(() => {
     if (effectivePursuitId) {
-      console.log("🔄 Resetting state for new tracker:", effectivePursuitId);
+      // console.log("🔄 Resetting state for new tracker:", effectivePursuitId);
       
       // Reset all state to defaults
       setStage("Review");
@@ -430,18 +412,16 @@ if (!effectivePursuitId) {
   useEffect(() => {
     const loadRfpData = async () => {
       if (!effectivePursuitId) {
-        console.log("No effective pursuit ID, skipping data load");
+        // console.log("No effective pursuit ID, skipping data load");
         return;
       }
 
 
       try {
-        console.log("Loading RFP data for pursuit ID:", effectivePursuitId);
-        console.log("PursuitId prop:", pursuitId);
-        console.log("Contract:", contract);
+        // console.log("Loading RFP data for pursuit ID:", effectivePursuitId);
 
         // 🔧 FIX: Reset state before loading new data
-        console.log("🔄 Resetting state before loading data for:", effectivePursuitId);
+        // console.log("🔄 Resetting state before loading data for:", effectivePursuitId);
         setStage("Review");
         setSections([]);
         setIsSubmitted(false);
@@ -459,41 +439,24 @@ if (!effectivePursuitId) {
 
         // Use API to fetch RFP data
         try {
-          console.log("🔍 FETCHING EXISTING RESPONSE for ID:", effectivePursuitId);
+          // console.log("🔍 FETCHING EXISTING RESPONSE for ID:", effectivePursuitId);
           const report = await reportsApi.getReportByResponseId(effectivePursuitId, user.id);
-          console.log("✅ FOUND EXISTING RESPONSE:", report);
+          // console.log("✅ FOUND EXISTING RESPONSE:", report);
           const responses = [report]; // Wrap in array to match existing logic
           
           if (responses && responses.length > 0) {
           const data = responses[0];
-          console.log("Loaded RFP data:", data);
+          // console.log("Loaded RFP data:", data);
           
           // 🔧 FIX: Update contract with correct opportunity_id from report data
-          console.log('🔧 Contract Fix Debug:', {
-            hasOpportunityId: !!data.opportunity_id,
-            opportunityId: data.opportunity_id,
-            opportunityIdType: typeof data.opportunity_id,
-            currentContractId: contract?.id,
-            currentContractIdType: typeof contract?.id,
-            areEqual: contract?.id === data.opportunity_id,
-            willFix: data.opportunity_id && contract?.id !== data.opportunity_id
-          });
+          // console.log('🔧 Contract Fix Debug: ...');
           
           if (data.opportunity_id && contract?.id !== data.opportunity_id) {
-            console.log('🔧 Fixing contract.id:', {
-              oldId: contract?.id,
-              newId: data.opportunity_id,
-              oldType: typeof contract?.id,
-              newType: typeof data.opportunity_id
-            });
+            // console.log('🔧 Fixing contract.id');
             contract.id = data.opportunity_id;
           } else if (!data.opportunity_id && contract?.id && !isNaN(Number(contract.id))) {
             // 🔧 NEW FIX: If report has no opportunity_id but contract.id is a number, update the report
-            console.log('🔧 Updating report with opportunity_id:', {
-              reportId: data.response_id,
-              opportunityId: Number(contract.id),
-              contractId: contract.id
-            });
+            // console.log('🔧 Updating report with opportunity_id');
             
             // Update the report with the opportunity_id
             try {
@@ -505,27 +468,18 @@ if (!effectivePursuitId) {
                 user.id,
                 Number(contract.id) // Add the opportunity_id
               );
-              console.log('✅ Successfully updated report with opportunity_id');
+              // console.log('✅ Successfully updated report with opportunity_id');
             } catch (updateError) {
               console.error('❌ Failed to update report with opportunity_id:', updateError);
             }
           } else {
-            console.log('🔧 No fix needed:', {
-              reason: !data.opportunity_id ? 'No opportunity_id in data' : 'Contract ID already correct'
-            });
+            // console.log('🔧 No fix needed');
           }
           
-          console.log("Content structure:", {
-            hasContent: !!data.content,
-            contentKeys: data.content ? Object.keys(data.content) : 'no content',
-            contentSections: data.content?.sections,
-            contentSectionsType: typeof data.content?.sections,
-            contentSectionsLength: data.content?.sections?.length,
-            fullContent: data.content
-          });
+          // console.log("Content structure: ...");
 
           setIsSubmitted(data.is_submitted || false);
-          console.log("Setting isSubmitted to:", data.is_submitted);
+          // console.log("Setting isSubmitted to:", data.is_submitted);
 
           if (data.content) {
             const content = data.content;
@@ -543,17 +497,10 @@ if (!effectivePursuitId) {
             setTheme(content.theme || 'professional');
 
             // Load saved sections if they exist, otherwise use default template
-            console.log("Content sections check:", {
-              hasContent: !!content,
-              hasSections: !!content.sections,
-              sectionsType: typeof content.sections,
-              isArray: Array.isArray(content.sections),
-              sectionsLength: content.sections?.length,
-              sectionsValue: content.sections
-            });
+            // console.log("Content sections check: ...");
             
             if (Array.isArray(content.sections) && content.sections.length > 0) {
-              console.log("Loading saved sections:", content.sections);
+              // console.log("Loading saved sections:", content.sections);
               setSections(content.sections);
               
               // Calculate stage from loaded sections - only count sections with actual content
@@ -578,10 +525,9 @@ if (!effectivePursuitId) {
                 calculatedStage = "Review";
               }
               setStage(calculatedStage);
-              console.log("Calculated stage from sections:", calculatedStage, "Completion:", completionPercentage + "%");
+              // console.log("Calculated stage from sections");
             } else {
-              console.log("No saved sections found, using default template");
-              console.log("This appears to be an existing response with no sections saved yet");
+              // console.log("No saved sections found, using default template");
               setStage("Review");
               await resetSectionsWithDocxHtml();
             }
@@ -611,9 +557,9 @@ if (!effectivePursuitId) {
             setLastSaved(new Date(data.updated_at).toLocaleTimeString());
           }
 
-          console.log("Successfully loaded saved RFP data");
+          // console.log("Successfully loaded saved RFP data");
         } else {
-          console.log("❌ NO EXISTING RFP RESPONSE FOUND, loading templates and converting to HTML");
+          // console.log("❌ NO EXISTING RFP RESPONSE FOUND, loading templates and converting to HTML");
           
           // Set contract data for new responses
           setRfpTitle(contract?.title || 'Proposal for Cybersecurity Audit & Penetration Testing Services');
@@ -649,7 +595,7 @@ if (!effectivePursuitId) {
         } catch (apiError: any) {
           // Handle API errors (like 404 for no existing report)
           if (apiError.message?.includes('404')) {
-            console.log("No existing RFP response found, loading templates and converting to HTML");
+            // console.log("No existing RFP response found, loading templates and converting to HTML");
             
             // Set contract data for new responses
             setRfpTitle(contract?.title || 'Proposal for Cybersecurity Audit & Penetration Testing Services');
@@ -702,17 +648,8 @@ if (!effectivePursuitId) {
  // Auto-save (unchanged)
 // Auto-save (temporarily disabled for testing)
 useEffect(() => {
-  console.log("Auto-save effect triggered but DISABLED for testing:", {
-    autoSaveEnabled,
-    effectivePursuitId,
-    hasUserInteracted,
-    hasUserInteractedType: typeof hasUserInteracted,
-    sectionsLength: sections.length
-  });
-  
   // TEMPORARILY DISABLED - just return without setting timer
   return;
-  
 }, [
   logo, companyName, companyWebsite, letterhead, phone,
   rfpTitle, rfpNumber, issuedDate, submittedBy, theme, sections,
@@ -724,7 +661,7 @@ useEffect(() => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        console.log('No user found, cannot fetch profile');
+        // console.log('No user found, cannot fetch profile');
         return null;
       }
 
@@ -740,7 +677,7 @@ useEffect(() => {
         return null;
       }
 
-      console.log('Fetched user profile:', profile);
+      // console.log('Fetched user profile:', profile);
       return profile;
     } catch (error) {
       console.error('Error in fetchUserProfile:', error);
@@ -923,39 +860,39 @@ useEffect(() => {
         stageToSet = "Submitted";
       }
       
-      console.log('Saving with validated data:', {
-        effectivePursuitId,
-        userId: user.id,
-        contentKeys: Object.keys(contentToSave),
-        sectionsLength: contentToSave.sections?.length || 0,
-        completionPercentage,
-        completedSections,
-        totalSections,
-        isSubmitted,
-        stageToSet,
-        sectionsDetails: contentToSave.sections.map(section => ({
-          title: section.title,
-          completed: section.completed,
-          hasContent: section?.content && section.content.trim().length > 50,
-          contentLength: section?.content?.trim().length || 0
-        }))
-      });
+      // console.log('Saving with validated data:', {
+      //   effectivePursuitId,
+      //   userId: user.id,
+      //   contentKeys: Object.keys(contentToSave),
+      //   sectionsLength: contentToSave.sections?.length || 0,
+      //   completionPercentage,
+      //   completedSections,
+      //   totalSections,
+      //   isSubmitted,
+      //   stageToSet,
+      //   sectionsDetails: contentToSave.sections.map(section => ({
+      //     title: section.title,
+      //     completed: section.completed,
+      //     hasContent: section?.content && section.content.trim().length > 50,
+      //     contentLength: section?.content?.trim().length || 0
+      //   }))
+      // });
       
       // Single orchestrated save: update tracker stage (if applicable) + upsert report
       try {
         // Call the common backend PUT to keep tracker and report in sync
         const opportunityId = contract?.id ? Number(contract.id) : undefined;
-        console.log('🔍 Save Debug:', {
-          contractId: contract?.id,
-          contractIdType: typeof contract?.id,
-          opportunityId: opportunityId,
-          opportunityIdType: typeof opportunityId,
-          isNaN: isNaN(opportunityId),
-          contract: contract
-        });
+        // console.log('🔍 Save Debug:', {
+        //   contractId: contract?.id,
+        //   contractIdType: typeof contract?.id,
+        //   opportunityId: opportunityId,
+        //   opportunityIdType: typeof opportunityId,
+        //   isNaN: isNaN(opportunityId),
+        //   contract: contract
+        // });
         
-        console.log("effectivePursuitId", effectivePursuitId);
-        console.log("user.id", user.id);
+        // console.log("effectivePursuitId", effectivePursuitId);
+        // console.log("user.id", user.id);
   
         
         // Single orchestrated save: updates both tracker and report in one call
@@ -967,7 +904,7 @@ useEffect(() => {
           opportunity_id: opportunityId
         });
         
-        console.log('✅ Successfully saved RFP data and synced tracker stage via orchestrated endpoint');
+        // console.log('✅ Successfully saved RFP data and synced tracker stage via orchestrated endpoint');
         setLastSaved(new Date().toLocaleTimeString());
         setStage(stageToSet);
 
@@ -983,7 +920,7 @@ useEffect(() => {
             }
           });
           window.dispatchEvent(event);
-          console.log("Dispatched rfp_saved event:", { pursuitId: effectivePursuitId, stage: stageToSet, percentage: completionPercentage });
+          // console.log("Dispatched rfp_saved event:", { pursuitId: effectivePursuitId, stage: stageToSet, percentage: completionPercentage });
         }
         
         if (showNotification && stageToSet === "Completed") {
@@ -1030,7 +967,7 @@ useEffect(() => {
       }
       
     } catch (error) {
-      console.error("Error saving RFP data:", error);
+      // console.error("Error saving RFP data:", error);
       if (showNotification) {
         toast?.error("Failed to save RFP response. Please try again.");
       }
@@ -1095,7 +1032,7 @@ useEffect(() => {
 
     // Update both the report and tracker submission status
     try {
-      console.log(`Updating submission status to ${newSubmittedState} for response ${effectivePursuitId}`);
+      // console.log(`Updating submission status to ${newSubmittedState} for response ${effectivePursuitId}`);
       
       // Update report submission status
       await reportsApi.updateReport(
@@ -1115,9 +1052,9 @@ useEffect(() => {
           newSubmittedState, 
           user.id
         );
-        console.log(`Successfully synced tracker submission status to ${newSubmittedState}`);
+        // console.log(`Successfully synced tracker submission status to ${newSubmittedState}`);
       } catch (trackerError) {
-        console.warn('Failed to sync tracker submission status:', trackerError);
+        // console.warn('Failed to sync tracker submission status:', trackerError);
         // Continue even if tracker update fails
       }
       
@@ -1126,14 +1063,14 @@ useEffect(() => {
         detail: { responseId: effectivePursuitId } 
       }));
       
-      console.log(`Successfully updated submission status to ${newSubmittedState}`);
+      // console.log(`Successfully updated submission status to ${newSubmittedState}`);
       toast.success(newSubmittedState ? "Marked as submitted" : "Marked as ongoing");
       
       // Update last saved time
       setLastSaved(new Date().toLocaleTimeString());
       
     } catch (error: any) {
-      console.error("Failed to update submission status:", error);
+      // console.error("Failed to update submission status:", error);
       
       // Handle specific error types
       if (error.response?.status === 404) {
@@ -1454,15 +1391,15 @@ useEffect(() => {
             foreignObjectRendering: false,
           });
 
-          console.log('Canvas dimensions for page', pageIndex + 1, ':', { width: canvas.width, height: canvas.height });
+          // console.log('Canvas dimensions for page', pageIndex + 1, ':', { width: canvas.width, height: canvas.height });
 
           const dataUrl = canvas.toDataURL('image/jpeg', 0.98);
-          console.log('Data URL length for page', pageIndex + 1, ':', dataUrl.length);
+          // console.log('Data URL length for page', pageIndex + 1, ':', dataUrl.length);
 
           let imgHeight = (canvas.height * pageWidth) / canvas.width;
           imgHeight = Math.min(imgHeight, pageHeight);
 
-          console.log('Calculated imgHeight for page', pageIndex + 1, ':', imgHeight);
+          // console.log('Calculated imgHeight for page', pageIndex + 1, ':', imgHeight);
 
           if (!canvas.width || !canvas.height || !isFinite(imgHeight) || imgHeight <= 0) {
             console.error('Invalid canvas dimensions or imgHeight for page', pageIndex + 1, ':', {
@@ -1505,8 +1442,8 @@ useEffect(() => {
 
         await new Promise((resolve) => setTimeout(resolve, 100));
 
-        console.log('Last page elements:', currentPageElements.map(el => el.outerHTML));
-        console.log('Rendering last page with elements:', tempContainer.innerHTML);
+        // console.log('Last page elements:', currentPageElements.map(el => el.outerHTML));
+        // console.log('Rendering last page with elements:', tempContainer.innerHTML);
 
         const canvas = await html2canvas(tempContainer, {
           scale: scale,
@@ -1518,22 +1455,22 @@ useEffect(() => {
           foreignObjectRendering: false,
         });
 
-        console.log('Last page canvas dimensions:', { width: canvas.width, height: canvas.height });
+        // console.log('Last page canvas dimensions:', { width: canvas.width, height: canvas.height });
 
         const dataUrl = canvas.toDataURL('image/jpeg', 0.98);
-        console.log('Last page data URL length:', dataUrl.length);
+        // console.log('Last page data URL length:', dataUrl.length);
 
         let imgHeight = (canvas.height * pageWidth) / canvas.width;
         imgHeight = Math.min(imgHeight, pageHeight);
 
-        console.log('Last page imgHeight:', imgHeight);
+        // console.log('Last page imgHeight:', imgHeight);
 
         if (!canvas.width || !canvas.height || !isFinite(imgHeight) || imgHeight <= 0) {
-          console.error('Invalid canvas dimensions or imgHeight for last page:', {
-            width: canvas.width,
-            height: canvas.height,
-            imgHeight,
-          });
+          // console.error('Invalid canvas dimensions or imgHeight for last page:', {
+          //   width: canvas.width,
+          //   height: canvas.height,
+          //   imgHeight,
+          // });
         } else {
           if (pageIndex > 0) {
             pdf.addPage();
@@ -1547,7 +1484,7 @@ useEffect(() => {
 
       pdf.save(`${proposalData.rfpTitle || 'Proposal'}.pdf`);
     } catch (error) {
-      console.error('PDF generation failed:', error);
+      // console.error('PDF generation failed:', error);
       alert('Failed to generate PDF. Please try again.');
     }
     setShowDownloadOptions(false);
@@ -1732,10 +1669,10 @@ useEffect(() => {
 
         if (!userCompaniesError && userCompanies && userCompanies.companies) {
           companyData = userCompanies.companies;
-          console.log("Found company data from user_companies:", companyData);
+          // console.log("Found company data from user_companies:", companyData);
         }
       } catch (error) {
-        console.log("No primary company found in user_companies, using form data");
+        // console.log("No primary company found in user_companies, using form data");
       }
 
       // Parse company address from letterhead or use company data
@@ -1786,8 +1723,8 @@ useEffect(() => {
         proposal_title: rfpTitle,
       };
 
-      console.log("Sending company context:", company_context);
-      console.log("Sending proposal context:", proposal_context);
+      // console.log("Sending company context:", company_context);
+      // console.log("Sending proposal context:", proposal_context);
 
       // Call the backend API
       const response = await fetch(`${API_ENDPOINTS.ENHANCE_RFP_WITH_AI}`, {

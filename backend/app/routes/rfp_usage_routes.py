@@ -17,7 +17,7 @@ async def get_usage_status(
     """
     Get the current RFP usage status for a user
     """
-    logger.info(f"🔍 GET request received for RFP usage status for user {user_id}")
+    # logger.info(f"🔍 GET request received for RFP usage status for user {user_id}")
     try:
         month_year = await rfp_usage_service.get_current_month_year()
         monthly_limit = await rfp_usage_service.get_monthly_limit(user_id)
@@ -34,7 +34,7 @@ async def get_usage_status(
                       f"You've reached your monthly limit of {monthly_limit} RFP reports. Upgrade your plan to generate more reports."
         }
     except Exception as e:
-        logger.error(f"❌ Error getting usage status for user {user_id}: {str(e)}")
+        # logger.error(f"❌ Error getting usage status for user {user_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to get usage status")
 
 @router.get("/rfp-usage/check-opportunity/{opportunity_id}")
@@ -45,7 +45,7 @@ async def check_opportunity_status(
     """
     Check if a user can generate a report for a specific opportunity
     """
-    logger.info(f"🔍 GET request received to check opportunity {opportunity_id} for user {user_id}")
+    # logger.info(f"🔍 GET request received to check opportunity {opportunity_id} for user {user_id}")
     try:
         can_generate, status_info = await rfp_usage_service.can_generate_report(user_id, opportunity_id)
         return {
@@ -54,7 +54,7 @@ async def check_opportunity_status(
             "status": status_info
         }
     except Exception as e:
-        logger.error(f"❌ Error checking opportunity {opportunity_id} for user {user_id}: {str(e)}")
+        # logger.error(f"❌ Error checking opportunity {opportunity_id} for user {user_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to check opportunity status")
 
 @router.post("/rfp-usage/record/{opportunity_id}")
@@ -65,13 +65,13 @@ async def record_usage(
     """
     Record usage for a specific opportunity after checking limits
     """
-    logger.info(f"🔍 POST request received to record usage for user {user_id}, opportunity {opportunity_id}")
+    # logger.info(f"🔍 POST request received to record usage for user {user_id}, opportunity {opportunity_id}")
     try:
         # First check if the user can generate a report
         can_generate, status_info = await rfp_usage_service.can_generate_report(user_id, opportunity_id)
         
         if not can_generate:
-            logger.warning(f"❌ User {user_id} cannot generate report for opportunity {opportunity_id}: {status_info.get('message')}")
+            # logger.warning(f"❌ User {user_id} cannot generate report for opportunity {opportunity_id}: {status_info.get('message')}")
             return {
                 "success": False,
                 "message": status_info.get("message"),
@@ -83,7 +83,7 @@ async def record_usage(
             success = await rfp_usage_service.record_report_generation(user_id, opportunity_id)
             
             if success:
-                logger.info(f"✅ Successfully recorded usage for user {user_id}, opportunity {opportunity_id}")
+                # logger.info(f"✅ Successfully recorded usage for user {user_id}, opportunity {opportunity_id}")
                 return {
                     "success": True,
                     "message": "Usage recorded successfully",
@@ -94,17 +94,17 @@ async def record_usage(
                     }
                 }
             else:
-                logger.error(f"❌ Failed to record usage for user {user_id}, opportunity {opportunity_id}")
+                # logger.error(f"❌ Failed to record usage for user {user_id}, opportunity {opportunity_id}")
                 raise HTTPException(status_code=500, detail="Failed to record usage")
         
         # If the reason is "existing_report", no need to record usage
-        logger.info(f"ℹ️ No need to record usage for user {user_id}, opportunity {opportunity_id}: {status_info.get('reason')}")
+        # logger.info(f"ℹ️ No need to record usage for user {user_id}, opportunity {opportunity_id}: {status_info.get('reason')}")
         return {
             "success": True,
             "message": status_info.get("message"),
             "status": status_info
         }
     except Exception as e:
-        logger.error(f"❌ Error recording usage for user {user_id}, opportunity {opportunity_id}: {str(e)}")
+        # logger.error(f"❌ Error recording usage for user {user_id}, opportunity {opportunity_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to record usage")
 

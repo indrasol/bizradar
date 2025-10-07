@@ -98,21 +98,21 @@ async deleteReport(responseId: string, userId: string): Promise<{ success: boole
     try {
       // First try the dedicated toggle endpoint
       const response = await apiClient.post(`${API_ENDPOINTS.REPORTS_TOGGLE_SUBMITTED(responseId)}?user_id=${userId}`, {});
-      console.log('Successfully toggled report submission status via dedicated endpoint');
+      // console.log('Successfully toggled report submission status via dedicated endpoint');
       
       // Also update the tracker to keep them in sync
       try {
         const { trackersApi } = await import('./trackers');
         await trackersApi.syncTrackerWithReport(responseId, "Completed", true, userId);
-        console.log('Successfully synced tracker submission status');
+        // console.log('Successfully synced tracker submission status');
       } catch (trackerError) {
-        console.warn('Failed to sync tracker submission status:', trackerError);
+        // console.warn('Failed to sync tracker submission status:', trackerError);
         // Continue even if tracker update fails
       }
       
       return response;
     } catch (error) {
-      console.warn('Toggle endpoint failed, falling back to direct update:', error);
+      // console.warn('Toggle endpoint failed, falling back to direct update:', error);
       
       // Fallback: Get current report and update it directly
       try {
@@ -132,16 +132,16 @@ async deleteReport(responseId: string, userId: string): Promise<{ success: boole
         try {
           const { trackersApi } = await import('./trackers');
           await trackersApi.syncTrackerWithReport(responseId, "Completed", true, userId);
-          console.log('Successfully synced tracker submission status (fallback path)');
+          // console.log('Successfully synced tracker submission status (fallback path)');
         } catch (trackerError) {
           console.warn('Failed to sync tracker submission status (fallback path):', trackerError);
           // Continue even if tracker update fails
         }
         
-        console.log('Successfully updated report submission status via direct update');
+        // console.log('Successfully updated report submission status via direct update');
         return updatedReport;
       } catch (fallbackError) {
-        console.error('Both toggle methods failed:', fallbackError);
+        // console.error('Both toggle methods failed:', fallbackError);
         throw fallbackError;
       }
     }

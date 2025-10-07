@@ -13,7 +13,7 @@ const Logout = () => {
   useEffect(() => {
     const performLogout = async () => {
       try {
-        console.log("Logout called");
+        // console.log("Logout called");
         await logout();
 
         // mark that we should log the event once we land on "/"

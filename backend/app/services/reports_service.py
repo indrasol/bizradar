@@ -19,7 +19,7 @@ class ReportsService:
     async def get_reports(self, user_id: str, is_submitted: bool = False) -> List[Dict[str, Any]]:
         """Get all reports for a user filtered by submission status"""
         try:
-            logger.info(f"Fetching reports for user {user_id}, is_submitted: {is_submitted}")
+            # logger.info(f"Fetching reports for user {user_id}, is_submitted: {is_submitted}")
             
             response = self.supabase.table(self.table_name).select(
                 "response_id, user_id, opportunity_id, title, response_content, completion_percentage, is_submitted, stage, created_at, updated_at"
@@ -29,7 +29,7 @@ class ReportsService:
                 # Transform to match frontend expectations (rfp_responses -> reports format)
                 reports = []
                 for item in response.data:
-                    logger.info(f"🔍 Database item opportunity_id: {item.get('opportunity_id')} (type: {type(item.get('opportunity_id'))})")
+                    # logger.info(f"🔍 Database item opportunity_id: {item.get('opportunity_id')} (type: {type(item.get('opportunity_id'))})")
                     report = {
                         "id": item["response_id"],  # Use response_id as id since no separate id column exists
                         "response_id": item["response_id"],
@@ -48,19 +48,19 @@ class ReportsService:
                     }
                     reports.append(json_serializable(report))
                 
-                logger.info(f"Found {len(reports)} reports for user {user_id}")
+                # logger.info(f"Found {len(reports)} reports for user {user_id}")
                 return reports
             
             return []
             
         except Exception as e:
-            logger.error(f"Error fetching reports for user {user_id}: {str(e)}")
+            # logger.error(f"Error fetching reports for user {user_id}: {str(e)}")
             raise Exception(f"Failed to fetch reports: {str(e)}")
     
     async def get_report_by_response_id(self, response_id: str, user_id: str) -> Optional[Dict[str, Any]]:
         """Get a specific report by response_id and user_id"""
         try:
-            logger.info(f"Fetching report for response {response_id}, user {user_id}")
+            # logger.info(f"Fetching report for response {response_id}, user {user_id}")
             
             # Use .execute() instead of .maybe_single().execute() to avoid Supabase errors
             response = self.supabase.table(self.table_name).select(
@@ -90,15 +90,15 @@ class ReportsService:
                 return json_serializable(report)
             
             # No data found - this is normal for new RFPs
-            logger.info(f"No report found for response {response_id}, user {user_id}")
+            # logger.info(f"No report found for response {response_id}, user {user_id}")
             return None
             
         except Exception as e:
-            logger.error(f"Error fetching report {response_id}: {str(e)}")
+            # logger.error(f"Error fetching report {response_id}: {str(e)}")
             # Don't re-raise the exception for common "not found" cases
             if ("Missing response" in str(e) or "204" in str(e) or "PGRST116" in str(e) or 
                 "invalid input syntax for type uuid" in str(e) or "22P02" in str(e)):
-                logger.info(f"Report not found for response {response_id} (expected for new RFPs or invalid UUID)")
+                # logger.info(f"Report not found for response {response_id} (expected for new RFPs or invalid UUID)")
                 return None
             raise Exception(f"Failed to fetch report: {str(e)}")
     
@@ -106,7 +106,7 @@ class ReportsService:
                           completion_percentage: int = 0, is_submitted: bool = False, opportunity_id: int = None) -> Dict[str, Any]:
         """Create a new report"""
         try:
-            logger.info(f"Creating report for response {response_id}, user {user_id}")
+            # logger.info(f"Creating report for response {response_id}, user {user_id}")
             
             # Extract title from content if available
             title = content.get("rfpTitle", "Untitled Report") if isinstance(content, dict) else "Untitled Report"
@@ -140,20 +140,20 @@ class ReportsService:
                     "updated_at": response.data["updated_at"],
                     "created_at": response.data["created_at"]
                 }
-                logger.info(f"Successfully created report for response {response_id}")
+                # logger.info(f"Successfully created report for response {response_id}")
                 return json_serializable(created_report)
             
             raise Exception("No data returned from insert operation")
             
         except Exception as e:
-            logger.error(f"Error creating report for response {response_id}: {str(e)}")
+            # logger.error(f"Error creating report for response {response_id}: {str(e)}")
             raise Exception(f"Failed to create report: {str(e)}")
     
     async def update_report(self, response_id: str, user_id: str, content: Optional[Dict[str, Any]] = None,
                           completion_percentage: Optional[int] = None, is_submitted: Optional[bool] = None) -> Dict[str, Any]:
         """Update an existing report"""
         try:
-            logger.info(f"Updating report for response {response_id}, user {user_id}")
+            # logger.info(f"Updating report for response {response_id}, user {user_id}")
             
             update_data = {
                 "updated_at": datetime.utcnow().isoformat()
@@ -195,20 +195,20 @@ class ReportsService:
                         "updated_at": data["updated_at"],
                         "created_at": data["created_at"]
                     }
-                    logger.info(f"Successfully updated report for response {response_id}")
+                    # logger.info(f"Successfully updated report for response {response_id}")
                     return json_serializable(updated_report)
             
             raise Exception("Report not found or update failed")
             
         except Exception as e:
-            logger.error(f"Error updating report for response {response_id}: {str(e)}")
+            # logger.error(f"Error updating report for response {response_id}: {str(e)}")
             raise Exception(f"Failed to update report: {str(e)}")
     
     async def upsert_report(self, response_id: str, user_id: str, content: Dict[str, Any],
                           completion_percentage: int = 0, is_submitted: bool = False, opportunity_id: int = None) -> Dict[str, Any]:
         """Create or update a report (upsert operation)"""
         try:
-            logger.info(f"Upserting report for response {response_id}, user {user_id}")
+            # logger.info(f"Upserting report for response {response_id}, user {user_id}")
             
             # Extract title from content if available
             title = content.get("rfpTitle", "Untitled Report") if isinstance(content, dict) else "Untitled Report"
@@ -246,13 +246,13 @@ class ReportsService:
                     "updated_at": data["updated_at"],
                     "created_at": data["created_at"]
                 }
-                logger.info(f"Successfully upserted report for response {response_id}")
+                # logger.info(f"Successfully upserted report for response {response_id}")
                 return json_serializable(upserted_report)
             
             raise Exception("No data returned from upsert operation")
             
         except Exception as e:
-            logger.error(f"Error upserting report for response {response_id}: {str(e)}")
+            # logger.error(f"Error upserting report for response {response_id}: {str(e)}")
             # Handle UUID validation errors gracefully
             if "invalid input syntax for type uuid" in str(e) or "22P02" in str(e):
                 raise Exception(f"Invalid UUID format for response_id or user_id: {str(e)}")
@@ -261,7 +261,7 @@ class ReportsService:
     async def delete_report(self, response_id: str, user_id: str) -> bool:
         """Delete a report"""
         try:
-            logger.info(f"Deleting report for response {response_id}, user {user_id}")
+            # logger.info(f"Deleting report for response {response_id}, user {user_id}")
             
             # First get the report to check if it has an opportunity_id
             report = await self.get_report_by_response_id(response_id, user_id)
@@ -282,17 +282,17 @@ class ReportsService:
                 "response_id", response_id
             ).eq("user_id", user_id).execute()
             
-            logger.info(f"Successfully deleted report for response {response_id}")
+            # logger.info(f"Successfully deleted report for response {response_id}")
             return True
             
         except Exception as e:
-            logger.error(f"Error deleting report for response {response_id}: {str(e)}")
+            # logger.error(f"Error deleting report for response {response_id}: {str(e)}")
             raise Exception(f"Failed to delete report: {str(e)}")
     
     async def toggle_submitted_status(self, response_id: str, user_id: str) -> Dict[str, Any]:
         """Toggle the submitted status of a report"""
         try:
-            logger.info(f"Toggling submitted status for response {response_id}, user {user_id}")
+            # logger.info(f"Toggling submitted status for response {response_id}, user {user_id}")
             
             # First get current status
             current_report = await self.get_report_by_response_id(response_id, user_id)
@@ -310,11 +310,11 @@ class ReportsService:
                 response_id, user_id, is_submitted=new_status
             )
             
-            logger.info(f"Successfully toggled submitted status to {new_status} for response {response_id}")
+            # logger.info(f"Successfully toggled submitted status to {new_status} for response {response_id}")
             return updated_report
             
         except Exception as e:
-            logger.error(f"Error toggling submitted status for response {response_id}: {str(e)}")
+            # logger.error(f"Error toggling submitted status for response {response_id}: {str(e)}")
             raise Exception(f"Failed to toggle submitted status: {str(e)}")
 
 # Create service instance

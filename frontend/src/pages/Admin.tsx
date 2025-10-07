@@ -18,7 +18,7 @@ import SideBar from "../components/layout/SideBar";
 import { Link } from 'react-router-dom';
 
 // Define the correct API base URL
-const API_BASE_URL = 'http://localhost:5000';
+const API_BASE_URL = 'http://localhost:8000';
 
 const Admin = () => {
   const [activeTab, setActiveTab] = useState("etl");

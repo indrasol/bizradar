@@ -67,7 +67,7 @@ const Login = ({ isOpen = true, onOpenChange = () => { }, onSwitchToRegister = (
 
   // Handle login form submission
   const onLoginSubmit = async (values: LoginFormValues) => {
-    console.log("Login values:", values);
+    // console.log("Login values:", values);
 
     setIsLoading(true);
     setError(null);

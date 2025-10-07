@@ -417,10 +417,10 @@ const BizradarAI: React.FC = () => {
     navigator.clipboard.writeText(text)
       .then(() => {
         // Could add a toast/notification here
-        console.log('Text copied to clipboard');
+        // console.log('Text copied to clipboard');
       })
       .catch(err => {
-        console.error('Error copying text: ', err);
+        // console.error('Error copying text: ', err);
       });
   };
 

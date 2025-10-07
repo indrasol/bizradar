@@ -6,7 +6,7 @@ import { getApiUrl, isDevelopment } from "@/config/env";
 const API_BASE_URL = getApiUrl();
 // Log the API base URL being used
 if (isDevelopment) {
-  console.log(`Using API base URL: ${API_BASE_URL}`);
+  // console.log(`Using API base URL: ${API_BASE_URL}`);
 }
 
 

@@ -56,13 +56,13 @@ def insert_data(rows):
                 
                 # Skip if notice_id is missing (shouldn't happen but just in case)
                 if not notice_id:
-                    logger.warning("Skipping row with missing notice_id")
+                    # logger.warning("Skipping row with missing notice_id")
                     skipped += 1
                     continue
                 
                 # Check if this record already exists
                 if check_duplicate(cursor, notice_id):
-                    logger.info(f"Skipping duplicate record with notice_id: {notice_id}")
+                    # logger.info(f"Skipping duplicate record with notice_id: {notice_id}")
                     skipped += 1
                     continue
                 
@@ -82,18 +82,18 @@ def insert_data(rows):
                     ))
                     inserted += 1
                 except psycopg2.Error as e:
-                    logger.error(f"Error inserting record {notice_id}: {e}")
+                    # logger.error(f"Error inserting record {notice_id}: {e}")
                     skipped += 1
                     # Continue with other records even if one fails
                     continue
                 
         connection.commit()
-        logger.info(f"Database insertion complete. Inserted: {inserted}, Skipped duplicates: {skipped}")
+        # logger.info(f"Database insertion complete. Inserted: {inserted}, Skipped duplicates: {skipped}")
         return {"inserted": inserted, "skipped": skipped}
     
     except psycopg2.Error as e:
         connection.rollback()
-        logger.error(f"Error during database transaction: {e}")
+        # logger.error(f"Error during database transaction: {e}")
         return {"error": str(e), "inserted": inserted, "skipped": skipped}
     finally:
         connection.close()

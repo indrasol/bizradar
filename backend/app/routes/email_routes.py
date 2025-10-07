@@ -8,7 +8,7 @@ from utils.logger import get_logger
 
 router = APIRouter()
 
-logger = get_logger(__name__)
+# logger = get_logger(__name__)
 
 class WelcomeEmailRequest(BaseModel):
     email: str
@@ -55,12 +55,12 @@ async def send_welcome_email(request: WelcomeEmailRequest):
         
         # Send email
         response = sg.send(message)
-        logger.info(f"SendGrid Response Status: {response.status_code}")
-        logger.info(f"SendGrid Response Headers: {response.headers}")
-        logger.info(f"SendGrid Response Body: {response.body}")
-        logger.info(f"Email sent successfully to {request.email}")
+        # logger.info(f"SendGrid Response Status: {response.status_code}")
+        # logger.info(f"SendGrid Response Headers: {response.headers}")
+        # logger.info(f"SendGrid Response Body: {response.body}")
+        # logger.info(f"Email sent successfully to {request.email}")
         
         return {"success": True, "message": "Welcome email sent successfully"}
     except Exception as e:
-        logger.error(f"Error sending email: {str(e)}")
+        # logger.error(f"Error sending email: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e)) 

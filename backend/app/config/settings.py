@@ -13,7 +13,7 @@ def load_env_file():
     # First try to load .env.{ENV} file
     env_file = BASE_DIR / f".env.{ENV}"
     if env_file.exists():
-        print(f"Loading environment from {env_file}")
+        # print(f"Loading environment from {env_file}")
         # Force override existing environment variables
         load_dotenv(dotenv_path=env_file, override=True)
         return True
@@ -21,27 +21,27 @@ def load_env_file():
     # Fallback to the standard .env file
     default_env_file = BASE_DIR / ".env"
     if default_env_file.exists():
-        print(f"Loading environment from {default_env_file}")
+        # print(f"Loading environment from {default_env_file}")
         # Force override existing environment variables
         load_dotenv(dotenv_path=default_env_file, override=True)
         return True
     
     # If no env file found
-    print(f"Warning: No .env.{ENV} or .env file found")
+    # print(f"Warning: No .env.{ENV} or .env file found")
     return False
 
 # Load environment variables
 load_env_file()
 
 # Print environment for debugging
-print(f"Running in {ENV} environment")
+# print(f"Running in {ENV} environment")
 
 # Main
 title = os.getenv("title_BIZ")
 description = os.getenv("description_BIZ")
 version = os.getenv("version_BIZ")
 
-print(f"title: {title}, description: {description}, version: {version}")
+# print(f"title: {title}, description: {description}, version: {version}")
 
 # SAM.GOV
 SAM_API_KEY = os.getenv("SAMAPIKEY")
@@ -82,8 +82,8 @@ SUPABASE_ANON_KEY=os.getenv("SUPABASE_ANON_KEY_BIZ")
 SUPABASE_SERVICE_KEY=os.getenv("SUPABASE_SERVICE_KEY_BIZ")
 # Stripe
 # Print Stripe keys for debugging
-print(f"Loading Stripe keys - Secret: {'*' * 20}{os.getenv('STRIPE_SECRET_KEY_BIZ', '')[-4:] if os.getenv('STRIPE_SECRET_KEY_BIZ') else 'Not set'}")
-print(f"Loading Stripe keys - Publishable: {os.getenv('STRIPE_PUBLISHABLE_KEY_BIZ', '')[:8]}...")
+# print(f"Loading Stripe keys - Secret: {'*' * 20}{os.getenv('STRIPE_SECRET_KEY_BIZ', '')[-4:] if os.getenv('STRIPE_SECRET_KEY_BIZ') else 'Not set'}")
+# print(f"Loading Stripe keys - Publishable: {os.getenv('STRIPE_PUBLISHABLE_KEY_BIZ', '')[:8]}...")
 
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY_BIZ")
 STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY_BIZ")
@@ -107,12 +107,12 @@ def get_stripe_secret_key():
     if not key:
         # Try alternative environment variable names as fallback
         key = os.getenv('STRIPE_SECRET_KEY', '')
-    if not key:
-        print("CRITICAL ERROR: No Stripe secret key found in environment variables")
-        print("Looking for: STRIPE_SECRET_KEY_BIZ or STRIPE_SECRET_KEY")
-        print("Current environment variables:")
-        print(f"  STRIPE_SECRET_KEY_BIZ: {'SET' if os.getenv('STRIPE_SECRET_KEY_BIZ') else 'NOT SET'}")
-        print(f"  STRIPE_SECRET_KEY: {'SET' if os.getenv('STRIPE_SECRET_KEY') else 'NOT SET'}")
+    # if not key:
+        # print("CRITICAL ERROR: No Stripe secret key found in environment variables")
+        # print("Looking for: STRIPE_SECRET_KEY_BIZ or STRIPE_SECRET_KEY")
+        # print("Current environment variables:")
+        # print(f"  STRIPE_SECRET_KEY_BIZ: {'SET' if os.getenv('STRIPE_SECRET_KEY_BIZ') else 'NOT SET'}")
+        # print(f"  STRIPE_SECRET_KEY: {'SET' if os.getenv('STRIPE_SECRET_KEY') else 'NOT SET'}")
     return key
 #OTHERS
 IMPORT_USER=os.getenv("IMPORTUSERBIZ")

@@ -23,7 +23,7 @@ def test_logo_display():
         c.drawString((page_width - 180) / 2, logo_y - 20, 'Logo should appear above this text.')  # Center this text too
 
         c.save()
-        print("Test PDF generated with logo.")
+        # print("Test PDF generated with logo.")
     except Exception as e:
         print(f"Failed to load or draw the logo: {e}")
 

@@ -28,7 +28,7 @@ active_search = None
 
 async def start_consumer_loop():
     """Backward compatibility method - does nothing in this implementation"""
-    logger.info("Using new recommendation processing system - no consumer needed")
+    # logger.info("Using new recommendation processing system - no consumer needed")
 
 async def put(task: RecTask):
     """Backward compatibility method for the original queue"""

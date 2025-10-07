@@ -96,7 +96,7 @@ const RfpEditor: React.FC<RfpEditorProps> = ({
   useEffect(() => {
     if (!highlightContext || !contentRef.current) return;
     
-    console.log("⭐ Trying to highlight context:", highlightContext);
+    // console.log("⭐ Trying to highlight context:", highlightContext);
     
     const { text, term } = highlightContext;
     
@@ -115,7 +115,7 @@ const RfpEditor: React.FC<RfpEditorProps> = ({
         
         // Test if we can find the text in the content
         if (regex.test(contentRef.current.innerHTML)) {
-          console.log("✅ Found exact text match to highlight!");
+          // console.log("✅ Found exact text match to highlight!");
           
           // Apply highlight to the text
           contentRef.current.innerHTML = contentRef.current.innerHTML.replace(
@@ -140,7 +140,7 @@ const RfpEditor: React.FC<RfpEditorProps> = ({
         const termRegex = new RegExp(`\\b${escapedTerm}\\b`, 'gi');
         
         if (termRegex.test(contentRef.current.innerHTML)) {
-          console.log("✅ Found term to highlight:", term);
+          // console.log("✅ Found term to highlight:", term);
           
           contentRef.current.innerHTML = contentRef.current.innerHTML.replace(
             termRegex,
@@ -172,7 +172,7 @@ const RfpEditor: React.FC<RfpEditorProps> = ({
         
         return () => clearTimeout(timer);
       } else {
-        console.log("❌ No matching text found to highlight");
+        // console.log("❌ No matching text found to highlight");
       }
     } catch (error) {
       console.error("Error applying highlight:", error);
@@ -188,7 +188,7 @@ const RfpEditor: React.FC<RfpEditorProps> = ({
     setError('');
     try {
       // Try to fetch the proposal template
-      console.log('Attempting to fetch template...');
+      // console.log('Attempting to fetch template...');
       const response = await fetch('/proposal-template.html');
       
       if (!response.ok) {
@@ -196,7 +196,7 @@ const RfpEditor: React.FC<RfpEditorProps> = ({
       }
       
       let htmlTemplate = await response.text();
-      console.log('Template fetched successfully, fixing asset paths...');
+      // console.log('Template fetched successfully, fixing asset paths...');
       
       // Fix asset paths in the HTML - specifically for proposal-template_files folder
       htmlTemplate = htmlTemplate.replace(
@@ -210,7 +210,7 @@ const RfpEditor: React.FC<RfpEditorProps> = ({
         (match, attr, path) => `${attr}="/${path}"`
       );
       
-      console.log('Asset paths fixed, setting content...');
+      // console.log('Asset paths fixed, setting content...');
       setContent(htmlTemplate);
       setSuccessMessage('Proposal template generated successfully');
     } catch (error) {
@@ -239,7 +239,7 @@ const RfpEditor: React.FC<RfpEditorProps> = ({
           </div>
         </div>
       `;
-      console.log('Using fallback template');
+      // console.log('Using fallback template');
       setContent(fallbackTemplate);
     } finally {
       setIsLoading(false);

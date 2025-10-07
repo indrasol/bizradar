@@ -54,7 +54,7 @@ def fetch_records_from_db(chunk_size=1000):
     """
     connection = get_db_connection()
     if not connection:
-        logger.error("Could not connect to database to fetch records")
+        # logger.error("Could not connect to database to fetch records")
         return []
     
     all_records = []
@@ -75,7 +75,7 @@ def fetch_records_from_db(chunk_size=1000):
             records = cursor.fetchall()
             all_records.extend(records)
             
-            logger.info(f"Fetched {len(all_records)} records to index")
+            # logger.info(f"Fetched {len(all_records)} records to index")
             
     except psycopg2.Error as e:
         logger.error(f"Error fetching records: {e}")
@@ -105,7 +105,7 @@ def create_embedding(model, text: str) -> List[float]:
         embedding = model.encode(cleaned_text)
         return embedding.tolist()
     except Exception as e:
-        logger.error(f"Error creating embedding: {e}")
+        # logger.error(f"Error creating embedding: {e}")
         return []
 
 def prepare_record_for_indexing(record: Dict[str, Any], model) -> Tuple[str, Dict[str, Any], List[float]]:
@@ -169,19 +169,19 @@ def index_sam_gov_to_pinecone(batch_size=100, max_records=None):
     Returns:
         Number of records indexed
     """
-    logger.info("Starting SAM.gov indexing process")
+    # logger.info("Starting SAM.gov indexing process")
     
     # Initialize Pinecone client
     index = get_index()
     if not index:
-        logger.error("Failed to initialize Pinecone")
+        # logger.error("Failed to initialize Pinecone")
         return 0
         
     # Load embedding model
     try:
         model = get_model()
     except Exception as e:
-        logger.error(f"Failed to load embedding model: {e}")
+        # logger.error(f"Failed to load embedding model: {e}")
         return 0
     
     records_indexed = 0
@@ -191,7 +191,7 @@ def index_sam_gov_to_pinecone(batch_size=100, max_records=None):
     records = fetch_records_from_db(chunk_size=max_records or 1000)
     
     if not records:
-        logger.info("No records to index")
+        # logger.info("No records to index")
         return 0
         
     logger.info(f"Retrieved {len(records)} records to index")
@@ -238,24 +238,24 @@ def index_sam_gov_to_pinecone(batch_size=100, max_records=None):
                 
                 # Check if we've reached the maximum number of records
                 if max_records and records_indexed >= max_records:
-                    logger.info(f"Reached maximum records limit of {max_records}")
+                    # logger.info(f"Reached maximum records limit of {max_records}")
                     break
                     
             except Exception as e:
-                logger.error(f"Error processing record {record['id']}: {e}")
+                # logger.error(f"Error processing record {record['id']}: {e}")
                 continue
                 
         # Upsert any remaining vectors
         if vectors_batch:
             index.upsert(vectors=vectors_batch)
             total_indexed += len(vectors_batch)
-            logger.info(f"Indexed final batch of {len(vectors_batch)} records. Total: {total_indexed}")
+            # logger.info(f"Indexed final batch of {len(vectors_batch)} records. Total: {total_indexed}")
             
-        logger.info(f"Indexing completed. Total records indexed: {total_indexed}")
+        # logger.info(f"Indexing completed. Total records indexed: {total_indexed}")
         return total_indexed
         
     except Exception as e:
-        logger.error(f"Error during indexing process: {e}")
+        # logger.error(f"Error during indexing process: {e}")
         return records_indexed
 
 # Function to handle command line arguments
@@ -279,4 +279,4 @@ if __name__ == "__main__":
     )
     
     # Print results
-    print(f"Successfully indexed {result} records to Pinecone")
+    # print(f"Successfully indexed {result} records to Pinecone")

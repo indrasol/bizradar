@@ -99,7 +99,7 @@ def main():
 
         download.save_as(str(dest_path))
 
-        print(f"Saved: {dest_path}")
+        # print(f"Saved: {dest_path}")
 
         context.close()
         browser.close()
